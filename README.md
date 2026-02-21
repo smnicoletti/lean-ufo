@@ -1,51 +1,51 @@
 # Lean UFO Formalization
 
-A mechanization of the Unified Foundational Ontology (UFO) in the Lean 4 theorem prover.
+> A formal, machine-checked semantic mechanization of the  
+> **Unified Foundational Ontology (UFO)** in Lean 4.
 
 ---
 
-## Overview
+## ✦ Overview
 
-This project develops a formal, machine-checked semantic foundation for the Unified Foundational Ontology (UFO) using Lean 4.
+This repository develops a rigorous semantic formalization of the **Unified Foundational Ontology (UFO)** using the Lean 4 theorem prover.
 
-The development follows a model-theoretic approach based on first-order modal logic S5 with constant domains (possibilist semantics). UFO axioms are encoded as constraints on Kripke models.
+The development proceeds fragment-by-fragment, aligned with the structure of the original UFO axiomatization.
 
-The long-term objective is to:
-
-- Establish relative consistency of core UFO axioms.
-- Provide a formally verified foundation for domain ontologies (e.g., COVER).
-- Enable formal reasoning about risk and domain structures within Lean.
+The goal is to establish **explicit, machine-checked consistency checkpoints** for successive UFO fragments via concrete Kripke models.
 
 ---
 
-## Logical Foundations
+## ✦ Logical Framework
 
-The formalization is based on:
+The mechanization is based on:
 
-- **First-order modal logic S5**
-- **Constant-domain (possibilist) Kripke semantics**
+- First-order modal logic **S5**
+- Constant-domain (possibilist) Kripke semantics
 - Equivalence accessibility relations
 - Barcan and Converse Barcan principles (derivable under constant domains)
 
-Modal operators are interpreted semantically; no proof calculus or completeness proofs are currently implemented.
+Modal operators are interpreted semantically.  
+No proof calculus or completeness theory is implemented at this stage.
 
-Lean Theorem Prover:
-
-- Lean 4  
-  https://leanprover.github.io/
+Lean 4:
+https://leanprover.github.io/
 
 ---
 
-## UFO Source Material
+## ✦ Source Material
 
-This mechanization follows the axiomatization of UFO as presented in:
+This formalization follows the axiomatization presented in:
 
-- Guizzardi et al. (2022), UFO: Unified Foundational Ontology, Applied Ontology 17(2): 167–210. https://doi.org/10.3233/AO-210256
+**Guizzardi et al. (2022)**  
+*UFO: Unified Foundational Ontology*  
+Applied Ontology 17(2): 167–210  
+https://doi.org/10.3233/AO-210256
 
+```bibtex
 @article{guizzardi2022ufo,
-  author  = {Guizzardi, Giancarlo and Benevides, Alessander Botti and 
-             Fonseca, Claudenir M. and Porello, Daniele and 
-             Almeida, João Paulo A. and Sales, Tiago Prince},
+  author  = {Guizzardi, Giancarlo and Benevides, Alessander Botti and
+             Fonseca, Claudenir M. and Porello, Daniele and
+             Almeida, Jo{\~a}o Paulo A. and Sales, Tiago Prince},
   title   = {UFO: Unified Foundational Ontology},
   journal = {Applied Ontology},
   volume  = {17},
@@ -54,71 +54,103 @@ This mechanization follows the axiomatization of UFO as presented in:
   year    = {2022},
   doi     = {10.3233/AO-210256}
 }
-
-The current implementation encodes:
-
-- Axioms (a1)–(a4)
-- Taxonomy constraints (t1)–(t2)
-
-as semantic constraints on models.
+```
 
 ---
 
-## Current Status
+## ✦ Current Milestone  
+### Subsection 3.1 — Types, Individuals, Instantiation
 
-Implemented:
+Mechanized axioms:
 
-- S5 modal kernel
-- Constant-domain first-order layer
-- Barcan and Converse Barcan theorems
-- UFO semantic signature
-- Core UFO axioms:
-  - (a1) Type characterization
-  - (a2) Individual characterization
-  - (a3) Instantiation typing constraint
-  - (a4) Instantiation chain restriction
-  - (t1) Completeness of Thing partition
-  - (t2) Disjointness of Type and Individual
-- Bundled `UFOModel` structure
+- (a1)–(a6): core constraints on Type, Individual, Instantiation, Specialization
+- (a7)–(a17): taxonomic classification constraints
 
-The development is fully semantic: axioms are treated as constraints on Kripke models for now.
+All axioms are encoded as **semantic constraints on Kripke models**.
 
 ---
 
-## Repository Structure
+## ✦ Consistency Checkpoint
 
+An explicit witness model is constructed in:
+
+`LeanUfo/UFO/Models/Model3_1.lean`
+
+This yields:
+
+```lean
+model3_1 : UFOModel
+```
+
+and the formal consistency theorem:
+
+```lean
+consistent_3_1 : Nonempty (UFOModel.{0,0})
+```
+
+Interpretation:
+
+> The subsection 3.1 axioms are jointly satisfiable  
+> (relative to Lean's metatheory and the chosen semantics).
+
+---
+
+## ✦ Architecture
+
+```
 LeanUfo/
   UFO/
-    Modal/          — S5 and first-order modal semantics
+    Modal/
+      Basics.lean        S5 Kripke semantics
+      FirstOrder.lean    Constant-domain FOL layer
+      Barcan.lean        Barcan + Converse Barcan
     Core/
-      Signature     — UFO vocabulary (Thing, Type, Individual, Instantiation)
-      Axioms        — Core UFO axioms and UFOModel structure
+      Signature.lean     UFO vocabulary
+      Axioms.lean        UFO axioms + UFOModel structure
+    Models/
+      Model3_1.lean      Concrete witness for §3.1
+      Consistency.lean   Consistency theorem
+  LeanUfo.lean           Library root
+```
+
+The development is fully semantic:  
+axioms constrain models rather than forming a deductive proof calculus.
 
 ---
 
-## Research Roadmap
+## ✦ Methodology
 
-Planned steps:
+For each subsection of the reference paper:
 
-1. Prove elementary consequences of the core axioms.
-2. Construct explicit models to demonstrate relative consistency.
-3. Extend the formalization to additional UFO fragments.
-4. Mechanize domain-specific ontologies (e.g., COVER).
-5. Develop a Lean-based DSL for formal risk reasoning.
+1. Encode axioms as semantic constraints.
+2. Prove derived theorems stated in the paper.
+3. Construct an explicit witness model.
+4. Establish a new consistency checkpoint.
 
 ---
 
-## Build Instructions
+## ✦ Roadmap
+
+Planned progression:
+
+- Extend mechanization to subsequent UFO subsections.
+- Strengthen witness models where necessary.
+- Mechanize domain ontologies (e.g., COVER, for Risk and Value).
+- Develop Lean-based reasoning layers for domain modeling and risk analysis.
+
+---
+
+## ✦ Build
 
 Requires Lean 4 and Lake.
 
-Run:
-
+```
 lake build
+```
 
 ---
 
-## Status
+## ✦ Status
 
-This is an ongoing research project.
-The formalization is under active development.
+Active research development.  
+Fragment-by-fragment formalization in progress.
