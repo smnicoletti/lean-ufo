@@ -1,4 +1,4 @@
-import LeanUfo.UFO.Core.Axioms
+import LeanUfo.UFO.Core.Section3_1
 
 universe u
 
@@ -46,7 +46,7 @@ over the single-world S5 frame `trivialFrame`.
 
 All predicates ignore the world parameter since the frame has one world (`Unit`).
 -/
-def sig3_1 : UFOSignature :=
+def sig3_1 : UFOSignature3_1 :=
 { F := trivialFrame
   Thing := Thing3_1
 
@@ -276,8 +276,8 @@ theorem ax17_sig3_1 : ax_a17 sig3_1 := by
   cases x <;> simp [sig3_1] at hx ⊢
 
 /-- Consistency witness: a concrete model of UFO subsection 3.1. -/
-def model3_1 : UFOModel :=
-{ toUFOSignature := sig3_1
+def model3_1 : UFOModel3_1 :=
+{ toUFOSignature3_1 := sig3_1
   ax1 := ax1_sig3_1
   ax2 := ax2_sig3_1
   ax3 := ax3_sig3_1
