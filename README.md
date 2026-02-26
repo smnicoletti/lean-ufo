@@ -153,4 +153,123 @@ lake build
 ## ✦ Status
 
 Active research development.  
-Fragment-by-fragment formalization in progress.
+Fragment-by-fragment formalization in progress. Currently working on:
+
+### ✦ Subsection 3.2 — Rigidity Taxonomy
+
+This subsection formalizes the rigidity-based taxonomy of endurant types (a18–a33) and proves:
+
+- (t5) Rigidity trichotomy  
+- (t6) Pairwise disjointness of rigidity classes  
+- (t7)–(t8) Specialization constraints  
+- (t9)–(t16) Structural taxonomy properties  
+- (t17) Pairwise disjointness of leaf categories  
+- (t18) Exhaustiveness of the leaf partition  
+
+All theorems are proved semantically over S5 Kripke models.
+
+---
+
+## ✦ Structural Assumptions Made Explicit by the Lean Mechanization
+
+Following, we track additional axioms that we found needed to prove theorems as stated in the reference paper. These axioms make explicit structural commitments that are presupposed in the textual exposition but not stated as formal axioms.
+
+All such assumptions are tracked here to maintain transparency between:
+
+- conceptual ontology (paper),
+- logical axiomatization,
+- mechanized semantics in Lean.
+
+### ✦ §3.2
+
+While mechanizing §3.2, several structural commitments that are implicit in the paper had to be encoded as explicit axioms.
+
+The prose assumes a well-formed ontological hierarchy; Lean requires these assumptions to be formalized.
+
+Below we list the additional axioms introduced, together with the proofs that depend on them.
+
+---
+
+#### 1. Kind Stability (Modal Persistence)
+
+**Intended reading in the paper:**  
+Kinds are rigid and stable across accessible worlds.
+
+**Formal axiom introduced:**
+```lean
+def ax_kindStable : Prop :=
+  ∀ k w v,
+    Kind k w →
+    R w v →
+    Kind k v
+```
+
+**Required for:**
+- (t10) Necessary disjointness of distinct kinds  
+- (t11) Non-specialization of distinct kinds  
+- (t14) No type specializes two distinct kinds  
+
+This allows transporting `Kind` facts along S5 accessibility.
+
+---
+
+#### 2. Instances of Endurant Types Are Endurants
+
+**Intended reading in the paper:**  
+If a type is an EndurantType, then its instances are endurants.
+
+**Formal axiom introduced:**
+```lean
+def ax_instEndurant_of_EndurantType : Prop :=
+  ∀ t x w,
+    EndurantType t w →
+    Inst x t w →
+    Endurant x w
+```
+
+**Required for:**
+- (t16) Non-sortals do not have direct instances  
+
+This typing principle is implicitly used in the paragraph introducing (a21).
+
+---
+
+#### 3. Subtypes of Kinds Are Sortals
+
+**Intended reading in the paper:**  
+Kinds and their subkinds form the rigid sortal branch.
+
+**Formal axiom introduced:**
+```lean
+def ax_sub_of_kind_is_sortal : Prop :=
+  ∀ a k w,
+    Sub a k w →
+    Kind k w →
+    Sortal a w
+```
+
+**Required for:**
+- (t16), subtype case
+
+---
+
+#### 4. Upward Closure of NonSortal
+
+**Intended reading in the paper:**  
+If a non-sortal specializes another type, that supertype cannot be a sortal.
+
+**Formal axiom introduced:**
+```lean
+def ax_nonSortal_upward : Prop :=
+  ∀ a b w,
+    NonSortal a w →
+    Sub a b w →
+    NonSortal b w
+```
+
+**Required for:**
+- (t16), common-supertype branch  
+
+---
+
+
