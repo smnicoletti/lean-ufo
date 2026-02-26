@@ -2,6 +2,8 @@ import LeanUfo.UFO.Core.Section3_1
 
 universe u
 
+namespace Model3_1
+
 /--
 We construct a minimal S5 frame with a single world.
 
@@ -105,8 +107,6 @@ def sig3_1 : UFOSignature3_1 :=
 
   PerdurantType := fun _x _w => False
 }
-
-namespace Model3_1
 
 -- We will repeatedly case-split on the unique world and on Things.
 -- These simp lemmas make unfolding the signature convenient.
