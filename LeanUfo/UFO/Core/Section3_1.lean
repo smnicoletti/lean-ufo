@@ -1,12 +1,12 @@
-import LeanUfo.UFO.Core.Signature
+import LeanUfo.UFO.Core.Signature3_1
 import LeanUfo.UFO.Modal.Basics
 import LeanUfo.UFO.Modal.FirstOrder
 
 universe u v
 
-variable (Sig : UFOSignature)
+variable (Sig : UFOSignature3_1)
 
-open UFOSignature
+open UFOSignature3_1
 
 /--
 Axiom (a1):
@@ -157,7 +157,7 @@ Definition (d1): Proper specialization.
 
 x ⊏ y  :=  (x ⊑ y) ∧ ¬(y ⊑ x)
 -/
-def ProperSub (Sig : UFOSignature) (x y : Sig.Thing) (w : Sig.F.World) : Prop :=
+def ProperSub (Sig : UFOSignature3_1) (x y : Sig.Thing) (w : Sig.F.World) : Prop :=
   Sig.Sub x y w ∧ ¬ Sig.Sub y x w
 
 /--
@@ -411,23 +411,23 @@ def ax_a17 : Prop :=
       ¬ Sig.PerdurantType x w
 
 /--
-A UFO model is a UFOSignature satisfying axioms (a1)–(a17).
+A UFO model is a UFOSignature3_1 satisfying axioms (a1)–(a17).
 -/
-structure UFOModel extends UFOSignature where
-  ax1  : ax_a1 toUFOSignature
-  ax2  : ax_a2 toUFOSignature
-  ax3  : ax_a3 toUFOSignature
-  ax4  : ax_a4 toUFOSignature
-  ax5  : ax_a5 toUFOSignature
-  ax6  : ax_a6 toUFOSignature
-  ax7  : ax_a7 toUFOSignature
-  ax8  : ax_a8 toUFOSignature
-  ax9  : ax_a9 toUFOSignature
-  ax10 : ax_a10 toUFOSignature
-  ax11 : ax_a11 toUFOSignature
-  ax12 : ax_a12 toUFOSignature
-  ax13 : ax_a13 toUFOSignature
-  ax14 : ax_a14 toUFOSignature
-  ax15 : ax_a15 toUFOSignature
-  ax16 : ax_a16 toUFOSignature
-  ax17 : ax_a17 toUFOSignature
+structure UFOModel3_1 extends UFOSignature3_1 where
+  ax1  : ax_a1 toUFOSignature3_1
+  ax2  : ax_a2 toUFOSignature3_1
+  ax3  : ax_a3 toUFOSignature3_1
+  ax4  : ax_a4 toUFOSignature3_1
+  ax5  : ax_a5 toUFOSignature3_1
+  ax6  : ax_a6 toUFOSignature3_1
+  ax7  : ax_a7 toUFOSignature3_1
+  ax8  : ax_a8 toUFOSignature3_1
+  ax9  : ax_a9 toUFOSignature3_1
+  ax10 : ax_a10 toUFOSignature3_1
+  ax11 : ax_a11 toUFOSignature3_1
+  ax12 : ax_a12 toUFOSignature3_1
+  ax13 : ax_a13 toUFOSignature3_1
+  ax14 : ax_a14 toUFOSignature3_1
+  ax15 : ax_a15 toUFOSignature3_1
+  ax16 : ax_a16 toUFOSignature3_1
+  ax17 : ax_a17 toUFOSignature3_1
