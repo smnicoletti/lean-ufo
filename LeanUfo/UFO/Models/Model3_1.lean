@@ -276,17 +276,16 @@ theorem ax17_sig3_1 : ax_a17 sig3_1 := by
   cases x <;> simp [sig3_1] at hx ⊢
 
 /-- Consistency witness: a concrete model of UFO subsection 3.1. -/
-def model3_1 : UFOModel3_1 :=
-{ toUFOSignature3_1 := sig3_1
-  ax1 := ax1_sig3_1
-  ax2 := ax2_sig3_1
-  ax3 := ax3_sig3_1
-  ax4 := ax4_sig3_1
-  ax5 := ax5_sig3_1
-  ax6 := ax6_sig3_1
-  ax7 := ax7_sig3_1
-  ax8 := ax8_sig3_1
-  ax9 := ax9_sig3_1
+instance : UFOAxioms3_1 sig3_1 where
+  ax1  := ax1_sig3_1
+  ax2  := ax2_sig3_1
+  ax3  := ax3_sig3_1
+  ax4  := ax4_sig3_1
+  ax5  := ax5_sig3_1
+  ax6  := ax6_sig3_1
+  ax7  := ax7_sig3_1
+  ax8  := ax8_sig3_1
+  ax9  := ax9_sig3_1
   ax10 := ax10_sig3_1
   ax11 := ax11_sig3_1
   ax12 := ax12_sig3_1
@@ -294,4 +293,4 @@ def model3_1 : UFOModel3_1 :=
   ax14 := ax14_sig3_1
   ax15 := ax15_sig3_1
   ax16 := ax16_sig3_1
-  ax17 := ax17_sig3_1 }
+  ax17 := ax17_sig3_1

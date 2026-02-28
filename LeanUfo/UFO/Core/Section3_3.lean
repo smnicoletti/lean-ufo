@@ -462,20 +462,22 @@ by
     exact (hA34 t w).1 hSM
 
 /--
-A UFO model for Section 3.3 extends a Section 3.2 model
-with axioms (a34)–(a43).
--/
-structure UFOModel3_3
-  extends UFOModel3_2, UFOSignature3_3 where
+Axioms package for §3.3.
 
-  -- Section 3.3 axioms
-  ax34 : ax_a34 toUFOSignature3_3
-  ax35 : ax_a35 toUFOSignature3_3
-  ax36 : ax_a36 toUFOSignature3_3
-  ax37 : ax_a37 toUFOSignature3_3
-  ax38 : ax_a38 toUFOSignature3_3
-  ax39 : ax_a39 toUFOSignature3_3
-  ax40 : ax_a40 toUFOSignature3_3
-  ax41 : ax_a41 toUFOSignature3_3
-  ax42 : ax_a42 toUFOSignature3_3
-  ax43 : ax_a43 toUFOSignature3_3
+Extends §3.2 axioms with (a34)–(a43),
+axiomatizing the endurant individual partition.
+-/
+class UFOAxioms3_3 (Sig : UFOSignature3_3) : Prop
+  extends UFOAxioms3_2 Sig.toUFOSignature3_2 where
+
+  -- §3.3 axioms
+  ax34 : ax_a34 Sig
+  ax35 : ax_a35 Sig
+  ax36 : ax_a36 Sig
+  ax37 : ax_a37 Sig
+  ax38 : ax_a38 Sig
+  ax39 : ax_a39 Sig
+  ax40 : ax_a40 Sig
+  ax41 : ax_a41 Sig
+  ax42 : ax_a42 Sig
+  ax43 : ax_a43 Sig

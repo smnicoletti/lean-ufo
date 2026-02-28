@@ -501,17 +501,18 @@ theorem ax_kindStable_sig3_2 : ax_kindStable sig3_2 := by
   intro k w v hK hv
   cases w; cases v; cases k <;> simp [sig3_2] at hK ⊢
 
-def model3_2 : UFOModel3_2 :=
-{ toUFOSignature3_2 := sig3_2
-  ax1 := ax1_sig3_2
-  ax2 := ax2_sig3_2
-  ax3 := ax3_sig3_2
-  ax4 := ax4_sig3_2
-  ax5 := ax5_sig3_2
-  ax6 := ax6_sig3_2
-  ax7 := ax7_sig3_2
-  ax8 := ax8_sig3_2
-  ax9 := ax9_sig3_2
+instance : UFOAxioms3_2 sig3_2 where
+
+  -- §3.1 axioms
+  ax1  := ax1_sig3_2
+  ax2  := ax2_sig3_2
+  ax3  := ax3_sig3_2
+  ax4  := ax4_sig3_2
+  ax5  := ax5_sig3_2
+  ax6  := ax6_sig3_2
+  ax7  := ax7_sig3_2
+  ax8  := ax8_sig3_2
+  ax9  := ax9_sig3_2
   ax10 := ax10_sig3_2
   ax11 := ax11_sig3_2
   ax12 := ax12_sig3_2
@@ -520,6 +521,8 @@ def model3_2 : UFOModel3_2 :=
   ax15 := ax15_sig3_2
   ax16 := ax16_sig3_2
   ax17 := ax17_sig3_2
+
+  -- §3.2 axioms
   ax18 := ax18_sig3_2
   ax19 := ax19_sig3_2
   ax20 := ax20_sig3_2
@@ -536,10 +539,9 @@ def model3_2 : UFOModel3_2 :=
   ax31 := ax31_sig3_2
   ax32 := ax32_sig3_2
   ax33 := ax33_sig3_2
+
+  -- Structural axioms
   ax_instEndurant := ax_instEndurant_sig3_2
   ax_sub_kind_sortal := ax_sub_kind_sortal_sig3_2
   ax_nonSortal_up := ax_nonSortal_up_sig3_2
   ax_kindStable := ax_kindStable_sig3_2
-}
-
-end Model3_2

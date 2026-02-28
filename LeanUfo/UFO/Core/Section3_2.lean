@@ -1963,39 +1963,42 @@ by
       t w
 
 /--
-A UFO model for Section 3.2 extends a Section 3.1 model
-with axioms (a18)–(a33) and structural assumptions used in (t16).
+Axioms package for §3.2.
+
+This extends the §3.1 axioms with:
+- (a18)–(a33),
+- the structural assumptions used in (t10), (t14) and (t16).
 -/
-structure UFOModel3_2
-  extends UFOModel3_1, UFOSignature3_2 where
+class UFOAxioms3_2 (Sig : UFOSignature3_2) : Prop
+  extends UFOAxioms3_1 Sig.toUFOSignature3_1 where
 
-  -- Section 3.2 axioms
-  ax18 : ax_a18 toUFOSignature3_2
-  ax19 : ax_a19 toUFOSignature3_2
-  ax20 : ax_a20 toUFOSignature3_2
-  ax21 : ax_a21 toUFOSignature3_2
-  ax22 : ax_a22 toUFOSignature3_2
-  ax23 : ax_a23 toUFOSignature3_2
-  ax24 : ax_a24 toUFOSignature3_2
-  ax25 : ax_a25 toUFOSignature3_2
-  ax26 : ax_a26 toUFOSignature3_2
-  ax27 : ax_a27 toUFOSignature3_2
-  ax28 : ax_a28 toUFOSignature3_2
-  ax29 : ax_a29 toUFOSignature3_2
-  ax30 : ax_a30 toUFOSignature3_2
-  ax31 : ax_a31 toUFOSignature3_2
-  ax32 : ax_a32 toUFOSignature3_2
-  ax33 : ax_a33 toUFOSignature3_2
+  -- §3.2 axioms
+  ax18 : ax_a18 Sig
+  ax19 : ax_a19 Sig
+  ax20 : ax_a20 Sig
+  ax21 : ax_a21 Sig
+  ax22 : ax_a22 Sig
+  ax23 : ax_a23 Sig
+  ax24 : ax_a24 Sig
+  ax25 : ax_a25 Sig
+  ax26 : ax_a26 Sig
+  ax27 : ax_a27 Sig
+  ax28 : ax_a28 Sig
+  ax29 : ax_a29 Sig
+  ax30 : ax_a30 Sig
+  ax31 : ax_a31 Sig
+  ax32 : ax_a32 Sig
+  ax33 : ax_a33 Sig
 
-  -- Structural axioms for t16
+  -- Structural assumptions required for t10 / t16
   ax_instEndurant :
-    ax_instEndurant_of_EndurantType (Sig := toUFOSignature3_2)
+    ax_instEndurant_of_EndurantType (Sig := Sig)
 
   ax_sub_kind_sortal :
-    ax_sub_of_kind_is_sortal (Sig := toUFOSignature3_2)
+    ax_sub_of_kind_is_sortal (Sig := Sig)
 
   ax_nonSortal_up :
-    ax_nonSortal_upward (Sig := toUFOSignature3_2)
+    ax_nonSortal_upward (Sig := Sig)
 
   ax_kindStable :
-    ax_kindStable toUFOSignature3_2
+    ax_kindStable Sig
