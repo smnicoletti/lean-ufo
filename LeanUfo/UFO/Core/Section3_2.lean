@@ -1963,30 +1963,11 @@ by
       t w
 
 /--
-A UFO model for Section 3.2 is a UFOSignature3_2
-satisfying axioms (a1)–(a33) and the structural
-assumptions required for (t16).
+A UFO model for Section 3.2 extends a Section 3.1 model
+with axioms (a18)–(a33) and structural assumptions used in (t16).
 -/
-structure UFOModel3_2 extends UFOSignature3_2 where
-
-  -- Section 3.1 axioms
-  ax1  : ax_a1  toUFOSignature3_1
-  ax2  : ax_a2  toUFOSignature3_1
-  ax3  : ax_a3  toUFOSignature3_1
-  ax4  : ax_a4  toUFOSignature3_1
-  ax5  : ax_a5  toUFOSignature3_1
-  ax6  : ax_a6  toUFOSignature3_1
-  ax7  : ax_a7  toUFOSignature3_1
-  ax8  : ax_a8  toUFOSignature3_1
-  ax9  : ax_a9  toUFOSignature3_1
-  ax10 : ax_a10 toUFOSignature3_1
-  ax11 : ax_a11 toUFOSignature3_1
-  ax12 : ax_a12 toUFOSignature3_1
-  ax13 : ax_a13 toUFOSignature3_1
-  ax14 : ax_a14 toUFOSignature3_1
-  ax15 : ax_a15 toUFOSignature3_1
-  ax16 : ax_a16 toUFOSignature3_1
-  ax17 : ax_a17 toUFOSignature3_1
+structure UFOModel3_2
+  extends UFOModel3_1, UFOSignature3_2 where
 
   -- Section 3.2 axioms
   ax18 : ax_a18 toUFOSignature3_2
@@ -2006,7 +1987,7 @@ structure UFOModel3_2 extends UFOSignature3_2 where
   ax32 : ax_a32 toUFOSignature3_2
   ax33 : ax_a33 toUFOSignature3_2
 
-  -- Structural axioms used in t16
+  -- Structural axioms for t16
   ax_instEndurant :
     ax_instEndurant_of_EndurantType (Sig := toUFOSignature3_2)
 
