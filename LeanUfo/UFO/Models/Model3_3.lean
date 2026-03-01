@@ -110,19 +110,7 @@ theorem ax43_sig3_3 : ax_a43 sig3_3 := by
   intro w
   simp [sig3_3]
 
-/-
-  Typeclass packaging:
-
-  Assumption: you refactored to typeclasses of the form
-
-    class UFOAxioms3_3 (Sig : UFOSignature3_3) : Prop := ...
-
-  and (crucially) `UFOAxioms3_3` extends `UFOAxioms3_2`.
-
-  Then we only need to provide:
-  - the inherited §3.2 axioms instance (via `infer_instance`)
-  - plus the §3.3 fields (ax34–ax43)
--/
+/-- Consistency witness: a concrete model of UFO subsection 3.3. -/
 instance : UFOAxioms3_3 sig3_3 :=
 by
   classical
@@ -130,7 +118,7 @@ by
   -- get inherited §3.2 axioms from Model3_2
   have h2 : UFOAxioms3_2 Model3_2.sig3_2 := inferInstance
 
-  -- now build full structure explicitly
+  -- build full structure explicitly
   refine
   { -- inherited §3.1 + §3.2 fields
     ax1  := h2.ax1

@@ -501,6 +501,7 @@ theorem ax_kindStable_sig3_2 : ax_kindStable sig3_2 := by
   intro k w v hK hv
   cases w; cases v; cases k <;> simp [sig3_2] at hK ⊢
 
+/-- Consistency witness: a concrete model of UFO subsection 3.2. -/
 instance : UFOAxioms3_2 sig3_2 where
 
   -- §3.1 axioms
