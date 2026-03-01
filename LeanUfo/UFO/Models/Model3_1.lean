@@ -294,3 +294,5 @@ instance : UFOAxioms3_1 sig3_1 where
   ax15 := ax15_sig3_1
   ax16 := ax16_sig3_1
   ax17 := ax17_sig3_1
+
+end Model3_1

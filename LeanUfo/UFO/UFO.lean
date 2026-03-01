@@ -15,4 +15,5 @@ import LeanUfo.UFO.Core.Section3_3
 /- Concrete Models -/
 import LeanUfo.UFO.Models.Model3_1
 import LeanUfo.UFO.Models.Model3_2
+import LeanUfo.UFO.Models.Model3_3
 import LeanUfo.UFO.Models.Consistency

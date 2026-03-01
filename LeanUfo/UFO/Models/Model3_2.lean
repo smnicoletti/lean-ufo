@@ -545,3 +545,5 @@ instance : UFOAxioms3_2 sig3_2 where
   ax_sub_kind_sortal := ax_sub_kind_sortal_sig3_2
   ax_nonSortal_up := ax_nonSortal_up_sig3_2
   ax_kindStable := ax_kindStable_sig3_2
+
+end Model3_2

@@ -9,9 +9,17 @@
 
 This repository develops a rigorous semantic formalization of the **Unified Foundational Ontology (UFO)** using the Lean 4 theorem prover.
 
-The development proceeds fragment-by-fragment, aligned with the structure of the original UFO axiomatization.
+The development proceeds fragment-by-fragment, aligned with the structure of the original UFO axiomatization (see below).
 
 The goal is to establish **explicit, machine-checked consistency checkpoints** for successive UFO fragments via concrete Kripke models.
+
+Each subsection:
+
+- defines a semantic signature,
+- packages its axioms as a Lean typeclass,
+- proves the stated theorems semantically,
+- constructs a small concrete witness model,
+- establishes a formal consistency theorem.
 
 ---
 
@@ -24,8 +32,7 @@ The mechanization is based on:
 - Equivalence accessibility relations
 - Barcan and Converse Barcan principles (derivable under constant domains)
 
-Modal operators are interpreted semantically.  
-No proof calculus or completeness theory is implemented at this stage.
+Modal operators are interpreted semantically. No proof calculus or completeness theory is implemented at this stage.
 
 Lean 4:  
 https://leanprover.github.io/
@@ -58,10 +65,46 @@ https://doi.org/10.3233/AO-210256
 
 ---
 
-## ✦ Milestones
+## ✦ Architecture and Design
 
-The development proceeds fragment-by-fragment, with each subsection
-mechanized, proved, and equipped with an explicit semantic witness.
+### Signatures and Axioms
+
+Each subsection introduces:
+
+- A semantic signature:
+  - `UFOSignature3_X`
+- A typeclass packaging its axioms:
+  - `UFOAxioms3_X (Sig : UFOSignature3_X)`
+
+A concrete model consists of:
+
+```lean
+def sig3_X : UFOSignature3_X := ...
+instance : UFOAxioms3_X sig3_X := ...
+```
+
+Axioms are attached via **typeclass instances**. This allows:
+
+- automatic axiom inference in proofs,
+- clean extension between subsections,
+- multiple alternative models for the same signature.
+
+### Consistency Checkpoints
+
+For each subsection:
+
+```lean
+theorem consistent_3_X :
+  ∃ (Sig : UFOSignature3_X.{0,0}),
+    UFOAxioms3_X Sig
+```
+
+This establishes joint satisfiability of the axioms
+(relative to Lean’s metatheory and the chosen S5 semantics).
+
+---
+
+## ✦ Milestones
 
 ---
 
@@ -72,34 +115,33 @@ Mechanized axioms:
 - (a1)–(a6): core constraints on Type, Individual, Instantiation, Specialization  
 - (a7)–(a17): taxonomic classification constraints  
 
-All axioms are encoded as **semantic constraints on Kripke models**.
+All axioms are encoded as semantic constraints on constant-domain S5 Kripke models.
 
-An explicit witness model is constructed in:
+Concrete witness:
 
 `LeanUfo/UFO/Models/Model3_1.lean`
 
-This yields:
+Consistency theorem:
 
 ```lean
-model3_1 : UFOModel3_1
-```
-
-and the formal consistency theorem:
-
-```lean
-consistent_3_1 : Nonempty (UFOModel3_1.{0,0})
+consistent_3_1 :
+  ∃ (Sig : UFOSignature3_1.{0,0}),
+    UFOAxioms3_1 Sig
 ```
 
 Interpretation:
 
-> The subsection 3.1 axioms are jointly satisfiable  
-> (relative to Lean’s metatheory and the chosen S5 semantics).
+> The subsection 3.1 axioms are jointly satisfiable.
 
 ---
 
 ### ✓ Subsection 3.2 — Rigidity Taxonomy
 
-This subsection formalizes the rigidity-based taxonomy of endurant types (a18–a33) and proves:
+Mechanized axioms:
+
+- (a18)–(a33)
+
+Proved theorems:
 
 - (t5) Rigidity trichotomy  
 - (t6) Pairwise disjointness of rigidity classes  
@@ -108,38 +150,58 @@ This subsection formalizes the rigidity-based taxonomy of endurant types (a18–
 - (t17) Pairwise disjointness of leaf categories  
 - (t18) Exhaustiveness of the leaf partition  
 
-All theorems are proved semantically over constant-domain S5 Kripke models.
-
-An explicit witness model is constructed in:
+Concrete witness:
 
 `LeanUfo/UFO/Models/Model3_2.lean`
 
-This yields:
+Consistency theorem:
 
 ```lean
-model3_2 : UFOModel3_2
+consistent_3_2 :
+  ∃ (Sig : UFOSignature3_2.{0,0}),
+    UFOAxioms3_2 Sig
 ```
 
-and the formal consistency theorem:
+Small model characteristics:
 
-```lean
-consistent_3_2 : Nonempty (UFOModel3_2.{0,0})
-```
+- One Kind
+- One instance of that Kind
+- All other rigidity-based categories empty
 
-Interpretation:
-
-> The subsection 3.2 axioms (a1–a33), together with the explicitly
-> formalized structural assumptions required for certain derived
-> theorems (see below), are jointly satisfiable.
-
-Notably, the minimal witness contains:
-
-- one Kind,
-- one instance of that Kind,
-- all other rigidity-based categories empty,
-
-showing that the rigidity taxonomy constrains classification structure
+This shows that the rigidity taxonomy constrains classification structure
 without forcing ontological richness.
+
+---
+
+### ✓ Subsection 3.3 — Endurant Individual Taxonomy
+
+Mechanized axioms:
+
+- (a34)–(a43)
+
+Proved theorems:
+
+- (t19) Pairwise disjointness of leaf endurant categories  
+- (t20) Exhaustiveness of the endurant partition  
+
+Concrete witness:
+
+`LeanUfo/UFO/Models/Model3_3.lean`
+
+Consistency theorem:
+
+```lean
+consistent_3_3 :
+  ∃ (Sig : UFOSignature3_3.{0,0}),
+    UFOAxioms3_3 Sig
+```
+
+The small witness interprets:
+
+- All Endurants as Substantials (Objects)
+- Moment categories empty
+
+This leverages the fact that §3.3 model is a refinement of §3.2.
 
 ---
 
@@ -241,51 +303,52 @@ def ax_nonSortal_upward : Prop :=
 
 ---
 
-## ✦ Architecture
+## ✦ Repository Structure
 
 ```
 LeanUfo/
   UFO/
     Modal/
-      Basics.lean        S5 Kripke semantics
-      FirstOrder.lean    Constant-domain FOL layer
-      Barcan.lean        Barcan + Converse Barcan
+      Basics.lean
+      FirstOrder.lean
+      Barcan.lean
     Core/
-      Section3_1.lean    Axioms and theorems for §3.1
-      Section3_2.lean    Axioms and theorems for §3.2
-      Signature3_1.lean  UFO vocabulary for §3.1
-      Signature3_2.lean  UFO vocabulary for §3.2
+      Signature3_1.lean
+      Signature3_2.lean
+      Signature3_3.lean
+      Section3_1.lean
+      Section3_2.lean
+      Section3_3.lean
     Models/
-      Model3_1.lean      Concrete witness for §3.1
-      Model3_2.lean      Concrete witness for §3.2
-      Consistency.lean   Consistency theorems
-  LeanUfo.lean           Library root
+      Model3_1.lean
+      Model3_2.lean
+      Model3_3.lean
+      Consistency.lean
+    UFO.lean
+  LeanUfo.lean
 ```
 
-The development is fully semantic:  
-axioms constrain models rather than forming a deductive proof calculus.
+The development is fully semantic: axioms constrain models rather than forming a proof calculus.
 
 ---
 
 ## ✦ Methodology
 
-For each subsection of the reference paper:
+For each subsection:
 
 1. Encode axioms as semantic constraints.
-2. Prove derived theorems stated in the paper.
-3. Construct an explicit witness model.
+2. Prove derived theorems.
+3. Construct a small concrete witness model.
 4. Establish a new consistency checkpoint.
 
 ---
 
 ## ✦ Roadmap
 
-Planned progression:
-
 - Extend mechanization to subsequent UFO subsections.
-- Strengthen witness models where necessary.
-- Mechanize domain ontologies (e.g., COVER, for Risk and Value).
-- Develop Lean-based reasoning layers for domain modeling and risk analysis.
+- Strengthen witness models where needed.
+- Integrate domain ontologies (e.g., COVER for risk and value).
+- Develop Lean-based DSL layers for scenario modeling and risk reasoning.
 
 ---
 
@@ -293,7 +356,7 @@ Planned progression:
 
 Requires Lean 4 and Lake.
 
-```
+```bash
 lake build
 ```
 
@@ -304,7 +367,8 @@ lake build
 Active research development.  
 Fragment-by-fragment formalization in progress.
 
+---
+
 ## ✦ License
 
-This project is licensed under the Apache License 2.0. 
-See the LICENSE file for details.
+Licensed under the Apache License 2.0. See the LICENSE file for details.
