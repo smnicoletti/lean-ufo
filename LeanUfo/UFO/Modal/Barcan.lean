@@ -1,9 +1,9 @@
-import LeanUfo.UFO.Modal.Basics
+import LeanUfo.UFO.Modal.S5
 import LeanUfo.UFO.Modal.FirstOrder
 
 universe u v
 
-variable {F : S5Frame}
+variable {F : Frame}
 variable (D : Type v)
 
 /--
@@ -30,8 +30,8 @@ by
 theorem converse_barcan
   (φ : D → F.World → Prop)
   (w : F.World) :
-  ForallD D (fun x => S5Frame.Box (F := F) (φ x)) w →
-  S5Frame.Box (F := F) (ForallD D φ) w :=
+  ForallD D (fun x => Frame.Box (F := F) (φ x)) w →
+  Frame.Box (F := F) (ForallD D φ) w :=
 by
   intro h
   intro v

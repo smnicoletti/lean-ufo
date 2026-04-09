@@ -338,7 +338,7 @@ theorem ax19_sig3_2 : ax_a19 sig3_2 := by
       -- show False, since AntiRigid K is False
       -- unpack RHS and refute using x := I
       rcases hRHS with ⟨hEnd, hCond⟩
-      have hDia : S5Frame.Dia (F := sig3_2.F) (fun w' => sig3_2.Inst Thing3_2.I Thing3_2.K w') () := by
+      have hDia : Frame.Dia (F := sig3_2.F) (fun w' => sig3_2.Inst Thing3_2.I Thing3_2.K w') () := by
         refine ⟨(), trivial, ?_⟩
         simp [sig3_2]
       have hDiaNot := hCond Thing3_2.I hDia

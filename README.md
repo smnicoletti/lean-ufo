@@ -62,6 +62,35 @@ https://doi.org/10.3233/AO-210256
   doi     = {10.3233/AO-210256}
 }
 ```
+---
+
+## ✦ S5-Derived Semantic Facts
+
+Adopting S5 Kripke semantics has strong structural consequences for the interpretation of UFO predicates.
+
+In particular, because accessibility is an equivalence relation, modal operators become **invariant across accessible worlds**. This yields additional semantic results beyond the axioms explicitly stated in the UFO paper.
+
+### World Invariance of Modal Definitions (§3.1)
+
+From the modal definitions of key predicates:
+
+- `Type(x) ↔ ◇(∃ y, y :: x)` (a1)  
+- `Individual(x) ↔ □(¬∃ y, y :: x)` (a2)  
+
+and S5 modal properties, we obtain:
+
+- `Type` is invariant across accessible worlds  
+- `Individual` is invariant across accessible worlds  
+- `Sub` (specialization) is invariant across accessible worlds  
+- `ProperSub` is invariant across accessible worlds  
+
+Intuitively:
+
+> Under S5, modal definitions collapse into **world-independent classifications modulo accessibility**.
+
+These results are formalized in:
+
+`LeanUfo/UFO/Modal/S5_Derived.lean`
 
 ---
 
@@ -311,8 +340,10 @@ LeanUfo/
     Modal/
       Basics.lean
       FirstOrder.lean
+      S5.lean
       Barcan.lean
     Core/
+      S5_Derived.lean
       Signature3_1.lean
       Signature3_2.lean
       Signature3_3.lean

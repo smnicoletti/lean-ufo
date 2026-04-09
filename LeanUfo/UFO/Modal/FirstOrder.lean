@@ -1,10 +1,10 @@
-import LeanUfo.UFO.Modal.Basics
+import LeanUfo.UFO.Modal.S5
 
 universe u v
 
 /-
 We fix:
-- an S5 frame `F`
+- a frame `F`
 - a type `D` of individuals
 
 The key semantic assumption:
@@ -13,7 +13,7 @@ The key semantic assumption:
 This implements constant-domain (possibilist) semantics,
 matching the assumptions of the UFO axiomatization paper.
 -/
-variable {F : S5Frame}
+variable {F : Frame}
 variable (D : Type v)
 
 /--

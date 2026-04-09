@@ -1,4 +1,4 @@
-import LeanUfo.UFO.Modal.Basics
+import LeanUfo.UFO.Modal.S5
 
 universe u v
 

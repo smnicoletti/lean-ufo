@@ -1,5 +1,5 @@
 import LeanUfo.UFO.Core.Signature3_1
-import LeanUfo.UFO.Modal.Basics
+import LeanUfo.UFO.Modal.S5
 import LeanUfo.UFO.Modal.FirstOrder
 
 universe u v
@@ -19,7 +19,7 @@ iff x is possibly instantiated.
 def ax_a1 : Prop :=
   ∀ (x : Sig.Thing) (w : Sig.F.World),
     Sig.Type_ x w ↔
-      S5Frame.Dia
+      Frame.Dia
         (fun w' => ∃ y : Sig.Thing, Sig.Inst y x w')
         w
 
@@ -34,7 +34,7 @@ iff in every accessible world, nothing instantiates x.
 def ax_a2 : Prop :=
   ∀ (x : Sig.Thing) (w : Sig.F.World),
     Sig.Individual x w ↔
-      S5Frame.Box
+      Frame.Box
         (fun w' => ¬ ∃ y : Sig.Thing, Sig.Inst y x w')
         w
 
@@ -70,9 +70,9 @@ def ax_a4 : Prop :=
 
 /-- Semantic duality: ¬◇ψ at w iff □(¬ψ) at w (Kripke semantics). Needed for next theorem. -/
 theorem not_dia_iff_box_not
-  {F : S5Frame} (ψ : F.World → Prop) (w : F.World) :
-  (¬ S5Frame.Dia (F := F) ψ w) ↔
-    S5Frame.Box (F := F) (fun v => ¬ ψ v) w :=
+  {F : Frame} (ψ : F.World → Prop) (w : F.World) :
+  (¬ Frame.Dia (F := F) ψ w) ↔
+    Frame.Box (F := F) (fun v => ¬ ψ v) w :=
 by
   constructor
   · intro h v hv
@@ -99,12 +99,12 @@ by
   intro x w
   let ψ : Sig.F.World → Prop :=
     fun w' => ∃ y : Sig.Thing, Sig.Inst y x w'
-  by_cases hDia : S5Frame.Dia (F := Sig.F) ψ w
+  by_cases hDia : Frame.Dia (F := Sig.F) ψ w
   · right
     exact (hA1 x w).2 hDia
   · left
     have hBox :
-      S5Frame.Box (F := Sig.F) (fun w' => ¬ ψ w') w :=
+      Frame.Box (F := Sig.F) (fun w' => ¬ ψ w') w :=
       (not_dia_iff_box_not (F := Sig.F) ψ w).1 hDia
     exact (hA2 x w).2 hBox
 
@@ -145,7 +145,7 @@ def ax_a5 : Prop :=
     Sig.Sub x y w ↔
       (Sig.Type_ x w ∧
        Sig.Type_ y w ∧
-       S5Frame.Box
+       Frame.Box
          (fun w' =>
             ∀ z : Sig.Thing,
               Sig.Inst z x w' →

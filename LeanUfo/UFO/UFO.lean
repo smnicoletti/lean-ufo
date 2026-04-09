@@ -1,4 +1,5 @@
 import LeanUfo.UFO.Modal.Basics
+import LeanUfo.UFO.Modal.S5
 import LeanUfo.UFO.Modal.FirstOrder
 import LeanUfo.UFO.Modal.Barcan
 
@@ -8,6 +9,7 @@ import LeanUfo.UFO.Core.Signature3_2
 import LeanUfo.UFO.Core.Signature3_3
 
 /- Axiomatizations & Theorems -/
+import LeanUfo.UFO.Core.S5_Derived
 import LeanUfo.UFO.Core.Section3_1
 import LeanUfo.UFO.Core.Section3_2
 import LeanUfo.UFO.Core.Section3_3

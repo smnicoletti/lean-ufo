@@ -22,8 +22,8 @@ def ax_a18 : Prop :=
     Sig.Rigid t w ↔
       (Sig.EndurantType t w ∧
         ∀ x : Sig.Thing,
-          (S5Frame.Dia (F := Sig.F) (fun w' => Sig.Inst x t w') w →
-           S5Frame.Box (F := Sig.F) (fun w' => Sig.Inst x t w') w))
+          (Frame.Dia (F := Sig.F) (fun w' => Sig.Inst x t w') w →
+           Frame.Box (F := Sig.F) (fun w' => Sig.Inst x t w') w))
 
 /--
 (a19)
@@ -39,8 +39,8 @@ def ax_a19 : Prop :=
     Sig.AntiRigid t w ↔
       (Sig.EndurantType t w ∧
         ∀ x : Sig.Thing,
-          (S5Frame.Dia (F := Sig.F) (fun w' => Sig.Inst x t w') w →
-           S5Frame.Dia (F := Sig.F) (fun w' => ¬ Sig.Inst x t w') w))
+          (Frame.Dia (F := Sig.F) (fun w' => Sig.Inst x t w') w →
+           Frame.Dia (F := Sig.F) (fun w' => ¬ Sig.Inst x t w') w))
 
 /--
 (a20)
@@ -112,7 +112,7 @@ theorem rigid_antirigid_clash
   (hR : Sig.Rigid x w)
   (hAR : Sig.AntiRigid x w) :
   ∀ y : Sig.Thing,
-    (S5Frame.Dia (F := Sig.F) (fun w' => Sig.Inst y x w') w →
+    (Frame.Dia (F := Sig.F) (fun w' => Sig.Inst y x w') w →
      False) :=
 by
   classical
@@ -133,7 +133,7 @@ by
 
   -- But □Inst implies ¬◇¬Inst
   have hNoDiaNot :
-    ¬ S5Frame.Dia (F := Sig.F) (fun w' => ¬ Sig.Inst y x w') w :=
+    ¬ Frame.Dia (F := Sig.F) (fun w' => ¬ Sig.Inst y x w') w :=
   by
     intro hContra
     rcases hContra with ⟨v, hvR, hNotInst⟩
@@ -156,7 +156,7 @@ theorem rigid_has_possible_instance
   {x : Sig.Thing} {w : Sig.F.World}
   (hR : Sig.Rigid x w) :
   ∃ y : Sig.Thing,
-    S5Frame.Dia (F := Sig.F) (fun w' => Sig.Inst y x w') w :=
+    Frame.Dia (F := Sig.F) (fun w' => Sig.Inst y x w') w :=
 by
   -- from rigid: EndurantType(x)
   have hEnd : Sig.EndurantType x w := (hA18 x w).1 hR |>.1
@@ -166,7 +166,7 @@ by
 
   -- a1: Type(x) ↔ ◇(∃ y, y :: x)
   have hDiaEx :
-      S5Frame.Dia (F := Sig.F) (fun w' => ∃ y : Sig.Thing, Sig.Inst y x w') w :=
+      Frame.Dia (F := Sig.F) (fun w' => ∃ y : Sig.Thing, Sig.Inst y x w') w :=
     (hA1 x w).1 hType
 
   -- pick witness world and witness y
@@ -281,7 +281,7 @@ by
 
   -- Using specialization: □(z :: y)
   have hBox_y :
-    S5Frame.Box (F := Sig.F)
+    Frame.Box (F := Sig.F)
       (fun w' => Sig.Inst z y w') w :=
   by
     intro v hvR
@@ -295,7 +295,7 @@ by
   -- From possible instantiation of x and specialization,
   -- we get possible instantiation of y
   have hDia_y :
-    S5Frame.Dia (F := Sig.F)
+    Frame.Dia (F := Sig.F)
       (fun w' => Sig.Inst z y w') w :=
   by
     rcases hDia_x with ⟨v, hvR, hInst_x⟩
@@ -307,7 +307,7 @@ by
 
   -- But □(z :: y) implies ¬◇¬(z :: y)
   have hNoDiaNot :
-    ¬ S5Frame.Dia (F := Sig.F)
+    ¬ Frame.Dia (F := Sig.F)
         (fun w' => ¬ Sig.Inst z y w') w :=
   by
     intro hContra
@@ -358,7 +358,7 @@ by
 
   -- from ◇(z :: x) and x ⊑ y, get ◇(z :: y)
   have hDia_zy :
-      S5Frame.Dia (F := Sig.F) (fun w' => Sig.Inst z y w') w :=
+      Frame.Dia (F := Sig.F) (fun w' => Sig.Inst z y w') w :=
   by
     rcases hDia_zx with ⟨v, hvR, hvInstX⟩
     refine ⟨v, hvR, ?_⟩
@@ -367,7 +367,7 @@ by
 
   -- anti-rigidity of y gives ◇(¬ z :: y)
   have hDiaNot_zy :
-      S5Frame.Dia (F := Sig.F) (fun w' => ¬ Sig.Inst z y w') w :=
+      Frame.Dia (F := Sig.F) (fun w' => ¬ Sig.Inst z y w') w :=
     hAntiCondY z hDia_zy
 
   -- from ◇(¬ z :: y) and □(z::x → z::y), we obtain ◇(¬ z :: x)
@@ -423,7 +423,7 @@ def ax_a21 : Prop :=
     Sig.Endurant x w →
       ∃ k : Sig.Thing,
         Sig.Kind k w ∧
-        S5Frame.Box (F := Sig.F)
+        Frame.Box (F := Sig.F)
           (fun w' => Sig.Inst x k w')
           w
 
@@ -439,7 +439,7 @@ a different kind.
 def ax_a22 : Prop :=
   ∀ (k x : Sig.Thing) (w : Sig.F.World),
     (Sig.Kind k w ∧ Sig.Inst x k w) →
-      ¬ S5Frame.Dia (F := Sig.F)
+      ¬ Frame.Dia (F := Sig.F)
           (fun w' => ∃ z : Sig.Thing,
             Sig.Kind z w' ∧
             Sig.Inst x z w' ∧
@@ -463,7 +463,7 @@ def ax_a23 : Prop :=
       (Sig.EndurantType t w ∧
         ∃ k : Sig.Thing,
           Sig.Kind k w ∧
-          S5Frame.Box (F := Sig.F)
+          Frame.Box (F := Sig.F)
             (fun w' =>
               ∀ x : Sig.Thing,
                 Sig.Inst x t w' →
@@ -552,7 +552,7 @@ theorem th_t10
   (hKS  : ax_kindStable Sig) :
   ∀ (x y : Sig.Thing) (w : Sig.F.World),
     Sig.Kind x w ∧ Sig.Kind y w ∧ x ≠ y →
-      S5Frame.Box (F := Sig.F)
+      Frame.Box (F := Sig.F)
         (fun v =>
           ¬ ∃ z : Sig.Thing,
               Sig.Inst z x v ∧
@@ -573,7 +573,7 @@ by
 
   -- apply a22 at world v with k := x and instance z :: x
   have hNoOtherKind :
-    ¬ S5Frame.Dia (F := Sig.F)
+    ¬ Frame.Dia (F := Sig.F)
         (fun v' => ∃ k : Sig.Thing,
           Sig.Kind k v' ∧ Sig.Inst z k v' ∧ k ≠ x)
         v :=
@@ -581,7 +581,7 @@ by
 
   -- build the forbidden possibility at v using k := y (and R v v via refl)
   have hBad :
-    S5Frame.Dia (F := Sig.F)
+    Frame.Dia (F := Sig.F)
         (fun v' => ∃ k : Sig.Thing,
           Sig.Kind k v' ∧ Sig.Inst z k v' ∧ k ≠ x)
         v :=
@@ -642,7 +642,7 @@ by
 
     -- From a1: Type → ◇(∃ instance)
     have hDiaEx_x :
-        S5Frame.Dia (F := Sig.F)
+        Frame.Dia (F := Sig.F)
           (fun w' => ∃ z : Sig.Thing, Sig.Inst z x w')
           w :=
       (hA1 x w).1 hType_x
@@ -676,7 +676,7 @@ by
       hA15 y w hEndType_y
 
     have hDiaEx_y :
-        S5Frame.Dia (F := Sig.F)
+        Frame.Dia (F := Sig.F)
           (fun w' => ∃ z : Sig.Thing, Sig.Inst z y w')
           w :=
       (hA1 y w).1 hType_y
@@ -830,7 +830,7 @@ by
 
   -- compose boxes: x -> y -> k
   have hBox_xk :
-      S5Frame.Box (F := Sig.F)
+      Frame.Box (F := Sig.F)
         (fun v =>
           ∀ z : Sig.Thing,
             Sig.Inst z x v →
