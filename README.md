@@ -90,7 +90,72 @@ Intuitively:
 
 These results are formalized in:
 
-`LeanUfo/UFO/Modal/S5_Derived.lean`
+`LeanUfo/UFO/Core/S5_Derived.lean`
+
+### Accessibility Invariance for Kinds (§3.2)
+
+In §3.2, the core additional S5-derived facts concern `Kind`.
+
+These results do **not** follow from S5 alone. They require the explicit
+structural axiom introduced in the mechanization (see below):
+
+- `ax_kindStable`
+
+From this axiom and S5 symmetry/transitivity, we obtain:
+
+- `Kind` is invariant across accessible worlds  
+- if something is a `Kind` at `w`, then at every accessible world `v` it is still:
+  - `Rigid`
+  - `Sortal`
+
+Intuitively:
+
+> Under S5 plus `ax_kindStable`, the Kind branch becomes modally persistent.
+
+### Accessibility Invariance for Endurant-Type Refinements (§3.4)
+
+In §3.4, the new type-level refinements introduced by (a44) are all defined as:
+
+- `Type`
+- together with a boxed condition on instances
+
+Since `Type` is S5-stable and `Box` is S5-stable, the following predicates are
+invariant across accessible worlds:
+
+- `SubstantialType`
+- `MomentType`
+- `ObjectType`
+- `CollectiveType`
+- `QuantityType`
+- `RelatorType`
+- `ModeType`
+- `QualityType`
+
+For the specific endurant kinds introduced by (a45), stability additionally
+depends on the introduced structural axiom `ax_kindStable`, because each such
+predicate is defined as:
+
+- the corresponding specific endurant type
+- together with `Kind`
+
+Hence we also obtain:
+
+- `ObjectKind` is invariant across accessible worlds  
+- `CollectiveKind` is invariant across accessible worlds  
+- `QuantityKind` is invariant across accessible worlds  
+- `RelatorKind` is invariant across accessible worlds  
+- `ModeKind` is invariant across accessible worlds  
+- `QualityKind` is invariant across accessible worlds  
+
+Intuitively:
+
+> In §3.4, S5 turns the new modal type refinements into world-invariant
+> classifications, and with `ax_kindStable` the same becomes true for the
+> corresponding specific kinds.
+
+These results are formalized in:
+
+`LeanUfo/UFO/Core/S5_Derived.lean`
 
 ---
 
@@ -234,6 +299,45 @@ This leverages the fact that §3.3 model is a refinement of §3.2.
 
 ---
 
+### ✓ Subsection 3.4 — Endurant Types
+
+Mechanized axioms:
+
+- (a44)–(a46)
+
+Proved theorems:
+
+- (t21) Pairwise disjointness of the six specific endurant type categories  
+- (t22) Possible instantiation of a specific endurant kind implies enduranthood  
+- (t23) Every endurant sortal belongs to a leaf of the endurant-type taxonomy  
+- (t24) Characterization of specific endurant sortals via specialization of a specific kind  
+- (t25) Pairwise disjointness of the leaves of the endurant-type taxonomy  
+- (t26) Exhaustiveness of the endurant-type leaf partition  
+
+Concrete witness:
+
+`LeanUfo/UFO/Models/Model3_4.lean`
+
+Consistency theorem:
+
+```lean
+consistent_3_4 :
+  ∃ (Sig : UFOSignature3_4.{0,0}),
+    UFOAxioms3_4 Sig
+```
+
+The small witness interprets:
+
+- one unique endurant type, which is an `ObjectType`
+- that same type as an `ObjectKind`
+- one unique endurant individual instantiating it
+- all other new §3.4 refinements as empty
+
+This shows that the §3.4 refinements are jointly satisfiable together with
+all inherited constraints from §§3.1–3.3.
+
+---
+
 ## ✦ Structural Assumptions Made Explicit by the Lean Mechanization
 
 During mechanization, certain structural commitments that are implicit
@@ -267,7 +371,12 @@ def ax_kindStable : Prop :=
 **Required for:**
 - (t10) Necessary disjointness of distinct kinds  
 - (t11) Non-specialization of distinct kinds  
-- (t14) No type specializes two distinct kinds  
+- (t14) No type specializes two distinct kinds
+- (t22) All entities that possibly instantiate a specific endurant kind are endurants
+- Helper theorem kind_implies_specific_kind, every kind in the endurant branch is one of the six specific endurant kinds
+- (t23) every endurant sortal belongs to one of the leaves of the taxonomy of endurant sortals
+- (t24) Characterization of specific endurant sortals via specialization of a specific kind
+- (t26) every endurant type belongs to one of the leaves of the taxonomy of endurant types
 
 This allows transporting `Kind` facts along S5 accessibility.
 
@@ -288,7 +397,11 @@ def ax_instEndurant_of_EndurantType : Prop :=
 ```
 
 **Required for:**
-- (t16) Non-sortals do not have direct instances  
+- (t16) Non-sortals do not have direct instances
+- Helper theorem kind_implies_specific_kind, every kind in the endurant branch is one of the six specific endurant kinds
+- (t23) every endurant sortal belongs to one of the leaves of the taxonomy of endurant sortals
+- (t24) Characterization of specific endurant sortals via specialization of a specific kind 
+- (t26) every endurant type belongs to one of the leaves of the taxonomy of endurant types
 
 This typing principle is implicitly used in the paragraph introducing (a21).
 
@@ -309,7 +422,8 @@ def ax_sub_of_kind_is_sortal : Prop :=
 ```
 
 **Required for:**
-- (t16), subtype case  
+- (t16), subtype case
+- (t24) Characterization of specific endurant sortals via specialization of a specific kind 
 
 ---
 
@@ -347,13 +461,16 @@ LeanUfo/
       Signature3_1.lean
       Signature3_2.lean
       Signature3_3.lean
+      Signature3_4.lean
       Section3_1.lean
       Section3_2.lean
       Section3_3.lean
+      Section3_4.lean
     Models/
       Model3_1.lean
       Model3_2.lean
       Model3_3.lean
+      Model3_4.lean
       Consistency.lean
     UFO.lean
   LeanUfo.lean
