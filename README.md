@@ -367,6 +367,36 @@ tiny witness model from §§3.1–3.4.
 
 ---
 
+### ✓ Subsection 3.6 — Composition
+
+Mechanized axioms:
+
+- (a53)–(a55)
+
+Concrete witness:
+
+`LeanUfo/UFO/Models/Model3_6.lean`
+
+Consistency theorem:
+
+```lean
+consistent_3_6 :
+  ∃ (Sig : UFOSignature3_6.{0,0}),
+    UFOAxioms3_6 Sig
+```
+
+The small witness interprets:
+
+- `FunctionsAs` as empty
+- `GenericFunctionalDependence` as universally true
+- `IndividualFunctionalDependence` by the right-hand side of (a54)
+- `ComponentOf` as empty
+
+This yields a minimal composition witness compatible with the tiny models
+already used for §§3.1–3.5.
+
+---
+
 ## ✦ Structural Assumptions Made Explicit by the Lean Mechanization
 
 During mechanization, certain structural commitments that are implicit
@@ -492,17 +522,20 @@ LeanUfo/
       Signature3_3.lean
       Signature3_4.lean
       Signature3_5.lean
+      Signature3_6.lean
       Section3_1.lean
       Section3_2.lean
       Section3_3.lean
       Section3_4.lean
       Section3_5.lean
+      Section3_6.lean
     Models/
       Model3_1.lean
       Model3_2.lean
       Model3_3.lean
       Model3_4.lean
       Model3_5.lean
+      Model3_6.lean
       Consistency.lean
     UFO.lean
   LeanUfo.lean
