@@ -338,6 +338,35 @@ all inherited constraints from §§3.1–3.3.
 
 ---
 
+### ✓ Subsection 3.5 — Mereology
+
+Mechanized axioms:
+
+- (a47)–(a52)
+
+Concrete witness:
+
+`LeanUfo/UFO/Models/Model3_5.lean`
+
+Consistency theorem:
+
+```lean
+consistent_3_5 :
+  ∃ (Sig : UFOSignature3_5.{0,0}),
+    UFOAxioms3_5 Sig
+```
+
+The small witness interprets:
+
+- `Part` as identity
+- `Overlap` as identity
+- `ProperPart` as empty
+
+This yields a minimal extensional mereology compatible with the existing
+tiny witness model from §§3.1–3.4.
+
+---
+
 ## ✦ Structural Assumptions Made Explicit by the Lean Mechanization
 
 During mechanization, certain structural commitments that are implicit
@@ -462,15 +491,18 @@ LeanUfo/
       Signature3_2.lean
       Signature3_3.lean
       Signature3_4.lean
+      Signature3_5.lean
       Section3_1.lean
       Section3_2.lean
       Section3_3.lean
       Section3_4.lean
+      Section3_5.lean
     Models/
       Model3_1.lean
       Model3_2.lean
       Model3_3.lean
       Model3_4.lean
+      Model3_5.lean
       Consistency.lean
     UFO.lean
   LeanUfo.lean
