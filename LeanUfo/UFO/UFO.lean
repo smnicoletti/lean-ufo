@@ -10,6 +10,10 @@ import LeanUfo.UFO.Core.Signature3_3
 import LeanUfo.UFO.Core.Signature3_4
 import LeanUfo.UFO.Core.Signature3_5
 import LeanUfo.UFO.Core.Signature3_6
+import LeanUfo.UFO.Core.Signature3_7
+import LeanUfo.UFO.Core.Signature3_8
+import LeanUfo.UFO.Core.Signature3_9
+import LeanUfo.UFO.Core.Signature3_10
 
 /- Axiomatizations & Theorems -/
 import LeanUfo.UFO.Core.S5_Derived
@@ -19,6 +23,10 @@ import LeanUfo.UFO.Core.Section3_3
 import LeanUfo.UFO.Core.Section3_4
 import LeanUfo.UFO.Core.Section3_5
 import LeanUfo.UFO.Core.Section3_6
+import LeanUfo.UFO.Core.Section3_7
+import LeanUfo.UFO.Core.Section3_8
+import LeanUfo.UFO.Core.Section3_9
+import LeanUfo.UFO.Core.Section3_10
 
 /- Concrete Models -/
 import LeanUfo.UFO.Models.Model3_1
@@ -27,4 +35,8 @@ import LeanUfo.UFO.Models.Model3_3
 import LeanUfo.UFO.Models.Model3_4
 import LeanUfo.UFO.Models.Model3_5
 import LeanUfo.UFO.Models.Model3_6
+import LeanUfo.UFO.Models.Model3_7
+import LeanUfo.UFO.Models.Model3_8
+import LeanUfo.UFO.Models.Model3_9
+import LeanUfo.UFO.Models.Model3_10
 import LeanUfo.UFO.Models.Consistency

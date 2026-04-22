@@ -3,6 +3,8 @@ import LeanUfo.UFO.Modal.S5
 import LeanUfo.UFO.Core.Section3_1
 import LeanUfo.UFO.Core.Section3_2
 import LeanUfo.UFO.Core.Section3_4
+import LeanUfo.UFO.Core.Section3_7
+import LeanUfo.UFO.Core.Section3_8
 
 /-
   This file collects semantic consequences of adopting S5 modal semantics
@@ -886,3 +888,169 @@ by
     have hKind_w : Sig4.Kind t w :=
       (kind_stable (Sig2 := Sig4.toUFOSignature3_2) hKS t v w (Sig4.F.symm hRv)).1 hKind_v
     exact (hQualK t w).2 ⟨hQualT_w, hKind_w⟩
+
+/-
+  §3.5 and §3.6 add no new genuinely modal clauses:
+  their axioms are first-order constraints over the current world, so there are
+  no additional S5-specific invariance theorems to extract there.
+
+  §3.7 does add a modal clause, namely (a60), so we record its S5 consequences
+  below.
+-/
+
+variable (Sig7 : UFOSignature3_7)
+
+open UFOSignature3_7
+
+/--
+Derived semantic fact:
+
+In S5, the necessity clause from (a60) is itself invariant across accessible
+worlds.
+
+Reason:
+- by (a60), if a perdurant `x` is constituted by `y` at `w`, then
+  `□(Ex(x) → constitutedBy(x, y))` holds at `w`;
+- `Box` is stable across accessible worlds in S5.
+-/
+theorem perdurant_constitutedBy_necessary_accessible
+  (hA60 : ax_a60 Sig7) :
+  ∀ (x y : Sig7.Thing) (w v : Sig7.F.World),
+    Sig7.F.R w v →
+    Sig7.Perdurant x w →
+    Sig7.ConstitutedBy x y w →
+    Frame.Box (F := Sig7.F)
+      (fun w' => Sig7.Ex x w' → Sig7.ConstitutedBy x y w')
+      v :=
+by
+  intro x y w v hRv hPerd_w hConst_w
+  have hBox_w :
+    Frame.Box (F := Sig7.F)
+      (fun w' => Sig7.Ex x w' → Sig7.ConstitutedBy x y w')
+      w :=
+    hA60 x y w ⟨hPerd_w, hConst_w⟩
+  exact (S5Frame.box_stable (F := Sig7.F) (w := w) (v := v) hRv).1 hBox_w
+
+/--
+Derived semantic fact:
+
+In S5, if a perdurant `x` is constituted by `y` at `w`, then at every
+accessible world `v`, the constitution relation still holds whenever `x`
+exists at `v`.
+-/
+theorem perdurant_constitutedBy_accessible
+  (hA60 : ax_a60 Sig7) :
+  ∀ (x y : Sig7.Thing) (w v : Sig7.F.World),
+    Sig7.F.R w v →
+    Sig7.Perdurant x w →
+    Sig7.ConstitutedBy x y w →
+    Sig7.Ex x v →
+    Sig7.ConstitutedBy x y v :=
+by
+  intro x y w v hRv hPerd_w hConst_w hEx_v
+  have hBox_v :
+    Frame.Box (F := Sig7.F)
+      (fun w' => Sig7.Ex x w' → Sig7.ConstitutedBy x y w')
+      v :=
+    perdurant_constitutedBy_necessary_accessible
+      (Sig7 := Sig7) hA60 x y w v hRv hPerd_w hConst_w
+  exact hBox_v v (Sig7.F.refl v) hEx_v
+
+/-
+  §3.8 adds one genuinely modal definition, namely existential dependence in
+  (a63). This yields the expected S5 stability results below.
+-/
+
+variable (Sig8 : UFOSignature3_8)
+
+open UFOSignature3_8
+
+/--
+Derived semantic fact:
+
+In S5, existential dependence is invariant across accessible worlds.
+
+Reason:
+- by (a63), `ed(x, y)` is defined as `□(Ex(x) → Ex(y))`,
+- `Box` is stable across accessible worlds in S5.
+-/
+theorem existentialDependence_stable
+  (hA63 : ax_a63 Sig8) :
+  ∀ (x y : Sig8.Thing) (w v : Sig8.F.World),
+    Sig8.F.R w v →
+    (Sig8.ExistentialDependence x y w ↔
+     Sig8.ExistentialDependence x y v) :=
+by
+  intro x y w v hRv
+  constructor
+  · intro hED_w
+    have hBox_w :
+      Frame.Box (F := Sig8.F)
+        (fun w' => Sig8.Ex x w' → Sig8.Ex y w')
+        w :=
+      (hA63 x y w).1 hED_w
+    have hBox_v :
+      Frame.Box (F := Sig8.F)
+        (fun w' => Sig8.Ex x w' → Sig8.Ex y w')
+        v :=
+      (S5Frame.box_stable (F := Sig8.F) (w := w) (v := v) hRv).1 hBox_w
+    exact (hA63 x y v).2 hBox_v
+  · intro hED_v
+    have hBox_v :
+      Frame.Box (F := Sig8.F)
+        (fun w' => Sig8.Ex x w' → Sig8.Ex y w')
+        v :=
+      (hA63 x y v).1 hED_v
+    have hBox_w :
+      Frame.Box (F := Sig8.F)
+        (fun w' => Sig8.Ex x w' → Sig8.Ex y w')
+        w :=
+      (S5Frame.box_stable (F := Sig8.F) (w := v) (v := w) (Sig8.F.symm hRv)).1 hBox_v
+    exact (hA63 x y w).2 hBox_w
+
+/--
+Derived semantic fact:
+
+In S5, existential independence is invariant across accessible worlds,
+because it is defined in (a64) by mutual failure of existential dependence.
+-/
+theorem existentialIndependence_stable
+  (hA63 : ax_a63 Sig8)
+  (hA64 : ax_a64 Sig8) :
+  ∀ (x y : Sig8.Thing) (w v : Sig8.F.World),
+    Sig8.F.R w v →
+    (Sig8.ExistentialIndependence x y w ↔
+     Sig8.ExistentialIndependence x y v) :=
+by
+  intro x y w v hRv
+  constructor
+  · intro hInd_w
+    rcases (hA64 x y w).1 hInd_w with ⟨hNotEDxy_w, hNotEDyx_w⟩
+    have hNotEDxy_v : ¬ Sig8.ExistentialDependence x y v := by
+      intro hEDxy_v
+      have hEDxy_w :
+        Sig8.ExistentialDependence x y w :=
+        (existentialDependence_stable (Sig8 := Sig8) hA63 x y v w (Sig8.F.symm hRv)).1 hEDxy_v
+      exact hNotEDxy_w hEDxy_w
+    have hNotEDyx_v : ¬ Sig8.ExistentialDependence y x v := by
+      intro hEDyx_v
+      have hEDyx_w :
+        Sig8.ExistentialDependence y x w :=
+        (existentialDependence_stable (Sig8 := Sig8) hA63 y x v w (Sig8.F.symm hRv)).1 hEDyx_v
+      exact hNotEDyx_w hEDyx_w
+    exact (hA64 x y v).2 ⟨hNotEDxy_v, hNotEDyx_v⟩
+  · intro hInd_v
+    rcases (hA64 x y v).1 hInd_v with ⟨hNotEDxy_v, hNotEDyx_v⟩
+    have hNotEDxy_w : ¬ Sig8.ExistentialDependence x y w := by
+      intro hEDxy_w
+      have hEDxy_v :
+        Sig8.ExistentialDependence x y v :=
+        (existentialDependence_stable (Sig8 := Sig8) hA63 x y w v hRv).1 hEDxy_w
+      exact hNotEDxy_v hEDxy_v
+    have hNotEDyx_w : ¬ Sig8.ExistentialDependence y x w := by
+      intro hEDyx_w
+      have hEDyx_v :
+        Sig8.ExistentialDependence y x v :=
+        (existentialDependence_stable (Sig8 := Sig8) hA63 y x w v hRv).1 hEDyx_w
+      exact hNotEDyx_v hEDyx_v
+    exact (hA64 x y w).2 ⟨hNotEDxy_w, hNotEDyx_w⟩

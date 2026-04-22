@@ -25,11 +25,27 @@ namespace Model3_6
 /--
 Signature interpretation for §3.6 extending the §3.5 concrete signature.
 
-We interpret:
-- `FunctionsAs` as empty,
-- `GenericFunctionalDependence` as universally true,
-- `IndividualFunctionalDependence` by the right-hand side of (a54),
-- `ComponentOf` as empty.
+The witness again reuses the same two entities:
+- `K`, the unique type/kind,
+- `I`, the unique individual instantiating `K`.
+
+The previously fixed structure remains unchanged:
+- there is only one world,
+- `I :: K` is the only instantiation fact,
+- `I` is an endurant and there are no perdurants,
+- mereology is still degenerate as in §3.5 (`Part` and `Overlap` are identity,
+  `ProperPart` is empty).
+
+For the new composition layer we interpret:
+- `FunctionsAs` as empty, so nothing plays any functional role,
+- `GenericFunctionalDependence` as universally true, since the universal clause
+  in (a53) becomes vacuously satisfied,
+- `IndividualFunctionalDependence` exactly by the right-hand side of (a54),
+- `ComponentOf` as empty, because `ProperPart` is already empty.
+
+So this witness validates the composition axioms in the most minimal way:
+there are no actual components, and all generic functional dependence claims
+hold only vacuously.
 -/
 def sig3_6 : UFOSignature3_6.{0,0} :=
 { toUFOSignature3_5 := Model3_5.sig3_5
