@@ -39,6 +39,7 @@ All predicates ignore the world parameter since the frame has one world (`Unit`)
 def sig3_2 : UFOSignature3_2 :=
 { F := trivialFrame
   Thing := Thing3_2
+  thing_nonempty := ⟨Thing3_2.K⟩
 
   /- Section 3.1 core predicates -/
   Type_ := fun x _w =>

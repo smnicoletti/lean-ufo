@@ -12,6 +12,8 @@ Basic semantic signature for UFO over S5 possible-world semantics.
 structure UFOSignature3_1 where
   F                  : S5Frame
   Thing              : Type v
+  -- The following line requires Thing to be nonempty.
+  thing_nonempty     : Nonempty Thing
   Type_              : Thing → F.World → Prop
   Individual         : Thing → F.World → Prop
   Inst               : Thing → Thing → F.World → Prop
