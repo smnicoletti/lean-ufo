@@ -22,10 +22,23 @@ namespace Model3_5
 /--
 Signature interpretation for §3.5 extending the §3.4 concrete signature.
 
-We interpret:
-- `Part x y` as `x = y`,
-- `Overlap x y` as `x = y`,
-- `ProperPart x y` as `False`.
+The witness still has the same tiny inherited structure:
+- `K`, the unique type/kind in the model,
+- `I`, the unique individual, with `I :: K` as the only instantiation fact.
+
+As in the previous models:
+- there is only one world,
+- `I` is an endurant and there are no perdurants,
+- `K` is the only endurant type and object kind.
+
+For the new mereological layer we choose the smallest interpretation
+compatible with the axioms:
+- `Part x y` is interpreted as identity `x = y`,
+- `Overlap x y` therefore also collapses to identity,
+- `ProperPart x y` is empty.
+
+So in this witness nothing has a proper part, and the mereology is the
+degenerate identity-based one.
 -/
 def sig3_5 : UFOSignature3_5.{0,0} :=
 { toUFOSignature3_4 := Model3_4.sig3_4

@@ -29,6 +29,9 @@ The mechanization is based on:
 
 - First-order modal logic **S5**
 - Constant-domain (possibilist) Kripke semantics
+- Nonempty domains of quantification (`Nonempty Thing` is carried explicitly in
+  the signatures, to support definite-description style constructions, e.g., used in
+  §3.10)
 - Equivalence accessibility relations
 - Barcan and Converse Barcan principles (derivable under constant domains)
 
@@ -397,6 +400,149 @@ already used for §§3.1–3.5.
 
 ---
 
+### ✓ Subsection 3.7 — Constitution
+
+Mechanized axioms:
+
+- (a56)–(a61)
+
+Proved theorems:
+
+- (t27) Constitution is non-reflexive
+
+Concrete witness:
+
+`LeanUfo/UFO/Models/Model3_7.lean`
+
+Consistency theorem:
+
+```lean
+consistent_3_7 :
+  ∃ (Sig : UFOSignature3_7.{0,0}),
+    UFOAxioms3_7 Sig
+```
+
+The small witness interprets:
+
+- `Ex` as total
+- `ConstitutedBy` as empty
+- `GenericConstitutionalDependence` as true only vacuously for instance-empty arguments
+- `Constitution` as empty
+
+This gives a minimal constitution layer compatible with the witness already
+constructed for §§3.1–3.6.
+
+---
+
+### ✓ Subsection 3.8 — Existence and Existential Dependence
+
+Mechanized axioms:
+
+- (a62)–(a64)
+
+Concrete witness:
+
+`LeanUfo/UFO/Models/Model3_8.lean`
+
+Consistency theorem:
+
+```lean
+consistent_3_8 :
+  ∃ (Sig : UFOSignature3_8.{0,0}),
+    UFOAxioms3_8 Sig
+```
+
+The small witness interprets:
+
+- `Ex` as total
+- `ExistentialDependence` exactly by the right-hand side of (a63)
+- `ExistentialIndependence` as empty
+
+Since the witness has one world and everything exists there, existential
+dependence becomes total in the model.
+
+---
+
+### ✓ Subsection 3.9 — Moments and Inherence
+
+Mechanized axioms:
+
+- (a65)–(a68)
+
+Proved theorems:
+
+- (t28) Inherence is non-reflexive
+- (t29) Inherence is asymmetric
+- (t30) Inherence is anti-transitive
+
+Concrete witness:
+
+`LeanUfo/UFO/Models/Model3_9.lean`
+
+Consistency theorem:
+
+```lean
+consistent_3_9 :
+  ∃ (Sig : UFOSignature3_9.{0,0}),
+    UFOAxioms3_9 Sig
+```
+
+Formalization notes:
+
+- `momentOf` is represented as an inductive transitive-closure relation (`MomentOf`)
+- `ultimateBearerOf` uniqueness is encoded using mathlib’s `∃!` / `ExistsUnique`
+
+The small witness interprets:
+
+- `InheresIn` as empty
+- `MomentOf` and `UltimateBearerOf` therefore as empty as well
+
+This yields a minimal consistency witness for the inherence layer.
+
+---
+
+### ✓ Subsection 3.10 — Relators
+
+Mechanized axioms:
+
+- (a69)–(a80)
+
+Proved theorems:
+
+- (t31) Parts of a qua individual share its foundation
+- (t32) Every relator has qua individuals as parts
+- (t33) Every relator mediates at least two distinct endurants
+
+Concrete witness:
+
+`LeanUfo/UFO/Models/Model3_10.lean`
+
+Consistency theorem:
+
+```lean
+consistent_3_10 :
+  ∃ (Sig : UFOSignature3_10.{0,0}),
+    UFOAxioms3_10 Sig
+```
+
+Formalization notes:
+
+- `foundationOf` is defined via `Classical.epsilon`, using the explicit
+  nonemptiness witness carried by the signature
+- the uniqueness axioms (a72) and (a77) use mathlib’s `∃!` / `ExistsUnique`
+- `t33` requires one additional bridge axiom made explicit in the mechanization
+  (see the structural assumptions section below)
+
+The small witness interprets:
+
+- `ExternallyDependent` as total
+- `ExternallyDependentMode`, `FoundedBy`, `QuaIndividualOf`, `QuaIndividual`,
+  `Relator`, and `Mediates` as empty
+
+This keeps the §3.10 witness minimal.
+
+---
+
 ## ✦ Structural Assumptions Made Explicit by the Lean Mechanization
 
 During mechanization, certain structural commitments that are implicit
@@ -505,6 +651,30 @@ def ax_nonSortal_upward : Prop :=
 
 ---
 
+### §3.10 Additional Bridge Axiom
+
+#### 5. Qua Individuals Are Of Endurants
+
+**Intended reading in the paper:**  
+The bearer associated with a qua individual is an endurant.
+
+**Formal axiom introduced:**
+```lean
+def ax_quaIndividualOf_endurant : Prop :=
+  ∀ x y w,
+    QuaIndividualOf x y w →
+    Endurant y w
+```
+
+**Required for:**
+- (t33) Every relator mediates at least two distinct endurants
+
+This bridge axiom was needed because the paper’s proof of (t33) relies on an
+implicit typing assumption that is not forced by the formal statements of
+(a73)–(a80) alone.
+
+---
+
 ## ✦ Repository Structure
 
 ```
@@ -523,12 +693,20 @@ LeanUfo/
       Signature3_4.lean
       Signature3_5.lean
       Signature3_6.lean
+      Signature3_7.lean
+      Signature3_8.lean
+      Signature3_9.lean
+      Signature3_10.lean
       Section3_1.lean
       Section3_2.lean
       Section3_3.lean
       Section3_4.lean
       Section3_5.lean
       Section3_6.lean
+      Section3_7.lean
+      Section3_8.lean
+      Section3_9.lean
+      Section3_10.lean
     Models/
       Model3_1.lean
       Model3_2.lean
@@ -536,6 +714,10 @@ LeanUfo/
       Model3_4.lean
       Model3_5.lean
       Model3_6.lean
+      Model3_7.lean
+      Model3_8.lean
+      Model3_9.lean
+      Model3_10.lean
       Consistency.lean
     UFO.lean
   LeanUfo.lean
@@ -558,7 +740,6 @@ For each subsection:
 
 ## ✦ Roadmap
 
-- Extend mechanization to subsequent UFO subsections.
 - Strengthen witness models where needed.
 - Integrate domain ontologies (e.g., COVER for risk and value).
 - Develop Lean-based DSL layers for scenario modeling and risk reasoning.
@@ -567,7 +748,7 @@ For each subsection:
 
 ## ✦ Build
 
-Requires Lean 4 and Lake.
+Requires Lean 4, Lake, and [mathlib](https://github.com/leanprover-community/mathlib4).
 
 ```bash
 lake build
