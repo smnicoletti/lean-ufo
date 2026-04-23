@@ -10,6 +10,7 @@ import LeanUfo.UFO.Models.Model3_9
 import LeanUfo.UFO.Models.Model3_10
 import LeanUfo.UFO.Models.Model3_11
 import LeanUfo.UFO.Models.Model3_12
+import LeanUfo.UFO.Models.Model3_13
 /--
 Consistency checkpoint for UFO subsection 3.1 (relative to Lean):
 axioms (a1)–(a17) are jointly satisfiable.
@@ -152,4 +153,16 @@ theorem consistent_3_12 :
     UFOAxioms3_12 Sig :=
 by
   refine ⟨Model3_12.sig3_12, ?_⟩
+  infer_instance
+
+/--
+Consistency checkpoint for UFO subsection 3.13 (relative to Lean):
+axioms (a1)-(a104) + (inherited) structural assumptions from §§3.2-3.13
+are jointly satisfiable.
+-/
+theorem consistent_3_13 :
+  ∃ (Sig : UFOSignature3_13.{0,0}),
+    UFOAxioms3_13 Sig :=
+by
+  refine ⟨Model3_13.sig3_13, ?_⟩
   infer_instance
