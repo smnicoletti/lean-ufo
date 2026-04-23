@@ -575,6 +575,58 @@ moments, no quality types.
 
 ---
 
+### ✓ Subsection 3.12 — Qualities and Quality Structures
+
+Mechanized axioms:
+
+- (a83)–(a101)
+- distance identity, symmetry, and triangle constraints
+
+Concrete witness:
+
+`LeanUfo/UFO/Models/Model3_12.lean`
+
+Consistency theorem:
+
+```lean
+consistent_3_12 :
+  ∃ (Sig : UFOSignature3_12.{0,0}),
+    UFOAxioms3_12 Sig
+```
+
+Formalization notes:
+
+- set-theoretic membership, inclusion, proper inclusion, and non-emptiness are
+  encoded via Lean `Set Thing` extensions
+- the finite Cartesian product subset in (a99) is represented by tuple
+  projections over a shared `Fin n` index
+- metric arithmetic is kept relational and abstract, with distance values still
+  represented as UFO `Thing`s
+- these choices deliberately keep §3.12 at the paper's object-language level:
+  quales, sets, quality domains, tuple-like product members, and distance
+  values remain entities in one UFO domain and are classified by predicates and
+  relations, rather than being separated into Lean-level carrier types
+- this proof-oriented encoding is still extensible: later bridge layers can
+  interpret selected UFO `Thing`s as Lean tuples, numeric distance values, or
+  richer structures without changing the core §3.12 axioms
+- no additional bridge axioms are introduced in §3.12; the extra distance
+  constraints are direct encodings of the metric constraints stated in the
+  paper, while tuple projections and relational arithmetic are signature-level
+  interfaces
+- definitions (d5)–(d10) are kept as standalone propositional encodings,
+  following the treatment of earlier definitions
+
+The small witness interprets:
+
+- quales, quality structures, quality domains, quality dimensions, quality
+  values, simple/complex qualities, and distances as empty
+- all Lean-set extensions as empty
+
+This keeps the §3.12 witness minimal while validating the new set-theoretic
+and metric-interface axioms.
+
+---
+
 ## ✦ Structural Assumptions Made Explicit by the Lean Mechanization
 
 During mechanization, certain structural commitments that are implicit
@@ -730,6 +782,7 @@ LeanUfo/
       Signature3_9.lean
       Signature3_10.lean
       Signature3_11.lean
+      Signature3_12.lean
       Section3_1.lean
       Section3_2.lean
       Section3_3.lean
@@ -741,6 +794,7 @@ LeanUfo/
       Section3_9.lean
       Section3_10.lean
       Section3_11.lean
+      Section3_12.lean
     Models/
       Model3_1.lean
       Model3_2.lean
@@ -753,6 +807,7 @@ LeanUfo/
       Model3_9.lean
       Model3_10.lean
       Model3_11.lean
+      Model3_12.lean
       Consistency.lean
     UFO.lean
   LeanUfo.lean
