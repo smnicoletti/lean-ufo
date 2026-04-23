@@ -11,7 +11,10 @@ This repository develops a rigorous semantic formalization of the **Unified Foun
 
 The development proceeds fragment-by-fragment, aligned with the structure of the original UFO axiomatization (see below).
 
-The goal is to establish **explicit, machine-checked consistency checkpoints** for successive UFO fragments via concrete Kripke models.
+The goal is to establish **explicit, machine-checked semantic consistency
+checkpoints** for successive UFO fragments via concrete Kripke models. In this
+repository, a consistency checkpoint means a joint-satisfiability result: we
+construct a model satisfying the packaged axioms.
 
 Each subsection:
 
@@ -19,7 +22,7 @@ Each subsection:
 - packages its axioms as a Lean typeclass,
 - proves the stated theorems semantically,
 - constructs a small concrete witness model,
-- establishes a formal consistency theorem.
+- establishes a formal joint-satisfiability theorem.
 
 ---
 
@@ -35,7 +38,9 @@ The mechanization is based on:
 - Equivalence accessibility relations
 - Barcan and Converse Barcan principles (derivable under constant domains)
 
-Modal operators are interpreted semantically. No proof calculus or completeness theory is implemented at this stage.
+Modal operators are interpreted semantically. No proof calculus, derivability
+relation, syntactic consistency theorem, or completeness theory is implemented
+at this stage.
 
 Lean 4:  
 https://leanprover.github.io/
@@ -186,7 +191,7 @@ Axioms are attached via **typeclass instances**. This allows:
 - clean extension between subsections,
 - multiple alternative models for the same signature.
 
-### Consistency Checkpoints
+### Semantic Consistency Checkpoints
 
 For each subsection:
 
@@ -196,8 +201,11 @@ theorem consistent_3_X :
     UFOAxioms3_X Sig
 ```
 
-This establishes joint satisfiability of the axioms
-(relative to Lean’s metatheory and the chosen S5 semantics).
+This establishes joint satisfiability of the axioms. We also call these
+theorems semantic consistency checkpoints: relative to Lean’s metatheory and
+the chosen S5 semantics, the displayed model existence theorem rules out a
+semantic contradiction in the packaged axiom set. It is not a proof-theoretic
+consistency result, since no UFO proof calculus is formalized here.
 
 ---
 
@@ -627,6 +635,41 @@ and metric-interface axioms.
 
 ---
 
+### ✓ Subsection 3.13 — Endurants and Perdurants
+
+Mechanized axioms:
+
+- (a102)–(a104)
+
+Concrete witness:
+
+`LeanUfo/UFO/Models/Model3_13.lean`
+
+Consistency theorem:
+
+```lean
+consistent_3_13 :
+  ∃ (Sig : UFOSignature3_13.{0,0}),
+    UFOAxioms3_13 Sig
+```
+
+Formalization notes:
+
+- `Manifests`, `LifeOf`, and `Meet` extend the §3.12 signature
+- the packaged version of (a102) uses the corrected argument order
+  `manifests(x, y) → Perdurant(x) ∧ Endurant(y)`, matching (a103) and the
+  surrounding natural-language explanation
+- the printed version of (a102), with `Endurant(x) ∧ Perdurant(y)`, is encoded
+  separately as the non-packaged proposition `ax_a102_printed`
+
+The small witness interprets:
+
+- `Manifests`, `LifeOf`, and `Meet` as empty
+
+This keeps the §3.13 witness minimal.
+
+---
+
 ## ✦ Structural Assumptions Made Explicit by the Lean Mechanization
 
 During mechanization, certain structural commitments that are implicit
@@ -783,6 +826,7 @@ LeanUfo/
       Signature3_10.lean
       Signature3_11.lean
       Signature3_12.lean
+      Signature3_13.lean
       Section3_1.lean
       Section3_2.lean
       Section3_3.lean
@@ -795,6 +839,7 @@ LeanUfo/
       Section3_10.lean
       Section3_11.lean
       Section3_12.lean
+      Section3_13.lean
     Models/
       Model3_1.lean
       Model3_2.lean
@@ -808,12 +853,15 @@ LeanUfo/
       Model3_10.lean
       Model3_11.lean
       Model3_12.lean
+      Model3_13.lean
       Consistency.lean
     UFO.lean
   LeanUfo.lean
 ```
 
 The development is fully semantic: axioms constrain models rather than forming a proof calculus.
+Accordingly, each consistency checkpoint is a model-existence/joint-satisfiability
+theorem.
 
 ---
 
@@ -824,7 +872,8 @@ For each subsection:
 1. Encode axioms as semantic constraints.
 2. Prove derived theorems.
 3. Construct a small concrete witness model.
-4. Establish a new consistency checkpoint.
+4. Establish a new semantic consistency checkpoint, i.e. a joint-satisfiability
+   theorem witnessed by a concrete model.
 
 ---
 
