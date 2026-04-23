@@ -543,6 +543,38 @@ This keeps the §3.10 witness minimal.
 
 ---
 
+### ✓ Subsection 3.11 — Characterization
+
+Mechanized axioms:
+
+- (a81)–(a82)
+
+Concrete witness:
+
+`LeanUfo/UFO/Models/Model3_11.lean`
+
+Consistency theorem:
+
+```lean
+consistent_3_11 :
+  ∃ (Sig : UFOSignature3_11.{0,0}),
+    UFOAxioms3_11 Sig
+```
+
+Formalization notes:
+
+- the uniqueness clauses in (a81) and (a82) use mathlib’s `∃!` /
+  `ExistsUnique`
+
+The small witness interprets:
+
+- `Characterization` as empty
+
+This keeps the §3.11 witness minimal, reusing the inherited model with no
+moments, no quality types.
+
+---
+
 ## ✦ Structural Assumptions Made Explicit by the Lean Mechanization
 
 During mechanization, certain structural commitments that are implicit
@@ -697,6 +729,7 @@ LeanUfo/
       Signature3_8.lean
       Signature3_9.lean
       Signature3_10.lean
+      Signature3_11.lean
       Section3_1.lean
       Section3_2.lean
       Section3_3.lean
@@ -707,6 +740,7 @@ LeanUfo/
       Section3_8.lean
       Section3_9.lean
       Section3_10.lean
+      Section3_11.lean
     Models/
       Model3_1.lean
       Model3_2.lean
@@ -718,6 +752,7 @@ LeanUfo/
       Model3_8.lean
       Model3_9.lean
       Model3_10.lean
+      Model3_11.lean
       Consistency.lean
     UFO.lean
   LeanUfo.lean
