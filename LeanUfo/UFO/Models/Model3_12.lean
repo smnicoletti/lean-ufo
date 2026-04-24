@@ -31,10 +31,11 @@ The witness still has the same two entities:
 
 All previous layers remain unchanged. For the new §3.12 layer we choose the
 minimal compatible interpretation:
-- `Quale`, `Set_`, `QualityStructure`, `QualityDomain`, `QualityDimension`,
-  `AssociatedWith`, `IntrinsicMomentType`, `HasValue`, `SimpleQuality`,
-  `ComplexQuality`, `SimpleQualityType`, `ComplexQualityType`, and `Distance`
-  are empty,
+- `Quale`, `Set_`, `QualityDomain`, `QualityDimension`, `AssociatedWith`,
+  `IntrinsicMomentType`, `HasValue`, and `Distance` are empty,
+- the derived §3.12 predicates `QualityStructure`, `SimpleQuality`,
+  `ComplexQuality`, `SimpleQualityType`, and `ComplexQualityType` are empty
+  because their defining primitive predicates are empty,
 - `SetExtension` is the empty Lean set for every UFO entity,
 - `TupleProjection` is arbitrary, because no product-subset obligations arise,
 - distance-zero, distance-sum, and distance-order relations are empty.
@@ -50,18 +51,12 @@ def sig3_12 : UFOSignature3_12.{0,0} :=
   Set_ := fun _x _w => False
   SetExtension := fun _x _w => ∅
 
-  QualityStructure := fun _x _w => False
   QualityDomain := fun _x _w => False
   QualityDimension := fun _x _w => False
   AssociatedWith := fun _x _y _w => False
 
   IntrinsicMomentType := fun _x _w => False
   HasValue := fun _x _y _w => False
-
-  SimpleQuality := fun _x _w => False
-  ComplexQuality := fun _x _w => False
-  SimpleQualityType := fun _x _w => False
-  ComplexQualityType := fun _x _w => False
 
   TupleProjection := fun {_n} p _i _w => p
 
@@ -100,21 +95,27 @@ theorem ax86_sig3_12 : ax_a86 sig3_12 := by
   unfold ax_a86
   intro x w h
   cases w
-  cases x <;> simp [sig3_12] at h
+  cases x <;> simp [sig3_12, QualityStructure, Model3_11.sig3_11, Model3_10.sig3_10,
+    Model3_9.sig3_9, Model3_8.sig3_8, Model3_7.sig3_7, Model3_6.sig3_6,
+    Model3_5.sig3_5, Model3_4.sig3_4, Model3_3.sig3_3, Model3_2.sig3_2] at h
 
 /-- Proof that `sig3_12` satisfies (a87). -/
 theorem ax87_sig3_12 : ax_a87 sig3_12 := by
   unfold ax_a87
   intro x w
   cases w
-  cases x <;> simp [sig3_12]
+  cases x <;> simp [sig3_12, QualityStructure, Model3_11.sig3_11, Model3_10.sig3_10,
+    Model3_9.sig3_9, Model3_8.sig3_8, Model3_7.sig3_7, Model3_6.sig3_6,
+    Model3_5.sig3_5, Model3_4.sig3_4, Model3_3.sig3_3, Model3_2.sig3_2]
 
 /-- Proof that `sig3_12` satisfies (a88). -/
 theorem ax88_sig3_12 : ax_a88 sig3_12 := by
   unfold ax_a88
   intro x w
   cases w
-  cases x <;> simp [sig3_12]
+  cases x <;> simp [sig3_12, QualityStructure, Model3_11.sig3_11, Model3_10.sig3_10,
+    Model3_9.sig3_9, Model3_8.sig3_8, Model3_7.sig3_7, Model3_6.sig3_6,
+    Model3_5.sig3_5, Model3_4.sig3_4, Model3_3.sig3_3, Model3_2.sig3_2]
 
 /-- Proof that `sig3_12` satisfies (a89). -/
 theorem ax89_sig3_12 : ax_a89 sig3_12 := by
@@ -135,7 +136,7 @@ theorem ax91_sig3_12 : ax_a91 sig3_12 := by
   unfold ax_a91
   intro t w
   cases w
-  cases t <;> simp [sig3_12, Model3_11.sig3_11, Model3_10.sig3_10, Model3_9.sig3_9,
+  cases t <;> simp [sig3_12, QualityStructure, Model3_11.sig3_11, Model3_10.sig3_10, Model3_9.sig3_9,
     Model3_8.sig3_8, Model3_7.sig3_7, Model3_6.sig3_6, Model3_5.sig3_5,
     Model3_4.sig3_4, Model3_3.sig3_3, Model3_2.sig3_2]
 
@@ -151,7 +152,7 @@ theorem ax93_sig3_12 : ax_a93 sig3_12 := by
   unfold ax_a93
   intro x w h
   cases w
-  cases x <;> simp [sig3_12, Model3_11.sig3_11, Model3_10.sig3_10, Model3_9.sig3_9,
+  cases x <;> simp [sig3_12, Quality, Model3_11.sig3_11, Model3_10.sig3_10, Model3_9.sig3_9,
     Model3_8.sig3_8, Model3_7.sig3_7, Model3_6.sig3_6, Model3_5.sig3_5,
     Model3_4.sig3_4, Model3_3.sig3_3, Model3_2.sig3_2] at h
 
@@ -181,14 +182,17 @@ theorem ax97_sig3_12 : ax_a97 sig3_12 := by
   unfold ax_a97
   intro x y z Y Z w h
   cases w
-  cases x <;> cases y <;> cases z <;> cases Y <;> cases Z <;> simp [sig3_12] at h
+  cases x <;> cases y <;> cases z <;> cases Y <;> cases Z <;>
+    simp [sig3_12, ComplexQuality] at h
 
 /-- Proof that `sig3_12` satisfies (a98). -/
 theorem ax98_sig3_12 : ax_a98 sig3_12 := by
   unfold ax_a98
   intro x w h
   cases w
-  cases x <;> simp [sig3_12] at h
+  cases x <;> simp [sig3_12, ComplexQuality, Quality, Model3_11.sig3_11, Model3_10.sig3_10,
+    Model3_9.sig3_9, Model3_8.sig3_8, Model3_7.sig3_7, Model3_6.sig3_6,
+    Model3_5.sig3_5, Model3_4.sig3_4, Model3_3.sig3_3, Model3_2.sig3_2] at h
 
 /-- Proof that `sig3_12` satisfies (a99). -/
 theorem ax99_sig3_12 : ax_a99 sig3_12 := by

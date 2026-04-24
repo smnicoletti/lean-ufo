@@ -44,8 +44,10 @@ def sig3_3 : UFOSignature3_3.{0,0} :=
   IntrinsicMoment := fun _x _w => False
 
   /- Partition of IntrinsicMoment -/
-  Mode    := fun _x _w => False
-  Quality := fun _x _w => False
+  Mode := fun _x _w => False
+
+  /- Needed for the derived definition of Quality -/
+  QualityKind := fun _x _w => False
 }
 
 attribute [simp] sig3_3
@@ -103,12 +105,12 @@ theorem ax41_sig3_3 : ax_a41 sig3_3 := by
 /-- (a42) Mode(x) ∨ Quality(x) ↔ IntrinsicMoment(x) -/
 theorem ax42_sig3_3 : ax_a42 sig3_3 := by
   intro x w
-  simp [sig3_3]
+  simp [sig3_3, Quality]
 
 /-- (a43) ¬∃x (Mode(x) ∧ Quality(x)) -/
 theorem ax43_sig3_3 : ax_a43 sig3_3 := by
   intro w
-  simp [sig3_3]
+  simp [sig3_3, Quality]
 
 /-- Consistency witness: a concrete model of UFO subsection 3.3. -/
 instance : UFOAxioms3_3 sig3_3 :=

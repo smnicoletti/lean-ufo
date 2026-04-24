@@ -226,7 +226,7 @@ def ax_a44_qualityType : Prop :=
          (fun w' =>
            ∀ x : Sig.Thing,
              Sig.Inst x t w' →
-             Sig.Quality x w')
+             Quality Sig.toUFOSignature3_3 x w')
          w)
 
 /--
@@ -337,7 +337,7 @@ by
       exact (hDisj.1 hxObj).2.2.2.1 hxMode
     · intro hQualT
       rcases (hQualType t w).1 hQualT with ⟨_, hBoxQual⟩
-      have hxQual : Sig.Quality x v := hBoxQual v hv x hxInst
+      have hxQual : Quality Sig.toUFOSignature3_3 x v := hBoxQual v hv x hxInst
       exact (hDisj.1 hxObj).2.2.2.2 hxQual
   · intro hCollT
     rcases (hCollType t w).1 hCollT with ⟨hType, hBoxColl⟩
@@ -359,7 +359,7 @@ by
       exact (hDisj.2.1 hxColl).2.2.1 hxMode
     · intro hQualT
       rcases (hQualType t w).1 hQualT with ⟨_, hBoxQual⟩
-      have hxQual : Sig.Quality x v := hBoxQual v hv x hxInst
+      have hxQual : Quality Sig.toUFOSignature3_3 x v := hBoxQual v hv x hxInst
       exact (hDisj.2.1 hxColl).2.2.2 hxQual
   · intro hQtyT
     rcases (hQtyType t w).1 hQtyT with ⟨hType, hBoxQty⟩
@@ -377,7 +377,7 @@ by
       exact (hDisj.2.2.1 hxQty).2.1 hxMode
     · intro hQualT
       rcases (hQualType t w).1 hQualT with ⟨_, hBoxQual⟩
-      have hxQual : Sig.Quality x v := hBoxQual v hv x hxInst
+      have hxQual : Quality Sig.toUFOSignature3_3 x v := hBoxQual v hv x hxInst
       exact (hDisj.2.2.1 hxQty).2.2 hxQual
   · intro hRelT
     rcases (hRelType t w).1 hRelT with ⟨hType, hBoxRel⟩
@@ -391,7 +391,7 @@ by
       exact (hDisj.2.2.2.1 hxRel).1 hxMode
     · intro hQualT
       rcases (hQualType t w).1 hQualT with ⟨_, hBoxQual⟩
-      have hxQual : Sig.Quality x v := hBoxQual v hv x hxInst
+      have hxQual : Quality Sig.toUFOSignature3_3 x v := hBoxQual v hv x hxInst
       exact (hDisj.2.2.2.1 hxRel).2 hxQual
   · intro hModeT
     rcases (hModeType t w).1 hModeT with ⟨hType, hBoxMode⟩
@@ -400,7 +400,7 @@ by
     have hDisj := hT19 x v
     intro hQualT
     rcases (hQualType t w).1 hQualT with ⟨_, hBoxQual⟩
-    have hxQual : Sig.Quality x v := hBoxQual v hv x hxInst
+    have hxQual : Quality Sig.toUFOSignature3_3 x v := hBoxQual v hv x hxInst
     exact (hDisj.2.2.2.2 hxMode) hxQual
 
 /--
@@ -529,7 +529,7 @@ theorem th_t22
        Sig.Quantity t w ∨
        Sig.Relator t w ∨
        Sig.Mode t w ∨
-       Sig.Quality t w)) :
+       Quality Sig.toUFOSignature3_3 t w)) :
   ∀ (x : Sig.Thing) (w : Sig.F.World),
     Frame.Dia (F := Sig.F)
       (fun w' =>
@@ -578,7 +578,7 @@ by
            Sig.Quantity y w ∨
            Sig.Relator y w ∨
            Sig.Mode y w ∨
-           Sig.Quality y w)) →
+           Quality Sig.toUFOSignature3_3 y w)) →
       ∀ (k : Sig.Thing) (v : Sig.F.World),
         Sig.F.R w v →
         KindPred k v →

@@ -59,7 +59,6 @@ def sig3_4 : UFOSignature3_4.{0,0} :=
   QuantityKind   := fun _t _w => False
   RelatorKind    := fun _t _w => False
   ModeKind       := fun _t _w => False
-  QualityKind    := fun _t _w => False
 }
 
 attribute [simp] sig3_4
@@ -217,7 +216,7 @@ theorem ax44_sig3_4 : ax_a44 sig3_4 := by
         · intro h
           rcases h with ⟨_, hBox⟩
           have := hBox () trivial Model3_2.Thing3_2.I (by simp [sig3_4, Model3_2.sig3_2])
-          simp [sig3_4] at this
+          simp [sig3_4, Quality] at this
     | I =>
         simp [sig3_4, Model3_2.sig3_2]
 
