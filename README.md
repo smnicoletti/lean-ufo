@@ -621,13 +621,17 @@ Formalization notes:
   constraints are direct encodings of the metric constraints stated in the
   paper, while tuple projections and relational arithmetic are signature-level
   interfaces
-- definitions (d5)–(d10) are kept as standalone propositional encodings,
-  following the treatment of earlier definitions
+- definitions (d5)–(d10) are treated as derived predicates, following the
+  treatment of earlier definitions such as `ProperSub`, `MomentOf`, and
+  `FoundationOf`; `d6` is formalized earlier in §3.3 because the §3.3
+  intrinsic-moment partition already refers to `Quality`
 
 The small witness interprets:
 
-- quales, quality structures, quality domains, quality dimensions, quality
-  values, simple/complex qualities, and distances as empty
+- quales, quality domains, quality dimensions, quality values, and distances
+  as empty
+- the derived quality-structure and simple/complex quality predicates as empty
+  by their definitions
 - all Lean-set extensions as empty
 
 This keeps the §3.12 witness minimal while validating the new set-theoretic
@@ -667,6 +671,46 @@ The small witness interprets:
 - `Manifests`, `LifeOf`, and `Meet` as empty
 
 This keeps the §3.13 witness minimal.
+
+---
+
+### ✓ Section 4 — Type Structures
+
+Mechanized axioms:
+
+- (a105) disjointness of types
+- (a106) complete binary coverage
+- (a107) binary partitioning
+- (a108) categorization by specialization
+
+Concrete witness:
+
+`LeanUfo/UFO/Models/Model4.lean`
+
+Consistency theorem:
+
+```lean
+consistent_4 :
+  ∃ (Sig : UFOSignature4.{0,0}),
+    UFOAxioms4 Sig
+```
+
+Formalization notes:
+
+- the new predicates are added in `UFOSignature4` as signature-level
+  relations over the existing UFO domain
+- the concrete witness interprets each new §4 primitive extensionally by the
+  right-hand side of its corresponding axiom; after unfolding, the §4
+  biconditionals reduce to the intended condition on the inherited tiny model
+
+The small witness reuses:
+
+- `K` as the only type
+- `I` as the only individual
+- `I :: K` as the only instantiation fact
+
+This establishes the joint satisfiability of the axioms through section 4
+without adding extra domain objects.
 
 ---
 
@@ -827,6 +871,7 @@ LeanUfo/
       Signature3_11.lean
       Signature3_12.lean
       Signature3_13.lean
+      Signature4.lean
       Section3_1.lean
       Section3_2.lean
       Section3_3.lean
@@ -840,6 +885,7 @@ LeanUfo/
       Section3_11.lean
       Section3_12.lean
       Section3_13.lean
+      Section4.lean
     Models/
       Model3_1.lean
       Model3_2.lean
@@ -854,6 +900,7 @@ LeanUfo/
       Model3_11.lean
       Model3_12.lean
       Model3_13.lean
+      Model4.lean
       Consistency.lean
     UFO.lean
   LeanUfo.lean
