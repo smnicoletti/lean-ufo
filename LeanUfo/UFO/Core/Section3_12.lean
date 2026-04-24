@@ -67,6 +67,76 @@ def ProductSubsetOf
         MemberOf Sig (Sig.TupleProjection p i w) (ys i) w
 
 /--
+Definition (d5): Quality structure.
+
+QualityStructure(x) ≝ ∃!t (QualityType(t) ∧ AssociatedWith(x, t))
+
+Natural language:
+A quality structure is an entity associated with a unique quality type.
+-/
+def QualityStructure (Sig : UFOSignature3_12)
+    (x : Sig.Thing) (w : Sig.F.World) : Prop :=
+  ∃! t : Sig.Thing,
+    Sig.QualityType t w ∧
+    Sig.AssociatedWith x t w
+
+/--
+Definition (d7): Simple quality.
+
+SimpleQuality(x) ≝ Quality(x) ∧ ¬∃y inheresIn(y, x)
+
+Natural language:
+A simple quality is a quality in which no other entity inheres.
+-/
+def SimpleQuality (Sig : UFOSignature3_12)
+    (x : Sig.Thing) (w : Sig.F.World) : Prop :=
+  Quality Sig.toUFOSignature3_3 x w ∧
+  ¬ ∃ y : Sig.Thing, Sig.InheresIn y x w
+
+/--
+Definition (d8): Complex quality.
+
+ComplexQuality(x) ≝ Quality(x) ∧ ¬SimpleQuality(x)
+
+Natural language:
+A complex quality is a quality that is not simple.
+-/
+def ComplexQuality (Sig : UFOSignature3_12)
+    (x : Sig.Thing) (w : Sig.F.World) : Prop :=
+  Quality Sig.toUFOSignature3_3 x w ∧
+  ¬ SimpleQuality Sig x w
+
+/--
+Definition (d9): Simple quality type.
+
+SimpleQualityType(t) ≝ QualityType(t) ∧ ∀x (x :: t → SimpleQuality(x))
+
+Natural language:
+A simple quality type has only simple qualities as instances.
+-/
+def SimpleQualityType (Sig : UFOSignature3_12)
+    (t : Sig.Thing) (w : Sig.F.World) : Prop :=
+  Sig.QualityType t w ∧
+  ∀ x : Sig.Thing,
+    Sig.Inst x t w →
+      SimpleQuality Sig x w
+
+/--
+Definition (d10): Complex quality type.
+
+ComplexQualityType(t) ≝ QualityType(t) ∧ ∀x (x :: t → ComplexQuality(x))
+
+Natural language:
+A complex quality type has only complex qualities as instances.
+-/
+def ComplexQualityType (Sig : UFOSignature3_12)
+    (t : Sig.Thing) (w : Sig.F.World) : Prop :=
+  Sig.QualityType t w ∧
+  ∀ x : Sig.Thing,
+    Sig.Inst x t w →
+      ComplexQuality Sig x w
+
+/--
 (a83)
 
 Quale(x) → AbstractIndividual(x)
@@ -106,26 +176,6 @@ def ax_a85 : Prop :=
       Sig.Quale x w ∧ Sig.Set_ x w
 
 /--
-(d5)
-
-QualityStructure(x) ≝ ∃!t (QualityType(t) ∧ AssociatedWith(x, t))
-
-Natural language:
-A quality structure is an entity associated with a unique quality type.
-
-Formalization note:
-This is kept as a standalone propositional encoding of the paper definition.
-It is not currently a field of `UFOAxioms3_12`, following the treatment of
-earlier definitions (d1)–(d4).
--/
-def def_d5_qualityStructure : Prop :=
-  ∀ (x : Sig.Thing) (w : Sig.F.World),
-    Sig.QualityStructure x w ↔
-      ∃! t : Sig.Thing,
-        Sig.QualityType t w ∧
-        Sig.AssociatedWith x t w
-
-/--
 (a86)
 
 QualityStructure(x) → Set(x) ∧ x ≠ ∅
@@ -135,7 +185,7 @@ Every quality structure is a non-empty set-like abstract individual.
 -/
 def ax_a86 : Prop :=
   ∀ (x : Sig.Thing) (w : Sig.F.World),
-    Sig.QualityStructure x w →
+    QualityStructure Sig x w →
       Sig.Set_ x w ∧ NonEmptySet Sig x w
 
 /--
@@ -150,7 +200,7 @@ def ax_a87 : Prop :=
   ∀ (x : Sig.Thing) (w : Sig.F.World),
     Sig.Quale x w ↔
       ∃! y : Sig.Thing,
-        Sig.QualityStructure y w ∧
+        QualityStructure Sig y w ∧
         MemberOf Sig x y w
 
 /--
@@ -163,7 +213,7 @@ Quality structures are partitioned into quality domains and quality dimensions.
 -/
 def ax_a88 : Prop :=
   ∀ (x : Sig.Thing) (w : Sig.F.World),
-    Sig.QualityStructure x w ↔
+    QualityStructure Sig x w ↔
       (Sig.QualityDomain x w ∨ Sig.QualityDimension x w)
 
 /--
@@ -210,27 +260,8 @@ def ax_a91 : Prop :=
     Sig.QualityType t w ↔
       (Sig.IntrinsicMomentType t w ∧
        ∃! x : Sig.Thing,
-         Sig.QualityStructure x w ∧
+         QualityStructure Sig x w ∧
          Sig.AssociatedWith x t w)
-
-/--
-(d6)
-
-Quality(x) ≝ ∃!t (QualityKind(t) ∧ x :: t)
-
-Natural language:
-A quality is an entity that instantiates a unique quality kind.
-
-Formalization note:
-`Quality` is inherited from §3.3, so this paper definition is represented as a
-standalone biconditional constraint rather than by redefining the predicate.
--/
-def def_d6_quality : Prop :=
-  ∀ (x : Sig.Thing) (w : Sig.F.World),
-    Sig.Quality x w ↔
-      ∃! t : Sig.Thing,
-        Sig.QualityKind t w ∧
-        Sig.Inst x t w
 
 /--
 (a92)
@@ -243,7 +274,7 @@ The value of a quality is a quale.
 def ax_a92 : Prop :=
   ∀ (x y : Sig.Thing) (w : Sig.F.World),
     Sig.HasValue x y w →
-      (Sig.Quality x w ∧ Sig.Quale y w)
+      (Quality Sig.toUFOSignature3_3 x w ∧ Sig.Quale y w)
 
 /--
 (a93)
@@ -255,7 +286,7 @@ Every quality has a unique quale as value.
 -/
 def ax_a93 : Prop :=
   ∀ (x : Sig.Thing) (w : Sig.F.World),
-    Sig.Quality x w →
+    Quality Sig.toUFOSignature3_3 x w →
       ∃! y : Sig.Thing,
         Sig.HasValue x y w
 
@@ -278,81 +309,6 @@ def ax_a94 : Prop :=
         MemberOf Sig y s w
 
 /--
-(d7)
-
-SimpleQuality(x) ≝ Quality(x) ∧ ¬∃y inheresIn(y, x)
-
-Natural language:
-A simple quality is a quality in which no other entity inheres.
-
-Formalization note:
-This is a standalone propositional encoding of the paper definition, not a
-field of the §3.12 axiom bundle.
--/
-def def_d7_simpleQuality : Prop :=
-  ∀ (x : Sig.Thing) (w : Sig.F.World),
-    Sig.SimpleQuality x w ↔
-      (Sig.Quality x w ∧
-       ¬ ∃ y : Sig.Thing, Sig.InheresIn y x w)
-
-/--
-(d8)
-
-ComplexQuality(x) ≝ Quality(x) ∧ ¬SimpleQuality(x)
-
-Natural language:
-A complex quality is a quality that is not simple.
-
-Formalization note:
-This is a standalone propositional encoding of the paper definition, not a
-field of the §3.12 axiom bundle.
--/
-def def_d8_complexQuality : Prop :=
-  ∀ (x : Sig.Thing) (w : Sig.F.World),
-    Sig.ComplexQuality x w ↔
-      (Sig.Quality x w ∧ ¬ Sig.SimpleQuality x w)
-
-/--
-(d9)
-
-SimpleQualityType(t) ≝ QualityType(t) ∧ ∀x (x :: t → SimpleQuality(x))
-
-Natural language:
-A simple quality type has only simple qualities as instances.
-
-Formalization note:
-This is a standalone propositional encoding of the paper definition, not a
-field of the §3.12 axiom bundle.
--/
-def def_d9_simpleQualityType : Prop :=
-  ∀ (t : Sig.Thing) (w : Sig.F.World),
-    Sig.SimpleQualityType t w ↔
-      (Sig.QualityType t w ∧
-       ∀ x : Sig.Thing,
-         Sig.Inst x t w →
-           Sig.SimpleQuality x w)
-
-/--
-(d10)
-
-ComplexQualityType(t) ≝ QualityType(t) ∧ ∀x (x :: t → ComplexQuality(x))
-
-Natural language:
-A complex quality type has only complex qualities as instances.
-
-Formalization note:
-This is a standalone propositional encoding of the paper definition, not a
-field of the §3.12 axiom bundle.
--/
-def def_d10_complexQualityType : Prop :=
-  ∀ (t : Sig.Thing) (w : Sig.F.World),
-    Sig.ComplexQualityType t w ↔
-      (Sig.QualityType t w ∧
-       ∀ x : Sig.Thing,
-         Sig.Inst x t w →
-           Sig.ComplexQuality x w)
-
-/--
 (a95)
 
 associatedWith(x, y) → (QualityDimension(x) ↔ SimpleQualityType(y))
@@ -363,7 +319,7 @@ Quality dimensions are associated exactly with simple quality types.
 def ax_a95 : Prop :=
   ∀ (x y : Sig.Thing) (w : Sig.F.World),
     Sig.AssociatedWith x y w →
-      (Sig.QualityDimension x w ↔ Sig.SimpleQualityType y w)
+      (Sig.QualityDimension x w ↔ SimpleQualityType Sig y w)
 
 /--
 (a96)
@@ -376,7 +332,7 @@ Quality domains are associated exactly with complex quality types.
 def ax_a96 : Prop :=
   ∀ (x y : Sig.Thing) (w : Sig.F.World),
     Sig.AssociatedWith x y w →
-      (Sig.QualityDomain x w ↔ Sig.ComplexQualityType y w)
+      (Sig.QualityDomain x w ↔ ComplexQualityType Sig y w)
 
 /--
 (a97)
@@ -390,7 +346,7 @@ same type.
 -/
 def ax_a97 : Prop :=
   ∀ (x y z Y Z : Sig.Thing) (w : Sig.F.World),
-    (Sig.ComplexQuality x w ∧
+    (ComplexQuality Sig x w ∧
      Sig.Inst y Y w ∧
      Sig.Inst z Z w ∧
      Sig.InheresIn y x w ∧
@@ -408,10 +364,10 @@ Only simple qualities can inhere in a complex quality.
 -/
 def ax_a98 : Prop :=
   ∀ (x : Sig.Thing) (w : Sig.F.World),
-    Sig.ComplexQuality x w →
+    ComplexQuality Sig x w →
       ∀ y : Sig.Thing,
         Sig.InheresIn y x w →
-          Sig.SimpleQuality y w
+          SimpleQuality Sig y w
 
 /--
 (a99)
@@ -523,8 +479,8 @@ Extends §3.11 axioms with:
 - (a83)–(a101),
 - the three distance constraints stated after (a101).
 
-Definitions (d5)–(d10) are kept as standalone propositional encodings above,
-following the convention used for earlier paper definitions such as (d1)–(d4).
+Definitions (d5) and (d7)–(d10) are derived predicates above, following the
+convention used for earlier paper definitions such as (d1)–(d4).
 -/
 class UFOAxioms3_12 (Sig : UFOSignature3_12) : Prop
   extends UFOAxioms3_11 Sig.toUFOSignature3_11 where

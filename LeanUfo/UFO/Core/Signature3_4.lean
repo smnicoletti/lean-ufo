@@ -9,6 +9,9 @@ taxonomy of endurant types.
 This adds:
 - type-level refinements such as `ObjectType`, `RelatorType`, ...
 - kind-level refinements such as `ObjectKind`, `RelatorKind`, ...
+
+`QualityKind` is already present in §3.3 because definition (d6) uses it to
+define `Quality`.
 -/
 structure UFOSignature3_4 extends UFOSignature3_3 where
 
@@ -29,4 +32,3 @@ structure UFOSignature3_4 extends UFOSignature3_3 where
   QuantityKind    : Thing → F.World → Prop
   RelatorKind     : Thing → F.World → Prop
   ModeKind        : Thing → F.World → Prop
-  QualityKind     : Thing → F.World → Prop

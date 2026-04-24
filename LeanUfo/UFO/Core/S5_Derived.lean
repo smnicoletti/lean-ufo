@@ -647,7 +647,7 @@ by
         (fun w' =>
           ∀ x : Sig4.Thing,
             Sig4.Inst x t w' →
-            Sig4.Quality x w')
+            Quality Sig4.toUFOSignature3_3 x w')
         v :=
       (S5Frame.box_stable (F := Sig4.F) (w := w) (v := v) hRv).1 hBox_w
     exact (hQualT t v).2 ⟨hType_v, hBox_v⟩
@@ -660,7 +660,7 @@ by
         (fun w' =>
           ∀ x : Sig4.Thing,
             Sig4.Inst x t w' →
-            Sig4.Quality x w')
+            Quality Sig4.toUFOSignature3_3 x w')
         w :=
       (S5Frame.box_stable (F := Sig4.F) (w := v) (v := w) (Sig4.F.symm hRv)).1 hBox_v
     exact (hQualT t w).2 ⟨hType_w, hBox_w⟩
