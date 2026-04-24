@@ -1,6 +1,7 @@
 import LeanUfo.UFO.Core.Signature3_3
 import LeanUfo.UFO.Core.Section3_2
 import LeanUfo.UFO.Modal.Basics
+import Mathlib.Logic.ExistsUnique
 
 universe u v
 
@@ -15,6 +16,26 @@ open UFOSignature3_3
   into Substantial and Moment, and their refinements down to the leaf
   individual categories.
 -/
+
+/--
+Definition (d6): Quality.
+
+Quality(x) ≝ ∃!t (QualityKind(t) ∧ x :: t)
+
+Natural language:
+A quality is an entity that instantiates a unique quality kind.
+
+Formalization note:
+Although the paper states this definition in §3.12, the §3.3 axioms already
+refer to `Quality` as a leaf category of intrinsic moments. We therefore place
+the derived predicate here and move the primitive `QualityKind` symbol into
+`UFOSignature3_3`. This keeps definitions out of signatures while preserving
+the dependency order needed by (a42) and (a43).
+-/
+def Quality (Sig : UFOSignature3_3) (x : Sig.Thing) (w : Sig.F.World) : Prop :=
+  ∃! t : Sig.Thing,
+    Sig.QualityKind t w ∧
+    Sig.Inst x t w
 
 /--
 (a34)
@@ -145,7 +166,7 @@ Mode and Quality form a partition of IntrinsicMoment.
 -/
 def ax_a42 : Prop :=
   ∀ (x : Sig.Thing) (w : Sig.F.World),
-    (Sig.Mode x w ∨ Sig.Quality x w)
+    (Sig.Mode x w ∨ Quality Sig x w)
       ↔ Sig.IntrinsicMoment x w
 
 
@@ -161,7 +182,7 @@ def ax_a43 : Prop :=
   ∀ (w : Sig.F.World),
     ¬ ∃ x : Sig.Thing,
         Sig.Mode x w ∧
-        Sig.Quality x w
+        Quality Sig x w
 /--
 (t19)
 
@@ -189,7 +210,7 @@ theorem th_t19
       ¬ Sig.Quantity t w ∧
       ¬ Sig.Relator t w ∧
       ¬ Sig.Mode t w ∧
-      ¬ Sig.Quality t w)
+      ¬ Quality Sig t w)
 
     ∧
 
@@ -197,25 +218,25 @@ theorem th_t19
       ¬ Sig.Quantity t w ∧
       ¬ Sig.Relator t w ∧
       ¬ Sig.Mode t w ∧
-      ¬ Sig.Quality t w)
+      ¬ Quality Sig t w)
 
     ∧
 
     (Sig.Quantity t w →
       ¬ Sig.Relator t w ∧
       ¬ Sig.Mode t w ∧
-      ¬ Sig.Quality t w)
+      ¬ Quality Sig t w)
 
     ∧
 
     (Sig.Relator t w →
       ¬ Sig.Mode t w ∧
-      ¬ Sig.Quality t w)
+      ¬ Quality Sig t w)
 
     ∧
 
     (Sig.Mode t w →
-      ¬ Sig.Quality t w)
+      ¬ Quality Sig t w)
 :=
 by
   classical
@@ -342,8 +363,7 @@ by
   --------------------------------------------------
   -- Mode block
   --------------------------------------------------
-  · intro hMode
-    intro hQual
+  · intro hMode hQual
     exact (hA43 w) ⟨t, hMode, hQual⟩
 
 /--
@@ -369,7 +389,7 @@ theorem th_t20
        Sig.Quantity t w ∨
        Sig.Relator t w ∨
        Sig.Mode t w ∨
-       Sig.Quality t w) :=
+       Quality Sig t w) :=
 by
   classical
   intro t w
@@ -407,7 +427,7 @@ by
             exact Or.inr (Or.inr (Or.inr (Or.inl hRel)))
         | inr hIM =>
             -- a42 : (Mode ∨ Quality) ↔ IntrinsicMoment
-            have hMQ : Sig.Mode t w ∨ Sig.Quality t w :=
+            have hMQ : Sig.Mode t w ∨ Quality Sig t w :=
               (hA42 t w).2 hIM
             cases hMQ with
             | inl hMode =>

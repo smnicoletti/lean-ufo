@@ -34,7 +34,6 @@ structure UFOSignature3_12 extends UFOSignature3_11 where
   SetExtension : Thing → F.World → Set Thing
 
   /- Quality structures -/
-  QualityStructure : Thing → F.World → Prop
   QualityDomain : Thing → F.World → Prop
   QualityDimension : Thing → F.World → Prop
   AssociatedWith : Thing → Thing → F.World → Prop
@@ -45,12 +44,6 @@ structure UFOSignature3_12 extends UFOSignature3_11 where
   -/
   IntrinsicMomentType : Thing → F.World → Prop
   HasValue : Thing → Thing → F.World → Prop
-
-  /- Simple and complex qualities -/
-  SimpleQuality : Thing → F.World → Prop
-  ComplexQuality : Thing → F.World → Prop
-  SimpleQualityType : Thing → F.World → Prop
-  ComplexQualityType : Thing → F.World → Prop
 
   /--
   Projection interface for tuple-like UFO entities.
