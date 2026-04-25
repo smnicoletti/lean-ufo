@@ -16,6 +16,13 @@ checkpoints** for successive UFO fragments via concrete Kripke models. In this
 repository, a consistency checkpoint means a joint-satisfiability result: we
 construct a model satisfying the packaged axioms.
 
+The repository also includes a first Lean-native DSL for finite UFO models.
+The DSL lets users write compact named-world/named-thing models, expands them
+to finite semantic data, and automatically emits ordinary Lean certificates of
+`UFOAxioms4`.  Consequently, any DSL model that successfully passes `certify`
+comes with a Lean theorem proving that its compiled finite signature is a model
+of the encoded UFO axioms.
+
 Each subsection:
 
 - defines a semantic signature,
@@ -36,7 +43,6 @@ The mechanization is based on:
   the signatures, to support definite-description style constructions, e.g., used in
   §3.10)
 - Equivalence accessibility relations
-- Barcan and Converse Barcan principles (derivable under constant domains)
 
 Modal operators are interpreted semantically. No proof calculus, derivability
 relation, syntactic consistency theorem, or completeness theory is implemented
@@ -855,7 +861,6 @@ LeanUfo/
       Basics.lean
       FirstOrder.lean
       S5.lean
-      Barcan.lean
     Core/
       S5_Derived.lean
       Signature3_1.lean
@@ -902,6 +907,21 @@ LeanUfo/
       Model3_13.lean
       Model4.lean
       Consistency.lean
+    DSL/
+      Certification.lean
+      FiniteModel.lean
+      Syntax.lean
+      Guarantees.lean
+      Examples.lean
+      ConcreteExamples/
+        Minimal.lean
+        Company.lean
+        Role.lean
+        WoodenTable.lean
+        SchoolRoles.lean
+        FlowerPropertyChange.lean
+        RedirectedWalk.lean
+        ConceptEvolution.lean
     UFO.lean
   LeanUfo.lean
 ```
@@ -928,7 +948,233 @@ For each subsection:
 
 - Strengthen witness models where needed.
 - Integrate domain ontologies (e.g., COVER for risk and value).
-- Develop Lean-based DSL layers for scenario modeling and risk reasoning.
+- Extend the Phase 1 DSL with level-aware UFO type support, so examples such as
+  Section 4.5 concept evolution can distinguish ordinary individuals,
+  first-order types, and higher-order types while keeping `::`, `⊑`, and
+  `Categorizes` well-typed.
+- Complete DSL coverage for the remaining `UFOSignature4` fields.  The current
+  surface syntax does not yet provide concrete user syntax for custom
+  accessibility relations, set extensions, set membership/product structure,
+  tuple projections, metric/distance tables, or primitive higher-arity
+  functional-dependence/component/constitution tables.
+- Improve failure diagnostics so rejected DSL models report failed checks in
+  user-facing world/thing names instead of exposing only the generated Lean goal.
+- Add query syntax and higher-level tactics on top of certified finite models.
+- Later, connect querying and custom high-level tactics with quantitative/model checking
+  integrations while keeping the qualitative UFO kernel separate.
+
+---
+
+## ✦ Phase 1 Certified DSL Backend
+
+The repository now contains the first finite-model backend for a Lean-based UFO model DSL.
+Its central guarantee is proof-producing validation:
+
+> if a `ufo_model ... certify` DSL command elaborates successfully, Lean has proved
+> that the generated finite model satisfies the encoded UFO axioms (`UFOAxioms4`).
+
+Invalid DSL models do not silently pass as partial artifacts. They fail
+elaboration either while checking explicit derived-relation assertions or while
+building one of the generated axiom certificates.
+
+```text
+LeanUfo/UFO/DSL/
+  Certification.lean   -- decidability bridge for axiom packages
+  FiniteModel.lean     -- finite data compiled to UFOSignature4
+  Syntax.lean          -- `ufo_model ... certify` command
+  Guarantees.lean      -- formal DSL pipeline guarantees
+  Examples.lean        -- index for concrete DSL examples
+  ConcreteExamples/
+    Minimal.lean       -- smallest certified DSL model
+    Company.lean       -- small company/person/organization DSL model
+    Role.lean          -- two-world anti-rigid role DSL model
+    WoodenTable.lean   -- minimal paper-inspired constitution example
+    SchoolRoles.lean   -- minimal Section 4.2 role-change example
+    FlowerPropertyChange.lean -- minimal Section 4.3 property-change example
+    RedirectedWalk.lean -- minimal Section 4.4 redirected-walk example
+    ConceptEvolution.lean -- documented Section 4.5 higher-order limitation
+```
+
+The user-facing command syntax is:
+
+```lean
+import LeanUfo.UFO.DSL.Syntax
+
+open LeanUfo.UFO.DSL
+
+ufo_model MinimalCommand : UFO where
+  worlds actual
+  things K I
+  given actual:
+    I :: K
+    I : Object
+    K : ObjectKind
+  derive_relations
+  certify
+```
+
+Here `:` asserts a unary UFO classification predicate, `::` keeps its UFO-paper
+meaning of instantiation, and `⊑` asserts specialization.  Multiple
+`given <world>:` blocks are accepted for modal models.  Binary relation facts
+can also be written as `x Relation y`, including `Part`, `Overlap`, and
+`ProperPart`.
+
+Reflexive specialization facts are inserted automatically for every type
+detected from instantiation targets.  For example, after `I :: K`, the DSL
+generates the required `K ⊑ K` facts internally, so users only write
+informative specializations such as `Employee ⊑ Person`.
+
+Unary taxonomy facts are closed automatically before certification.  Users
+should normally write the most specific classification they mean:
+
+```lean
+WoodPortion : QuantityKind
+WoodenTableComponent : ObjectKind
+Object0 : Quantity
+Object1 : Object
+```
+
+The DSL compiler expands these into deterministic ancestors from the encoded
+UFO taxonomy.  For example, `QuantityKind` contributes `Kind`, `Sortal`,
+`Rigid`, `QuantityType`, `SubstantialType`, and `EndurantType`; `Object`
+contributes `Substantial`, `Endurant`, and `ConcreteIndividual`.  The compiler
+does not infer facts that require choosing between alternatives, so
+`ConcreteIndividual` alone does not imply either `Endurant` or `Perdurant`.
+This is only finite-data sugar: Lean still checks the expanded generated model
+against the original `UFOAxioms4` definitions.
+
+For facts that hold in every declared world, use the reserved pseudo-world
+`everywhere`:
+
+```lean
+given everywhere:
+  Mark : Object
+  Mark :: Person
+  Person : ObjectKind
+```
+
+This is syntax sugar only: the elaborator expands the block into one copy for
+each declared world before building the finite tables.
+
+Definition-like derived facts are accepted too.  Binary derived facts use the
+same relation syntax, for example `Person IsDisjointWith Organization`.
+Higher-arity derived facts use function-style notation, for example
+`IsPartitionedInto(Person, Employee, NonEmployee)`.  These facts are checked in
+the generated theorem `ModelName.assertedDerivedFacts`; they do not override
+the semantics computed by `derive_relations`.
+
+The only accepted directives in the first public DSL surface are
+`derive_relations` and `certify`.
+
+The aggregate `LeanUfo.UFO.UFO` imports the DSL backend, command syntax, and
+generic guarantee theorems.  Concrete example files are kept under
+`LeanUfo/UFO/DSL/ConcreteExamples/` and can be imported explicitly, or all at
+once via `LeanUfo.UFO.DSL.Examples`.
+
+The command elaborates to ordinary Lean declarations:
+
+```lean
+MinimalCommand.data      : FiniteModel4
+MinimalCommand.sig       : UFOSignature4
+MinimalCommand.assertedDerivedFacts : True
+MinimalCommand.certified_ax1 : ax_a1 MinimalCommand.sig.toUFOSignature3_1
+-- ...
+MinimalCommand.certified : UFOAxioms4 MinimalCommand.sig
+MinimalCommand.certifiedModel : FiniteModel4.Certified MinimalCommand.data
+```
+
+The module `LeanUfo.UFO.DSL.Guarantees` proves the generic facts behind this
+pipeline.  In particular, `FiniteModel4.Certified M` is definitionally the
+original `UFOAxioms4 M.toUFOSignature4` proposition, the Phase 1 compiler uses
+a universal S5 frame, and core compiled predicates such as instantiation,
+specialization, parthood, `Type`, and `Individual` are tied directly to the
+finite tables or semantic finite definitions.
+
+The finite backend compiles user-level names to `Fin` indices, then builds an
+ordinary `UFOSignature4`.  The semantic kernel remains unchanged: the target
+certificate is still the existing proposition
+
+```lean
+UFOAxioms4 generatedSignature
+```
+
+Current implementation status:
+
+- implemented: finite model data through `UFOSignature4`;
+- implemented: semantic compilation into the existing Prop-valued signature;
+- implemented: semantic derivation, rather than primitive user tables, for
+  `Type`, `Individual`, the definition-like predicates in §3.6, §3.7, §3.8,
+  selected §3.10 predicates, and the §4 type-structure relations;
+- implemented: checked explicit assertions for derived relations through
+  `assertedDerivedFacts`;
+- implemented: conservative unary taxonomy closure for DSL classifications;
+- implemented: finite tables for user-specified mereological facts;
+- implemented: the `ufo_model ... certify` command;
+- implemented: proof-producing finite certificates for the concrete DSL examples
+  in `LeanUfo/UFO/DSL/ConcreteExamples/`, except for `ConceptEvolution.lean`,
+  which documents the higher-order MLT-style pattern needed for the paper's
+  Section 4.5 case.
+
+In this status note, "semantic derivation" means that the DSL does not store
+those predicates as arbitrary user-controlled Boolean tables.  Instead, the
+compiler computes their Prop-valued interpretation from smaller primitive
+tables and then asks Lean to certify the original axiom package.  For example:
+
+- `Type` is derived from possible instantiation;
+- `Individual` is derived from absence of instantiation;
+- §3.6 `GenericFunctionalDependence`, `IndividualFunctionalDependence`, and
+  `ComponentOf` are derived from instantiation, `FunctionsAs`, and mereology;
+- §3.7 `GenericConstitutionalDependence` and `Constitution` are derived from
+  instantiation and `ConstitutedBy`;
+- §3.8 `ExistentialDependence` and `ExistentialIndependence` are derived from
+  the `Ex` table across the finite S5 frame;
+- selected §3.10 predicates currently derived by the compiler are
+  `ExternallyDependent`, `ExternallyDependentMode`, and `QuaIndividual`;
+- §4 `IsDisjointWith`, `IsCompletelyCoveredBy`, `IsPartitionedInto`, and
+  `Categorizes` are derived from their axiom right-hand sides.
+
+The Phase 1 DSL deliberately does not yet surface all fields of
+`UFOSignature4`.  In particular, it does not provide user syntax for:
+
+- custom accessibility relations; generated models use the default universal
+  S5 frame;
+- finite set extensions, set membership, tuple projections, or product-subset
+  constraints used by the richer quality-structure axioms;
+- metric/distance tables such as `Distance`, `DistanceZero`, `DistanceSum`,
+  and `DistanceGreaterEq`;
+- primitive higher-arity tables for `IndividualFunctionalDependence`,
+  `ComponentOf`, and `Constitution`; users can assert these as derived facts,
+  but the semantic compiler computes them from lower-level relations;
+- level-aware higher-order type declarations needed for the full
+  concept-evolution example in Section 4.5.
+
+Known limitation: the Phase 1 DSL has a flat `things` namespace and a single
+flat `::` instantiation table.  This is enough for first-order finite witnesses
+and for checking derived §4 relations such as disjointness, coverage,
+partitioning, and simple categorization assertions.  It is not yet enough for a
+faithful certified version of the paper's concept-evolution case, where
+first-order types instantiate higher-order types while also specializing stable
+base types.  The axiomatisation already contains the relevant `Categorizes`
+axiom (`a108`); what is missing is level-aware DSL syntax and finite-model
+metadata, for example explicit `higher_types` declarations and checks that
+separate individual-to-type instantiation from type-to-higher-type
+instantiation.
+
+The current certificate is intentionally generated as an ordinary Lean proof of
+`UFOAxioms4 sig`: the command first emits one named theorem per axiom field
+(`certified_ax1`, `certified_ax2`, ...), then assembles the final
+`certified` record from those per-axiom lemmas.  Each lemma is discharged by
+unfolding the compiled finite signature, reflecting finite `Fin` quantifiers,
+and simplifying over the resulting finite cases.  This gives a push-button
+certificate path for DSL-generated files while keeping the trusted semantic
+kernel unchanged.
+
+One remaining engineering task is: richer diagnostics for failed finite checks
+in user-facing DSL terms.  At the moment, an invalid model fails at either
+`assertedDerivedFacts` or the generated certificate proof, exposing the
+remaining Prop-level Lean goal.
+
+`Part`, `Overlap`, and `ProperPart` are finite user tables. Certification is responsible for proving that the supplied tables satisfy the §3.5 axioms.
 
 ---
 
@@ -938,6 +1184,12 @@ Requires Lean 4, Lake, and [mathlib](https://github.com/leanprover-community/mat
 
 ```bash
 lake build
+```
+
+To rebuild just the DSL example collection:
+
+```bash
+lake build LeanUfo.UFO.DSL.Examples
 ```
 
 ---
