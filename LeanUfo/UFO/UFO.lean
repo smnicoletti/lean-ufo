@@ -1,7 +1,6 @@
 import LeanUfo.UFO.Modal.Basics
 import LeanUfo.UFO.Modal.S5
 import LeanUfo.UFO.Modal.FirstOrder
-import LeanUfo.UFO.Modal.Barcan
 
 /- Core Signatures -/
 import LeanUfo.UFO.Core.Signature3_1
@@ -52,3 +51,8 @@ import LeanUfo.UFO.Models.Model3_12
 import LeanUfo.UFO.Models.Model3_13
 import LeanUfo.UFO.Models.Model4
 import LeanUfo.UFO.Models.Consistency
+
+/- Phase 1 finite DSL backend. -/
+import LeanUfo.UFO.DSL.FiniteModel
+import LeanUfo.UFO.DSL.Syntax
+import LeanUfo.UFO.DSL.Guarantees
