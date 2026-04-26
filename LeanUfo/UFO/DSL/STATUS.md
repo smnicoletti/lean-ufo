@@ -47,6 +47,45 @@ Thus the function definitions and generic theorems are verified Lean artifacts,
 while the concrete emitted AST value remains part of the metaprogramming
 boundary.
 
+Pipeline stages:
+
+- `trusted Lean command parser`: the `ufo_model ... where ...` syntax is parsed
+  by Lean metaprogramming in `Syntax.lean`. This is the concrete frontend
+  boundary.
+- `NamedScopedFact`: parser output that still uses user-facing names such as
+  `actual`, `I`, and `K`, and records whether a fact is scoped to one world or
+  `everywhere`.
+- `resolveNamedFacts`: pure name-resolution pass. It checks duplicate world and
+  thing names, rejects unknown names, and replaces user names with numeric
+  indices.
+- `ScopedCompiledFact`: resolved facts whose worlds/things are numeric, but
+  whose scope may still be either one world or `everywhere`.
+- `expandScopedFacts`: pure scope-expansion pass. Facts scoped to one world stay
+  single facts; facts scoped to `everywhere` are copied to every declared world.
+- `CompiledFact`: ordinary world-indexed facts. At this point there are no
+  names and no `everywhere` scope left.
+- `addTaxonomyFacts`: pure deterministic taxonomy expansion. For example,
+  `ObjectKind` contributes the encoded ancestor classifications such as `Kind`,
+  `Sortal`, and the relevant type-taxonomy facts.
+- `addReflexiveSpecializationFacts`: pure closure pass that inserts `T ⊑ T` for
+  each type target detected from instantiation facts, at each declared world.
+- `ModelAST`: the expanded finite model syntax tree emitted as a Lean
+  declaration. It records world count, thing count, and the final compiled fact
+  list.
+- `compileExplicitModelAST`: pure fold from the expanded `ModelAST` into
+  collected primitive facts and derived-assertion propositions.
+- `FactTables`: the finite compiled data used by the backend. This is the last
+  compact compiler representation before constructing the semantic model.
+- `compileExplicitModel`: pure construction of a `FiniteModel4` from the
+  expanded AST, using positivity proofs for the declared world and thing counts.
+- `FiniteModel4`: the finite backend representation of worlds, things, and
+  primitive finite facts.
+- `FiniteModel4.toUFOSignature4`: semantic bridge from the finite backend to the
+  Prop-valued `UFOSignature4` used by the core UFO axioms. This is where selected
+  derived predicates receive their computed semantics.
+- `UFOAxioms4 certificate`: generated Lean theorem proving that the compiled
+  signature satisfies the encoded UFO axiom package.
+
 ## Trust Boundary Diagram
 
 ```mermaid
@@ -146,6 +185,43 @@ These are pipeline guarantees. They expose where taxonomy expansion happens.
 They do not yet prove a full graph-reachability theorem saying that the added
 facts are exactly all and only taxonomy ancestors reachable through
 `unaryTaxonomyParents`.
+
+The current taxonomy expansion is intended to be conservative with respect to
+the encoded UFO hierarchy: it adds only positive consequences of the axioms and
+derived theorems, and it avoids reverse or choice-producing inferences. For
+example, `Endurant` expands to `ConcreteIndividual`, but `ConcreteIndividual`
+does not expand back to either `Endurant` or `Perdurant`, because that would
+require choosing one branch of `ConcreteIndividual ↔ Endurant ∨ Perdurant`.
+
+Current taxonomy:
+
+| Expansion group | Added parent facts | UFO source |
+| --- | --- | --- |
+| `Object`, `Collective`, `Quantity` | `Substantial` | Section 3.3, `a36`: `Object ∨ Collective ∨ Quantity ↔ Substantial` |
+| `Relator`, `IntrinsicMoment` | `Moment` | Section 3.3, `a40`: `Relator ∨ IntrinsicMoment ↔ Moment` |
+| `Mode` | `IntrinsicMoment` | Section 3.3, `a42`: `Mode ∨ Quality ↔ IntrinsicMoment` |
+| `Substantial`, `Moment` | `Endurant` | Section 3.3, `a34`: `Substantial ∨ Moment ↔ Endurant` |
+| `Endurant`, `Perdurant` | `ConcreteIndividual` | Section 3.1, `a11`, `a12`, and `a14` |
+| `Quale`, `Set` | `AbstractIndividual` | Section 3.12, `a83` and `a84` |
+| `Rigid`, `AntiRigid`, `SemiRigid` | `EndurantType` | Section 3.2, `a18`, `a19`, `a20` |
+| `Kind`, `SubKind` | `Rigid`, `Sortal` | Section 3.2, `a26`: `Kind ∨ SubKind ↔ Rigid ∧ Sortal` |
+| `Phase`, `Role` | `AntiRigid`, `Sortal` | Section 3.2, `a28`: `Phase ∨ Role ↔ AntiRigid ∧ Sortal` |
+| `SemiRigidSortal` | `SemiRigid`, `Sortal` | Section 3.2, `a29` |
+| `Category` | `Rigid`, `NonSortal` | Section 3.2, `a30` |
+| `Mixin` | `SemiRigid`, `NonSortal` | Section 3.2, `a31` |
+| `PhaseMixin`, `RoleMixin` | `AntiRigid`, `NonSortal` | Section 3.2, `a32` |
+| `Sortal`, `NonSortal` | `EndurantType` | Section 3.2, `a23`, `a24` |
+| `ObjectKind`, `CollectiveKind`, `QuantityKind`, `RelatorKind`, `ModeKind`, `QualityKind` | their corresponding specific type plus `Kind` | Section 3.4, `a45` |
+| `ObjectType`, `CollectiveType`, `QuantityType` | `SubstantialType` | Section 3.4, `a44` plus the corresponding individual taxonomy |
+| `RelatorType`, `IntrinsicMomentType` | `MomentType` | Section 3.4, `a44` plus the corresponding individual taxonomy |
+| `ModeType`, `QualityType` | `IntrinsicMomentType`, then `MomentType` | Section 3.4, `a44` plus the corresponding individual taxonomy |
+| `SubstantialType`, `MomentType` | `EndurantType` | Section 3.4, `a44` plus the corresponding individual taxonomy |
+
+The strongest currently formalized fact is still the pipeline theorem above:
+`addTaxonomyFacts` applies exactly this encoded parent map. We do not yet have a
+separate theorem proving, edge by edge, that each parent implication follows
+from the UFO axioms. The practical backstop is the generated certificate:
+if the expanded model violates `UFOAxioms4`, `certify` fails.
 
 ### Reflexive Specialization Expansion
 

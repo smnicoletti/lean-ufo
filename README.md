@@ -1051,6 +1051,27 @@ ordinary Lean theorem:
 ModelName.certified : UFOAxioms4 ModelName.sig
 ```
 
+At a high level, the named stages mean:
+
+- `NamedScopedFact`: the parsed user facts, still using user-facing world and
+  thing names.
+- `resolveNamedFacts`: the pure pass that checks duplicate/unknown names and
+  replaces names with numeric finite indices.
+- `ScopedCompiledFact` and `expandScopedFacts`: the representation and pass used
+  to turn `given everywhere:` into one fact per declared world.
+- `CompiledFact`: ordinary world-indexed facts after name and scope resolution.
+- `addTaxonomyFacts`: deterministic expansion of classification sugar such as
+  `ObjectKind` into its encoded taxonomy ancestors.
+- `addReflexiveSpecializationFacts`: insertion of `T ⊑ T` for instantiated
+  types, as required by the encoded specialization axioms.
+- `ModelAST`, `FactTables`, and `FiniteModel4`: successive finite
+  representations of the generated model, moving from expanded facts to the
+  finite semantic backend.
+- `FiniteModel4.toUFOSignature4`: the bridge into the ordinary Prop-valued UFO
+  signature checked by the existing axiom package.
+- `UFOAxioms4 certificate`: the generated Lean theorem proving that the compiled
+  signature satisfies the encoded UFO axioms.
+
 ```text
 LeanUfo/UFO/DSL/
   Certification.lean   -- decidability bridge for axiom packages
@@ -1095,6 +1116,55 @@ meaning of instantiation, and `⊑` asserts specialization. Multiple
 also be written as `x Relation y`, including `Part`, `Overlap`, and
 `ProperPart`. The reserved pseudo-world `everywhere` marks facts that hold in
 every declared world.
+
+`derive_relations` means: for selected UFO predicates, do not read their truth
+from user-written primitive facts; compute them from their UFO-style defining
+conditions.
+
+Primitive facts are direct assertions in the finite model:
+
+```lean
+I :: K
+K ⊑ T
+I : Object
+x Part y
+x ConstitutedBy y
+x : Ex
+```
+
+For these, the DSL says: "the user asserts this finite fact." Then `certify`
+checks whether the resulting model satisfies the UFO axioms.
+
+Derived/computed predicates are not arbitrary user assertions. The compiler
+computes them from lower-level facts and UFO-style defining conditions. The
+currently selected derived predicates are:
+
+- `Type`
+- `Individual`
+- `GenericFunctionalDependence`
+- `IndividualFunctionalDependence`
+- `ComponentOf`
+- `GenericConstitutionalDependence`
+- `Constitution`
+- `ExistentialDependence`
+- `ExistentialIndependence`
+- `ExternallyDependent`
+- `ExternallyDependentMode`
+- `QuaIndividual`
+- `IsDisjointWith`
+- `IsCompletelyCoveredBy`
+- `IsPartitionedInto`
+- `Categorizes`
+
+For example, in the minimal model:
+
+```lean
+I :: K
+```
+
+makes `K` a `Type` because the compiled semantics derives `Type K actual` from
+possible instantiation. You do not need to write `K : Type`; that predicate is
+computed.
 
 The aggregate `LeanUfo.UFO.UFO` imports the DSL backend, command syntax, and
 generic guarantee theorems. Concrete example files are kept under
