@@ -91,8 +91,7 @@ theorem ax58_sig3_7 : ax_a58 sig3_7 := by
       rcases hI with ⟨y, hyInst, hyConst⟩
       cases hyConst
   · constructor
-    · intro _
-      intro x hx
+    · intro _ x hx
       cases x <;> simp [sig3_7, Model3_6.sig3_6, Model3_5.sig3_5, Model3_2.sig3_2] at hx
     · intro _
       trivial
@@ -107,8 +106,7 @@ theorem ax59_sig3_7 : ax_a59 sig3_7 := by
 /-- Proof that `sig3_7` satisfies (a60). -/
 theorem ax60_sig3_7 : ax_a60 sig3_7 := by
   unfold ax_a60
-  intro x y w h
-  intro w' hw' hxEx
+  intro x y w h w' hw' hxEx
   exact False.elim h.2
 
 /-- Proof that `sig3_7` satisfies (a61). -/
