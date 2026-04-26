@@ -54,5 +54,6 @@ import LeanUfo.UFO.Models.Consistency
 
 /- Phase 1 finite DSL backend. -/
 import LeanUfo.UFO.DSL.FiniteModel
+import LeanUfo.UFO.DSL.Compiler
 import LeanUfo.UFO.DSL.Syntax
 import LeanUfo.UFO.DSL.Guarantees

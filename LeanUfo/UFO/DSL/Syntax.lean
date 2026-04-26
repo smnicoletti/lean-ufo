@@ -1,5 +1,5 @@
 import Lean
-import LeanUfo.UFO.DSL.FiniteModel
+import LeanUfo.UFO.DSL.Compiler
 
 /-!
 # Lean command syntax for finite UFO models
@@ -8,16 +8,18 @@ This module is the Phase 1 front end.  It deliberately stays thin:
 
 * the **surface DSL** lets users write named worlds, named things, and named
   facts using UFO-friendly notation;
-* the **command elaborator** compiles those names into finite Boolean tables
-  over `Fin n`;
+* the **command elaborator** parses those facts into a named AST and delegates
+  name resolution, scope expansion, taxonomy expansion, table compilation, and
+  finite-model construction to the pure compiler in `Compiler.lean`;
 * the **semantic target** remains the trusted `UFOSignature4` kernel;
 * the **certificate** is an ordinary theorem
   `Name.certified : UFOAxioms4 Name.sig`.
 
-The command does not add new semantics.  It emits Lean declarations with the
-same shape as a hand-written finite model, then lets Lean check the generated
-proof.  If the generated finite model violates one of the currently encoded
-axioms, the `certify` step fails during elaboration.
+The command does not add new semantics.  It emits ordinary Lean declarations
+for the resolved/expanded AST, the compiled finite model, and the generated
+certificate, then lets Lean check them.  If the generated finite model violates
+one of the currently encoded axioms, the `certify` step fails during
+elaboration.
 
 The canonical Phase 1 fact syntax is:
 
@@ -33,7 +35,7 @@ the form `x Relation y`, including the mereological predicates `Part`,
 `Part` and `Overlap` include identity by default so that the common tiny-model
 case satisfies extensional mereology without boilerplate.
 
-The elaborator also closes unary taxonomy facts conservatively.  For example,
+The pure compiler also closes unary taxonomy facts conservatively.  For example,
 `x : QuantityKind` inserts the facts required by the encoded taxonomy, such as
 `x : Kind`, `x : Sortal`, `x : Rigid`, `x : QuantityType`,
 `x : SubstantialType`, and `x : EndurantType`.  This is DSL sugar over finite
@@ -50,9 +52,9 @@ Higher-arity derived facts use function-style syntax, for example
 not a reliable arity separator in Lean command syntax.
 
 A fact block may target the reserved pseudo-world `everywhere`.  The elaborator
-expands `given everywhere:` into one copy of the block for every declared world.
-This is only syntactic sugar; the compiled finite tables still contain ordinary
-world-indexed facts.
+records this as a scoped fact, and the pure compiler expands it into one copy
+for every declared world. This is only syntactic sugar; the compiled finite
+tables still contain ordinary world-indexed facts.
 -/
 
 open Lean Elab Command Parser
@@ -98,7 +100,13 @@ logical completeness theorem for UFO.
 -/
 
 private def certificateSimp : String :=
-  "simp [sig, data, FiniteModel4.toUFOSignature4, FiniteModel4.toS5Frame,
+  "simp [sig, data, tables, ast, compileModel, compileModelAST, compileFacts, compileFact,
+    compileExplicitModel, compileExplicitModelAST, compileExplicitFact,
+    FactTables.toFiniteModel4, FactTables.unaryTable, FactTables.binaryTable,
+    FactTables.identityBinaryTable, addUnary, addUnaryWithTaxonomy, addUnaryWithTaxonomyAux,
+    addBinary, addDerivedProp, closeReflexiveSpecialization, unaryTaxonomyParents,
+    UnaryField.toTableField, BinaryField.toTableField,
+    FiniteModel4.toUFOSignature4, FiniteModel4.toS5Frame,
     FiniteModel4.typeSem, FiniteModel4.individualSem, Frame.Dia, Frame.Box,
     forallFinSucc, existsFinSucc,
     ax_a1, ax_a2, ax_a3, ax_a4, ax_a5, ax_a6, ax_a7, ax_a8, ax_a9, ax_a10, ax_a11, ax_a12,
@@ -118,150 +126,10 @@ private def certificateSimp : String :=
     ax_a99, ax_a100, ax_a101, ax_distance_identity, ax_distance_symmetry, ax_distance_triangle,
     ax_a102, ax_a103, ax_a104, ax_a105, ax_a106, ax_a107, ax_a108, Quality, QualityStructure]"
 
-private structure FactTables where
-  unary : Std.HashMap String (Array (Nat × Nat)) := {}
-  binary : Std.HashMap String (Array (Nat × Nat × Nat)) := {}
-  derivedProps : Array String := #[]
-
-private def addUnary (tables : FactTables) (field : String) (x w : Nat) : FactTables :=
-  { tables with unary := tables.unary.insert field ((tables.unary.getD field #[]).push (x, w)) }
-
-/--
-Immediate unary taxonomy implications used to make the surface DSL lighter.
-
-The map follows only the encoded classification hierarchy where a child
-predicate has a unique positive parent path.  It deliberately avoids inferences
-that require choosing between disjoint alternatives.  For instance,
-`ConcreteIndividual` does not imply `Endurant` or `Perdurant`, because the UFO
-axioms say it is one of those but do not determine which one.
--/
-private def unaryTaxonomyParents (field : String) : Array String :=
-  match field with
-  | "object" => #["substantial"]
-  | "collective" => #["substantial"]
-  | "quantity" => #["substantial"]
-  | "relator" => #["moment"]
-  | "intrinsicMoment" => #["moment"]
-  | "mode" => #["intrinsicMoment"]
-  | "substantial" => #["endurant"]
-  | "moment" => #["endurant"]
-  | "endurant" => #["concreteIndividual"]
-  | "perdurant" => #["concreteIndividual"]
-  | "quale" => #["abstractIndividual"]
-  | "set_" => #["abstractIndividual"]
-  | "externallyDependentMode" => #["mode"]
-  | "quaIndividual" => #["externallyDependentMode"]
-
-  | "subKind" => #["rigid", "sortal"]
-  | "phase" => #["antiRigid", "sortal"]
-  | "role" => #["antiRigid", "sortal"]
-  | "semiRigidSortal" => #["semiRigid", "sortal"]
-  | "category" => #["rigid", "nonSortal"]
-  | "mixin" => #["semiRigid", "nonSortal"]
-  | "phaseMixin" => #["antiRigid", "nonSortal"]
-  | "roleMixin" => #["antiRigid", "nonSortal"]
-  | "kind" => #["rigid", "sortal"]
-  | "sortal" => #["endurantType"]
-  | "nonSortal" => #["endurantType"]
-
-  | "objectKind" => #["objectType", "kind"]
-  | "collectiveKind" => #["collectiveType", "kind"]
-  | "quantityKind" => #["quantityType", "kind"]
-  | "relatorKind" => #["relatorType", "kind"]
-  | "modeKind" => #["modeType", "kind"]
-  | "qualityKind" => #["qualityType", "kind"]
-  | "objectType" => #["substantialType"]
-  | "collectiveType" => #["substantialType"]
-  | "quantityType" => #["substantialType"]
-  | "relatorType" => #["momentType"]
-  | "modeType" => #["intrinsicMomentType", "momentType"]
-  | "qualityType" => #["intrinsicMomentType", "momentType"]
-  | "intrinsicMomentType" => #["momentType"]
-  | "substantialType" => #["endurantType"]
-  | "momentType" => #["endurantType"]
-  | _ => #[]
-
-/--
-Insert a unary fact together with its deterministic taxonomy ancestors.
-
-User-facing names disappear before this point: the closure is over internal
-finite-table field names.  Duplicate insertions are harmless semantically, but
-the local `seen` set keeps generated Boolean tables smaller and avoids cycles if
-the taxonomy map is extended later.
--/
-private partial def addUnaryWithTaxonomyAux
-    (tables : FactTables) (field : String) (x w : Nat)
-    (seen : Std.HashSet String) : FactTables × Std.HashSet String :=
-  if seen.contains field then
-    (tables, seen)
-  else
-    let tables := addUnary tables field x w
-    let seen := seen.insert field
-    unaryTaxonomyParents field |>.foldl
-      (fun (acc : FactTables × Std.HashSet String) parent =>
-        addUnaryWithTaxonomyAux acc.1 parent x w acc.2)
-      (tables, seen)
-
-/-- Add a user-written unary fact and all deterministic taxonomy consequences. -/
-private def addUnaryWithTaxonomy (tables : FactTables) (field : String) (x w : Nat) : FactTables :=
-  (addUnaryWithTaxonomyAux tables field x w {}).1
-
-private def addBinary (tables : FactTables) (field : String) (x y w : Nat) : FactTables :=
-  { tables with binary := tables.binary.insert field ((tables.binary.getD field #[]).push (x, y, w)) }
-
-private def addDerivedProp (tables : FactTables) (prop : String) : FactTables :=
-  { tables with derivedProps := tables.derivedProps.push prop }
-
-/--
-Close the specialization table under the basic reflexivity required by (a5).
-
-In the current semantic compiler, `Type` is defined by possible instantiation:
-a thing is a type iff it appears as the target of some `x :: T` fact in some
-world.  Since (a5) makes every type specialize itself at every world, the DSL
-inserts those reflexive `T ⊑ T` facts automatically.  User-written
-specializations such as `Employee ⊑ Person` remain explicit.
--/
-private def closeReflexiveSpecialization
-    (worldCount : Nat) (tables : FactTables) : FactTables :=
-  let instFacts := tables.binary.getD "inst" #[]
-  let typeTargets :=
-    instFacts.foldl
-      (fun (seen : Std.HashSet Nat) (_x, t, _w) => seen.insert t)
-      {}
-  typeTargets.toArray.foldl
-    (fun tables t =>
-      Id.run do
-        let mut tables := tables
-        for w in [:worldCount] do
-          tables := addBinary tables "sub" t t w
-        pure tables)
-    tables
-
-private def indexOf? (xs : Array Name) (x : Name) : Option Nat :=
-  xs.findIdx? (· == x)
-
-private def requireIndex (kind : String) (xs : Array Name) (x : Syntax) : CommandElabM Nat := do
-  match indexOf? xs x.getId with
-  | some i => pure i
-  | none => throwErrorAt x "unknown {kind} name `{x.getId}` in UFO model"
-
-private def checkNoDuplicates (kind : String) (xs : Array Name) : CommandElabM Unit := do
-  let mut seen : Std.HashSet Name := {}
-  for x in xs do
-    if seen.contains x then
-      throwError "duplicate {kind} name `{x}` in UFO model"
-    seen := seen.insert x
-
 private def checkNoReservedWorldNames (xs : Array Name) : CommandElabM Unit := do
   for x in xs do
     if x == `everywhere then
       throwError "`everywhere` is reserved for facts that hold at every declared world"
-
-private def finThing (i : Nat) : String :=
-  s!"(⟨{i}, by decide⟩ : Fin data.thingCount)"
-
-private def finWorld (i : Nat) : String :=
-  s!"(⟨{i}, by decide⟩ : Fin data.worldCount)"
 
 private def derivedUnaryField? (p : Name) : Option String :=
   match p.toString with
@@ -293,198 +161,244 @@ private def derivedQuaternaryField? (p : Name) : Option String :=
   | "Constitution" => some "Constitution"
   | _ => none
 
-private def unaryField? (p : Name) : Option String :=
+private def unaryField? (p : Name) : Option UnaryField :=
   match p.toString with
-  | "ConcreteIndividual" => some "concreteIndividual"
-  | "AbstractIndividual" => some "abstractIndividual"
-  | "Endurant" => some "endurant"
-  | "Perdurant" => some "perdurant"
-  | "EndurantType" => some "endurantType"
-  | "PerdurantType" => some "perdurantType"
-  | "Rigid" => some "rigid"
-  | "AntiRigid" => some "antiRigid"
-  | "SemiRigid" => some "semiRigid"
-  | "Kind" => some "kind"
-  | "Sortal" => some "sortal"
-  | "NonSortal" => some "nonSortal"
-  | "SubKind" => some "subKind"
-  | "Phase" => some "phase"
-  | "Role" => some "role"
-  | "SemiRigidSortal" => some "semiRigidSortal"
-  | "Category" => some "category"
-  | "Mixin" => some "mixin"
-  | "PhaseMixin" => some "phaseMixin"
-  | "RoleMixin" => some "roleMixin"
-  | "Substantial" => some "substantial"
-  | "Moment" => some "moment"
-  | "Object" => some "object"
-  | "Collective" => some "collective"
-  | "Quantity" => some "quantity"
-  | "Relator" => some "relator"
-  | "IntrinsicMoment" => some "intrinsicMoment"
-  | "Mode" => some "mode"
-  | "QualityKind" => some "qualityKind"
-  | "SubstantialType" => some "substantialType"
-  | "MomentType" => some "momentType"
-  | "ObjectType" => some "objectType"
-  | "CollectiveType" => some "collectiveType"
-  | "QuantityType" => some "quantityType"
-  | "RelatorType" => some "relatorType"
-  | "ModeType" => some "modeType"
-  | "QualityType" => some "qualityType"
-  | "ObjectKind" => some "objectKind"
-  | "CollectiveKind" => some "collectiveKind"
-  | "QuantityKind" => some "quantityKind"
-  | "RelatorKind" => some "relatorKind"
-  | "ModeKind" => some "modeKind"
-  | "Ex" => some "ex"
-  | "Quale" => some "quale"
-  | "Set" => some "set_"
-  | "Set_" => some "set_"
-  | "QualityDomain" => some "qualityDomain"
-  | "QualityDimension" => some "qualityDimension"
-  | "IntrinsicMomentType" => some "intrinsicMomentType"
+  | "ConcreteIndividual" => some .concreteIndividual
+  | "AbstractIndividual" => some .abstractIndividual
+  | "Endurant" => some .endurant
+  | "Perdurant" => some .perdurant
+  | "EndurantType" => some .endurantType
+  | "PerdurantType" => some .perdurantType
+  | "Rigid" => some .rigid
+  | "AntiRigid" => some .antiRigid
+  | "SemiRigid" => some .semiRigid
+  | "Kind" => some .kind
+  | "Sortal" => some .sortal
+  | "NonSortal" => some .nonSortal
+  | "SubKind" => some .subKind
+  | "Phase" => some .phase
+  | "Role" => some .role
+  | "SemiRigidSortal" => some .semiRigidSortal
+  | "Category" => some .category
+  | "Mixin" => some .mixin
+  | "PhaseMixin" => some .phaseMixin
+  | "RoleMixin" => some .roleMixin
+  | "Substantial" => some .substantial
+  | "Moment" => some .moment
+  | "Object" => some .object
+  | "Collective" => some .collective
+  | "Quantity" => some .quantity
+  | "Relator" => some .relator
+  | "IntrinsicMoment" => some .intrinsicMoment
+  | "Mode" => some .mode
+  | "QualityKind" => some .qualityKind
+  | "SubstantialType" => some .substantialType
+  | "MomentType" => some .momentType
+  | "ObjectType" => some .objectType
+  | "CollectiveType" => some .collectiveType
+  | "QuantityType" => some .quantityType
+  | "RelatorType" => some .relatorType
+  | "ModeType" => some .modeType
+  | "QualityType" => some .qualityType
+  | "ObjectKind" => some .objectKind
+  | "CollectiveKind" => some .collectiveKind
+  | "QuantityKind" => some .quantityKind
+  | "RelatorKind" => some .relatorKind
+  | "ModeKind" => some .modeKind
+  | "Ex" => some .ex
+  | "Quale" => some .quale
+  | "Set" => some .set_
+  | "Set_" => some .set_
+  | "QualityDomain" => some .qualityDomain
+  | "QualityDimension" => some .qualityDimension
+  | "IntrinsicMomentType" => some .intrinsicMomentType
   | _ => none
 
-private def binaryField? (p : Name) : Option String :=
+private def binaryField? (p : Name) : Option BinaryField :=
   match p.toString with
-  | "Part" => some "part"
-  | "Overlap" => some "overlap"
-  | "ProperPart" => some "properPart"
-  | "FunctionsAs" => some "functionsAs"
-  | "ConstitutedBy" => some "constitutedBy"
-  | "InheresIn" => some "inheresIn"
-  | "FoundedBy" => some "foundedBy"
-  | "QuaIndividualOf" => some "quaIndividualOf"
-  | "Mediates" => some "mediates"
-  | "Characterization" => some "characterization"
-  | "AssociatedWith" => some "associatedWith"
-  | "HasValue" => some "hasValue"
-  | "Manifests" => some "manifests"
-  | "LifeOf" => some "lifeOf"
-  | "Meet" => some "meet"
+  | "Part" => some .part
+  | "Overlap" => some .overlap
+  | "ProperPart" => some .properPart
+  | "FunctionsAs" => some .functionsAs
+  | "ConstitutedBy" => some .constitutedBy
+  | "InheresIn" => some .inheresIn
+  | "FoundedBy" => some .foundedBy
+  | "QuaIndividualOf" => some .quaIndividualOf
+  | "Mediates" => some .mediates
+  | "Characterization" => some .characterization
+  | "AssociatedWith" => some .associatedWith
+  | "HasValue" => some .hasValue
+  | "Manifests" => some .manifests
+  | "LifeOf" => some .lifeOf
+  | "Meet" => some .meet
   | _ => none
-
-private def unaryFields : Array String :=
-  #["concreteIndividual", "abstractIndividual", "endurant", "perdurant",
-    "endurantType", "perdurantType", "rigid", "antiRigid", "semiRigid",
-    "kind", "sortal", "nonSortal", "subKind", "phase", "role",
-    "semiRigidSortal", "category", "mixin", "phaseMixin", "roleMixin",
-    "substantial", "moment", "object", "collective", "quantity", "relator",
-    "intrinsicMoment", "mode", "qualityKind", "substantialType", "momentType",
-    "objectType", "collectiveType", "quantityType", "relatorType", "modeType",
-    "qualityType", "objectKind", "collectiveKind", "quantityKind",
-    "relatorKind", "modeKind", "ex", "externallyDependentMode",
-    "quaIndividual", "quale", "set_", "qualityDomain", "qualityDimension",
-    "intrinsicMomentType"]
-
-private def binaryFields : Array String :=
-  #["inst", "sub", "part", "overlap", "properPart", "functionsAs",
-    "genericFunctionalDependence", "constitutedBy", "genericConstitutionalDependence",
-    "existentialDependence", "existentialIndependence", "inheresIn",
-    "externallyDependent", "foundedBy", "quaIndividualOf", "mediates",
-    "characterization", "associatedWith", "hasValue", "manifests", "lifeOf", "meet"]
-
-private def boolDisj (terms : Array String) : String :=
-  if terms.isEmpty then
-    "false"
-  else
-    String.intercalate " || " terms.toList
-
-private def unaryTable (fs : Array (Nat × Nat)) : String :=
-  let terms := fs.map fun (x, w) => s!"(x.val == {x} && w.val == {w})"
-  s!"fun x w => {boolDisj terms}"
-
-private def binaryTable (fs : Array (Nat × Nat × Nat)) : String :=
-  let terms := fs.map fun (x, y, w) => s!"(x.val == {x} && y.val == {y} && w.val == {w})"
-  s!"fun x y w => {boolDisj terms}"
-
-private def identityBinaryTable (fs : Array (Nat × Nat × Nat)) : String :=
-  let explicit := fs.map fun (x, y, w) => s!"(x.val == {x} && y.val == {y} && w.val == {w})"
-  s!"fun x y w => x == y || {boolDisj explicit}"
 
 private def dataField (name value : String) : String :=
   s!"  {name} := {value}\n"
 
+private def unaryFieldTerm : UnaryField → String
+  | .concreteIndividual => ".concreteIndividual"
+  | .abstractIndividual => ".abstractIndividual"
+  | .endurant => ".endurant"
+  | .perdurant => ".perdurant"
+  | .endurantType => ".endurantType"
+  | .perdurantType => ".perdurantType"
+  | .rigid => ".rigid"
+  | .antiRigid => ".antiRigid"
+  | .semiRigid => ".semiRigid"
+  | .kind => ".kind"
+  | .sortal => ".sortal"
+  | .nonSortal => ".nonSortal"
+  | .subKind => ".subKind"
+  | .phase => ".phase"
+  | .role => ".role"
+  | .semiRigidSortal => ".semiRigidSortal"
+  | .category => ".category"
+  | .mixin => ".mixin"
+  | .phaseMixin => ".phaseMixin"
+  | .roleMixin => ".roleMixin"
+  | .substantial => ".substantial"
+  | .moment => ".moment"
+  | .object => ".object"
+  | .collective => ".collective"
+  | .quantity => ".quantity"
+  | .relator => ".relator"
+  | .intrinsicMoment => ".intrinsicMoment"
+  | .mode => ".mode"
+  | .qualityKind => ".qualityKind"
+  | .substantialType => ".substantialType"
+  | .momentType => ".momentType"
+  | .objectType => ".objectType"
+  | .collectiveType => ".collectiveType"
+  | .quantityType => ".quantityType"
+  | .relatorType => ".relatorType"
+  | .modeType => ".modeType"
+  | .qualityType => ".qualityType"
+  | .objectKind => ".objectKind"
+  | .collectiveKind => ".collectiveKind"
+  | .quantityKind => ".quantityKind"
+  | .relatorKind => ".relatorKind"
+  | .modeKind => ".modeKind"
+  | .ex => ".ex"
+  | .quale => ".quale"
+  | .set_ => ".set_"
+  | .qualityDomain => ".qualityDomain"
+  | .qualityDimension => ".qualityDimension"
+  | .intrinsicMomentType => ".intrinsicMomentType"
+
+private def binaryFieldTerm : BinaryField → String
+  | .inst => ".inst"
+  | .sub => ".sub"
+  | .part => ".part"
+  | .overlap => ".overlap"
+  | .properPart => ".properPart"
+  | .functionsAs => ".functionsAs"
+  | .constitutedBy => ".constitutedBy"
+  | .inheresIn => ".inheresIn"
+  | .foundedBy => ".foundedBy"
+  | .quaIndividualOf => ".quaIndividualOf"
+  | .mediates => ".mediates"
+  | .characterization => ".characterization"
+  | .associatedWith => ".associatedWith"
+  | .hasValue => ".hasValue"
+  | .manifests => ".manifests"
+  | .lifeOf => ".lifeOf"
+  | .meet => ".meet"
+
+private def leanStringLit (s : String) : String :=
+  reprStr s
+
+private def compiledFactTerm : CompiledFact → String
+  | .unary field x w => s!"CompiledFact.unary {unaryFieldTerm field} {x} {w}"
+  | .binary field x y w => s!"CompiledFact.binary {binaryFieldTerm field} {x} {y} {w}"
+  | .derived prop => s!"CompiledFact.derived {leanStringLit prop}"
+
+private def modelASTSource (worldCount thingCount : Nat) (facts : Array CompiledFact) : String :=
+  let factTerms := facts.map compiledFactTerm
+  let factArray :=
+    if factTerms.isEmpty then
+      "#[]"
+    else
+      "#[" ++ String.intercalate ", " factTerms.toList ++ "]"
+  "def ast : ModelAST :=\n" ++
+    "{\n" ++
+    dataField "worldCount" (toString worldCount) ++
+    dataField "thingCount" (toString thingCount) ++
+    dataField "facts" factArray ++
+    "}\n"
+
 private def parseFact
-    (_worldNames thingNames : Array Name) (currentWorld : Nat)
-    (tables : FactTables) (fact : TSyntax `ufoFact) : CommandElabM FactTables := do
+    (_worldNames _thingNames : Array Name) (scope : NamedFactScope)
+    (facts : Array NamedScopedFact) (fact : TSyntax `ufoFact) :
+    CommandElabM (Array NamedScopedFact) := do
   match fact with
   | `(ufoFact| $x:ident : $p:ident) =>
-      let xIdx ← requireIndex "thing" thingNames x
+      let xName := x.getId.toString
       match unaryField? p.getId with
-      | some field => pure <| addUnaryWithTaxonomy tables field xIdx currentWorld
+      | some field => pure <| facts.push (.unary field xName scope)
       | none =>
           match derivedUnaryField? p.getId with
           | some field =>
-              pure <| addDerivedProp tables
-                s!"sig.{field} {finThing xIdx} {finWorld currentWorld}"
+              pure <| facts.push (.derived (.unary field xName) scope)
           | none => throwErrorAt p "unsupported unary UFO predicate `{p.getId}`"
   | `(ufoFact| $x:ident :: $t:ident) =>
-      let xIdx ← requireIndex "thing" thingNames x
-      let tIdx ← requireIndex "thing" thingNames t
-      pure <| addBinary tables "inst" xIdx tIdx currentWorld
+      pure <| facts.push (.binary .inst x.getId.toString t.getId.toString scope)
   | `(ufoFact| $x:ident ⊑ $t:ident) =>
-      let xIdx ← requireIndex "thing" thingNames x
-      let tIdx ← requireIndex "thing" thingNames t
-      pure <| addBinary tables "sub" xIdx tIdx currentWorld
+      pure <| facts.push (.binary .sub x.getId.toString t.getId.toString scope)
   | `(ufoFact| $x:ident $r:ident $y:ident) =>
-      let xIdx ← requireIndex "thing" thingNames x
-      let yIdx ← requireIndex "thing" thingNames y
+      let xName := x.getId.toString
+      let yName := y.getId.toString
       match binaryField? r.getId with
-      | some field => pure <| addBinary tables field xIdx yIdx currentWorld
+      | some field => pure <| facts.push (.binary field xName yName scope)
       | none =>
           match derivedBinaryField? r.getId with
           | some field =>
-              pure <| addDerivedProp tables
-                s!"sig.{field} {finThing xIdx} {finThing yIdx} {finWorld currentWorld}"
+              pure <| facts.push (.derived (.binary field xName yName) scope)
           | none => throwErrorAt r "unsupported binary UFO relation `{r.getId}`"
   | `(ufoFact| $r:ident($x:ident, $y:ident, $z:ident)) =>
-      let xIdx ← requireIndex "thing" thingNames x
-      let yIdx ← requireIndex "thing" thingNames y
-      let zIdx ← requireIndex "thing" thingNames z
+      let xName := x.getId.toString
+      let yName := y.getId.toString
+      let zName := z.getId.toString
       match derivedTernaryField? r.getId with
       | some field =>
-          pure <| addDerivedProp tables
-            s!"sig.{field} {finThing xIdx} {finThing yIdx} {finThing zIdx} {finWorld currentWorld}"
+          pure <| facts.push (.derived (.ternary field xName yName zName) scope)
       | none => throwErrorAt r "unsupported ternary UFO relation `{r.getId}`"
   | `(ufoFact| $r:ident($x:ident, $y:ident, $z:ident, $q:ident)) =>
-      let xIdx ← requireIndex "thing" thingNames x
-      let yIdx ← requireIndex "thing" thingNames y
-      let zIdx ← requireIndex "thing" thingNames z
-      let qIdx ← requireIndex "thing" thingNames q
+      let xName := x.getId.toString
+      let yName := y.getId.toString
+      let zName := z.getId.toString
+      let qName := q.getId.toString
       match derivedQuaternaryField? r.getId with
       | some field =>
-          pure <| addDerivedProp tables
-            s!"sig.{field} {finThing xIdx} {finThing yIdx} {finThing zIdx} {finThing qIdx} {finWorld currentWorld}"
+          pure <| facts.push (.derived (.quaternary field xName yName zName qName) scope)
       | none => throwErrorAt r "unsupported quaternary UFO relation `{r.getId}`"
   | _ =>
       throwErrorAt fact "unsupported UFO fact syntax"
 
 private def parseFactBlock
     (worldNames thingNames : Array Name)
-    (tables : FactTables) (factBlock : TSyntax `ufoFactBlock) : CommandElabM FactTables := do
+    (facts : Array NamedScopedFact) (factBlock : TSyntax `ufoFactBlock) :
+    CommandElabM (Array NamedScopedFact) := do
   match factBlock with
   | `(ufoFactBlock| given $factWorld:ident:
         $fs:ufoFact*) =>
-      parseFactBlockContents worldNames thingNames tables factWorld fs
+      parseFactBlockContents worldNames thingNames facts factWorld fs
   | _ =>
       throwErrorAt factBlock "unsupported UFO `given` block"
 where
   parseFactBlockContents
-      (worldNames thingNames : Array Name) (tables : FactTables)
+      (worldNames thingNames : Array Name) (facts : Array NamedScopedFact)
       (factWorld : TSyntax `ident) (fs : Array (TSyntax `ufoFact)) :
-      CommandElabM FactTables := do
-      let mut tables := tables
-      if factWorld.getId == `everywhere then
-        for wIdx in [:worldNames.size] do
-          for fact in fs do
-            tables ← parseFact worldNames thingNames wIdx tables fact
-      else
-        let wIdx ← requireIndex "world" worldNames factWorld
-        for fact in fs do
-          tables ← parseFact worldNames thingNames wIdx tables fact
-      pure tables
+      CommandElabM (Array NamedScopedFact) := do
+      let mut facts := facts
+      let scope :=
+        if factWorld.getId == `everywhere then
+          NamedFactScope.everywhere
+        else
+          NamedFactScope.at factWorld.getId.toString
+      for fact in fs do
+        facts ← parseFact worldNames thingNames scope facts fact
+      pure facts
 
 private structure CertField where
   field : String
@@ -641,63 +555,37 @@ private def elabCommandString (source : String) : CommandElabM Unit := do
   | .ok stx => elabCommand stx
   | .error err => throwError "failed to parse generated UFO command:\n{err}\n\nGenerated source:\n{source}"
 
+private def throwResolveError : ResolveError → CommandElabM α
+  | .duplicateWorld name => throwError "duplicate world name `{name}` in UFO model"
+  | .duplicateThing name => throwError "duplicate thing name `{name}` in UFO model"
+  | .unknownWorld name => throwError "unknown world name `{name}` in UFO model"
+  | .unknownThing name => throwError "unknown thing name `{name}` in UFO model"
+
 /--
 Emit the ordinary Lean declarations generated by a `ufo_model` command.
 
-The generated namespace contains the finite data table, the compiled UFO
-signature, optional checks for user-written derived-relation facts, one theorem
-per axiom field, the final bundled `UFOAxioms4` certificate, and a
-`FiniteModel4.Certified` packaging theorem for the generated finite data.  These
-declarations are elaborated normally, so failed certification produces ordinary
-Lean diagnostics.  As a consequence, the editor may also show intermediate
-generated proof goals when the cursor is inside the expanded command.
+The generated namespace contains the expanded AST, the compiled finite tables,
+the finite model, the compiled UFO signature, optional checks for user-written
+derived-relation facts, one theorem per axiom field, the final bundled
+`UFOAxioms4` certificate, and a `FiniteModel4.Certified` packaging theorem for
+the generated finite data. These declarations are elaborated normally, so
+failed certification produces ordinary Lean diagnostics. As a consequence, the
+editor may also show intermediate generated proof goals when the cursor is
+inside the expanded command.
 -/
 private def emitModel
-    (model : Name) (worldNames thingNames : Array Name) (tables : FactTables) : CommandElabM Unit := do
+    (model : Name) (worldNames thingNames : Array Name)
+    (facts : Array CompiledFact) (tables : FactTables) : CommandElabM Unit := do
   if worldNames.isEmpty then
     throwError "a UFO model must declare at least one world"
   if thingNames.isEmpty then
     throwError "a UFO model must declare at least one thing"
 
-  let mut src := "def data : FiniteModel4 :=\n{\n"
-  src := src ++ dataField "worldCount" (toString worldNames.size)
-  src := src ++ dataField "thingCount" (toString thingNames.size)
-  src := src ++ dataField "worldPositive" "by decide"
-  src := src ++ dataField "thingPositive" "by decide"
-
-  src := src ++ dataField "inst" (binaryTable (tables.binary.getD "inst" #[]))
-  src := src ++ dataField "sub" (binaryTable (tables.binary.getD "sub" #[]))
-
-  for field in unaryFields do
-    src := src ++ dataField field (unaryTable (tables.unary.getD field #[]))
-
-  for field in binaryFields do
-    if field == "inst" || field == "sub" then
-      pure ()
-    else if field == "part" || field == "overlap" then
-      src := src ++ dataField field (identityBinaryTable (tables.binary.getD field #[]))
-    else
-      src := src ++ dataField field (binaryTable (tables.binary.getD field #[]))
-
-  /-
-  Higher-arity primitive tables are not part of the first surface syntax.  They
-  are still present in `FiniteModel4`, so the command emits explicit empty
-  defaults rather than hiding them in the semantic compiler.
-  -/
-  src := src ++ dataField "individualFunctionalDependence" "fun _ _ _ _ _ => false"
-  src := src ++ dataField "componentOf" "fun _ _ _ _ _ => false"
-  src := src ++ dataField "constitution" "fun _ _ _ _ _ => false"
-  src := src ++ dataField "setExtension" "fun _ _ => ∅"
-  src := src ++ dataField "tupleProjection" "fun {_n} p _i _w => p"
-  src := src ++ dataField "distance" "fun _ _ _ _ => false"
-  src := src ++ dataField "distanceZero" "fun _ _ => false"
-  src := src ++ dataField "distanceSum" "fun _ _ _ _ => false"
-  src := src ++ dataField "distanceGreaterEq" "fun _ _ _ => false"
-  src := src ++ "}\n"
-
   let modelIdent := mkIdent model
   elabCommand (← `(command| namespace $modelIdent))
-  elabCommandString src
+  elabCommandString (modelASTSource worldNames.size thingNames.size facts)
+  elabCommandString "def tables : FactTables := compileExplicitModelAST ast"
+  elabCommandString "def data : FiniteModel4 := compileExplicitModel ast (by decide) (by decide)"
   elabCommandString "abbrev sig : UFOSignature4 := FiniteModel4.toUFOSignature4 data"
   elabCommandString
     s!"set_option maxHeartbeats 1000000 in set_option linter.unusedSimpArgs false in theorem assertedDerivedFacts : {derivedFactsType tables.derivedProps} := {derivedFactsBody tables.derivedProps}"
@@ -718,13 +606,22 @@ elab_rules : command
     let _ := cert
     let worldNames := ws.map (·.getId)
     let thingNames := ts.map (·.getId)
-    checkNoDuplicates "world" worldNames
     checkNoReservedWorldNames worldNames
-    checkNoDuplicates "thing" thingNames
-    let mut tables : FactTables := {}
+    let worldNameStrings := worldNames.map (·.toString)
+    let thingNameStrings := thingNames.map (·.toString)
+    let mut namedFacts : Array NamedScopedFact := #[]
     for factBlock in blocks do
-      tables ← parseFactBlock worldNames thingNames tables factBlock
-    let closedTables := closeReflexiveSpecialization worldNames.size tables
-    emitModel model.getId worldNames thingNames closedTables
+      namedFacts ← parseFactBlock worldNames thingNames namedFacts factBlock
+    let scopedFacts ←
+      match resolveNamedFacts worldNameStrings thingNameStrings namedFacts with
+      | .ok facts => pure facts
+      | .error err => throwResolveError err
+    let facts := expandScopedFacts worldNames.size scopedFacts
+    let expandedFacts := addReflexiveSpecializationFacts worldNames.size (addTaxonomyFacts facts)
+    let ast : ModelAST :=
+      { worldCount := worldNames.size
+        thingCount := thingNames.size
+        facts := expandedFacts }
+    emitModel model.getId worldNames thingNames expandedFacts (compileExplicitModelAST ast)
 
 end LeanUfo.UFO.DSL
