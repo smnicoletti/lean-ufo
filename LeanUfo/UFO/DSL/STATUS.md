@@ -11,6 +11,7 @@ trusted/verified boundary explicit.
 - [What Is Formally Guaranteed](#what-is-formally-guaranteed)
 - [What Is Still Trusted](#what-is-still-trusted)
 - [Generated Declarations](#generated-declarations)
+- [Diagnostics Widget](#diagnostics-widget)
 - [Surface Syntax](#surface-syntax)
 - [Semantic Derivations](#semantic-derivations)
 - [Current Limitations](#current-limitations)
@@ -46,6 +47,10 @@ elaborating the command, then emits an already-expanded `ModelAST` declaration.
 Thus the function definitions and generic theorems are verified Lean artifacts,
 while the concrete emitted AST value remains part of the metaprogramming
 boundary.
+
+The frontend also saves a UFO diagnostics widget for each model command. The
+widget is user-facing, but its certificate-status labels are driven by the same
+generated proof checks that Lean elaborates.
 
 Pipeline stages:
 
@@ -354,6 +359,31 @@ closure, and reflexive specialization closure have been materialized before
 emit the named pre-resolution AST and replay `resolveNamedFacts` inside the
 object language; that remains a possible future tightening of the audit trail.
 
+## Diagnostics Widget
+
+The VS Code widget attached to a `ufo_model ... certify` command reports:
+
+- the model name;
+- declared worlds and things with their generated finite indices;
+- the original input facts in user-facing names;
+- the expanded finite facts compiled by the DSL frontend;
+- generated certificate fields with `success`, `failed`, or `unchecked` status.
+
+Certificate checks are probed in order. If a proof fails, the widget is saved
+once with all completed fields marked `success`, the first failing field marked
+`failed`, and all later fields marked `unchecked`.
+
+The widget uses Lean's native user-widget/infoview mechanism (`Lean.Widget` and
+`@[widget_module]`). It is a presentation layer over elaboration results, not
+proof evidence. The certification result is still determined by Lean elaborating
+and checking the generated proof terms. Widget API compatibility may track the
+Lean version.
+
+`Guarantees.lean` proves the pure status-rendering contract used by the widget:
+`success` corresponds exactly to membership in the completed field list, and
+among non-completed fields the recorded first failure is exactly the field shown
+as `failed`.
+
 ## Surface Syntax
 
 The canonical facts are:
@@ -450,9 +480,12 @@ Missing or limited surface support includes:
   `ComponentOf`, and `Constitution`; users can assert these as derived facts,
   but the semantic compiler computes them from lower-level relations;
 - level-aware higher-order type declarations needed for the full
-  concept-evolution pattern in UFO Section 4.5;
-- high-level diagnostics for failed finite checks in user-facing world/thing
-  names.
+  concept-evolution pattern in UFO Section 4.5.
+
+The diagnostics widget now reports named worlds, named things, input facts,
+expanded finite facts, and certificate status.  It still reports failed
+certificate fields by generated axiom field name, not by a minimized
+counterexample or source-level repair hint.
 
 The current DSL has a flat `things` namespace and a single flat `::`
 instantiation table. This is enough for first-order finite witnesses and for
@@ -472,11 +505,13 @@ base types.
 - `FiniteModel.lean`: finite semantic representation and compilation to
   `UFOSignature4`.
 - `Syntax.lean`: thin command frontend for `ufo_model ... certify`; parses
-  concrete Lean syntax, emits declarations, and invokes the pure compiler.
+  concrete Lean syntax, emits declarations, invokes the pure compiler, and saves
+  the diagnostics widget.
 - `Guarantees.lean`: generic theorem-backed guarantees for the DSL pipeline and
-  semantic bridge.
-- `Examples.lean`: imports the concrete DSL examples.
-- `ConcreteExamples/*.lean`: certified finite DSL models, except
+  semantic bridge, including the pure diagnostic-status classifier.
+- `Examples.lean`: imports the passing concrete DSL examples.
+- `ConcreteExamples/*.lean`: passing certified finite DSL models, negative
+  diagnostic examples whose filenames start with `Failed`, and
   `ConceptEvolution.lean`, which documents the current higher-order limitation.
 
 ## How To Check The DSL
@@ -497,4 +532,13 @@ Build the guarantee module:
 
 ```bash
 lake build LeanUfo.UFO.DSL.Guarantees
+```
+
+Run the negative diagnostic examples directly when checking the widget failure
+paths.  These commands are expected to fail:
+
+```bash
+lake env lean LeanUfo/UFO/DSL/ConcreteExamples/FailedRoleTaxonomy.lean
+lake env lean LeanUfo/UFO/DSL/ConcreteExamples/FailedFlowerTaxonomy.lean
+lake env lean LeanUfo/UFO/DSL/ConcreteExamples/FailedConstitution.lean
 ```
