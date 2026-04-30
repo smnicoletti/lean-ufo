@@ -1,4 +1,5 @@
 import Lean
+import Lean.Widget
 import LeanUfo.UFO.DSL.Compiler
 
 /-!
@@ -60,6 +61,113 @@ tables still contain ordinary world-indexed facts.
 open Lean Elab Command Parser
 
 namespace LeanUfo.UFO.DSL
+
+@[widget_module]
+def ufoDiagnosticsWidget : Widget.Module where
+  javascript := "
+import * as React from 'react';
+
+const e = React.createElement;
+
+function item(text, key) {
+  return e('li', { key }, text);
+}
+
+function Section({ title, children }) {
+  return e('section', { style: { marginTop: '0.75rem' } },
+    e('h4', { style: { margin: '0 0 0.35rem', fontSize: '0.95rem' } }, title),
+    children);
+}
+
+function MappingTable({ rows }) {
+  return e('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' } },
+    e('thead', null,
+      e('tr', null,
+        e('th', { style: { textAlign: 'left', borderBottom: '1px solid var(--vscode-panel-border)' } }, 'Name'),
+        e('th', { style: { textAlign: 'right', borderBottom: '1px solid var(--vscode-panel-border)' } }, 'Fin index'))),
+    e('tbody', null, rows.map((row, i) =>
+      e('tr', { key: row.name + i },
+        e('td', { style: { padding: '2px 0' } }, row.name),
+        e('td', { style: { padding: '2px 0', textAlign: 'right', opacity: 0.75 } }, String(row.index))))));
+}
+
+function StatusBadge({ status }) {
+  const colors = {
+    success: '#2ea043',
+    failed: '#f85149',
+    pending: '#d29922',
+    unchecked: '#8b949e',
+    skipped: '#8b949e'
+  };
+  const color = colors[status] || colors.pending;
+  return e('span', {
+    style: {
+      display: 'inline-block',
+      minWidth: '4.4rem',
+      color,
+      fontWeight: 600,
+      textTransform: 'capitalize'
+    }
+  }, status);
+}
+
+export default function(props) {
+  const facts = props.facts || [];
+  const expandedFacts = props.expandedFacts || [];
+  const statuses = props.certification || [];
+  const failed = statuses.find(s => s.status === 'failed');
+
+  return e('div', {
+    style: {
+      padding: '0.75rem',
+      lineHeight: 1.35,
+      maxWidth: '48rem'
+    }
+  },
+    e('h3', { style: { margin: '0 0 0.25rem' } }, 'UFO diagnostics'),
+    e('div', { style: { opacity: 0.8, marginBottom: '0.5rem' } },
+      props.model ? 'Model: ' + props.model : 'DSL model'),
+    failed
+      ? e('div', { style: { color: '#f85149', fontWeight: 600, marginBottom: '0.5rem' } },
+          'Certification stopped at ', failed.field, '.')
+      : props.failure
+      ? e('div', { style: { color: '#f85149', fontWeight: 600, marginBottom: '0.5rem' } },
+          props.failure)
+      : e('div', { style: { color: '#2ea043', fontWeight: 600, marginBottom: '0.5rem' } },
+          props.stage === 'certified' ? 'All generated certificate checks completed.' : 'Parsed model diagnostics are available.'),
+
+    e(Section, { title: 'Worlds' }, e(MappingTable, { rows: props.worlds || [] })),
+    e(Section, { title: 'Things' }, e(MappingTable, { rows: props.things || [] })),
+
+    e(Section, { title: 'Input facts' },
+      facts.length
+        ? e('ul', { style: { margin: 0, paddingLeft: '1.2rem' } }, facts.map(item))
+        : e('div', { style: { opacity: 0.75 } }, 'No input facts recorded.')),
+
+    e(Section, { title: 'Expanded finite facts' },
+      expandedFacts.length
+        ? e('details', null,
+            e('summary', null, expandedFacts.length + ' compiled facts'),
+            e('ul', { style: { margin: '0.35rem 0 0', paddingLeft: '1.2rem' } }, expandedFacts.map(item)))
+        : e('div', { style: { opacity: 0.75 } }, 'No expanded facts recorded.')),
+
+    e(Section, { title: 'Certification' },
+      statuses.length
+        ? e('details', { open: !!failed },
+            e('summary', null,
+              failed ? 'Stopped at ' + failed.field : statuses.filter(s => s.status === 'success').length + ' certificate checks'),
+            e('div', { style: { marginTop: '0.35rem' } }, statuses.map((s, i) =>
+              e('div', {
+                key: s.field + i,
+                title: s.formula || s.prop || '',
+                style: { display: 'flex', gap: '0.5rem', fontSize: '0.85rem' }
+              },
+                e(StatusBadge, { status: s.status }),
+                e('code', null, s.field),
+                e('span', { style: { opacity: 0.75 } }, s.prop || '')))))
+        : e('div', { style: { opacity: 0.75 } }, 'Certification has not started.')))
+}
+"
 
 declare_syntax_cat ufoFact
 syntax (name := ufoUnaryFact) ident ":" ident : ufoFact
@@ -125,6 +233,16 @@ private def certificateSimp : String :=
     ax_a88, ax_a89, ax_a90, ax_a91, ax_a92, ax_a93, ax_a94, ax_a95, ax_a96, ax_a97, ax_a98,
     ax_a99, ax_a100, ax_a101, ax_distance_identity, ax_distance_symmetry, ax_distance_triangle,
     ax_a102, ax_a103, ax_a104, ax_a105, ax_a106, ax_a107, ax_a108, Quality, QualityStructure]"
+
+syntax (name := ufoCertTactic) "ufo_cert_tac" : tactic
+
+@[tactic ufoCertTactic] def evalUFOCertTactic : Lean.Elab.Tactic.Tactic := fun _ => do
+  let source := s!"{certificateSimp} <;> (try omega) <;> (try grind) <;> (decide +revert)"
+  match Parser.runParserCategory (← getEnv) `tactic source with
+  | .ok stx =>
+      Lean.Elab.Term.withoutErrToSorry <|
+        Lean.Elab.Tactic.withoutRecover <| Lean.Elab.Tactic.evalTactic stx
+  | .error err => throwError "failed to parse generated UFO certificate tactic:\n{err}"
 
 private def checkNoReservedWorldNames (xs : Array Name) : CommandElabM Unit := do
   for x in xs do
@@ -312,6 +430,86 @@ private def compiledFactTerm : CompiledFact → String
   | .unary field x w => s!"CompiledFact.unary {unaryFieldTerm field} {x} {w}"
   | .binary field x y w => s!"CompiledFact.binary {binaryFieldTerm field} {x} {y} {w}"
   | .derived prop => s!"CompiledFact.derived {leanStringLit prop}"
+
+private def indexedNamesJson (names : Array Name) : Json :=
+  Json.arr <| names.mapIdx fun idx name =>
+    Json.mkObj [
+      ("name", name.toString),
+      ("index", idx)
+    ]
+
+private def indexedName (names : Array Name) (idx : Nat) : String :=
+  match names[idx]? with
+  | some name => name.toString
+  | none => s!"#{idx}"
+
+private def namedScopeSummary : NamedFactScope → String
+  | .at world => world
+  | .everywhere => "everywhere"
+
+private def namedDerivedFactSummary : NamedDerivedFact → String
+  | .unary field thing => s!"{thing} : {field}"
+  | .binary field left right => s!"{left} {field} {right}"
+  | .ternary field first second third => s!"{field}({first}, {second}, {third})"
+  | .quaternary field first second third fourth =>
+      s!"{field}({first}, {second}, {third}, {fourth})"
+
+private def scopedWorldNames (worldNames : Array Name) : NamedFactScope → Array String
+  | .at world => #[world]
+  | .everywhere => worldNames.map (·.toString)
+
+private def namedFactSummary : NamedScopedFact → String
+  | .unary field thing scope =>
+      s!"[{namedScopeSummary scope}] {thing} : {field.toTableField}"
+  | .binary .inst left right scope =>
+      s!"[{namedScopeSummary scope}] {left} :: {right}"
+  | .binary .sub left right scope =>
+      s!"[{namedScopeSummary scope}] {left} ⊑ {right}"
+  | .binary field left right scope =>
+      s!"[{namedScopeSummary scope}] {left} {field.toTableField} {right}"
+  | .derived fact scope =>
+      s!"[{namedScopeSummary scope}] {namedDerivedFactSummary fact}"
+
+private def derivedPropSummaryPairs
+    (worldNames : Array Name)
+    (namedFacts : Array NamedScopedFact)
+    (scopedFacts : Array ScopedCompiledFact) : Array (String × String) :=
+  Id.run do
+    let mut out := #[]
+    for i in [:namedFacts.size] do
+      match namedFacts[i]?, scopedFacts[i]? with
+      | some (.derived named scope), some (.derived propAtWorld resolvedScope) =>
+          let worldIdxs : Array Nat :=
+            match resolvedScope with
+            | .at w => #[w]
+            | .everywhere => (Array.range worldNames.size)
+          let worldLabels := scopedWorldNames worldNames scope
+          for j in [:worldIdxs.size] do
+            let w := worldIdxs[j]!
+            let worldLabel := worldLabels[j]?.getD (indexedName worldNames w)
+            out := out.push (propAtWorld w, s!"[{worldLabel}] {namedDerivedFactSummary named}")
+      | _, _ => pure ()
+    pure out
+
+private def derivedPropSummary (pairs : Array (String × String)) (prop : String) : Option String :=
+  pairs.findSome? fun pair =>
+    if pair.1 == prop then some pair.2 else none
+
+private def compiledFactSummary
+    (worldNames thingNames : Array Name) (derivedPairs : Array (String × String)) :
+    CompiledFact → String
+  | .unary field thing world =>
+      s!"[{indexedName worldNames world}] {indexedName thingNames thing} : {field.toTableField}"
+  | .binary .inst left right world =>
+      s!"[{indexedName worldNames world}] {indexedName thingNames left} :: {indexedName thingNames right}"
+  | .binary .sub left right world =>
+      s!"[{indexedName worldNames world}] {indexedName thingNames left} ⊑ {indexedName thingNames right}"
+  | .binary field left right world =>
+      s!"[{indexedName worldNames world}] {indexedName thingNames left} {field.toTableField} {indexedName thingNames right}"
+  | .derived prop => (derivedPropSummary derivedPairs prop).getD prop
+
+private def stringsJson (xs : Array String) : Json :=
+  Json.arr <| xs.map Json.str
 
 private def modelASTSource (worldCount thingCount : Nat) (facts : Array CompiledFact) : String :=
   let factTerms := facts.map compiledFactTerm
@@ -527,8 +725,197 @@ private def certFields : Array CertField :=
 private def certTheoremName (field : String) : String :=
   s!"certified_{field}"
 
+private def certFormula : String → String
+  | "ax1" => "Type(x) ↔ ◇(∃ y, y :: x)"
+  | "ax2" => "Individual(x) ↔ □(¬∃ y, y :: x)"
+  | "ax3" => "x :: y → (Type(x) ∨ Individual(x))"
+  | "ax4" => "¬∃ x y z, Type(x) ∧ x :: y ∧ y :: z"
+  | "ax5" => "Type(x) → x ⊑ x"
+  | "ax6" => "x ⊏ y ↔ x ⊑ y ∧ ¬ y ⊑ x"
+  | "ax7" => "AbstractIndividual(x) → Individual(x)"
+  | "ax8" => "ConcreteIndividual(x) → Individual(x)"
+  | "ax9" => "Type(x) → ¬ Individual(x)"
+  | "ax10" => "Thing(x) → Individual(x) ∨ Type(x)"
+  | "ax11" => "Endurant(x) → ConcreteIndividual(x)"
+  | "ax12" => "Perdurant(x) → ConcreteIndividual(x)"
+  | "ax13" => "AbstractIndividual(x) → ¬ ConcreteIndividual(x)"
+  | "ax14" => "ConcreteIndividual(x) ↔ Endurant(x) ∨ Perdurant(x)"
+  | "ax15" => "Endurant(x) → ¬ Perdurant(x)"
+  | "ax16" => "EndurantType(x) → Type(x)"
+  | "ax17" => "PerdurantType(x) → Type(x)"
+  | "ax18" => "Rigid(x) → EndurantType(x)"
+  | "ax19" => "AntiRigid(x) → EndurantType(x)"
+  | "ax20" => "SemiRigid(x) → EndurantType(x)"
+  | "ax21" => "EndurantType(x) → (Rigid(x) ∨ AntiRigid(x) ∨ SemiRigid(x))"
+  | "ax22" => "Kind(k) ∧ x :: k → ¬◇(∃ z, Kind(z) ∧ x :: z ∧ z ≠ k)"
+  | "ax23" => "Sortal(x) → EndurantType(x)"
+  | "ax24" => "NonSortal(x) → EndurantType(x)"
+  | "ax25" => "EndurantType(x) → Sortal(x) ∨ NonSortal(x)"
+  | "ax26" => "Kind(x) ∨ SubKind(x) ↔ Rigid(x) ∧ Sortal(x)"
+  | "ax27" => "SubKind(x) → ∃ k, Kind(k) ∧ x ⊑ k"
+  | "ax28" => "Phase(x) ∨ Role(x) ↔ AntiRigid(x) ∧ Sortal(x)"
+  | "ax29" => "SemiRigidSortal(x) ↔ SemiRigid(x) ∧ Sortal(x)"
+  | "ax30" => "Category(x) ↔ Rigid(x) ∧ NonSortal(x)"
+  | "ax31" => "Mixin(x) ↔ SemiRigid(x) ∧ NonSortal(x)"
+  | "ax32" => "PhaseMixin(x) ∨ RoleMixin(x) ↔ AntiRigid(x) ∧ NonSortal(x)"
+  | "ax33" => "EndurantType(x) → exactly one rigidity class and exactly one sortality class"
+  | "ax_instEndurant" => "EndurantType(t) ∧ x :: t → Endurant(x)"
+  | "ax_sub_kind_sortal" => "x ⊑ k ∧ Kind(k) → Sortal(x)"
+  | "ax_nonSortal_up" => "NonSortal(x) ∧ x ⊑ y → NonSortal(y)"
+  | "ax_kindStable" => "Kind(k) → □ Kind(k)"
+  | "ax34" => "Endurant(x) ↔ Substantial(x) ∨ Moment(x)"
+  | "ax35" => "Substantial(x) → ¬ Moment(x)"
+  | "ax36" => "Substantial(x) ↔ Object(x) ∨ Collective(x) ∨ Quantity(x)"
+  | "ax37" => "Object(x) → ¬ Collective(x)"
+  | "ax38" => "Object(x) → ¬ Quantity(x)"
+  | "ax39" => "Collective(x) → ¬ Quantity(x)"
+  | "ax40" => "Moment(x) ↔ Relator(x) ∨ IntrinsicMoment(x)"
+  | "ax41" => "Relator(x) → ¬ IntrinsicMoment(x)"
+  | "ax42" => "IntrinsicMoment(x) ↔ Mode(x) ∨ Quality(x)"
+  | "ax43" => "Mode(x) → ¬ Quality(x)"
+  | "ax44" => "EndurantType taxonomy mirrors Endurant taxonomy"
+  | "ax45" => "Specific kind predicates imply matching type predicate and Kind"
+  | "ax46" => "EndurantType(x) → ∃ k, Kind(k) ∧ x ⊑ k"
+  | "ax47" => "Part(x, x)"
+  | "ax48" => "Part(x, y) ∧ Part(y, z) → Part(x, z)"
+  | "ax49" => "ProperPart(x, y) ↔ Part(x, y) ∧ ¬ Part(y, x)"
+  | "ax50" => "Overlap(x, y) ↔ ∃ z, Part(z, x) ∧ Part(z, y)"
+  | "ax51" => "Overlap(x, y) → Overlap(y, x)"
+  | "ax52" => "(∀ z, ProperPart(z, x) ↔ ProperPart(z, y)) → x = y"
+  | "ax53" => "IndividualFunctionalDependence(x, y, x', y') → y ≠ x"
+  | "ax54" => "GenericFunctionalDependence(x', y') ↔ ∀ x, x :: x' → ∃ y, y :: y' ∧ IndividualFunctionalDependence(x, y, x', y')"
+  | "ax55" => "IndividualFunctionalDependence(x, y, x', y') → x :: x' ∧ y :: y'"
+  | "ax56" => "constitutedBy(x, y) → ((Endurant(x) ↔ Endurant(y)) ∧ (Perdurant(x) ↔ Perdurant(y)))"
+  | "ax57" => "constitutedBy(x, y) ∧ x :: x' ∧ y :: y' ∧ Kind(x') ∧ Kind(y') → x' ≠ y'"
+  | "ax58" => "GCD(x', y') ↔ ∀ x, x :: x' → ∃ y, y :: y' ∧ constitutedBy(x, y)"
+  | "ax59" => "Constitution(x, x', y, y') ↔ x :: x' ∧ y :: y' ∧ GCD(x', y') ∧ constitutedBy(x, y)"
+  | "ax60" => "Perdurant(x) ∧ constitutedBy(x, y) → □(ex(x) → constitutedBy(x, y))"
+  | "ax61" => "constitutedBy(x, y) → ¬ constitutedBy(y, x)"
+  | "ax62" => "ExistentialDependence(x, y) → x ≠ y"
+  | "ax63" => "ExistentialDependence(x, y) → □(ex(x) → ex(y))"
+  | "ax64" => "ExistentialIndependence(x, y) ↔ ¬ ExistentialDependence(x, y)"
+  | "ax65" => "IntrinsicMoment(x) → ∃ y, inheresIn(x, y)"
+  | "ax66" => "inheresIn(x, y) → ExistentialDependence(x, y)"
+  | "ax67" => "inheresIn(x, y) ∧ inheresIn(x, z) → y = z"
+  | "ax68" => "Ultimate bearer is reached by following inherence"
+  | "ax69" => "Mediates(r, x) → Relator(r) ∧ Endurant(x)"
+  | "ax70" => "Mediates(r, x) → ExistentialDependence(r, x)"
+  | "ax71" => "Relator(r) → ∃ x y, x ≠ y ∧ Mediates(r, x) ∧ Mediates(r, y)"
+  | "ax72" => "ExternallyDependentMode(x) → Mode(x) ∧ ∃ y, externallyDependent(x, y)"
+  | "ax73" => "foundedBy(x, y) → Relator(x) ∧ Moment(y)"
+  | "ax74" => "QuaIndividual(x) → ExternallyDependentMode(x)"
+  | "ax75" => "QuaIndividual(x) → ∃ y, QuaIndividualOf(x, y)"
+  | "ax76" => "QuaIndividualOf(x, y) → inheresIn(x, y)"
+  | "ax77" => "QuaIndividualOf(x, y) ∧ QuaIndividualOf(x, z) → y = z"
+  | "ax78" => "Qua individuals are mediated through their grounding relator"
+  | "ax79" => "Characterization(x, y) → IntrinsicMoment(x) ∧ Endurant(y)"
+  | "ax80" => "Characterization is mediated by inherence and ultimate bearers"
+  | "axQuaIndividualOfEndurant" => "QuaIndividualOf(x, y) → Endurant(y)"
+  | "ax81" => "Quality(x) → IntrinsicMoment(x) ∧ ∃ q, HasValue(x, q)"
+  | "ax82" => "HasValue(x, q) → Quality(x) ∧ Quale(q)"
+  | "ax83" => "Quale(x) → AbstractIndividual(x)"
+  | "ax84" => "Set(x) → AbstractIndividual(x)"
+  | "ax85" => "QualityDomain(x) → Set(x)"
+  | "ax86" => "QualityDimension(x) → Set(x)"
+  | "ax87" => "AssociatedWith(x, y) → QualityStructure(x) ∧ QualityStructure(y)"
+  | "ax88" => "IntrinsicMomentType(x) → EndurantType(x)"
+  | "ax89" => "HasValue(x, y) → Quality(x) ∧ Quale(y)"
+  | "ax90" => "Quality(x) → ∃ y, HasValue(x, y)"
+  | "ax91" => "HasValue(x, y) ∧ HasValue(x, z) → y = z"
+  | "ax92" => "QualityStructure(x) → Set(x) ∧ x ≠ ∅"
+  | "ax93" => "QualityDimension(x) → QualityStructure(x)"
+  | "ax94" => "QualityDomain(x) → QualityStructure(x)"
+  | "ax95" => "QualityDomain and QualityDimension association constraints"
+  | "ax96" => "Quality values belong to associated quality structures"
+  | "ax97" => "Proper set inclusion is strict inclusion"
+  | "ax98" => "Set equality is extensional"
+  | "ax99" => "Quality structure constraints over dimensions and values"
+  | "ax100" => "Quality value association respects quality structures"
+  | "ax101" => "Quality spaces satisfy required structural constraints"
+  | "axDistanceIdentity" => "distance(x, y) = 0 ↔ x = y"
+  | "axDistanceSymmetry" => "distance(x, y) = distance(y, x)"
+  | "axDistanceTriangle" => "distance(x, z) ≤ distance(x, y) + distance(y, z)"
+  | "ax102" => "manifests(x, y) → Perdurant(x) ∧ Endurant(y)"
+  | "ax103" => "lifeOf(x, y) ↔ Perdurant(x) ∧ Endurant(y) ∧ ∀ z, Overlap(z, x) ↔ Perdurant(z) ∧ manifests(z, y)"
+  | "ax104" => "meet(x, y) → Perdurant(x) ∧ Perdurant(y)"
+  | "ax105" => "isDisjointWith(t, t') ↔ Type(t) ∧ Type(t') ∧ ¬∃ x, x :: t ∧ x :: t'"
+  | "ax106" => "isCompletelyCoveredBy(t, t', t'') ↔ ∀ x, x :: t → x :: t' ∨ x :: t''"
+  | "ax107" => "isPartitionedInto(t, t', t'') ↔ isCompletelyCoveredBy(t, t', t'') ∧ isDisjointWith(t', t'')"
+  | "ax108" => "categorizes(t₁, t₂) ↔ Type(t₁) ∧ ∀ t₃, t₃ :: t₁ → t₃ ⊑ t₂"
+  | _ => ""
+
+/--
+Status classifier used by the diagnostics widget.
+
+`completed` contains exactly the certificate fields whose generated proof-term
+probe succeeded and whose theorem was emitted. `failed?` records the first
+field whose generated proof-term probe failed, if certification stopped before
+all fields completed.
+-/
+def diagnosticCertStatus (completed : Array String) (failed? : Option String)
+    (field : String) : String :=
+  if completed.contains field then
+    "success"
+  else if failed? == some field then
+    "failed"
+  else
+    "unchecked"
+
+private def certificationJson (completed : Array String) (failed? : Option String) : Json :=
+  Json.arr <| certFields.map fun field =>
+    let status := diagnosticCertStatus completed failed? field.field
+    Json.mkObj [
+      ("field", field.field),
+      ("prop", field.prop),
+      ("formula", certFormula field.field),
+      ("status", status)
+    ]
+
+private def diagnosticsProps
+    (model : Name) (worldNames thingNames : Array Name)
+    (namedFacts : Array NamedScopedFact) (scopedFacts : Array ScopedCompiledFact)
+    (expandedFacts : Array CompiledFact)
+    (tables : FactTables) (stage : String)
+    (completed : Array String := #[]) (failed? : Option String := none)
+    (failure? : Option String := none) : Json :=
+  let derivedPairs := derivedPropSummaryPairs worldNames namedFacts scopedFacts
+  Json.mkObj [
+    ("model", model.toString),
+    ("stage", stage),
+    ("failure", failure?.getD ""),
+    ("worlds", indexedNamesJson worldNames),
+    ("things", indexedNamesJson thingNames),
+    ("facts", stringsJson <| namedFacts.map namedFactSummary),
+    ("expandedFacts", stringsJson <| expandedFacts.map (compiledFactSummary worldNames thingNames derivedPairs)),
+    ("derivedProps", stringsJson tables.derivedProps),
+    ("certification", certificationJson completed failed?)
+  ]
+
+private def saveDiagnosticsWidget
+    (cmdStx : Syntax) (model : Name) (worldNames thingNames : Array Name)
+    (namedFacts : Array NamedScopedFact) (scopedFacts : Array ScopedCompiledFact)
+    (expandedFacts : Array CompiledFact)
+    (tables : FactTables) (stage : String)
+    (completed : Array String := #[]) (failed? : Option String := none)
+    (failure? : Option String := none) : CommandElabM Unit := do
+  liftCoreM <| Widget.savePanelWidgetInfo ufoDiagnosticsWidget.javascriptHash
+    (pure <| diagnosticsProps model worldNames thingNames namedFacts scopedFacts expandedFacts tables
+      stage completed failed? failure?)
+    cmdStx
+
+private def saveFailedDiagnosticsWidget
+    (cmdStx : Syntax) (model : Name) (worldNames thingNames : Array Name)
+    (namedFacts : Array NamedScopedFact) (scopedFacts : Array ScopedCompiledFact)
+    (expandedFacts : Array CompiledFact)
+    (tables : FactTables) (stage : String)
+    (completed : Array String) (failed? : Option String)
+    (message : String) : CommandElabM Unit := do
+  saveDiagnosticsWidget cmdStx model worldNames thingNames namedFacts scopedFacts expandedFacts tables
+    stage completed failed? (some message)
+  logErrorAt cmdStx message
+
 private def certTactic (_field : CertField) : String :=
-  s!"{certificateSimp} <;> (try omega) <;> (try grind) <;> (decide +revert)"
+  "ufo_cert_tac"
 
 private def certAxiomTheorem (field : CertField) : String :=
   s!"set_option maxHeartbeats 1000000 in set_option linter.unusedSimpArgs false in theorem {certTheoremName field.field} : {field.prop} := by {certTactic field}"
@@ -548,12 +935,68 @@ private def derivedFactsBody (props : Array String) : String :=
   if props.isEmpty then
     "by trivial"
   else
-    s!"by\n  {certificateSimp} <;> (try omega) <;> (try grind) <;> (decide +revert)"
+    "by\n  ufo_cert_tac"
 
 private def elabCommandString (source : String) : CommandElabM Unit := do
   match Parser.runParserCategory (← getEnv) `command source with
   | .ok stx => elabCommand stx
   | .error err => throwError "failed to parse generated UFO command:\n{err}\n\nGenerated source:\n{source}"
+
+private def messageErrorCount (messages : MessageLog) : Nat :=
+  messages.reportedPlusUnreported.foldl
+    (fun count msg => if msg.severity == MessageSeverity.error then count + 1 else count)
+    0
+
+private def coreMessageErrorCount : CommandElabM Nat := do
+  pure <| messageErrorCount (← liftCoreM Core.getMessageLog)
+
+private def elabCommandStringWithErrorCheck (source : String) : CommandElabM Bool := do
+  let savedCommandMessages ← modifyGet fun st =>
+    (st.messages, { st with messages := {} })
+  let savedMessages ← liftCoreM <| modifyGetThe Core.State fun st =>
+    (st.messages, { st with messages := {} })
+  let mut threw := false
+  try
+    elabCommandString source
+  catch _ =>
+    threw := true
+  let newMessages ← liftCoreM Core.getMessageLog
+  let newCommandMessages := (← get).messages
+  modify fun st =>
+    { st with messages := savedCommandMessages }
+  liftCoreM <| modifyThe Core.State fun st =>
+    { st with messages := savedMessages }
+  pure <| threw || messageErrorCount newMessages > 0 || messageErrorCount newCommandMessages > 0
+
+private def elabTermStringWithErrorCheck (source : String) : CommandElabM Bool := do
+  let savedCommandMessages ← modifyGet fun st =>
+    (st.messages, { st with messages := {} })
+  let savedMessages ← liftCoreM <| modifyGetThe Core.State fun st =>
+    (st.messages, { st with messages := {} })
+  let mut threw := false
+  try
+    match Parser.runParserCategory (← getEnv) `term source with
+    | .ok stx =>
+        liftTermElabM <| Lean.Elab.Term.withoutErrToSorry do
+          let _ ← Lean.Elab.Term.elabTerm stx none
+          Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+    | .error err =>
+        throwError "failed to parse generated UFO proof check:\n{err}\n\nGenerated source:\n{source}"
+  catch _ =>
+    threw := true
+  let newMessages ← liftCoreM Core.getMessageLog
+  let newCommandMessages := (← get).messages
+  modify fun st =>
+    { st with messages := savedCommandMessages }
+  liftCoreM <| modifyThe Core.State fun st =>
+    { st with messages := savedMessages }
+  pure <| threw || messageErrorCount newMessages > 0 || messageErrorCount newCommandMessages > 0
+
+private def certAxiomProofCheck (field : CertField) : String :=
+  s!"show {field.prop} from by
+  set_option maxHeartbeats 1000000 in
+  set_option linter.unusedSimpArgs false in
+  ufo_cert_tac"
 
 private def throwResolveError : ResolveError → CommandElabM α
   | .duplicateWorld name => throwError "duplicate world name `{name}` in UFO model"
@@ -569,12 +1012,13 @@ the finite model, the compiled UFO signature, optional checks for user-written
 derived-relation facts, one theorem per axiom field, the final bundled
 `UFOAxioms4` certificate, and a `FiniteModel4.Certified` packaging theorem for
 the generated finite data. These declarations are elaborated normally, so
-failed certification produces ordinary Lean diagnostics. As a consequence, the
-editor may also show intermediate generated proof goals when the cursor is
-inside the expanded command.
+failed certification is detected by Lean itself. The diagnostics widget is saved
+once, after derived assertions and certificate checks have either completed or
+stopped at the first failed generated axiom field.
 -/
 private def emitModel
-    (model : Name) (worldNames thingNames : Array Name)
+    (cmdStx : Syntax) (model : Name) (worldNames thingNames : Array Name)
+    (namedFacts : Array NamedScopedFact) (scopedFacts : Array ScopedCompiledFact)
     (facts : Array CompiledFact) (tables : FactTables) : CommandElabM Unit := do
   if worldNames.isEmpty then
     throwError "a UFO model must declare at least one world"
@@ -582,17 +1026,51 @@ private def emitModel
     throwError "a UFO model must declare at least one thing"
 
   let modelIdent := mkIdent model
+  let initialErrors ← coreMessageErrorCount
   elabCommand (← `(command| namespace $modelIdent))
   elabCommandString (modelASTSource worldNames.size thingNames.size facts)
   elabCommandString "def tables : FactTables := compileExplicitModelAST ast"
   elabCommandString "def data : FiniteModel4 := compileExplicitModel ast (by decide) (by decide)"
   elabCommandString "abbrev sig : UFOSignature4 := FiniteModel4.toUFOSignature4 data"
-  elabCommandString
+  let derivedFailed ← elabCommandStringWithErrorCheck
     s!"set_option maxHeartbeats 1000000 in set_option linter.unusedSimpArgs false in theorem assertedDerivedFacts : {derivedFactsType tables.derivedProps} := {derivedFactsBody tables.derivedProps}"
-  for field in certFields do
-    elabCommandString (certAxiomTheorem field)
-  elabCommandString s!"set_option maxHeartbeats 1000000 in set_option linter.unusedSimpArgs false in theorem certified : UFOAxioms4 sig := {certificateBody}"
-  elabCommandString "theorem certifiedModel : FiniteModel4.Certified data := certified"
+  if derivedFailed then
+    saveFailedDiagnosticsWidget cmdStx model worldNames thingNames namedFacts scopedFacts facts tables
+      "derived-facts-failed" #[] none "A user-written derived relation assertion failed."
+  else
+    let mut completed : Array String := #[]
+    let mut failedField? : Option String := none
+    for field in certFields do
+      if failedField?.isNone then
+        let certFailed ← elabTermStringWithErrorCheck (certAxiomProofCheck field)
+        if certFailed then
+          failedField? := some field.field
+        else
+          elabCommandString (certAxiomTheorem field)
+          completed := completed.push field.field
+    match failedField? with
+    | some failedField =>
+        saveFailedDiagnosticsWidget cmdStx model worldNames thingNames namedFacts scopedFacts facts tables
+          "certification-failed" completed (some failedField)
+          s!"Generated certificate theorem `{certTheoremName failedField}` failed."
+    | none =>
+        let certifiedFailed ← elabCommandStringWithErrorCheck
+          s!"set_option maxHeartbeats 1000000 in set_option linter.unusedSimpArgs false in theorem certified : UFOAxioms4 sig := {certificateBody}"
+        if certifiedFailed then
+          saveFailedDiagnosticsWidget cmdStx model worldNames thingNames namedFacts scopedFacts facts tables
+            "packaging-failed" completed none "The individual axiom checks completed, but final certificate packaging failed."
+        else
+          let certifiedModelFailed ← elabCommandStringWithErrorCheck
+            "theorem certifiedModel : FiniteModel4.Certified data := certified"
+          if certifiedModelFailed then
+            saveFailedDiagnosticsWidget cmdStx model worldNames thingNames namedFacts scopedFacts facts tables
+              "packaging-failed" completed none "The individual axiom checks completed, but final certified model packaging failed."
+          else if (← coreMessageErrorCount) > initialErrors then
+            saveFailedDiagnosticsWidget cmdStx model worldNames thingNames namedFacts scopedFacts facts tables
+              "certification-failed" completed none "Generated certification logged Lean errors; the model is not certified."
+          else
+            saveDiagnosticsWidget cmdStx model worldNames thingNames namedFacts scopedFacts facts tables
+              "certified" completed none none
   elabCommand (← `(command| end $modelIdent))
 
 elab_rules : command
@@ -602,6 +1080,7 @@ elab_rules : command
       $blocks:ufoFactBlock*
       $derive:ufoDeriveDirective
       $cert:ufoCertDirective) => do
+    let cmdStx ← getRef
     let _ := derive
     let _ := cert
     let worldNames := ws.map (·.getId)
@@ -622,6 +1101,6 @@ elab_rules : command
       { worldCount := worldNames.size
         thingCount := thingNames.size
         facts := expandedFacts }
-    emitModel model.getId worldNames thingNames expandedFacts (compileExplicitModelAST ast)
+    emitModel cmdStx model.getId worldNames thingNames namedFacts scopedFacts expandedFacts (compileExplicitModelAST ast)
 
 end LeanUfo.UFO.DSL

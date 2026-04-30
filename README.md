@@ -961,6 +961,9 @@ LeanUfo/
         FlowerPropertyChange.lean
         RedirectedWalk.lean
         ConceptEvolution.lean
+        FailedRoleTaxonomy.lean
+        FailedFlowerTaxonomy.lean
+        FailedConstitution.lean
     UFO.lean
   LeanUfo.lean
 ```
@@ -1000,8 +1003,9 @@ For each subsection:
   accessibility relations, set extensions, set membership/product structure,
   tuple projections, metric/distance tables, or primitive higher-arity
   functional-dependence/component/constitution tables.
-- Improve failure diagnostics so rejected DSL models report failed checks in
-  user-facing world/thing names instead of exposing only the generated Lean goal.
+- Improve failure diagnostics beyond the current widget status by deriving
+  smaller source-level counterexamples and repair hints from failed finite
+  checks.
 - Add query syntax and higher-level tactics on top of certified finite models.
 - Later, connect querying and custom high-level tactics with quantitative/model checking
   integrations while keeping the qualitative UFO kernel separate.
@@ -1020,7 +1024,24 @@ Its central guarantee is proof-producing validation:
 
 Invalid DSL models do not silently pass as partial artifacts. They fail
 elaboration either while checking explicit derived-relation assertions or while
-building one of the generated axiom certificates.
+building one of the generated axiom certificates. The diagnostics widget records
+the named input, expanded finite facts, and certificate status; certificate
+checking stops at the first failed generated axiom field and marks later fields
+as unchecked.
+
+### Diagnostics Widget
+
+Opening a `ufo_model ... certify` command in VS Code shows a UFO diagnostics
+panel with the model name, world and thing index mappings, user-written input
+facts, expanded finite facts, and certificate results. Passing models show all
+generated certificate fields as successful. Failing models show the first failed
+field as `failed` and all later fields as `unchecked`.
+
+The diagnostics panel uses Lean's native user-widget/infoview mechanism
+(`Lean.Widget` and `@[widget_module]`). It is UI over elaboration results, not
+proof evidence: certification truth still comes from Lean elaborating and
+checking the generated proof terms. Widget API compatibility may track the Lean
+version.
 
 Current pipeline snapshot:
 
@@ -1051,13 +1072,34 @@ ordinary Lean theorem:
 ModelName.certified : UFOAxioms4 ModelName.sig
 ```
 
+At a high level, the named stages mean:
+
+- `NamedScopedFact`: the parsed user facts, still using user-facing world and
+  thing names.
+- `resolveNamedFacts`: the pure pass that checks duplicate/unknown names and
+  replaces names with numeric finite indices.
+- `ScopedCompiledFact` and `expandScopedFacts`: the representation and pass used
+  to turn `given everywhere:` into one fact per declared world.
+- `CompiledFact`: ordinary world-indexed facts after name and scope resolution.
+- `addTaxonomyFacts`: deterministic expansion of classification sugar such as
+  `ObjectKind` into its encoded taxonomy ancestors.
+- `addReflexiveSpecializationFacts`: insertion of `T ⊑ T` for instantiated
+  types, as required by the encoded specialization axioms.
+- `ModelAST`, `FactTables`, and `FiniteModel4`: successive finite
+  representations of the generated model, moving from expanded facts to the
+  finite semantic backend.
+- `FiniteModel4.toUFOSignature4`: the bridge into the ordinary Prop-valued UFO
+  signature checked by the existing axiom package.
+- `UFOAxioms4 certificate`: the generated Lean theorem proving that the compiled
+  signature satisfies the encoded UFO axioms.
+
 ```text
 LeanUfo/UFO/DSL/
   Certification.lean   -- decidability bridge for axiom packages
   Compiler.lean        -- pure name resolution and finite-model compiler
   FiniteModel.lean     -- finite data compiled to UFOSignature4
-  Syntax.lean          -- thin `ufo_model ... certify` command frontend
-  Guarantees.lean      -- formal DSL pipeline guarantees
+  Syntax.lean          -- thin `ufo_model ... certify` frontend and diagnostics widget
+  Guarantees.lean      -- formal DSL pipeline and diagnostic-status guarantees
   STATUS.md            -- detailed trusted/verified DSL pipeline status
   Examples.lean        -- index for concrete DSL examples
   ConcreteExamples/
@@ -1069,6 +1111,9 @@ LeanUfo/UFO/DSL/
     FlowerPropertyChange.lean -- minimal Section 4.3 property-change example
     RedirectedWalk.lean -- minimal Section 4.4 redirected-walk example
     ConceptEvolution.lean -- documented Section 4.5 higher-order limitation
+    FailedRoleTaxonomy.lean -- negative diagnostic example, stops at ax13
+    FailedFlowerTaxonomy.lean -- negative diagnostic example, stops at ax18
+    FailedConstitution.lean -- negative diagnostic example, stops at ax61
 ```
 
 The user-facing command syntax is:
@@ -1096,6 +1141,55 @@ also be written as `x Relation y`, including `Part`, `Overlap`, and
 `ProperPart`. The reserved pseudo-world `everywhere` marks facts that hold in
 every declared world.
 
+`derive_relations` means: for selected UFO predicates, do not read their truth
+from user-written primitive facts; compute them from their UFO-style defining
+conditions.
+
+Primitive facts are direct assertions in the finite model:
+
+```lean
+I :: K
+K ⊑ T
+I : Object
+x Part y
+x ConstitutedBy y
+x : Ex
+```
+
+For these, the DSL says: "the user asserts this finite fact." Then `certify`
+checks whether the resulting model satisfies the UFO axioms.
+
+Derived/computed predicates are not arbitrary user assertions. The compiler
+computes them from lower-level facts and UFO-style defining conditions. The
+currently selected derived predicates are:
+
+- `Type`
+- `Individual`
+- `GenericFunctionalDependence`
+- `IndividualFunctionalDependence`
+- `ComponentOf`
+- `GenericConstitutionalDependence`
+- `Constitution`
+- `ExistentialDependence`
+- `ExistentialIndependence`
+- `ExternallyDependent`
+- `ExternallyDependentMode`
+- `QuaIndividual`
+- `IsDisjointWith`
+- `IsCompletelyCoveredBy`
+- `IsPartitionedInto`
+- `Categorizes`
+
+For example, in the minimal model:
+
+```lean
+I :: K
+```
+
+makes `K` a `Type` because the compiled semantics derives `Type K actual` from
+possible instantiation. You do not need to write `K : Type`; that predicate is
+computed.
+
 The aggregate `LeanUfo.UFO.UFO` imports the DSL backend, command syntax, and
 generic guarantee theorems. Concrete example files are kept under
 `LeanUfo/UFO/DSL/ConcreteExamples/` and can be imported explicitly, or all at
@@ -1119,7 +1213,10 @@ The module `LeanUfo.UFO.DSL.Guarantees` proves the generic facts behind this
 pipeline. In particular, named fact resolution, scope expansion, taxonomy
 expansion, reflexive specialization expansion, explicit fact compilation,
 finite-model construction, and the bridge from `FiniteModel4.Certified` to
-`UFOAxioms4` are theorem-backed.
+`UFOAxioms4` are theorem-backed. It also proves the pure diagnostic-status
+contract used by the widget: a field is shown as `success` exactly when it is in
+the completed certificate list; among non-completed fields, the recorded first
+failure is shown as `failed` and later fields are shown as `unchecked`.
 
 For the exhaustive current status, including a Mermaid trust-boundary diagram,
 implemented surface syntax, semantic derivations, known limitations, and the
@@ -1142,6 +1239,16 @@ To rebuild just the DSL example collection:
 
 ```bash
 lake build LeanUfo.UFO.DSL.Examples
+```
+
+The negative diagnostic examples are intentionally not imported by
+`LeanUfo.UFO.DSL.Examples`. Run them directly when checking failure reporting;
+these commands are expected to fail:
+
+```bash
+lake env lean LeanUfo/UFO/DSL/ConcreteExamples/FailedRoleTaxonomy.lean
+lake env lean LeanUfo/UFO/DSL/ConcreteExamples/FailedFlowerTaxonomy.lean
+lake env lean LeanUfo/UFO/DSL/ConcreteExamples/FailedConstitution.lean
 ```
 
 ---
