@@ -1,8 +1,6 @@
 # Lean UFO Formalization
 
-> A formal, machine-checked semantic mechanization of the  
-> **Unified Foundational Ontology (UFO)** in Lean 4, plus
-> an accompanying Domain Specific Language.
+> A formal, machine-checked semantic mechanization of the  **Unified Foundational Ontology (UFO)** in Lean 4, plus an accompanying Domain Specific Language.
 
 ---
 
