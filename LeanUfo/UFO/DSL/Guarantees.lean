@@ -20,6 +20,10 @@ semantic facts that make the generated artifacts useful:
 * The Phase 1 compiler uses the intended universal S5 frame.
 * Core compiled predicates in `UFOSignature4` are definitionally connected to
   the finite tables and semantic functions in `FiniteModel4`.
+* The diagnostics widget's certificate status labels are a faithful rendering
+  of the elaborator state: completed checks are shown as `success`, the first
+  recorded failure is shown as `failed`, and later checks are shown as
+  `unchecked`.
 
 For each concrete `ufo_model ... certify` command, Lean additionally emits
 ordinary theorems:
@@ -35,6 +39,78 @@ UFO axioms.
 -/
 
 namespace LeanUfo.UFO.DSL
+
+/-!
+## Diagnostics guarantees
+
+The widget is intentionally not a proof oracle. The command elaborator obtains
+its state by asking Lean to elaborate each generated certificate proof term in
+order. The guarantees below cover the pure boundary between that checked state
+and the diagnostic label rendered in the widget.
+
+Thus there are no diagnostic false positives at this boundary: a field is shown
+as `success` exactly when it appears in the completed list. For fields not in
+that completed list, there are no diagnostic false negatives for the first
+recorded failure: the field is shown as `failed` exactly when `failed?` records
+that field, and otherwise it is shown as `unchecked`.
+-/
+
+namespace Diagnostics
+
+/--
+The diagnostics widget reports `success` exactly for certificate fields already
+recorded as completed by the command elaborator.
+-/
+theorem diagnostic_success_iff_completed
+    (completed : Array String) (failed? : Option String) (field : String) :
+    diagnosticCertStatus completed failed? field = "success" ↔
+      field ∈ completed := by
+  unfold diagnosticCertStatus
+  by_cases h : field ∈ completed
+  · simp [h]
+  · simp [h]
+    split <;> decide
+
+/--
+Once a certificate field has not completed, the diagnostics widget reports
+`failed` exactly for the first field recorded as failed by the command
+elaborator.
+-/
+theorem diagnostic_failed_iff_recorded_failure_of_not_completed
+    (completed : Array String) (failed? : Option String) (field : String)
+    (h : field ∉ completed) :
+    diagnosticCertStatus completed failed? field = "failed" ↔
+      failed? = some field := by
+  unfold diagnosticCertStatus
+  simp [h]
+
+/--
+Once a certificate field has not completed, the diagnostics widget reports
+`unchecked` exactly when that field is not the first recorded failure.
+-/
+theorem diagnostic_unchecked_iff_not_recorded_failure_of_not_completed
+    (completed : Array String) (failed? : Option String) (field : String)
+    (h : field ∉ completed) :
+    diagnosticCertStatus completed failed? field = "unchecked" ↔
+      failed? ≠ some field := by
+  unfold diagnosticCertStatus
+  simp [h]
+
+/--
+If the command elaborator has recorded a first failing field, then every
+non-completed field other than that one is rendered as `unchecked`, not as a
+spurious success or failure.
+-/
+theorem diagnostic_unchecked_after_first_failure
+    (completed : Array String) (failed field : String)
+    (hNotCompleted : field ∉ completed)
+    (hOther : field ≠ failed) :
+    diagnosticCertStatus completed (some failed) field = "unchecked" := by
+  have hFailedNe : failed ≠ field := fun h => hOther h.symm
+  unfold diagnosticCertStatus
+  simp [hNotCompleted, hFailedNe]
+
+end Diagnostics
 
 /-!
 ## Pure compiler guarantees
