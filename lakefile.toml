@@ -1,0 +1,10 @@
+name = "lean-ufo"
+version = "0.1.0"
+defaultTargets = ["LeanUfo"]
+
+[[lean_lib]]
+name = "LeanUfo"
+
+[[require]]
+name = "mathlib"
+scope = "leanprover-community"
