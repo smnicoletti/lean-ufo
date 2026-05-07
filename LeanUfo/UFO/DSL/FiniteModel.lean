@@ -3,7 +3,7 @@ import LeanUfo.UFO.DSL.Certification
 /-!
 # Finite reflective models for UFO §4
 
-This file is the semantic middle layer for the Phase 1 DSL.
+This file is the semantic middle layer for the finite DSL.
 
 The important separation is:
 
@@ -19,7 +19,7 @@ The important separation is:
   proves it by computation for generated finite signatures; it does not replace
   or weaken the original axiom packages.
 
-The current backend uses a universal S5 accessibility relation.  This is enough
+The finite backend uses a universal S5 accessibility relation.  This is enough
 for the first DSL workflow and keeps the user syntax focused on ontology facts.
 The structure still has an explicit `worldCount`, so adding an accessibility
 table later is a local extension of this layer.

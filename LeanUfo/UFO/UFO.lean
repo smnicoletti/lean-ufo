@@ -52,7 +52,8 @@ import LeanUfo.UFO.Models.Model3_13
 import LeanUfo.UFO.Models.Model4
 import LeanUfo.UFO.Models.Consistency
 
-/- Phase 1 finite DSL backend. -/
+/- Finite DSL backend. -/
+import LeanUfo.UFO.DSL.Certification
 import LeanUfo.UFO.DSL.FiniteModel
 import LeanUfo.UFO.DSL.Compiler
 import LeanUfo.UFO.DSL.Syntax

@@ -16,7 +16,7 @@
 - [Repository Structure](#repository-structure)
 - [Methodology](#methodology)
 - [Roadmap](#roadmap)
-- [Phase 1 Certified DSL Backend](#phase-1-certified-dsl-backend)
+- [Certified Finite DSL Backend](#certified-finite-dsl-backend)
 - [Build](#build)
 - [Status](#status)
 - [Detailed DSL Status](LeanUfo/UFO/DSL/STATUS.md)
@@ -960,10 +960,12 @@ LeanUfo/
         SchoolRoles.lean
         FlowerPropertyChange.lean
         RedirectedWalk.lean
+        UltimateBearer.lean
         ConceptEvolution.lean
         FailedRoleTaxonomy.lean
         FailedFlowerTaxonomy.lean
         FailedConstitution.lean
+        FailedStudentEnrollment.lean
     UFO.lean
   LeanUfo.lean
 ```
@@ -994,27 +996,25 @@ For each subsection:
 
 - Strengthen witness models where needed.
 - Integrate domain ontologies (e.g., COVER for risk and value).
-- Extend the Phase 1 DSL with level-aware UFO type support, so examples such as
+- Extend the finite DSL with level-aware UFO type support, so examples such as
   Section 4.5 concept evolution can distinguish ordinary individuals,
   first-order types, and higher-order types while keeping `::`, `⊑`, and
   `Categorizes` well-typed.
-- Complete DSL coverage for the remaining `UFOSignature4` fields.  The current
-  surface syntax does not yet provide concrete user syntax for custom
-  accessibility relations, set extensions, set membership/product structure,
-  tuple projections, metric/distance tables, or primitive higher-arity
-  functional-dependence/component/constitution tables.
-- Improve failure diagnostics beyond the current widget status by deriving
-  smaller source-level counterexamples and repair hints from failed finite
-  checks.
+- Complete DSL coverage for the remaining `UFOSignature4` fields.  The surface
+  syntax now covers set membership, tuple projection, and distance primitives;
+  primitive higher-arity functional-dependence/component/constitution tables are still not surfaced.
+- Continue improving failure diagnostics. The widget now distinguishes
+  confirmed finite counterexamples from proof-search/probe exhaustion and gives
+  DSL-level counterexample boxes with evidence and suggestions for many axioms;
+  some high-arity/product extractors are still intentionally conservative.
 - Add query syntax and higher-level tactics on top of certified finite models.
-- Later, connect querying and custom high-level tactics with quantitative/model checking
-  integrations while keeping the qualitative UFO kernel separate.
+- Later, connect querying and custom high-level tactics with quantitative/model checking integrations while keeping the qualitative UFO kernel separate.
 
 ---
 
-<a id="phase-1-certified-dsl-backend"></a>
+<a id="certified-finite-dsl-backend"></a>
 
-## ✦ Phase 1 Certified DSL Backend
+## ✦ Certified Finite DSL Backend
 
 The repository contains a finite-model backend for a Lean-based UFO model DSL.
 Its central guarantee is proof-producing validation:
@@ -1025,9 +1025,9 @@ Its central guarantee is proof-producing validation:
 Invalid DSL models do not silently pass as partial artifacts. They fail
 elaboration either while checking explicit derived-relation assertions or while
 building one of the generated axiom certificates. The diagnostics widget records
-the named input, expanded finite facts, and certificate status; certificate
-checking stops at the first failed generated axiom field and marks later fields
-as unchecked.
+the named input, expanded finite facts, certificate status, and, when possible,
+a DSL-level failure analysis. Certificate checking stops at the first failed
+generated axiom field and marks later fields as unchecked.
 
 ### Diagnostics Widget
 
@@ -1036,6 +1036,13 @@ panel with the model name, world and thing index mappings, user-written input
 facts, expanded finite facts, and certificate results. Passing models show all
 generated certificate fields as successful. Failing models show the first failed
 field as `failed` and all later fields as `unchecked`.
+
+When a certificate field fails, the frontend runs a separate negative probe. If
+Lean proves the negation of the generated axiom for the finite model, the widget
+reports a confirmed semantic counterexample and reconstructs a DSL-level
+counterexample where an extractor is available. If both the certificate proof
+and negative probe fail, the widget reports proof-search/probe exhaustion rather
+than claiming a model counterexample.
 
 The diagnostics panel uses Lean's native user-widget/infoview mechanism
 (`Lean.Widget` and `@[widget_module]`). It is UI over elaboration results, not
@@ -1110,10 +1117,12 @@ LeanUfo/UFO/DSL/
     SchoolRoles.lean   -- minimal Section 4.2 role-change example
     FlowerPropertyChange.lean -- minimal Section 4.3 property-change example
     RedirectedWalk.lean -- minimal Section 4.4 redirected-walk example
+    UltimateBearer.lean -- small direct ultimate-bearer/inherence example
     ConceptEvolution.lean -- documented Section 4.5 higher-order limitation
     FailedRoleTaxonomy.lean -- negative diagnostic example, stops at ax13
     FailedFlowerTaxonomy.lean -- negative diagnostic example, stops at ax18
     FailedConstitution.lean -- negative diagnostic example, stops at ax61
+    FailedStudentEnrollment.lean -- negative diagnostic example for future-only individual classification
 ```
 
 The user-facing command syntax is:
@@ -1139,7 +1148,10 @@ meaning of instantiation, and `⊑` asserts specialization. Multiple
 `given <world>:` blocks are accepted for modal models. Binary relation facts can
 also be written as `x Relation y`, including `Part`, `Overlap`, and
 `ProperPart`. The reserved pseudo-world `everywhere` marks facts that hold in
-every declared world.
+every declared world. The DSL also accepts selected function-style primitive
+facts needed by §3.12, including `Distance(x, y, r)`, `DistanceSum(r0, r1, s)`,
+`TupleProjection(tuple, 0) = component`, `x MemberOf s`,
+`r : DistanceZero`, and `s DistanceGreaterEq r`.
 
 `derive_relations` means: for selected UFO predicates, do not read their truth
 from user-written primitive facts; compute them from their UFO-style defining
@@ -1165,6 +1177,17 @@ currently selected derived predicates are:
 
 - `Type`
 - `Individual`
+- `Quality`
+- `NonEmptySet`
+- `QualityStructure`
+- `SimpleQuality`
+- `ComplexQuality`
+- `SimpleQualityType`
+- `ComplexQualityType`
+- `SubsetOf`
+- `ProperSubsetOf`
+- `ProperSub`
+- `UltimateBearerOf`
 - `GenericFunctionalDependence`
 - `IndividualFunctionalDependence`
 - `ComponentOf`
@@ -1249,6 +1272,7 @@ these commands are expected to fail:
 lake env lean LeanUfo/UFO/DSL/ConcreteExamples/FailedRoleTaxonomy.lean
 lake env lean LeanUfo/UFO/DSL/ConcreteExamples/FailedFlowerTaxonomy.lean
 lake env lean LeanUfo/UFO/DSL/ConcreteExamples/FailedConstitution.lean
+lake env lean LeanUfo/UFO/DSL/ConcreteExamples/FailedStudentEnrollment.lean
 ```
 
 ---
