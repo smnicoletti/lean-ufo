@@ -111,6 +111,37 @@ function StatusBadge({ status }) {
   }, status);
 }
 
+function CertificationRow({ row }) {
+  return e('div', {
+    title: row.formula || row.prop || '',
+    style: {
+      display: 'grid',
+      gridTemplateColumns: '4.8rem max-content max-content 1fr',
+      alignItems: 'baseline',
+      columnGap: '0.5rem',
+      fontSize: '0.85rem',
+      marginBottom: '0.2rem',
+      minWidth: 'max-content'
+    }
+  },
+    e(StatusBadge, { status: row.status }),
+    e('code', null, row.field),
+    e('code', {
+      style: {
+        opacity: 0.75,
+        whiteSpace: 'nowrap'
+      }
+    }, row.prop || ''),
+    row.formula
+      ? e('span', {
+          style: {
+            opacity: 0.9,
+            whiteSpace: 'nowrap'
+          }
+        }, row.formula)
+      : null);
+}
+
 export default function(props) {
   const facts = props.facts || [];
   const expandedFacts = props.expandedFacts || [];
@@ -121,7 +152,8 @@ export default function(props) {
     style: {
       padding: '0.75rem',
       lineHeight: 1.35,
-      maxWidth: '48rem'
+      maxWidth: 'none',
+      overflowX: 'auto'
     }
   },
     e('h3', { style: { margin: '0 0 0.25rem' } }, 'UFO diagnostics'),
@@ -156,15 +188,8 @@ export default function(props) {
         ? e('details', { open: !!failed },
             e('summary', null,
               failed ? 'Stopped at ' + failed.field : statuses.filter(s => s.status === 'success').length + ' certificate checks'),
-            e('div', { style: { marginTop: '0.35rem' } }, statuses.map((s, i) =>
-              e('div', {
-                key: s.field + i,
-                title: s.formula || s.prop || '',
-                style: { display: 'flex', gap: '0.5rem', fontSize: '0.85rem' }
-              },
-                e(StatusBadge, { status: s.status }),
-                e('code', null, s.field),
-                e('span', { style: { opacity: 0.75 } }, s.prop || '')))))
+            e('div', { style: { marginTop: '0.35rem', overflowX: 'auto' } }, statuses.map((s, i) =>
+              e(CertificationRow, { key: s.field + i, row: s }))))
         : e('div', { style: { opacity: 0.75 } }, 'Certification has not started.')))
 }
 "
