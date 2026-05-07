@@ -4,9 +4,8 @@ import LeanUfo.UFO.DSL.Syntax
 Paper example: minimal flower property-change witness
 
 Section 4.3 first discusses a flower whose color changes from red to brown.
-The paper treats color as a quality with values in a quality structure.  The
-current Phase 1 DSL does not yet expose set-extension syntax for quality
-structures, so this example records the same change pattern with two phases of
+The paper treats color as a quality with values in a quality structure.  This
+compact witness records the same modal change pattern with two phases of
 Flower: RedFlower and BrownFlower.
 
 The important certified point is modal: the same rose remains a Flower while

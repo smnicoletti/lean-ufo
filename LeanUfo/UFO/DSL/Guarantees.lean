@@ -1,7 +1,7 @@
 import LeanUfo.UFO.DSL.Syntax
 
 /-!
-# Formal guarantees for the Phase 1 DSL backend
+# Formal guarantees for the finite DSL backend
 
 This module records the object-level guarantees that are already available for
 the finite DSL pipeline.
@@ -17,9 +17,11 @@ semantic facts that make the generated artifacts useful:
   facts to finite tables and then to `FiniteModel4`;
 * `FiniteModel4.Certified M` is exactly the existing `UFOAxioms4` proposition
   applied to the compiled semantic signature.
-* The Phase 1 compiler uses the intended universal S5 frame.
+* The finite compiler uses the intended universal S5 frame.
 * Core compiled predicates in `UFOSignature4` are definitionally connected to
   the finite tables and semantic functions in `FiniteModel4`.
+* New §3.12 surface tables for set membership, tuple projection, and distance
+  are compiled into the corresponding finite-model fields.
 * The diagnostics widget's certificate status labels are a faithful rendering
   of the elaborator state: completed checks are shown as `success`, the first
   recorded failure is shown as `failed`, and later checks are shown as
@@ -110,6 +112,60 @@ theorem diagnostic_unchecked_after_first_failure
   unfold diagnosticCertStatus
   simp [hNotCompleted, hFailedNe]
 
+/--
+The Lean-side status classifier sent to the widget is total over the three
+displayed states.  The JavaScript widget only renders these strings; it does
+not invent additional certification states.
+-/
+theorem diagnostic_status_exhaustive
+    (completed : Array String) (failed? : Option String) (field : String) :
+    diagnosticCertStatus completed failed? field = "success" ∨
+      diagnosticCertStatus completed failed? field = "failed" ∨
+      diagnosticCertStatus completed failed? field = "unchecked" := by
+  unfold diagnosticCertStatus
+  by_cases hCompleted : field ∈ completed
+  · simp [hCompleted]
+  · simp [hCompleted]
+    by_cases hFailed : failed? = some field
+    · simp [hFailed]
+    · simp [hFailed]
+
+/--
+Completed certificate fields have priority in the widget status classifier:
+even if inconsistent caller data also records the same field as failed, the
+rendered status is still `success`.
+-/
+theorem diagnostic_completed_priority
+    (completed : Array String) (failed? : Option String) (field : String)
+    (hCompleted : field ∈ completed) :
+    diagnosticCertStatus completed failed? field = "success" := by
+  exact (diagnostic_success_iff_completed completed failed? field).2 hCompleted
+
+/--
+A recorded failure is rendered as `failed` exactly when that field has not
+already completed.
+-/
+theorem diagnostic_recorded_failure_is_failed_of_not_completed
+    (completed : Array String) (field : String)
+    (hNotCompleted : field ∉ completed) :
+    diagnosticCertStatus completed (some field) field = "failed" := by
+  exact
+    (diagnostic_failed_iff_recorded_failure_of_not_completed
+      completed (some field) field hNotCompleted).2 rfl
+
+/--
+If a field has neither completed nor been recorded as the first failure, the
+widget classifier renders it as `unchecked`.
+-/
+theorem diagnostic_unchecked_of_not_completed_and_not_failed
+    (completed : Array String) (failed? : Option String) (field : String)
+    (hNotCompleted : field ∉ completed)
+    (hNotFailed : failed? ≠ some field) :
+    diagnosticCertStatus completed failed? field = "unchecked" := by
+  exact
+    (diagnostic_unchecked_iff_not_recorded_failure_of_not_completed
+      completed failed? field hNotCompleted).2 hNotFailed
+
 end Diagnostics
 
 /-!
@@ -119,7 +175,7 @@ The concrete command parser in `Syntax.lean` produces named ASTs. Name
 resolution, scope expansion, taxonomy closure, reflexive specialization
 closure, table compilation, and finite-model construction live in
 `Compiler.lean` as ordinary Lean functions. The theorems below record the
-current compiler contract at that pure boundary.
+compiler contract at that pure boundary.
 -/
 
 namespace NameResolution
@@ -191,6 +247,31 @@ theorem resolveNamedFact_binary_of_resolved
   simp [resolveNamedFact, hLeft, hRight, hScope]
   rfl
 
+/-- Ternary named fact resolution succeeds when all things and the scope resolve. -/
+theorem resolveNamedFact_ternary_of_resolved
+    (ws ts : Array String) (field : TernaryField) (first second third : String)
+    (namedScope : NamedFactScope) (firstIdx secondIdx thirdIdx : Nat) (scope : FactScope)
+    (hFirst : resolveThing ts first = Except.ok firstIdx)
+    (hSecond : resolveThing ts second = Except.ok secondIdx)
+    (hThird : resolveThing ts third = Except.ok thirdIdx)
+    (hScope : resolveScope ws namedScope = Except.ok scope) :
+    resolveNamedFact ws ts (.ternary field first second third namedScope) =
+      Except.ok (.ternary field firstIdx secondIdx thirdIdx scope) := by
+  simp [resolveNamedFact, hFirst, hSecond, hThird, hScope]
+  rfl
+
+/-- Tuple-projection fact resolution succeeds when tuple/result names and scope resolve. -/
+theorem resolveNamedFact_tupleProjection_of_resolved
+    (ws ts : Array String) (tuple result : String) (index : Nat)
+    (namedScope : NamedFactScope) (tupleIdx resultIdx : Nat) (scope : FactScope)
+    (hTuple : resolveThing ts tuple = Except.ok tupleIdx)
+    (hResult : resolveThing ts result = Except.ok resultIdx)
+    (hScope : resolveScope ws namedScope = Except.ok scope) :
+    resolveNamedFact ws ts (.tupleProjection tuple index result namedScope) =
+      Except.ok (.tupleProjection tupleIdx index resultIdx scope) := by
+  simp [resolveNamedFact, hTuple, hResult, hScope]
+  rfl
+
 /-- Batch resolution delegates to the pure single-fact resolver after duplicate checks. -/
 theorem resolveNamedFacts_of_checks_ok
     (ws ts : Array String) (facts : Array NamedScopedFact)
@@ -226,6 +307,20 @@ theorem derived_at_expands_to_singleton
       #[CompiledFact.derived (propAtWorld w)] :=
   rfl
 
+/-- A ternary fact scoped to one world expands to exactly one world-indexed fact. -/
+theorem ternary_at_expands_to_singleton
+    (worldCount : Nat) (field : TernaryField) (x y z w : Nat) :
+    expandScopedFact worldCount (.ternary field x y z (.at w)) =
+      #[CompiledFact.ternary field x y z w] :=
+  rfl
+
+/-- A tuple-projection fact scoped to one world expands to exactly one world-indexed fact. -/
+theorem tupleProjection_at_expands_to_singleton
+    (worldCount : Nat) (tuple index result w : Nat) :
+    expandScopedFact worldCount (.tupleProjection tuple index result (.at w)) =
+      #[CompiledFact.tupleProjection tuple index result w] :=
+  rfl
+
 /--
 Expansion of all scoped facts is ordinary folding over the pure scoped fact
 expander. This is where the `given everywhere` semantics now lives.
@@ -258,6 +353,20 @@ theorem binary_compiles_to_table
       addBinary tables field.toTableField x y w :=
   compileFact_binary_eq tables field x y w
 
+/-- Ternary facts are compiled by inserting exactly one ternary table entry. -/
+theorem ternary_compiles_to_table
+    (tables : FactTables) (field : TernaryField) (x y z w : Nat) :
+    compileFact tables (.ternary field x y z w) =
+      addTernary tables field.toTableField x y z w :=
+  compileFact_ternary_eq tables field x y z w
+
+/-- Tuple-projection facts are compiled by inserting exactly one projection table entry. -/
+theorem tupleProjection_compiles_to_table
+    (tables : FactTables) (tuple index result w : Nat) :
+    compileFact tables (.tupleProjection tuple index result w) =
+      addTupleProjection tables tuple index result w :=
+  compileFact_tupleProjection_eq tables tuple index result w
+
 /--
 Derived-relation assertions are not primitive semantic tables. They compile to
 generated propositions that Lean checks against the derived semantic relations.
@@ -283,6 +392,20 @@ theorem explicit_binary_compiles_to_table
     (tables : FactTables) (field : BinaryField) (x y w : Nat) :
     compileExplicitFact tables (.binary field x y w) =
       addBinary tables field.toTableField x y w :=
+  rfl
+
+/-- Explicit ternary facts compile to direct ternary table insertions. -/
+theorem explicit_ternary_compiles_to_table
+    (tables : FactTables) (field : TernaryField) (x y z w : Nat) :
+    compileExplicitFact tables (.ternary field x y z w) =
+      addTernary tables field.toTableField x y z w :=
+  rfl
+
+/-- Explicit tuple-projection facts compile to direct projection table insertions. -/
+theorem explicit_tupleProjection_compiles_to_table
+    (tables : FactTables) (tuple index result w : Nat) :
+    compileExplicitFact tables (.tupleProjection tuple index result w) =
+      addTupleProjection tables tuple index result w :=
   rfl
 
 /-- Explicit derived assertions compile to generated propositions. -/
@@ -389,6 +512,54 @@ theorem toFiniteModel4_part_eq
       tables.identityBinaryTable "part" x y w :=
   rfl
 
+/-- `toFiniteModel4` reads set membership from the compiled `MemberOf` table. -/
+theorem toFiniteModel4_setExtension_iff_memberOf
+    (tables : FactTables) (wc tc : Nat) (hw : 0 < wc) (ht : 0 < tc)
+    (x s : Fin tc) (w : Fin wc) :
+    x ∈ (tables.toFiniteModel4 wc tc hw ht).setExtension s w ↔
+      tables.binaryTable "memberOf" x s w = true :=
+  Iff.rfl
+
+/-- `toFiniteModel4` reads tuple projection from the compiled projection table. -/
+theorem toFiniteModel4_tupleProjection_eq
+    (tables : FactTables) (wc tc n : Nat) (hw : 0 < wc) (ht : 0 < tc)
+    (p : Fin tc) (i : Fin n) (w : Fin wc) :
+    (tables.toFiniteModel4 wc tc hw ht).tupleProjection p i w =
+      tables.tupleProjectionTable p i.val w :=
+  rfl
+
+/-- `toFiniteModel4` reads distance from the compiled ternary table. -/
+theorem toFiniteModel4_distance_eq
+    (tables : FactTables) (wc tc : Nat) (hw : 0 < wc) (ht : 0 < tc)
+    (x y r : Fin tc) (w : Fin wc) :
+    (tables.toFiniteModel4 wc tc hw ht).distance x y r w =
+      tables.ternaryTable "distance" x y r w :=
+  rfl
+
+/-- `toFiniteModel4` reads zero-distance values from the compiled unary table. -/
+theorem toFiniteModel4_distanceZero_eq
+    (tables : FactTables) (wc tc : Nat) (hw : 0 < wc) (ht : 0 < tc)
+    (r : Fin tc) (w : Fin wc) :
+    (tables.toFiniteModel4 wc tc hw ht).distanceZero r w =
+      tables.unaryTable "distanceZero" r w :=
+  rfl
+
+/-- `toFiniteModel4` reads distance sums from the compiled ternary table. -/
+theorem toFiniteModel4_distanceSum_eq
+    (tables : FactTables) (wc tc : Nat) (hw : 0 < wc) (ht : 0 < tc)
+    (r0 r1 s : Fin tc) (w : Fin wc) :
+    (tables.toFiniteModel4 wc tc hw ht).distanceSum r0 r1 s w =
+      tables.ternaryTable "distanceSum" r0 r1 s w :=
+  rfl
+
+/-- `toFiniteModel4` reads distance ordering from the compiled binary table. -/
+theorem toFiniteModel4_distanceGreaterEq_eq
+    (tables : FactTables) (wc tc : Nat) (hw : 0 < wc) (ht : 0 < tc)
+    (s r : Fin tc) (w : Fin wc) :
+    (tables.toFiniteModel4 wc tc hw ht).distanceGreaterEq s r w =
+      tables.binaryTable "distanceGreaterEq" s r w :=
+  rfl
+
 end FactTables
 
 namespace FiniteModel4
@@ -423,9 +594,9 @@ theorem certified_of_ufoAxioms4 (M : FiniteModel4) :
   fun h => h
 
 /--
-The Phase 1 finite compiler uses a universal accessibility relation: every
-declared world sees every declared world.  This is the current DSL default, not
-a restriction of the semantic kernel.
+The finite compiler uses a universal accessibility relation: every
+declared world sees every declared world.  This is the DSL default used here,
+not a restriction of the semantic kernel.
 -/
 theorem compiled_frame_universal
     (M : FiniteModel4) (w v : M.toS5Frame.World) :
@@ -495,6 +666,43 @@ theorem compiled_part_iff
     (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) :
     M.toUFOSignature4.Part x y w ↔ M.part x y w = true :=
+  Iff.rfl
+
+/-- Set membership in the compiled signature is exactly finite set-extension membership. -/
+theorem compiled_memberOf_iff_setExtension
+    (M : FiniteModel4)
+    (x s : Fin M.thingCount) (w : Fin M.worldCount) :
+    MemberOf M.toUFOSignature4.toUFOSignature3_12 x s w ↔
+      x ∈ M.setExtension s w :=
+  Iff.rfl
+
+/-- Distance in the compiled signature is read directly from the finite table. -/
+theorem compiled_distance_iff
+    (M : FiniteModel4)
+    (x y r : Fin M.thingCount) (w : Fin M.worldCount) :
+    M.toUFOSignature4.Distance x y r w ↔ M.distance x y r w = true :=
+  Iff.rfl
+
+/-- Zero-distance values in the compiled signature are read directly from the finite table. -/
+theorem compiled_distanceZero_iff
+    (M : FiniteModel4)
+    (r : Fin M.thingCount) (w : Fin M.worldCount) :
+    M.toUFOSignature4.DistanceZero r w ↔ M.distanceZero r w = true :=
+  Iff.rfl
+
+/-- Distance sums in the compiled signature are read directly from the finite table. -/
+theorem compiled_distanceSum_iff
+    (M : FiniteModel4)
+    (r0 r1 s : Fin M.thingCount) (w : Fin M.worldCount) :
+    M.toUFOSignature4.DistanceSum r0 r1 s w ↔ M.distanceSum r0 r1 s w = true :=
+  Iff.rfl
+
+/-- Distance ordering in the compiled signature is read directly from the finite table. -/
+theorem compiled_distanceGreaterEq_iff
+    (M : FiniteModel4)
+    (s r : Fin M.thingCount) (w : Fin M.worldCount) :
+    M.toUFOSignature4.DistanceGreaterEq s r w ↔
+      M.distanceGreaterEq s r w = true :=
   Iff.rfl
 
 /--

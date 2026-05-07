@@ -6,8 +6,7 @@ Paper example: minimal school-role witness
 This file captures a minimal core of Section 4.2, where people contingently
 play school roles.  The full paper model also includes students, schools,
 classes, courses, and relators such as Employment and SchoolEnrollment.  This
-finite witness keeps only the teacher-replacement pattern that the current DSL
-can certify quickly:
+finite witness keeps only the teacher-replacement pattern:
 
 * Potter is a teacher before the break and not after it.
 * Bumblebee is not a teacher before the break and is a teacher after it.
