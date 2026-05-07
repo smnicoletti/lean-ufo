@@ -267,10 +267,19 @@ model.
 - `toFiniteModel4_inst_eq`
 - `toFiniteModel4_sub_eq`
 - `toFiniteModel4_part_eq`
+- `toFiniteModel4_setExtension_iff_memberOf`
+- `toFiniteModel4_tupleProjection_eq`
+- `toFiniteModel4_distance_eq`
+- `toFiniteModel4_distanceZero_eq`
+- `toFiniteModel4_distanceSum_eq`
+- `toFiniteModel4_distanceGreaterEq_eq`
 
 These show that generated finite models are built by ordinary compilation from
 explicit AST facts to finite tables and then to `FiniteModel4`, with key fields
-connected to the intended table lookups.
+connected to the intended table lookups. Set extension is backed by the
+compiled `MemberOf` table, tuple projection is backed by explicit
+`TupleProjection` facts with identity default, and distance predicates are read
+from their finite primitive tables.
 
 ### Semantic Bridge
 
@@ -289,6 +298,11 @@ connected to the intended table lookups.
 - `compiled_inst_iff`
 - `compiled_sub_iff`
 - `compiled_part_iff`
+- `compiled_memberOf_iff_setExtension`
+- `compiled_distance_iff`
+- `compiled_distanceZero_iff`
+- `compiled_distanceSum_iff`
+- `compiled_distanceGreaterEq_iff`
 - `compiled_constitution_iff`
 
 These connect the finite representation to the semantic signature used by the
@@ -367,11 +381,25 @@ The VS Code widget attached to a `ufo_model ... certify` command reports:
 - declared worlds and things with their generated finite indices;
 - the original input facts in user-facing names;
 - the expanded finite facts compiled by the DSL frontend;
-- generated certificate fields with `success`, `failed`, or `unchecked` status.
+- generated certificate fields with `success`, `failed`, or `unchecked` status;
+- failure analysis when a derived assertion or generated certificate fails.
 
 Certificate checks are probed in order. If a proof fails, the widget is saved
 once with all completed fields marked `success`, the first failing field marked
 `failed`, and all later fields marked `unchecked`.
+
+For failed certificate fields, the frontend also runs a separate negative
+probe. If Lean proves the negation of the generated axiom for the finite model,
+the widget reports a confirmed semantic counterexample and tries to reconstruct
+the witness in DSL-level terms. If both the certificate proof and the negative
+probe fail, the widget reports proof-search/probe exhaustion instead of
+claiming a semantic counterexample. Some large or context-sensitive fields are
+checked by elaborating the generated theorem command directly rather than by a
+standalone term preflight; this avoids treating probe incompleteness as a model
+failure. The explicit command-probe set currently includes `ax1`-`ax6`, `ax44`,
+and `ax68`: the first group expands finite definitions over all things/worlds,
+`ax44` expands the endurant-type taxonomy mirror, and `ax68` uses a custom
+ultimate-bearer proof shape.
 
 The widget uses Lean's native user-widget/infoview mechanism (`Lean.Widget` and
 `@[widget_module]`). It is a presentation layer over elaboration results, not
@@ -393,6 +421,7 @@ x : P       -- unary UFO classification predicate
 x :: T      -- UFO instantiation
 T1 ⊑ T2     -- specialization
 x R y       -- binary relation fact
+R(x, y, z)  -- selected ternary primitive or derived relation fact
 ```
 
 Examples:
@@ -422,6 +451,22 @@ IsPartitionedInto(Person, Employee, NonEmployee)
 Derived assertions are checked in `Model.assertedDerivedFacts`; they do not
 override the semantic definitions computed by the compiler.
 
+Section 3.12 surface syntax is available for finite set and distance data:
+
+```lean
+tuple MemberOf domain
+TupleProjection(tuple, 0) = component
+Distance(q1, q2, r)
+DistanceSum(r0, r1, s)
+r : DistanceZero
+s DistanceGreaterEq r
+```
+
+`MemberOf` is a primitive table fact whose compiled semantics populates set
+extension. `TupleProjection` facts populate finite tuple-projection lookup, with
+identity default when no projection fact is present. `Distance`, `DistanceSum`,
+`DistanceZero`, and `DistanceGreaterEq` are primitive finite distance tables.
+
 The accepted directives are currently:
 
 ```lean
@@ -439,6 +484,18 @@ Current derived semantics include:
 
 - `Type`: derived from possible instantiation;
 - `Individual`: derived from absence of instantiation;
+- selected definition-like Section 3.1, 3.9, and 3.12 predicates:
+  - `ProperSub`
+  - `UltimateBearerOf`
+  - `Quality`
+  - `NonEmptySet`
+  - `QualityStructure`
+  - `SimpleQuality`
+  - `ComplexQuality`
+  - `SimpleQualityType`
+  - `ComplexQualityType`
+  - `SubsetOf`
+  - `ProperSubsetOf`
 - Section 3.6:
   - `GenericFunctionalDependence`
   - `IndividualFunctionalDependence`
@@ -466,16 +523,15 @@ Section 3.5 axioms.
 
 ## Current Limitations
 
-The Phase 1 DSL does not yet surface every field of `UFOSignature4`.
+The finite DSL does not yet surface every field of `UFOSignature4`.
 
 Missing or limited surface support includes:
 
 - custom accessibility relations; generated models use the default universal
   S5 frame;
-- finite set extensions, set membership/product structure, tuple projections,
-  and product-subset constraints used by richer quality-structure axioms;
-- metric/distance tables such as `Distance`, `DistanceZero`, `DistanceSum`, and
-  `DistanceGreaterEq`;
+- full product-subset authoring support for richer quality-structure examples;
+  the primitive pieces (`MemberOf`, `TupleProjection`, and distance facts) are
+  available, but there is not yet higher-level syntax for product families;
 - primitive higher-arity tables for `IndividualFunctionalDependence`,
   `ComponentOf`, and `Constitution`; users can assert these as derived facts,
   but the semantic compiler computes them from lower-level relations;
@@ -483,11 +539,13 @@ Missing or limited surface support includes:
   concept-evolution pattern in UFO Section 4.5.
 
 The diagnostics widget now reports named worlds, named things, input facts,
-expanded finite facts, and certificate status.  It still reports failed
-certificate fields by generated axiom field name, not by a minimized
-counterexample or source-level repair hint.
+expanded finite facts, certificate status, and DSL-level failure analysis for
+many axiom and derived-assertion failures.  Some witness extractors remain
+intentionally conservative, especially where the axiom uses product families or
+higher-arity relations whose useful source-level presentation needs more DSL
+structure.
 
-The current DSL has a flat `things` namespace and a single flat `::`
+The DSL has a flat `things` namespace and a single flat `::`
 instantiation table. This is enough for first-order finite witnesses and for
 checking derived Section 4 relations such as disjointness, coverage,
 partitioning, and simple categorization assertions. It is not enough for a
@@ -535,10 +593,23 @@ lake build LeanUfo.UFO.DSL.Guarantees
 ```
 
 Run the negative diagnostic examples directly when checking the widget failure
-paths.  These commands are expected to fail:
+paths. These commands are expected to fail. They are kept out of
+`LeanUfo.UFO.DSL.Examples` so the aggregate example module remains buildable.
+
+Current negative examples:
+
+- `FailedRoleTaxonomy.lean`: semantic taxonomy failure, currently stops at
+  `ax13`.
+- `FailedFlowerTaxonomy.lean`: semantic rigidity/modal taxonomy failure,
+  currently stops at `ax18`.
+- `FailedConstitution.lean`: semantic constitution failure, currently stops at
+  `ax61`.
+- `FailedStudentEnrollment.lean`: minimized future-only individual
+  classification failure, currently stops at `ax10`.
 
 ```bash
 lake env lean LeanUfo/UFO/DSL/ConcreteExamples/FailedRoleTaxonomy.lean
 lake env lean LeanUfo/UFO/DSL/ConcreteExamples/FailedFlowerTaxonomy.lean
 lake env lean LeanUfo/UFO/DSL/ConcreteExamples/FailedConstitution.lean
+lake env lean LeanUfo/UFO/DSL/ConcreteExamples/FailedStudentEnrollment.lean
 ```

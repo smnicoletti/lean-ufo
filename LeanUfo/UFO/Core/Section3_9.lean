@@ -104,6 +104,42 @@ def UltimateBearerOf (Sig : UFOSignature3_9)
   MomentOf Sig m b w
 
 /--
+If an entity has no inherence outgoing edge, it cannot be a moment of anything.
+
+This small eliminator is useful for finite generated DSL certificates: after
+table reduction, many `MomentOf` impossibility goals reduce to showing that the
+first inherence step does not exist.
+-/
+theorem not_momentOf_of_no_inheres
+    {m x : Sig.Thing} {w : Sig.F.World}
+    (h : ∀ y : Sig.Thing, ¬ Sig.InheresIn m y w) :
+    ¬ MomentOf Sig m x w := by
+  intro hm
+  induction hm with
+  | direct hInh =>
+      exact h _ hInh
+  | step hInh _ _ =>
+      exact h _ hInh
+
+/--
+If all inherence edges out of `m` point to the same non-inhering bearer `b`,
+then every `MomentOf m x` chain ends at `b`.
+-/
+theorem momentOf_eq_of_unique_direct_bearer
+    {m b x : Sig.Thing} {w : Sig.F.World}
+    (hUnique : ∀ y : Sig.Thing, Sig.InheresIn m y w → y = b)
+    (hBearerTerminal : ∀ y : Sig.Thing, ¬ Sig.InheresIn b y w) :
+    MomentOf Sig m x w → x = b := by
+  intro hm
+  induction hm with
+  | direct hInh =>
+      exact hUnique _ hInh
+  | step hInh hTail =>
+      have hy : _ = b := hUnique _ hInh
+      subst hy
+      exact False.elim ((not_momentOf_of_no_inheres (Sig := Sig) hBearerTerminal) hTail)
+
+/--
 (a68)
 
 Moment(m) → ∃!b ultimateBearerOf(b, m)

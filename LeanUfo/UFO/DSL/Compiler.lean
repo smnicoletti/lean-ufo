@@ -52,6 +52,7 @@ inductive UnaryField where
   | relatorType | modeType | qualityType
   | objectKind | collectiveKind | quantityKind | relatorKind | modeKind
   | ex | quale | set_ | qualityDomain | qualityDimension | intrinsicMomentType
+  | distanceZero
   deriving Repr, Inhabited, DecidableEq
 
 /-- Finite table field name for a unary AST field. -/
@@ -104,6 +105,7 @@ def UnaryField.toTableField : UnaryField → String
   | .qualityDomain => "qualityDomain"
   | .qualityDimension => "qualityDimension"
   | .intrinsicMomentType => "intrinsicMomentType"
+  | .distanceZero => "distanceZero"
 
 /-- Parse an internal unary table field name back into a typed AST field. -/
 def UnaryField.fromTableField? (field : String) : Option UnaryField :=
@@ -156,13 +158,14 @@ def UnaryField.fromTableField? (field : String) : Option UnaryField :=
   | "qualityDomain" => some .qualityDomain
   | "qualityDimension" => some .qualityDimension
   | "intrinsicMomentType" => some .intrinsicMomentType
+  | "distanceZero" => some .distanceZero
   | _ => none
 
 /-- Primitive binary finite-table fields accepted by the resolved DSL AST. -/
 inductive BinaryField where
   | inst | sub | part | overlap | properPart | functionsAs | constitutedBy
   | inheresIn | foundedBy | quaIndividualOf | mediates | characterization
-  | associatedWith | hasValue | manifests | lifeOf | meet
+  | associatedWith | hasValue | memberOf | manifests | lifeOf | meet | distanceGreaterEq
   deriving Repr, Inhabited, DecidableEq
 
 /-- Finite table field name for a binary AST field. -/
@@ -181,14 +184,28 @@ def BinaryField.toTableField : BinaryField → String
   | .characterization => "characterization"
   | .associatedWith => "associatedWith"
   | .hasValue => "hasValue"
+  | .memberOf => "memberOf"
   | .manifests => "manifests"
   | .lifeOf => "lifeOf"
   | .meet => "meet"
+  | .distanceGreaterEq => "distanceGreaterEq"
+
+/-- Primitive ternary finite-table fields accepted by the resolved DSL AST. -/
+inductive TernaryField where
+  | distance | distanceSum
+  deriving Repr, Inhabited, DecidableEq
+
+/-- Finite table field name for a ternary AST field. -/
+def TernaryField.toTableField : TernaryField → String
+  | .distance => "distance"
+  | .distanceSum => "distanceSum"
 
 /-- Resolved DSL facts. Names have already been mapped to finite indices. -/
 inductive CompiledFact where
   | unary (field : UnaryField) (thing world : Nat)
   | binary (field : BinaryField) (left right world : Nat)
+  | ternary (field : TernaryField) (first second third world : Nat)
+  | tupleProjection (tuple index result world : Nat)
   | derived (prop : String)
   deriving Repr, Inhabited
 
@@ -207,6 +224,8 @@ generated Lean proposition mentions the concrete `Fin` world term.
 inductive ScopedCompiledFact where
   | unary (field : UnaryField) (thing : Nat) (scope : FactScope)
   | binary (field : BinaryField) (left right : Nat) (scope : FactScope)
+  | ternary (field : TernaryField) (first second third : Nat) (scope : FactScope)
+  | tupleProjection (tuple index result : Nat) (scope : FactScope)
   | derived (propAtWorld : Nat → String) (scope : FactScope)
 
 /-- Scope attached to a named fact before world-name resolution. -/
@@ -227,6 +246,8 @@ inductive NamedDerivedFact where
 inductive NamedScopedFact where
   | unary (field : UnaryField) (thing : String) (scope : NamedFactScope)
   | binary (field : BinaryField) (left right : String) (scope : NamedFactScope)
+  | ternary (field : TernaryField) (first second third : String) (scope : NamedFactScope)
+  | tupleProjection (tuple : String) (index : Nat) (result : String) (scope : NamedFactScope)
   | derived (fact : NamedDerivedFact) (scope : NamedFactScope)
   deriving Repr, Inhabited
 
@@ -286,18 +307,46 @@ private def finThingSource (idx : Nat) : String :=
 private def finWorldSource (idx : Nat) : String :=
   s!"(⟨{idx}, by decide⟩ : Fin data.worldCount)"
 
+private def definedUnaryPredicate? (field : String) : Option (String × String) :=
+  match field with
+  | "Quality" => some ("Quality", "sig.toUFOSignature3_3")
+  | "NonEmptySet" => some ("NonEmptySet", "sig.toUFOSignature3_12")
+  | "QualityStructure" => some ("QualityStructure", "sig.toUFOSignature3_12")
+  | "SimpleQuality" => some ("SimpleQuality", "sig.toUFOSignature3_12")
+  | "ComplexQuality" => some ("ComplexQuality", "sig.toUFOSignature3_12")
+  | "SimpleQualityType" => some ("SimpleQualityType", "sig.toUFOSignature3_12")
+  | "ComplexQualityType" => some ("ComplexQualityType", "sig.toUFOSignature3_12")
+  | _ => none
+
+private def definedBinaryPredicate? (field : String) : Option (String × String) :=
+  match field with
+  | "ProperSub" => some ("ProperSub", "sig.toUFOSignature3_1")
+  | "UltimateBearerOf" => some ("UltimateBearerOf", "sig.toUFOSignature3_9")
+  | "SubsetOf" => some ("SubsetOf", "sig.toUFOSignature3_12")
+  | "ProperSubsetOf" => some ("ProperSubsetOf", "sig.toUFOSignature3_12")
+  | _ => none
+
 private def resolveDerivedFact
     (things : Array String) (fact : NamedDerivedFact) :
     Except ResolveError (Nat → String) := do
   match fact with
   | .unary field thing =>
       let idx ← resolveThing things thing
-      pure fun w => s!"sig.{field} {finThingSource idx} {finWorldSource w}"
+      match definedUnaryPredicate? field with
+      | some (definition, sigSource) =>
+          pure fun w => s!"{definition} {sigSource} {finThingSource idx} {finWorldSource w}"
+      | none =>
+          pure fun w => s!"sig.{field} {finThingSource idx} {finWorldSource w}"
   | .binary field left right =>
       let leftIdx ← resolveThing things left
       let rightIdx ← resolveThing things right
-      pure fun w =>
-        s!"sig.{field} {finThingSource leftIdx} {finThingSource rightIdx} {finWorldSource w}"
+      match definedBinaryPredicate? field with
+      | some (definition, sigSource) =>
+          pure fun w =>
+            s!"{definition} {sigSource} {finThingSource leftIdx} {finThingSource rightIdx} {finWorldSource w}"
+      | none =>
+          pure fun w =>
+            s!"sig.{field} {finThingSource leftIdx} {finThingSource rightIdx} {finWorldSource w}"
   | .ternary field first second third =>
       let firstIdx ← resolveThing things first
       let secondIdx ← resolveThing things second
@@ -324,6 +373,17 @@ def resolveNamedFact
       let rightIdx ← resolveThing things right
       let scope ← resolveScope worlds scope
       pure (.binary field leftIdx rightIdx scope)
+  | .ternary field first second third scope => do
+      let firstIdx ← resolveThing things first
+      let secondIdx ← resolveThing things second
+      let thirdIdx ← resolveThing things third
+      let scope ← resolveScope worlds scope
+      pure (.ternary field firstIdx secondIdx thirdIdx scope)
+  | .tupleProjection tuple index result scope => do
+      let tupleIdx ← resolveThing things tuple
+      let resultIdx ← resolveThing things result
+      let scope ← resolveScope worlds scope
+      pure (.tupleProjection tupleIdx index resultIdx scope)
   | .derived fact scope => do
       let propAtWorld ← resolveDerivedFact things fact
       let scope ← resolveScope worlds scope
@@ -361,8 +421,12 @@ than repeated `HashMap`/`Array.any` searches.
 structure FactTables where
   unary : Std.HashMap String (Array (Nat × Nat)) := {}
   binary : Std.HashMap String (Array (Nat × Nat × Nat)) := {}
+  ternary : Std.HashMap String (Array (Nat × Nat × Nat × Nat)) := {}
+  tupleProjection : Array (Nat × Nat × Nat × Nat) := #[]
   unaryLookup : String → Nat → Nat → Bool := fun _ _ _ => false
   binaryLookup : String → Nat → Nat → Nat → Bool := fun _ _ _ _ => false
+  ternaryLookup : String → Nat → Nat → Nat → Nat → Bool := fun _ _ _ _ _ => false
+  tupleProjectionLookup : Nat → Nat → Nat → Nat → Bool := fun _ _ _ _ => false
   derivedProps : Array String := #[]
   deriving Inhabited
 
@@ -457,6 +521,22 @@ def addBinary (tables : FactTables) (field : String) (x y w : Nat) : FactTables 
       tables.binaryLookup field' x' y' w' ||
         (field' == field && x' == x && y' == y && w' == w) }
 
+/-- Insert one ternary table fact into both the inspectable store and executable lookup. -/
+def addTernary (tables : FactTables) (field : String) (x y z w : Nat) : FactTables :=
+  { tables with
+    ternary := tables.ternary.insert field ((tables.ternary.getD field #[]).push (x, y, z, w))
+    ternaryLookup := fun field' x' y' z' w' =>
+      tables.ternaryLookup field' x' y' z' w' ||
+        (field' == field && x' == x && y' == y && z' == z && w' == w) }
+
+/-- Insert one tuple-projection fact into both the inspectable store and executable lookup. -/
+def addTupleProjection (tables : FactTables) (tuple index result w : Nat) : FactTables :=
+  { tables with
+    tupleProjection := tables.tupleProjection.push (tuple, index, result, w)
+    tupleProjectionLookup := fun tuple' index' result' w' =>
+      tables.tupleProjectionLookup tuple' index' result' w' ||
+        (tuple' == tuple && index' == index && result' == result && w' == w) }
+
 /-- Record an asserted derived-relation proposition for generated checking. -/
 def addDerivedProp (tables : FactTables) (prop : String) : FactTables :=
   { tables with derivedProps := tables.derivedProps.push prop }
@@ -464,7 +544,7 @@ def addDerivedProp (tables : FactTables) (prop : String) : FactTables :=
 /--
 Close the specialization table under the basic reflexivity required by (a5).
 
-In the current semantic compiler, `Type` is defined by possible instantiation:
+In this semantic compiler, `Type` is defined by possible instantiation:
 a thing is a type iff it appears as the target of some `x :: T` fact in some
 world. Since (a5) makes every type specialize itself at every world, the DSL
 inserts those reflexive `T ⊑ T` facts automatically.
@@ -489,12 +569,16 @@ def closeReflexiveSpecialization
 def compileFact (tables : FactTables) : CompiledFact → FactTables
   | .unary field x w => addUnaryWithTaxonomy tables field.toTableField x w
   | .binary field x y w => addBinary tables field.toTableField x y w
+  | .ternary field x y z w => addTernary tables field.toTableField x y z w
+  | .tupleProjection tuple index result w => addTupleProjection tables tuple index result w
   | .derived prop => addDerivedProp tables prop
 
 /-- Compile one resolved fact whose unary taxonomy closure is already explicit. -/
 def compileExplicitFact (tables : FactTables) : CompiledFact → FactTables
   | .unary field x w => addUnary tables field.toTableField x w
   | .binary field x y w => addBinary tables field.toTableField x y w
+  | .ternary field x y z w => addTernary tables field.toTableField x y z w
+  | .tupleProjection tuple index result w => addTupleProjection tables tuple index result w
   | .derived prop => addDerivedProp tables prop
 
 /-- Compile resolved facts before global closure steps. -/
@@ -508,6 +592,8 @@ def compileModelAST (ast : ModelAST) : FactTables :=
 private def expandAtWorld (world : Nat) : ScopedCompiledFact → CompiledFact
   | .unary field x _ => .unary field x world
   | .binary field x y _ => .binary field x y world
+  | .ternary field x y z _ => .ternary field x y z world
+  | .tupleProjection tuple index result _ => .tupleProjection tuple index result world
   | .derived propAtWorld _ => .derived (propAtWorld world)
 
 /-- Expand one scoped resolved fact into ordinary world-indexed facts. -/
@@ -522,6 +608,20 @@ def expandScopedFact (worldCount : Nat) : ScopedCompiledFact → Array CompiledF
           out := out.push (expandAtWorld w fact)
         pure out
   | fact@(.binary _ _ _ .everywhere) =>
+      Id.run do
+        let mut out := #[]
+        for w in [:worldCount] do
+          out := out.push (expandAtWorld w fact)
+        pure out
+  | fact@(.ternary _ _ _ _ (.at w)) => #[expandAtWorld w fact]
+  | fact@(.ternary _ _ _ _ .everywhere) =>
+      Id.run do
+        let mut out := #[]
+        for w in [:worldCount] do
+          out := out.push (expandAtWorld w fact)
+        pure out
+  | fact@(.tupleProjection _ _ _ (.at w)) => #[expandAtWorld w fact]
+  | fact@(.tupleProjection _ _ _ .everywhere) =>
       Id.run do
         let mut out := #[]
         for w in [:worldCount] do
@@ -556,6 +656,23 @@ def binaryTable (tables : FactTables) (field : String)
     (x y : Fin thingCount) (w : Fin worldCount) : Bool :=
   tables.binaryLookup field x.val y.val w.val
 
+/-- Pure Boolean table lookup for ternary fields. -/
+def ternaryTable (tables : FactTables) (field : String)
+    {thingCount worldCount : Nat}
+    (x y z : Fin thingCount) (w : Fin worldCount) : Bool :=
+  tables.ternaryLookup field x.val y.val z.val w.val
+
+/-- Table lookup for explicit tuple projection values. -/
+def tupleProjectionTable (tables : FactTables)
+    {thingCount worldCount : Nat}
+    (p : Fin thingCount) (i : Nat) (w : Fin worldCount) : Fin thingCount :=
+  Id.run do
+    for candidate in [:thingCount] do
+      if tables.tupleProjectionLookup p.val i candidate w.val then
+        if h : candidate < thingCount then
+          return ⟨candidate, h⟩
+    return p
+
 /--
 Pure Boolean table lookup for reflexive binary fields.
 
@@ -567,11 +684,86 @@ def identityBinaryTable (tables : FactTables) (field : String)
   x == y || binaryTable tables field x y w
 
 /--
+Depth-bounded reachability in a binary table.
+
+For a generated finite model with `thingCount` things, any acyclic path can be
+shortened to at most `thingCount` edges.  This is the computational side of the
+transitive-closure view of `MomentOf`; proof-producing code can later connect
+this Boolean result back to the inductive relation.
+-/
+partial def binaryReachableFrom
+    (tables : FactTables) (field : String) (thingCount : Nat) (world start target : Nat)
+    (fuel : Nat) (visited : Std.HashSet Nat) : Bool :=
+  match fuel with
+  | 0 => false
+  | fuel + 1 =>
+      Id.run do
+        for next in [:thingCount] do
+          if tables.binaryLookup field start next world then
+            if next == target then
+              return true
+            else if !visited.contains next then
+              if binaryReachableFrom tables field thingCount world next target fuel
+                  (visited.insert next) then
+                return true
+        return false
+
+/-- Transitive closure of a binary table in one world. -/
+def binaryClosure
+    (tables : FactTables) (field : String) (thingCount : Nat)
+    (world start target : Nat) : Bool :=
+  binaryReachableFrom tables field thingCount world start target thingCount
+    (Std.HashSet.emptyWithCapacity.insert start)
+
+/--
+Return one path witnessing binary-table reachability, if one exists.
+
+The result includes both endpoints, e.g. `#[m, b]` for a direct edge and
+`#[m, y, b]` for a two-step chain.
+-/
+partial def binaryPathFrom?
+    (tables : FactTables) (field : String) (thingCount : Nat) (world start target : Nat)
+    (fuel : Nat) (visited : Std.HashSet Nat) : Option (Array Nat) :=
+  match fuel with
+  | 0 => none
+  | fuel + 1 =>
+      Id.run do
+        for next in [:thingCount] do
+          if tables.binaryLookup field start next world then
+            if next == target then
+              return some #[start, target]
+            else if !visited.contains next then
+              match binaryPathFrom? tables field thingCount world next target fuel
+                  (visited.insert next) with
+              | some tail => return some (#[start] ++ tail)
+              | none => pure ()
+        return none
+
+/-- Return one path in the transitive closure of a binary table, if any. -/
+def binaryPath?
+    (tables : FactTables) (field : String) (thingCount : Nat)
+    (world start target : Nat) : Option (Array Nat) :=
+  binaryPathFrom? tables field thingCount world start target thingCount
+    (Std.HashSet.emptyWithCapacity.insert start)
+
+/-- `MomentOf` is the transitive closure of `InheresIn` in a fixed world. -/
+def momentOfClosure
+    (tables : FactTables) (thingCount : Nat) (world moment bearer : Nat) : Bool :=
+  tables.binaryClosure "inheresIn" thingCount world moment bearer
+
+/-- A concrete inherence path witnessing the computed `MomentOf` closure. -/
+def momentOfPath?
+    (tables : FactTables) (thingCount : Nat) (world moment bearer : Nat) :
+    Option (Array Nat) :=
+  tables.binaryPath? "inheresIn" thingCount world moment bearer
+
+/--
 Compile finite tables into a `FiniteModel4`.
 
 This pure constructor defines the finite-model record fields used by generated
-DSL models. Higher-arity primitive tables that are not yet surface syntax remain
-explicit empty/default interpretations here.
+DSL models. Primitive distance, set-membership, and tuple-projection tables are
+read from the DSL facts; higher-arity definition-like relations that are not
+primitive surface syntax remain derived in `FiniteModel4.toUFOSignature4`.
 -/
 def toFiniteModel4
     (worldCount thingCount : Nat)
@@ -660,17 +852,17 @@ def toFiniteModel4
 
   quale := tables.unaryTable "quale"
   set_ := tables.unaryTable "set_"
-  setExtension := fun _ _ => ∅
+  setExtension := fun s w => {x | tables.binaryTable "memberOf" x s w = true}
   qualityDomain := tables.unaryTable "qualityDomain"
   qualityDimension := tables.unaryTable "qualityDimension"
   associatedWith := tables.binaryTable "associatedWith"
   intrinsicMomentType := tables.unaryTable "intrinsicMomentType"
   hasValue := tables.binaryTable "hasValue"
-  tupleProjection := fun {_n} p _i _w => p
-  distance := fun _ _ _ _ => false
-  distanceZero := fun _ _ => false
-  distanceSum := fun _ _ _ _ => false
-  distanceGreaterEq := fun _ _ _ => false
+  tupleProjection := fun {_n} p i w => tables.tupleProjectionTable p i.val w
+  distance := tables.ternaryTable "distance"
+  distanceZero := tables.unaryTable "distanceZero"
+  distanceSum := tables.ternaryTable "distanceSum"
+  distanceGreaterEq := tables.binaryTable "distanceGreaterEq"
 
   manifests := tables.binaryTable "manifests"
   lifeOf := tables.binaryTable "lifeOf"
@@ -695,7 +887,7 @@ def compileExplicitModel
     ast.worldCount ast.thingCount worldPositive thingPositive
 
 /--
-Make the current reflexive-specialization closure explicit at the AST level.
+Make reflexive-specialization closure explicit at the AST level.
 
 This function is useful for generated declarations: certificates reduce much
 better when all facts are syntactically present in the AST and table lookup does
@@ -761,6 +953,19 @@ theorem compileFact_unary_eq
 theorem compileFact_binary_eq
     (tables : FactTables) (field : BinaryField) (x y w : Nat) :
     compileFact tables (.binary field x y w) = addBinary tables field.toTableField x y w :=
+  rfl
+
+/-- Clause theorem for ternary fact compilation. -/
+theorem compileFact_ternary_eq
+    (tables : FactTables) (field : TernaryField) (x y z w : Nat) :
+    compileFact tables (.ternary field x y z w) = addTernary tables field.toTableField x y z w :=
+  rfl
+
+/-- Clause theorem for tuple-projection fact compilation. -/
+theorem compileFact_tupleProjection_eq
+    (tables : FactTables) (tuple index result w : Nat) :
+    compileFact tables (.tupleProjection tuple index result w) =
+      addTupleProjection tables tuple index result w :=
   rfl
 
 /-- Clause theorem for asserted derived-relation facts. -/
