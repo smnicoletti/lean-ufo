@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1160" height="680" viewBox="0 0 1160 680" role="img" aria-labelledby="title desc">
+  <title id="title">Lean UFO diagnostic counterexample card</title>
+  <desc id="desc">A dark diagnostic card showing a confirmed ax26 counterexample for EnrollmentClassifier, with failed condition, suggestion, and evidence sections.</desc>
+  <defs>
+    <style>
+      .bg { fill: #1f1f1f; }
+      .card { fill: #262626; stroke: #383838; stroke-width: 1.5; }
+      .heading { fill: #ff5a52; font: 700 24px ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .label { fill: #ababab; font: 700 17px ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: .05em; }
+      .body { fill: #dddddd; font: 20px ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .mono { fill: #d2d2d2; font: 700 21px ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+      .monoSmall { fill: #d2d2d2; font: 700 19px ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+      .chip { fill: #444444; }
+      .pill { fill: #3f3f3f; }
+      .green { fill: #31d062; }
+      .rule { stroke: #333333; stroke-width: 1; }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1160" height="680"/>
+
+  <rect class="card" x="18" y="18" width="1124" height="634" rx="8"/>
+
+  <text class="heading" x="40" y="58">Counterexample 1</text>
+  <rect class="chip" x="282" y="31" width="574" height="40" rx="6"/>
+  <text class="mono" x="298" y="58">t = EnrollmentClassifier, w = actual.</text>
+
+  <line class="rule" x1="40" y1="92" x2="1120" y2="92"/>
+
+  <text class="label" x="40" y="132">FAILED CONDITION</text>
+  <text class="body" x="40" y="170">Need one of:</text>
+
+  <rect class="pill" x="62" y="190" width="430" height="36" rx="6"/>
+  <text class="monoSmall" x="78" y="214">[actual] Kind(EnrollmentClassifier)</text>
+
+  <rect class="pill" x="62" y="234" width="472" height="36" rx="6"/>
+  <text class="monoSmall" x="78" y="258">[actual] SubKind(EnrollmentClassifier)</text>
+
+  <rect class="green" x="40" y="312" width="5" height="112"/>
+  <text class="label" x="62" y="338">SUGGESTION</text>
+  <text class="body" x="62" y="374">Add at least one of the alternatives listed here, or remove/relax the</text>
+  <text class="body" x="62" y="406">evidence for this counterexample that makes this alternative obligation apply.</text>
+
+  <text class="label" x="40" y="484">EVIDENCE</text>
+
+  <rect class="pill" x="40" y="506" width="436" height="36" rx="6"/>
+  <text class="monoSmall" x="56" y="530">[actual] Rigid(EnrollmentClassifier)</text>
+  <text class="body" x="60" y="570">•</text>
+  <rect class="pill" x="92" y="546" width="436" height="36" rx="6"/>
+  <text class="monoSmall" x="108" y="570">[actual] Rigid(EnrollmentClassifier)</text>
+
+  <rect class="pill" x="40" y="604" width="438" height="36" rx="6"/>
+  <text class="monoSmall" x="56" y="628">[actual] Sortal(EnrollmentClassifier)</text>
+</svg>

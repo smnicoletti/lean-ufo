@@ -18,17 +18,16 @@ ufo_model FailedFlowerTaxonomyExample : UFO where
   things Flower RedFlower BrownFlower Rose1
 
   given everywhere:
-    Flower : ObjectKind
-
-    RedFlower : ObjectKind
-    RedFlower : ObjectType
+    ObjectKind(Flower)
+    ObjectKind(RedFlower)
+    ObjectType(RedFlower)
     RedFlower ⊑ Flower
 
-    BrownFlower : Phase
-    BrownFlower : ObjectType
+    Phase(BrownFlower)
+    ObjectType(BrownFlower)
     BrownFlower ⊑ Flower
 
-    Rose1 : Object
+    Object(Rose1)
     Rose1 :: Flower
 
   given summer:

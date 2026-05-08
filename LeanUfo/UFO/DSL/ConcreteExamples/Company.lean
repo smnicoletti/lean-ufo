@@ -7,8 +7,8 @@ This single-world example has two concrete individuals, Mark and Acme,
 instantiating two rigid object kinds, Person and Organization.
 
 The DSL example uses only leaf classifications where possible.  For instance,
-Mark : Object expands to the individual taxonomy facts required by the axioms,
-and Person : ObjectKind expands to Kind, Sortal, Rigid, ObjectType, and their
+Object(Mark) expands to the individual taxonomy facts required by the axioms,
+and ObjectKind(Person) expands to Kind, Sortal, Rigid, ObjectType, and their
 ancestors before validation.
 
 The final derived fact asserts that Person and Organization are disjoint.
@@ -22,16 +22,14 @@ ufo_model CompanyExample : UFO where
   worlds actual
   things Person Mark Organization Acme
   given actual:
-    Mark : Object
+    Object(Mark)
     Mark :: Person
 
-    Acme : Object
+    Object(Acme)
     Acme :: Organization
 
-    Person : ObjectKind
-
-    Organization : ObjectKind
-
-    Person IsDisjointWith Organization
+    ObjectKind(Person)
+    ObjectKind(Organization)
+    IsDisjointWith(Person, Organization)
   derive_relations
   certify

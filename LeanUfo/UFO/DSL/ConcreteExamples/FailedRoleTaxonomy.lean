@@ -19,14 +19,13 @@ ufo_model FailedRoleTaxonomyExample : UFO where
   things Person Employee Mark
 
   given everywhere:
-    Mark : Object
-    Mark : Perdurant
+    Object(Mark)
+    Perdurant(Mark)
     Mark :: Person
 
-    Person : ObjectKind
-
-    Employee : Role
-    Employee : ObjectType
+    ObjectKind(Person)
+    Role(Employee)
+    ObjectType(Employee)
     Employee ⊑ Person
 
   given actual:

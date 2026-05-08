@@ -2,10 +2,24 @@ name: Lean CI
 
 on:
   push:
+    branches:
+      - dev
+      - main
   pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
+  fast-tests:
+    if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
 
     steps:
@@ -14,3 +28,52 @@ jobs:
       - uses: leanprover/lean-action@v1
         with:
           build: true
+
+      - name: Run fast test suite
+        run: lake test
+
+  full-test-gate:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    outputs:
+      run-full-tests: ${{ steps.gate.outputs.run-full-tests }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: gate
+        name: Check recent activity
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "run-full-tests=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git fetch origin dev --depth=100
+
+          if git log --since="24 hours ago" --format=%H --max-count=1 origin/dev | grep -q .; then
+            echo "run-full-tests=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run-full-tests=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  full-semantic-tests:
+    needs: full-test-gate
+    if: needs.full-test-gate.outputs.run-full-tests == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'schedule' && 'dev' || github.ref }}
+
+      - uses: leanprover/lean-action@v1
+        with:
+          build: true
+
+      - name: Run full semantic witness suite
+        run: lake test
+        env:
+          LEANUFO_FULL_TESTS: "1"

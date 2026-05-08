@@ -22,7 +22,7 @@ ufo_model MinimalCommand : UFO where
   things K I
   given actual:
     I :: K
-    I : Object
-    K : ObjectKind
+    Object(I)
+    ObjectKind(K)
   derive_relations
   certify

@@ -20,17 +20,16 @@ ufo_model RedirectedWalkExample : UFO where
   things Person OngoingWalker RedirectedWalker Paul
 
   given everywhere:
-    Person : ObjectKind
-
-    OngoingWalker : Phase
-    OngoingWalker : ObjectType
+    ObjectKind(Person)
+    Phase(OngoingWalker)
+    ObjectType(OngoingWalker)
     OngoingWalker ⊑ Person
 
-    RedirectedWalker : Phase
-    RedirectedWalker : ObjectType
+    Phase(RedirectedWalker)
+    ObjectType(RedirectedWalker)
     RedirectedWalker ⊑ Person
 
-    Paul : Object
+    Object(Paul)
     Paul :: Person
 
     IsPartitionedInto(Person, OngoingWalker, RedirectedWalker)
