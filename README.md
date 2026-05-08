@@ -3,7 +3,7 @@
 [![Lean](https://img.shields.io/badge/Lean-4.28.0--rc1-blue)](lean-toolchain)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-project%20guide-informational)](docs/README.md)
-[![Tests](https://img.shields.io/badge/tests-lake%20test-informational)](LeanUfoTest.lean)
+[![Lean CI](https://github.com/smnicoletti/lean-ufo/actions/workflows/lean.yml/badge.svg?branch=dev)](https://github.com/smnicoletti/lean-ufo/actions/workflows/lean.yml?query=branch%3Adev)
 
 Lean UFO is a machine-checked formalization of the Unified Foundational
 Ontology (UFO) in Lean 4. It also provides a small modeling language for finite

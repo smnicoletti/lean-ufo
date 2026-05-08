@@ -29,6 +29,15 @@ lake test
 The default profile checks syntax smoke fixtures, diagnostic rendering checks,
 and registry/manifest consistency.
 
+## CI
+
+GitHub Actions runs the default `lake test` profile on pull requests and pushes
+to `dev` or `main`.
+
+The full semantic witness profile runs when the workflow is started manually.
+The nightly scheduled workflow checks `dev` and runs the full profile only when
+`dev` has received a commit in the previous 24 hours.
+
 ## Full Semantic Witness Tests
 
 ```bash
