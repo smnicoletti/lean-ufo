@@ -75,6 +75,7 @@ world and thing names, with evidence and repair suggestions.
 
 ## Where To Read Next
 
+- [Theoretical notes](theory.md)
 - [Architecture and trust boundary](architecture.md)
 - [DSL quickstart](dsl/quickstart.md)
 - [Diagnostics guide](dsl/diagnostics.md)

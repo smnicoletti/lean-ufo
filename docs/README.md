@@ -10,6 +10,7 @@ diagnostics, tests, and implementation details.
 | Page | Use It For |
 | --- | --- |
 | [Project overview](overview.md) | What the project formalizes and how the DSL fits |
+| [Theoretical notes](theory.md) | Modal choices, formal milestones, S5 consequences, and explicit bridge axioms |
 | [DSL quickstart](dsl/quickstart.md) | Writing and certifying a first finite model |
 | [DSL syntax reference](dsl/syntax.md) | Facts, scopes, derived assertions, and quality/distance primitives |
 | [Diagnostics guide](dsl/diagnostics.md) | Reading failure boxes, evidence, suggestions, and probe status |
@@ -26,19 +27,21 @@ diagnostics, tests, and implementation details.
 ### First Pass
 
 1. [Project overview](overview.md)
-2. [DSL quickstart](dsl/quickstart.md)
-3. [Diagnostics guide](dsl/diagnostics.md)
-4. [Testing guide](testing.md)
-5. [Current status](status.md)
+2. [Theoretical notes](theory.md)
+3. [DSL quickstart](dsl/quickstart.md)
+4. [Diagnostics guide](dsl/diagnostics.md)
+5. [Testing guide](testing.md)
+6. [Current status](status.md)
 
 ### Implementation Pass
 
 1. [Architecture and trust boundary](architecture.md)
 2. [Formal guarantees](guarantees.md)
-3. [DSL developer guide](dsl/developer-guide.md)
-4. [Diagnostics internals](dsl/diagnostics-internals.md)
-5. [DSL syntax reference](dsl/syntax.md)
-6. [Roadmap and limitations](roadmap.md)
+3. [Theoretical notes](theory.md)
+4. [DSL developer guide](dsl/developer-guide.md)
+5. [Diagnostics internals](dsl/diagnostics-internals.md)
+6. [DSL syntax reference](dsl/syntax.md)
+7. [Roadmap and limitations](roadmap.md)
 
 ## Core Commands
 
