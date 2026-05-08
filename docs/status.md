@@ -59,6 +59,7 @@ LEANUFO_REQUIRE_DIRECT_WITNESSES=1 lake test
 ## Documentation Map
 
 - [Overview](overview.md)
+- [Theoretical notes](theory.md)
 - [Architecture](architecture.md)
 - [Formal guarantees](guarantees.md)
 - [DSL quickstart](dsl/quickstart.md)

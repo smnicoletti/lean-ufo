@@ -27,6 +27,7 @@ certificate, and each confirmed failure is traced back to the finite model data.
 | Goal | Link |
 | --- | --- |
 | Understand the project | [Project overview](docs/overview.md) |
+| Study theoretical findings | [Theoretical notes](docs/theory.md) |
 | Write a model | [DSL quickstart](docs/dsl/quickstart.md) |
 | Check the syntax | [DSL syntax reference](docs/dsl/syntax.md) |
 | Interpret failures | [Diagnostics guide](docs/dsl/diagnostics.md) |
@@ -160,6 +161,7 @@ LEANUFO_REQUIRE_DIRECT_WITNESSES=1 lake test
 | Document | Purpose |
 | --- | --- |
 | [Documentation home](docs/README.md) | Guide map and reading paths |
+| [Theoretical notes](docs/theory.md) | Modal choices, formal milestones, S5 consequences, and explicit bridge axioms |
 | [Architecture](docs/architecture.md) | Compiler pipeline and trust boundary |
 | [Formal guarantees](docs/guarantees.md) | Theorem-backed DSL pipeline facts |
 | [DSL quickstart](docs/dsl/quickstart.md) | First certified model |
