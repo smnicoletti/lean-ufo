@@ -1044,6 +1044,16 @@ counterexample where an extractor is available. If both the certificate proof
 and negative probe fail, the widget reports proof-search/probe exhaustion rather
 than claiming a model counterexample.
 
+Counterexample boxes classify the failing obligation:
+
+- `Required but missing`: add one missing fact, or remove the facts that make it
+  required.
+- `Need one of`: at least one listed alternative must hold.
+- `Required together`: all listed requirements must hold together.
+- `Missing witness requirements`: a witness with the listed properties is
+  missing.
+- `Forbidden condition`: a fact or combination holds but should not.
+
 The diagnostics panel uses Lean's native user-widget/infoview mechanism
 (`Lean.Widget` and `@[widget_module]`). It is UI over elaboration results, not
 proof evidence: certification truth still comes from Lean elaborating and
@@ -1137,21 +1147,31 @@ ufo_model MinimalCommand : UFO where
   things K I
   given actual:
     I :: K
-    I : Object
-    K : ObjectKind
+    Object(I)
+    ObjectKind(K)
   derive_relations
   certify
 ```
 
-Here `:` asserts a unary UFO classification predicate, `::` keeps its UFO-paper
-meaning of instantiation, and `⊑` asserts specialization. Multiple
-`given <world>:` blocks are accepted for modal models. Binary relation facts can
-also be written as `x Relation y`, including `Part`, `Overlap`, and
-`ProperPart`. The reserved pseudo-world `everywhere` marks facts that hold in
-every declared world. The DSL also accepts selected function-style primitive
-facts needed by §3.12, including `Distance(x, y, r)`, `DistanceSum(r0, r1, s)`,
-`TupleProjection(tuple, 0) = component`, `x MemberOf s`,
-`r : DistanceZero`, and `s DistanceGreaterEq r`.
+Here `P(x)` asserts a unary UFO classification predicate, `::` keeps its
+UFO-paper meaning of instantiation, and `⊑` asserts specialization. Multiple
+`given <world>:` blocks are accepted for modal models. Ordinary relations use
+call syntax, including `Part(x, y)`, `Overlap(x, y)`, and `ProperPart(x, y)`.
+The reserved pseudo-world `everywhere` marks facts that hold in every declared
+world. The DSL also accepts selected primitive facts needed by §3.12, including
+`Distance(x, y, r)`, `DistanceSum(r0, r1, s)`,
+`TupleProjection(tuple, 0, component)`, `MemberOf(x, s)`,
+`DistanceZero(r)`, and `DistanceGreaterEq(s, r)`.
+
+The old predicate/relation surface forms are intentionally rejected:
+
+```lean
+Object(I)        -- accepted
+I : Object       -- rejected
+
+Part(wheel, car) -- accepted
+wheel Part car   -- rejected
+```
 
 `derive_relations` means: for selected UFO predicates, do not read their truth
 from user-written primitive facts; compute them from their UFO-style defining
@@ -1162,10 +1182,10 @@ Primitive facts are direct assertions in the finite model:
 ```lean
 I :: K
 K ⊑ T
-I : Object
-x Part y
-x ConstitutedBy y
-x : Ex
+Object(I)
+Part(x, y)
+ConstitutedBy(x, y)
+Ex(x)
 ```
 
 For these, the DSL says: "the user asserts this finite fact." Then `certify`
@@ -1263,6 +1283,64 @@ To rebuild just the DSL example collection:
 ```bash
 lake build LeanUfo.UFO.DSL.Examples
 ```
+
+Run the automated DSL regression suite:
+
+```bash
+lake test
+```
+
+The test suite lives under `LeanUfo/Test/`. It imports positive certification
+smoke fixtures, checks that old predicate/relation syntax is rejected, and
+compares the axiom coverage manifest against the certificate registry. The
+default profile is intentionally fast. Run the full semantic witness profile
+when changing certification or diagnostics:
+
+```bash
+LEANUFO_FULL_TESTS=1 lake test
+```
+
+Current test layout:
+
+```text
+LeanUfoTest.lean
+LeanUfo/Test/
+  Syntax/
+  Certification/
+    Positive/
+    Negative/
+  Diagnostics/
+  Coverage/
+```
+
+To run only the direct witnesses for one or more axioms, set
+`LEANUFO_AXIOMS` to a comma-separated list. Selecting axioms implies the full
+semantic profile for those witnesses:
+
+```bash
+LEANUFO_AXIOMS=ax13 lake test
+LEANUFO_AXIOMS=ax10,ax18,ax61 lake test
+LEANUFO_AXIOMS=ax66 lake test
+LEANUFO_AXIOMS=ax68 lake test
+```
+
+Positive direct witnesses are available for every registered certificate field
+via `LeanUfo.Test.Certification.Positive.AllAxioms`. Negative direct witnesses
+are still being backfilled. To audit the remaining missing negative witnesses,
+run:
+
+```bash
+LEANUFO_REQUIRE_DIRECT_WITNESSES=1 lake test
+```
+
+Negative fixtures count as direct only when the first stopped certificate field
+is the expected axiom and Lean confirms a finite semantic counterexample. This
+distinction matters for `ax68`: the suite has a direct positive ultimate-bearer
+fixture, and the diagnostics can recognize finite closure situations where a
+moment lacks an ultimate bearer, but the current negative probe still cannot
+prove the ax68 negation. Therefore `ax68` remains classified as blocked for
+managed direct negative-witness coverage rather than as a confirmed
+counterexample fixture.
 
 The negative diagnostic examples are intentionally not imported by
 `LeanUfo.UFO.DSL.Examples`. Run them directly when checking failure reporting;

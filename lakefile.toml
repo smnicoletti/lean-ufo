@@ -1,9 +1,14 @@
 name = "lean-ufo"
 version = "0.1.0"
 defaultTargets = ["LeanUfo"]
+testDriver = "LeanUfoTest"
 
 [[lean_lib]]
 name = "LeanUfo"
+
+[[lean_exe]]
+name = "LeanUfoTest"
+root = "LeanUfoTest"
 
 [[require]]
 name = "mathlib"

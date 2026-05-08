@@ -26,24 +26,20 @@ ufo_model WoodenTableExample : UFO where
     Object1
 
   given everywhere:
-    WoodPortion : QuantityKind
-
-    WoodenTableComponent : ObjectKind
-
-    Object0 : Quantity
+    QuantityKind(WoodPortion)
+    ObjectKind(WoodenTableComponent)
+    Quantity(Object0)
     Object0 :: WoodPortion
 
-    Object1 : Object
+    Object(Object1)
     Object1 :: WoodenTableComponent
 
   given w1:
-    Object0 : Ex
-
+    Ex(Object0)
   given w2:
-    Object0 : Ex
-    Object1 : Ex
-    Object1 ConstitutedBy Object0
-
+    Ex(Object0)
+    Ex(Object1)
+    ConstitutedBy(Object1, Object0)
     Constitution(Object1, WoodenTableComponent, Object0, WoodPortion)
 
   derive_relations

@@ -11,8 +11,8 @@ The given everywhere: block contains stable facts copied to every declared
 world.  The world-specific given actual: block contains the role instantiation
 that is absent from future.
 
-Only the most specific unary classifications are written.  Person : ObjectKind,
-Employee : Role, and Mark : Object are expanded by the DSL compiler into their
+Only the most specific unary classifications are written.  ObjectKind(Person),
+Role(Employee), and Object(Mark) are expanded by the DSL compiler into their
 deterministic UFO taxonomy ancestors before certification.
 -/
 
@@ -23,13 +23,12 @@ ufo_model RoleExample : UFO where
   things Person Employee Mark
 
   given everywhere:
-    Mark : Object
+    Object(Mark)
     Mark :: Person
 
-    Person : ObjectKind
-
-    Employee : Role
-    Employee : ObjectType
+    ObjectKind(Person)
+    Role(Employee)
+    ObjectType(Employee)
     Employee ⊑ Person
 
   given actual:

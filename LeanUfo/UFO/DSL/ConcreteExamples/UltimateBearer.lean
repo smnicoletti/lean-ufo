@@ -15,15 +15,14 @@ ufo_model UltimateBearerExample : UFO where
   things Apple ColorModeKind Apple1 AppleColorMode
 
   given actual:
-    Apple : ObjectKind
-    Apple1 : Object
+    ObjectKind(Apple)
+    Object(Apple1)
     Apple1 :: Apple
 
-    ColorModeKind : ModeKind
+    ModeKind(ColorModeKind)
     AppleColorMode :: ColorModeKind
-    AppleColorMode : IntrinsicMoment
-    AppleColorMode : Mode
-    AppleColorMode InheresIn Apple1
-
+    IntrinsicMoment(AppleColorMode)
+    Mode(AppleColorMode)
+    InheresIn(AppleColorMode, Apple1)
   derive_relations
   certify

@@ -19,17 +19,16 @@ ufo_model FlowerPropertyChangeExample : UFO where
   things Flower RedFlower BrownFlower Rose1
 
   given everywhere:
-    Flower : ObjectKind
-
-    RedFlower : Phase
-    RedFlower : ObjectType
+    ObjectKind(Flower)
+    Phase(RedFlower)
+    ObjectType(RedFlower)
     RedFlower ⊑ Flower
 
-    BrownFlower : Phase
-    BrownFlower : ObjectType
+    Phase(BrownFlower)
+    ObjectType(BrownFlower)
     BrownFlower ⊑ Flower
 
-    Rose1 : Object
+    Object(Rose1)
     Rose1 :: Flower
 
     IsPartitionedInto(Flower, RedFlower, BrownFlower)

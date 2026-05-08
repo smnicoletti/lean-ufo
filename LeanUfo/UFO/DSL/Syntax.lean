@@ -25,23 +25,24 @@ elaboration.
 The core fact syntax is:
 
 ```lean
-x : P       -- unary UFO classification predicate
+P(x)        -- unary UFO classification predicate
 x :: T      -- UFO instantiation
 T₁ ⊑ T₂     -- specialization
+R(x, y)     -- binary relation fact
+R(x, y, z)  -- selected ternary primitive or derived relation fact
 ```
 
-For immediate extensibility, the parser also accepts binary relation facts of
-the form `x Relation y`, including the mereological predicates `Part`,
-`Overlap`, and `ProperPart`; ternary distance facts such as
-`Distance(x, y, r)`; and tuple-projection facts such as
-`TupleProjection(tuple, 0) = component`. Missing facts default to `false`,
-except that `Part` and `Overlap` include identity by default so that the common
+Instantiation and specialization keep their UFO notation because they carry
+central modeling intent.  Other predicate and relation facts use uniform
+call-style syntax, including tuple-projection facts such as
+`TupleProjection(tuple, 0, component)`. Missing facts default to `false`, except
+that `Part` and `Overlap` include identity by default so that the common
 tiny-model case satisfies extensional mereology without boilerplate.
 
 The pure compiler also closes unary taxonomy facts conservatively.  For example,
-`x : QuantityKind` inserts the facts required by the encoded taxonomy, such as
-`x : Kind`, `x : Sortal`, `x : Rigid`, `x : QuantityType`,
-`x : SubstantialType`, and `x : EndurantType`.  This is DSL sugar over finite
+`QuantityKind(x)` inserts the facts required by the encoded taxonomy, such as
+`Kind(x)`, `Sortal(x)`, `Rigid(x)`, `QuantityType(x)`,
+`SubstantialType(x)`, and `EndurantType(x)`.  This is DSL sugar over finite
 data, not a change to the semantic kernel: certification still checks the
 expanded tables against the original Prop-level axioms.
 
@@ -150,19 +151,31 @@ function parseFailureAnalysis(lines) {
   let current = null;
   let currentEvidence = null;
 
+  const conditionPrefixes = [
+    'Need one of:',
+    'Required together:',
+    'Required but missing:',
+    'Forbidden condition:',
+    'Missing witness requirements:',
+    'Failed condition:'
+  ];
+
   for (const raw of lines || []) {
     const text = String(raw || '');
     if (text.startsWith('Counterexample assignment:')) {
       current = {
         assignment: text.replace('Counterexample assignment:', '').trim(),
+        conditionLabel: 'Failed condition',
         condition: '',
         suggestion: '',
         evidence: []
       };
       cards.push(current);
       currentEvidence = null;
-    } else if (current && text.startsWith('Failed condition:')) {
-      current.condition = text.replace('Failed condition:', '').trim();
+    } else if (current && conditionPrefixes.some((prefix) => text.startsWith(prefix))) {
+      const prefix = conditionPrefixes.find((candidate) => text.startsWith(candidate));
+      current.conditionLabel = prefix.replace(':', '');
+      current.condition = text.slice(prefix.length).trim();
       currentEvidence = null;
     } else if (current && text.startsWith('Suggestion:')) {
       current.suggestion = text.replace('Suggestion:', '').trim();
@@ -225,7 +238,7 @@ function FailureAnalysis({ lines }) {
           e('code', { style: { opacity: 0.9 } }, card.assignment)),
         card.condition
           ? e('div', { style: { marginBottom: '0.45rem' } },
-              e('div', { style: labelStyle }, 'Failed condition'),
+              e('div', { style: labelStyle }, card.conditionLabel || 'Failed condition'),
               e('code', { style: codeStyle }, card.condition))
           : null,
         card.suggestion
@@ -312,13 +325,13 @@ export default function(props) {
 "
 
 declare_syntax_cat ufoFact
-syntax (name := ufoUnaryFact) ident ":" ident : ufoFact
 syntax (name := ufoInstFact) ident "::" ident : ufoFact
 syntax (name := ufoSubFact) ident "⊑" ident : ufoFact
-syntax (name := ufoBinaryFact) ident ident ident : ufoFact
+syntax (name := ufoUnaryFact) ident "(" ident ")" : ufoFact
+syntax (name := ufoBinaryFact) ident "(" ident "," ident ")" : ufoFact
 syntax (name := ufoTernaryFact) ident "(" ident "," ident "," ident ")" : ufoFact
 syntax (name := ufoQuaternaryFact) ident "(" ident "," ident "," ident "," ident ")" : ufoFact
-syntax (name := ufoTupleProjectionFact) "TupleProjection" "(" ident "," num ")" "=" ident : ufoFact
+syntax (name := ufoTupleProjectionFact) "TupleProjection" "(" ident "," num "," ident ")" : ufoFact
 
 declare_syntax_cat ufoFactBlock
 syntax (name := ufoGivenAt) "given" ident ":" ppLine ufoFact* : ufoFactBlock
@@ -597,6 +610,85 @@ private def ternaryFieldTerm : TernaryField → String
   | .distance => ".distance"
   | .distanceSum => ".distanceSum"
 
+private def UnaryField.toSurfaceName (field : UnaryField) : String :=
+  match field with
+  | .concreteIndividual => "ConcreteIndividual"
+  | .abstractIndividual => "AbstractIndividual"
+  | .endurant => "Endurant"
+  | .perdurant => "Perdurant"
+  | .endurantType => "EndurantType"
+  | .perdurantType => "PerdurantType"
+  | .rigid => "Rigid"
+  | .antiRigid => "AntiRigid"
+  | .semiRigid => "SemiRigid"
+  | .kind => "Kind"
+  | .sortal => "Sortal"
+  | .nonSortal => "NonSortal"
+  | .subKind => "SubKind"
+  | .phase => "Phase"
+  | .role => "Role"
+  | .semiRigidSortal => "SemiRigidSortal"
+  | .category => "Category"
+  | .mixin => "Mixin"
+  | .phaseMixin => "PhaseMixin"
+  | .roleMixin => "RoleMixin"
+  | .substantial => "Substantial"
+  | .moment => "Moment"
+  | .object => "Object"
+  | .collective => "Collective"
+  | .quantity => "Quantity"
+  | .relator => "Relator"
+  | .intrinsicMoment => "IntrinsicMoment"
+  | .mode => "Mode"
+  | .qualityKind => "QualityKind"
+  | .substantialType => "SubstantialType"
+  | .momentType => "MomentType"
+  | .objectType => "ObjectType"
+  | .collectiveType => "CollectiveType"
+  | .quantityType => "QuantityType"
+  | .relatorType => "RelatorType"
+  | .modeType => "ModeType"
+  | .qualityType => "QualityType"
+  | .objectKind => "ObjectKind"
+  | .collectiveKind => "CollectiveKind"
+  | .quantityKind => "QuantityKind"
+  | .relatorKind => "RelatorKind"
+  | .modeKind => "ModeKind"
+  | .ex => "Ex"
+  | .quale => "Quale"
+  | .set_ => "Set"
+  | .qualityDomain => "QualityDomain"
+  | .qualityDimension => "QualityDimension"
+  | .intrinsicMomentType => "IntrinsicMomentType"
+  | .distanceZero => "DistanceZero"
+
+private def BinaryField.toSurfaceName (field : BinaryField) : String :=
+  match field with
+  | .inst => "Inst"
+  | .sub => "Sub"
+  | .part => "Part"
+  | .overlap => "Overlap"
+  | .properPart => "ProperPart"
+  | .functionsAs => "FunctionsAs"
+  | .constitutedBy => "ConstitutedBy"
+  | .inheresIn => "InheresIn"
+  | .foundedBy => "FoundedBy"
+  | .quaIndividualOf => "QuaIndividualOf"
+  | .mediates => "Mediates"
+  | .characterization => "Characterization"
+  | .associatedWith => "AssociatedWith"
+  | .hasValue => "HasValue"
+  | .memberOf => "MemberOf"
+  | .manifests => "Manifests"
+  | .lifeOf => "LifeOf"
+  | .meet => "Meet"
+  | .distanceGreaterEq => "DistanceGreaterEq"
+
+private def TernaryField.toSurfaceName (field : TernaryField) : String :=
+  match field with
+  | .distance => "Distance"
+  | .distanceSum => "DistanceSum"
+
 private def leanStringLit (s : String) : String :=
   reprStr s
 
@@ -624,8 +716,8 @@ private def namedScopeSummary : NamedFactScope → String
   | .everywhere => "everywhere"
 
 private def namedDerivedFactSummary : NamedDerivedFact → String
-  | .unary field thing => s!"{thing} : {field}"
-  | .binary field left right => s!"{left} {field} {right}"
+  | .unary field thing => s!"{field}({thing})"
+  | .binary field left right => s!"{field}({left}, {right})"
   | .ternary field first second third => s!"{field}({first}, {second}, {third})"
   | .quaternary field first second third fourth =>
       s!"{field}({first}, {second}, {third}, {fourth})"
@@ -636,17 +728,17 @@ private def scopedWorldNames (worldNames : Array Name) : NamedFactScope → Arra
 
 private def namedFactSummary : NamedScopedFact → String
   | .unary field thing scope =>
-      s!"[{namedScopeSummary scope}] {thing} : {field.toTableField}"
+      s!"[{namedScopeSummary scope}] {field.toSurfaceName}({thing})"
   | .binary .inst left right scope =>
       s!"[{namedScopeSummary scope}] {left} :: {right}"
   | .binary .sub left right scope =>
       s!"[{namedScopeSummary scope}] {left} ⊑ {right}"
   | .binary field left right scope =>
-      s!"[{namedScopeSummary scope}] {left} {field.toTableField} {right}"
+      s!"[{namedScopeSummary scope}] {field.toSurfaceName}({left}, {right})"
   | .ternary field first second third scope =>
-      s!"[{namedScopeSummary scope}] {field.toTableField}({first}, {second}, {third})"
+      s!"[{namedScopeSummary scope}] {field.toSurfaceName}({first}, {second}, {third})"
   | .tupleProjection tuple index result scope =>
-      s!"[{namedScopeSummary scope}] TupleProjection({tuple}, {index}) = {result}"
+      s!"[{namedScopeSummary scope}] TupleProjection({tuple}, {index}, {result})"
   | .derived fact scope =>
       s!"[{namedScopeSummary scope}] {namedDerivedFactSummary fact}"
 
@@ -679,17 +771,17 @@ private def compiledFactSummary
     (worldNames thingNames : Array Name) (derivedPairs : Array (String × String)) :
     CompiledFact → String
   | .unary field thing world =>
-      s!"[{indexedName worldNames world}] {indexedName thingNames thing} : {field.toTableField}"
+      s!"[{indexedName worldNames world}] {field.toSurfaceName}({indexedName thingNames thing})"
   | .binary .inst left right world =>
       s!"[{indexedName worldNames world}] {indexedName thingNames left} :: {indexedName thingNames right}"
   | .binary .sub left right world =>
       s!"[{indexedName worldNames world}] {indexedName thingNames left} ⊑ {indexedName thingNames right}"
   | .binary field left right world =>
-      s!"[{indexedName worldNames world}] {indexedName thingNames left} {field.toTableField} {indexedName thingNames right}"
+      s!"[{indexedName worldNames world}] {field.toSurfaceName}({indexedName thingNames left}, {indexedName thingNames right})"
   | .ternary field first second third world =>
-      s!"[{indexedName worldNames world}] {field.toTableField}({indexedName thingNames first}, {indexedName thingNames second}, {indexedName thingNames third})"
+      s!"[{indexedName worldNames world}] {field.toSurfaceName}({indexedName thingNames first}, {indexedName thingNames second}, {indexedName thingNames third})"
   | .tupleProjection tuple index result world =>
-      s!"[{indexedName worldNames world}] TupleProjection({indexedName thingNames tuple}, {index}) = {indexedName thingNames result}"
+      s!"[{indexedName worldNames world}] TupleProjection({indexedName thingNames tuple}, {index}, {indexedName thingNames result})"
   | .derived prop => (derivedPropSummary derivedPairs prop).getD prop
 
 private def stringsJson (xs : Array String) : Json :=
@@ -714,7 +806,7 @@ private def parseFact
     (facts : Array NamedScopedFact) (fact : TSyntax `ufoFact) :
     CommandElabM (Array NamedScopedFact) := do
   match fact with
-  | `(ufoFact| $x:ident : $p:ident) =>
+  | `(ufoFact| $p:ident($x:ident)) =>
       let xName := x.getId.toString
       match unaryField? p.getId with
       | some field => pure <| facts.push (.unary field xName scope)
@@ -727,7 +819,7 @@ private def parseFact
       pure <| facts.push (.binary .inst x.getId.toString t.getId.toString scope)
   | `(ufoFact| $x:ident ⊑ $t:ident) =>
       pure <| facts.push (.binary .sub x.getId.toString t.getId.toString scope)
-  | `(ufoFact| $x:ident $r:ident $y:ident) =>
+  | `(ufoFact| $r:ident($x:ident, $y:ident)) =>
       let xName := x.getId.toString
       let yName := y.getId.toString
       match binaryField? r.getId with
@@ -757,7 +849,7 @@ private def parseFact
       | some field =>
           pure <| facts.push (.derived (.quaternary field xName yName zName qName) scope)
       | none => throwErrorAt r "unsupported quaternary UFO relation `{r.getId}`"
-  | `(ufoFact| TupleProjection($x:ident, $i:num) = $y:ident) =>
+  | `(ufoFact| TupleProjection($x:ident, $i:num, $y:ident)) =>
       pure <| facts.push (.tupleProjection x.getId.toString i.getNat y.getId.toString scope)
   | _ =>
       throwErrorAt fact "unsupported UFO fact syntax"
@@ -1247,9 +1339,6 @@ private def enumerateDiagEnvs
         return next)
     #[#[]]
 
-private def unaryFieldLabel (field : UnaryField) : String :=
-  field.toTableField
-
 private def unaryFieldDslLabel : UnaryField → String
   | .concreteIndividual => "ConcreteIndividual"
   | .abstractIndividual => "AbstractIndividual"
@@ -1301,9 +1390,6 @@ private def unaryFieldDslLabel : UnaryField → String
   | .intrinsicMomentType => "IntrinsicMomentType"
   | .distanceZero => "DistanceZero"
 
-private def binaryFieldLabel (field : BinaryField) : String :=
-  field.toTableField
-
 private def binaryFieldDslLabel : BinaryField → String
   | .inst => "::"
   | .sub => "⊑"
@@ -1325,9 +1411,6 @@ private def binaryFieldDslLabel : BinaryField → String
   | .meet => "Meet"
   | .distanceGreaterEq => "DistanceGreaterEq"
 
-private def ternaryFieldLabel (field : TernaryField) : String :=
-  field.toTableField
-
 private def ternaryFieldDslLabel : TernaryField → String
   | .distance => "Distance"
   | .distanceSum => "DistanceSum"
@@ -1335,23 +1418,23 @@ private def ternaryFieldDslLabel : TernaryField → String
 private def renderDiagAtom
     (worldNames thingNames : Array Name) (env : Array (String × Nat)) : DiagAtom → String
   | .typeSem thing world =>
-      s!"[{indexedName worldNames (lookupVar env world)}] {indexedName thingNames (lookupVar env thing)} : Type"
+      s!"[{indexedName worldNames (lookupVar env world)}] Type({indexedName thingNames (lookupVar env thing)})"
   | .individualSem thing world =>
-      s!"[{indexedName worldNames (lookupVar env world)}] {indexedName thingNames (lookupVar env thing)} : Individual"
+      s!"[{indexedName worldNames (lookupVar env world)}] Individual({indexedName thingNames (lookupVar env thing)})"
   | .unary field thing world =>
-      s!"[{indexedName worldNames (lookupVar env world)}] {indexedName thingNames (lookupVar env thing)} : {unaryFieldLabel field}"
+      s!"[{indexedName worldNames (lookupVar env world)}] {unaryFieldDslLabel field}({indexedName thingNames (lookupVar env thing)})"
   | .derivedUnary field thing world =>
-      s!"[{indexedName worldNames (lookupVar env world)}] {indexedName thingNames (lookupVar env thing)} : {field}"
+      s!"[{indexedName worldNames (lookupVar env world)}] {field}({indexedName thingNames (lookupVar env thing)})"
   | .binary .inst left right world =>
       s!"[{indexedName worldNames (lookupVar env world)}] {indexedName thingNames (lookupVar env left)} :: {indexedName thingNames (lookupVar env right)}"
   | .binary .sub left right world =>
       s!"[{indexedName worldNames (lookupVar env world)}] {indexedName thingNames (lookupVar env left)} ⊑ {indexedName thingNames (lookupVar env right)}"
   | .binary field left right world =>
-      s!"[{indexedName worldNames (lookupVar env world)}] {indexedName thingNames (lookupVar env left)} {binaryFieldLabel field} {indexedName thingNames (lookupVar env right)}"
+      s!"[{indexedName worldNames (lookupVar env world)}] {binaryFieldDslLabel field}({indexedName thingNames (lookupVar env left)}, {indexedName thingNames (lookupVar env right)})"
   | .ternary field first second third world =>
-      s!"[{indexedName worldNames (lookupVar env world)}] {ternaryFieldLabel field}({indexedName thingNames (lookupVar env first)}, {indexedName thingNames (lookupVar env second)}, {indexedName thingNames (lookupVar env third)})"
+      s!"[{indexedName worldNames (lookupVar env world)}] {ternaryFieldDslLabel field}({indexedName thingNames (lookupVar env first)}, {indexedName thingNames (lookupVar env second)}, {indexedName thingNames (lookupVar env third)})"
   | .derivedBinary field left right world =>
-      s!"[{indexedName worldNames (lookupVar env world)}] {indexedName thingNames (lookupVar env left)} {field} {indexedName thingNames (lookupVar env right)}"
+      s!"[{indexedName worldNames (lookupVar env world)}] {field}({indexedName thingNames (lookupVar env left)}, {indexedName thingNames (lookupVar env right)})"
   | .quaternary field first second third fourth world =>
       s!"[{indexedName worldNames (lookupVar env world)}] {field}({indexedName thingNames (lookupVar env first)}, {indexedName thingNames (lookupVar env second)}, {indexedName thingNames (lookupVar env third)}, {indexedName thingNames (lookupVar env fourth)})"
 
@@ -1375,6 +1458,49 @@ private partial def renderDiagFormula
       s!"from world {indexedName worldNames (lookupVar env currentWorld)}, in every accessible world {witnessWorld}, {renderDiagFormula worldNames thingNames env body}"
   | .dia currentWorld witnessWorld body =>
       s!"from world {indexedName worldNames (lookupVar env currentWorld)}, in some accessible world {witnessWorld}, {renderDiagFormula worldNames thingNames env body}"
+
+private partial def flattenDiagAnd : DiagFormula → Array DiagFormula
+  | .and p q => flattenDiagAnd p ++ flattenDiagAnd q
+  | p => #[p]
+
+private partial def flattenDiagOr : DiagFormula → Array DiagFormula
+  | .or p q => flattenDiagOr p ++ flattenDiagOr q
+  | p => #[p]
+
+private def formulaHasDistinctnessRequirement : DiagFormula → Bool
+  | .not (.eqThing _ _) => true
+  | .not (.eqWorld _ _) => true
+  | _ => false
+
+private def diagnosticConditionLabel (formula : DiagFormula) : String :=
+  match formula with
+  | .or _ _ => "Need one of"
+  | .not _ => "Forbidden condition"
+  | .atom _ => "Required but missing"
+  | .eqThing _ _ => "Required but missing"
+  | .eqWorld _ _ => "Required but missing"
+  | .and _ _ =>
+      if (flattenDiagAnd formula).any formulaHasDistinctnessRequirement then
+        "Missing witness requirements"
+      else
+        "Required together"
+  | .existsThing _ _ => "Missing witness requirements"
+  | .existsWorld _ _ => "Missing witness requirements"
+  | _ => "Failed condition"
+
+private def renderDiagnosticCondition
+    (worldNames thingNames : Array Name) (env : Array (String × Nat))
+    (formula : DiagFormula) : String :=
+  match formula with
+  | .or _ _ =>
+      String.intercalate "\n" <|
+        (flattenDiagOr formula).toList.map fun option =>
+          s!"- {renderDiagFormula worldNames thingNames env option}"
+  | .and _ _ =>
+      String.intercalate "\n" <|
+        (flattenDiagAnd formula).toList.map fun requirement =>
+          s!"- {renderDiagFormula worldNames thingNames env requirement}"
+  | _ => renderDiagFormula worldNames thingNames env formula
 
 private def envSummary
     (worldNames thingNames : Array Name) (vars : Array DiagVar) (env : Array (String × Nat)) :
@@ -1568,7 +1694,7 @@ private partial def minimizeFailure
         let pFailure := minimizeFailure worldCount thingCount tables env p
         let qFailure := minimizeFailure worldCount thingCount tables env q
         {
-          formula := .and pFailure.formula qFailure.formula,
+          formula := .or pFailure.formula qFailure.formula,
           env := pFailure.env ++ qFailure.env,
           context := pFailure.context ++ qFailure.context
         }
@@ -1869,14 +1995,14 @@ private def suggestionForAtom
       "Remove or reclassify the DSL fact"
   let tail :=
     if wanted then
-      "or remove/relax the facts shown above that make this obligation apply."
+      "or remove/relax the facts shown in this counterexample that make this obligation apply."
     else
-      "or remove/relax the facts shown above that make this combination forbidden."
+      "or remove/relax the facts shown in this counterexample that make this combination forbidden."
   match atom with
   | .unary field thing world =>
       let thingName := indexedName thingNames (lookupVar env thing)
       let worldName := indexedName worldNames (lookupVar env world)
-      s!"{addOrRemove} `{thingName} : {unaryFieldDslLabel field}` at `{worldName}` (or in an appropriate broader scope), {tail}"
+      s!"{addOrRemove} `{unaryFieldDslLabel field}({thingName})` at `{worldName}` (or in an appropriate broader scope), {tail}"
   | .binary .inst left right world =>
       let leftName := indexedName thingNames (lookupVar env left)
       let rightName := indexedName thingNames (lookupVar env right)
@@ -1891,7 +2017,7 @@ private def suggestionForAtom
       let leftName := indexedName thingNames (lookupVar env left)
       let rightName := indexedName thingNames (lookupVar env right)
       let worldName := indexedName worldNames (lookupVar env world)
-      s!"{addOrRemove} `{leftName} {binaryFieldDslLabel field} {rightName}` at `{worldName}` (or in an appropriate broader scope), {tail}"
+      s!"{addOrRemove} `{binaryFieldDslLabel field}({leftName}, {rightName})` at `{worldName}` (or in an appropriate broader scope), {tail}"
   | .ternary field first second third world =>
       let firstName := indexedName thingNames (lookupVar env first)
       let secondName := indexedName thingNames (lookupVar env second)
@@ -1901,7 +2027,7 @@ private def suggestionForAtom
   | .derivedUnary field thing world =>
       let thingName := indexedName thingNames (lookupVar env thing)
       let worldName := indexedName worldNames (lookupVar env world)
-      s!"{addOrRemove} `{thingName} : {field}` at `{worldName}` (or in an appropriate broader scope), {tail}"
+      s!"{addOrRemove} `{field}({thingName})` at `{worldName}` (or in an appropriate broader scope), {tail}"
   | .derivedBinary field left right world =>
       let leftName := indexedName thingNames (lookupVar env left)
       let rightName := indexedName thingNames (lookupVar env right)
@@ -1917,25 +2043,40 @@ private def suggestionForAtom
   | .typeSem thing _world =>
       let thingName := indexedName thingNames (lookupVar env thing)
       if wanted then
-        s!"Make `{thingName}` behave as a type by adding at least one compatible instantiation, or remove/relax the facts shown above that require it to be a type."
+        s!"Make `{thingName}` behave as a type by adding at least one compatible instantiation, or remove/relax the facts shown in this counterexample that require it to be a type."
       else
-        s!"Remove the instantiations that make `{thingName}` behave as a type, or remove/relax the facts shown above that require it to be an individual."
+        s!"Remove the instantiations that make `{thingName}` behave as a type, or remove/relax the facts shown in this counterexample that require it to be an individual."
   | .individualSem thing _world =>
       let thingName := indexedName thingNames (lookupVar env thing)
       if wanted then
-        s!"Make `{thingName}` behave as an individual by removing its compatible instantiations as a type, or remove/relax the facts shown above that require it to be an individual."
+        s!"Make `{thingName}` behave as an individual by removing its compatible instantiations as a type, or remove/relax the facts shown in this counterexample that require it to be an individual."
       else
-        s!"Add a compatible instantiation for `{thingName}` if it should be a type, or remove/relax the facts shown above that forbid it from being an individual."
+        s!"Add a compatible instantiation for `{thingName}` if it should be a type, or remove/relax the facts shown in this counterexample that forbid it from being an individual."
 
 private def suggestionForFailure
     (worldNames thingNames : Array Name) (worldCount thingCount : Nat) (tables : FactTables)
     (env : Array (String × Nat)) (formula : DiagFormula) : String :=
   match formula with
+  | .or _ _ =>
+      "Add at least one of the alternatives listed here, or remove/relax the evidence for this counterexample that makes this alternative obligation apply."
+  | .and _ _ =>
+      if (flattenDiagAnd formula).any formulaHasDistinctnessRequirement then
+        "Add a witness satisfying all listed requirements, including the distinctness condition, or remove/relax the evidence for this counterexample that makes this witness obligation apply."
+      else
+        let atoms := failingAtoms worldCount thingCount tables env formula
+        match atoms[0]? with
+        | some atom =>
+            if atoms.size == 1 then
+              suggestionForAtom worldNames thingNames env atom true
+            else
+              "Add all missing facts listed here, or remove/relax the evidence for this counterexample that makes these requirements apply."
+        | none =>
+            "Use the listed requirements and evidence for this counterexample to either add the missing DSL assertion or remove the DSL facts that make the obligation apply."
   | .not (.atom atom) =>
       if evalDiagAtom worldCount thingCount tables env atom then
         suggestionForAtom worldNames thingNames env atom false
       else
-        "Inspect the evidence above: this negated condition failed, but the diagnostic could not reduce it to a single asserted DSL fact."
+        "Inspect the evidence for this counterexample: this forbidden condition holds, but the diagnostic could not reduce it to a single asserted DSL fact."
   | .atom atom =>
       suggestionForAtom worldNames thingNames env atom true
   | _ =>
@@ -1945,9 +2086,9 @@ private def suggestionForFailure
           if atoms.size == 1 then
             suggestionForAtom worldNames thingNames env atom true
           else
-            "Several obligations fail together here. Add the missing facts named in the failed condition, or remove/relax the evidence above that makes all of them required."
+            "Several obligations fail together here. Add the missing facts named in the condition, or remove/relax the evidence for this counterexample that makes all of them required."
       | none =>
-          "Use the failed condition and evidence above to either add the missing DSL assertion or remove the DSL facts that make the obligation apply."
+          "Use the condition and evidence for this counterexample to either add the missing DSL assertion or remove the DSL facts that make the obligation apply."
 
 private def dType (x w : String) : DiagFormula :=
   .atom (.typeSem x w)
@@ -2174,6 +2315,10 @@ private def ax68ClosureAnalysis
             "The remaining failure is therefore in the Lean proof bridge from the computed closure to the inductive `MomentOf`, not in the DSL model data."
           ]
 
+private def hasAx68ClosureFailure (worldCount thingCount : Nat) (tables : FactTables) : Bool :=
+  (firstMomentWithoutUltimateBearer worldCount thingCount tables).isSome ||
+    (firstMomentWithMultipleUltimateBearers worldCount thingCount tables).isSome
+
 private def derivedUnaryLookup (tables : FactTables) (field : String) (x w : Nat) : Bool :=
   tables.derivedProps.any fun prop =>
     prop == s!"sig.{field} {diagFinThingTerm x} {diagFinWorldTerm w}"
@@ -2308,8 +2453,8 @@ private def ax99QualityDomainAnalysis
                       String.intercalate ", " <| zs.toList.map (indexedName thingNames ·)
                   return #[
                     s!"Counterexample assignment: x = {indexedName thingNames x}, t = {indexedName thingNames t}, w = {indexedName worldNames w}.",
-                    s!"Failed condition: quality domain `{indexedName thingNames x}` associated with `{indexedName thingNames t}` must be covered by product dimensions for all characterizations of `{indexedName thingNames t}`.",
-                    "Suggestion: add `Characterization(t, z)` facts for the component quality types, `AssociatedWith(y, z)` facts for their quality dimensions, `MemberOf(tuple, x)` facts for domain tuples, matching `TupleProjection(tuple, i) = component` facts, and `MemberOf(component, y)` facts for each coordinate.",
+                    s!"Missing witness requirements: quality domain `{indexedName thingNames x}` associated with `{indexedName thingNames t}` must be covered by product dimensions for all characterizations of `{indexedName thingNames t}`.",
+                    "Suggestion: add `Characterization(t, z)` facts for the component quality types, `AssociatedWith(y, z)` facts for their quality dimensions, `MemberOf(tuple, x)` facts for domain tuples, matching `TupleProjection(tuple, i, component)` facts, and `MemberOf(component, y)` facts for each coordinate.",
                     s!"Characterization targets found for `{indexedName thingNames t}`: {renderedZs}."
                   ]
     return #[
@@ -2555,7 +2700,7 @@ private def derivedAssertionAnalysis
             | some false =>
                 return #[
                   s!"Counterexample assignment: w = {indexedName worldNames w}.",
-                  s!"Failed condition: asserted derived relation `{namedDerivedFactSummary fact}` is false in the generated finite model.",
+                  s!"Required but missing: asserted derived relation `{namedDerivedFactSummary fact}` is false in the generated finite model.",
                   s!"Suggestion: {derivedAssertionSuggestion fact}",
                   s!"Evidence: the assertion was written at `{namedScopeSummary scope}` and expands to world `{indexedName worldNames w}`."
                 ]
@@ -2585,7 +2730,7 @@ private def ax73FoundationAnalysis
               | some true => pure ()
               | some false =>
                   out := out.push s!"Counterexample assignment: x = {indexedName thingNames x}, y = {indexedName thingNames y}, z = {indexedName thingNames z}, w = {indexedName worldNames w}."
-                  out := out.push s!"Failed condition: QuaIndividualOf({indexedName thingNames x}, {indexedName thingNames y}) requires overlapping externally dependent mode `{indexedName thingNames z}` to share `FoundationOf` with `{indexedName thingNames x}`."
+                  out := out.push s!"Required but missing: QuaIndividualOf({indexedName thingNames x}, {indexedName thingNames y}) requires overlapping externally dependent mode `{indexedName thingNames z}` to share `FoundationOf` with `{indexedName thingNames x}`."
                   out := out.push "Suggestion: align the `FoundedBy` facts for the qua individual and its overlapping externally dependent modes, or remove/relax the `QuaIndividualOf` assertion."
                   out := out.push s!"Evidence for FoundationOf({indexedName thingNames z}) = FoundationOf({indexedName thingNames x}):"
                   out := out.push s!"  - {indexedName thingNames z}: {renderFoundationStatus thingNames tables z w}"
@@ -2593,7 +2738,7 @@ private def ax73FoundationAnalysis
                   return out
               | none =>
                   out := out.push s!"Counterexample assignment: x = {indexedName thingNames x}, y = {indexedName thingNames y}, z = {indexedName thingNames z}, w = {indexedName worldNames w}."
-                  out := out.push s!"Failed condition: QuaIndividualOf({indexedName thingNames x}, {indexedName thingNames y}) uses `FoundationOf`, but the DSL facts do not determine unique foundations for the compared terms."
+                  out := out.push s!"Missing witness requirements: QuaIndividualOf({indexedName thingNames x}, {indexedName thingNames y}) uses `FoundationOf`, but the DSL facts do not determine unique foundations for the compared terms."
                   out := out.push "Suggestion: add exactly one `FoundedBy` fact for each compared externally dependent mode/qua individual, or remove/relax the `QuaIndividualOf` assertion."
                   out := out.push s!"Evidence for FoundationOf({indexedName thingNames z}) = FoundationOf({indexedName thingNames x}):"
                   out := out.push s!"  - {indexedName thingNames z}: {renderFoundationStatus thingNames tables z w}"
@@ -2621,7 +2766,7 @@ private def ax78FoundationAnalysis
               | some false =>
                   return #[
                     s!"Counterexample assignment: x = {indexedName thingNames x}, y = {indexedName thingNames y}, w = {indexedName worldNames w}.",
-                    s!"Failed condition: Relator `{indexedName thingNames x}` and its part `{indexedName thingNames y}` must share the same `FoundationOf`.",
+                    s!"Required but missing: Relator `{indexedName thingNames x}` and its part `{indexedName thingNames y}` must share the same `FoundationOf`.",
                     "Suggestion: align the `FoundedBy` facts for the relator and its parts, or remove/relax the `Relator`/`Part` assertions.",
                     s!"Evidence for FoundationOf({indexedName thingNames x}) = FoundationOf({indexedName thingNames y}):",
                     s!"  - {indexedName thingNames x}: {renderFoundationStatus thingNames tables x w}",
@@ -2630,7 +2775,7 @@ private def ax78FoundationAnalysis
               | none =>
                   return #[
                     s!"Counterexample assignment: x = {indexedName thingNames x}, y = {indexedName thingNames y}, w = {indexedName worldNames w}.",
-                    s!"Failed condition: Relator `{indexedName thingNames x}` and its part `{indexedName thingNames y}` are compared with `FoundationOf`, but the DSL facts do not determine unique foundations.",
+                    s!"Missing witness requirements: Relator `{indexedName thingNames x}` and its part `{indexedName thingNames y}` are compared with `FoundationOf`, but the DSL facts do not determine unique foundations.",
                     "Suggestion: add exactly one `FoundedBy` fact for the relator and for each relevant part, or remove/relax the `Relator`/`Part` assertions.",
                     s!"Evidence for FoundationOf({indexedName thingNames x}) = FoundationOf({indexedName thingNames y}):",
                     s!"  - {indexedName thingNames x}: {renderFoundationStatus thingNames tables x w}",
@@ -2656,7 +2801,7 @@ private def ax79FoundationAnalysis
           if parts.isEmpty then
             return #[
               s!"Counterexample assignment: x = {indexedName thingNames x}, w = {indexedName worldNames w}.",
-              s!"Failed condition: Relator `{indexedName thingNames x}` must have at least one proper part in the finite DSL model.",
+              s!"Missing witness requirements: Relator `{indexedName thingNames x}` must have at least one proper part in the finite DSL model.",
               "Suggestion: add `ProperPart(part, relator)` facts and the corresponding qua-individual/dependence/foundation facts, or remove/relax the `Relator` assertion."
             ]
           for y in parts do
@@ -2665,7 +2810,7 @@ private def ax79FoundationAnalysis
                   !(derivedUnaryLookup tables "QuaIndividual" z w) then
                 return #[
                   s!"Counterexample assignment: x = {indexedName thingNames x}, y = {indexedName thingNames y}, z = {indexedName thingNames z}, w = {indexedName worldNames w}.",
-                  s!"Failed condition: proper parts of relator `{indexedName thingNames x}` must be qua individuals.",
+                  s!"Required together: proper parts of relator `{indexedName thingNames x}` must be qua individuals.",
                   "Suggestion: add the missing `QuaIndividual(...)` derived assertions or remove/relax the `Relator`/`ProperPart` assertions."
                 ]
               match foundationEq? thingNames.size tables y z w with
@@ -2673,7 +2818,7 @@ private def ax79FoundationAnalysis
               | some false =>
                   return #[
                     s!"Counterexample assignment: x = {indexedName thingNames x}, y = {indexedName thingNames y}, z = {indexedName thingNames z}, w = {indexedName worldNames w}.",
-                    s!"Failed condition: proper parts of relator `{indexedName thingNames x}` must share a foundation.",
+                    s!"Required but missing: proper parts of relator `{indexedName thingNames x}` must share a foundation.",
                     "Suggestion: align the `FoundedBy` facts for the relator's qua-individual parts.",
                     s!"Evidence for FoundationOf({indexedName thingNames y}) = FoundationOf({indexedName thingNames z}):",
                     s!"  - {indexedName thingNames y}: {renderFoundationStatus thingNames tables y w}",
@@ -2682,7 +2827,7 @@ private def ax79FoundationAnalysis
               | none =>
                   return #[
                     s!"Counterexample assignment: x = {indexedName thingNames x}, y = {indexedName thingNames y}, z = {indexedName thingNames z}, w = {indexedName worldNames w}.",
-                    s!"Failed condition: ax79 compares `FoundationOf` for relator parts, but the DSL facts do not determine unique foundations.",
+                    s!"Missing witness requirements: ax79 compares `FoundationOf` for relator parts, but the DSL facts do not determine unique foundations.",
                     "Suggestion: add exactly one `FoundedBy` fact for each qua-individual part of the relator.",
                     s!"Evidence for FoundationOf({indexedName thingNames y}) = FoundationOf({indexedName thingNames z}):",
                     s!"  - {indexedName thingNames y}: {renderFoundationStatus thingNames tables y w}",
@@ -2692,7 +2837,7 @@ private def ax79FoundationAnalysis
                   !(derivedBinaryLookup tables "ExistentialDependence" z y w) then
                 return #[
                   s!"Counterexample assignment: x = {indexedName thingNames x}, y = {indexedName thingNames y}, z = {indexedName thingNames z}, w = {indexedName worldNames w}.",
-                  s!"Failed condition: proper parts of relator `{indexedName thingNames x}` must be mutually existentially dependent.",
+                  s!"Required together: proper parts of relator `{indexedName thingNames x}` must be mutually existentially dependent.",
                   "Suggestion: add the missing `ExistentialDependence(...)` derived assertions or remove/relax the `Relator`/`ProperPart` assertions."
                 ]
     return #[
@@ -3717,8 +3862,14 @@ private def diagnosticWitnesses
             let failedFormula := minimized.formula
             let failedEnv := minimized.env
             let failedVars := diagnosticEnvVars vars failedFormula failedEnv
+            let renderedCondition := renderDiagnosticCondition worldNames thingNames failedEnv failedFormula
+            let conditionLine :=
+              if renderedCondition.contains '\n' then
+                s!"{diagnosticConditionLabel failedFormula}:\n{renderedCondition}"
+              else
+                s!"{diagnosticConditionLabel failedFormula}: {renderedCondition}."
             out := out.push s!"Counterexample assignment: {envSummary worldNames thingNames failedVars failedEnv}."
-            out := out.push s!"Failed condition: {renderDiagFormula worldNames thingNames failedEnv failedFormula}."
+            out := out.push conditionLine
             out := out.push s!"Suggestion: {suggestionForFailure worldNames thingNames worldNames.size thingNames.size tables failedEnv failedFormula}"
             for trace in minimized.context do
               out := appendEvidenceForFormula worldNames thingNames namedFacts worldNames.size
@@ -3776,7 +3927,12 @@ private def saveFailedDiagnosticsWidget
     (message : String) (failureAnalysis : Array String := #[]) : CommandElabM Unit := do
   saveDiagnosticsWidget cmdStx model worldNames thingNames namedFacts scopedFacts expandedFacts tables
     stage completed failed? (some message) failureAnalysis
-  logErrorAt cmdStx message
+  let detail :=
+    if failureAnalysis.isEmpty then
+      message
+    else
+      message ++ "\n" ++ String.intercalate "\n" failureAnalysis.toList
+  logErrorAt cmdStx detail
 
 private def finThingTerm (idx : Nat) : String :=
   s!"(⟨{idx}, by decide⟩ : Fin data.thingCount)"
@@ -4092,7 +4248,10 @@ private def emitModel
     let mut failedField? : Option CertField := none
     for field in certFields do
       if failedField?.isNone then
-        if useCommandCertificateProbe field then
+        if field.field == "ax68" &&
+            hasAx68ClosureFailure worldNames.size thingNames.size tables then
+          failedField? := some field
+        else if useCommandCertificateProbe field then
           let certFailed ← elabCommandStringWithErrorCheck
             (certAxiomTheorem worldNames.size thingNames.size tables field)
           if certFailed then

@@ -10,7 +10,7 @@ nothing instantiates it.  That individual/type status is modal, so ax10 requires
 the enrollment object to be classified as concrete or abstract at every world.
 
 The intended fix is to make the individual classification stable, e.g. declare
-`Bobs_Enrollment : Object` everywhere and use existence facts such as `Ex` to
+`Object(Bobs_Enrollment)` everywhere and use existence facts such as `Ex` to
 represent world-dependent existence.
 -/
 
@@ -21,10 +21,9 @@ ufo_model StudentEnrollment : UFO where
   things Enrollment Bobs_Enrollment
 
   given everywhere:
-    Enrollment : ObjectKind
-
+    ObjectKind(Enrollment)
   given future:
-    Bobs_Enrollment : Object
+    Object(Bobs_Enrollment)
     Bobs_Enrollment :: Enrollment
 
   derive_relations

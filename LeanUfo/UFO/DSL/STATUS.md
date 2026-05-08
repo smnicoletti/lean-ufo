@@ -401,6 +401,22 @@ and `ax68`: the first group expands finite definitions over all things/worlds,
 `ax44` expands the endurant-type taxonomy mirror, and `ax68` uses a custom
 ultimate-bearer proof shape.
 
+Counterexample cards use condition-specific headings:
+
+- `Required but missing`: one missing DSL-level fact is required.
+- `Need one of`: at least one listed alternative must hold.
+- `Required together`: all listed facts/conditions must hold together.
+- `Missing witness requirements`: an existential/witness obligation is missing.
+- `Forbidden condition`: a fact or combination holds but should be absent.
+
+`ax68` is intentionally conservative in test reporting. The diagnostics closure
+checker can detect finite table situations such as a moment with no reachable
+non-moment ultimate bearer.  However, unless Lean also proves the negation of
+the generated ax68 proposition, the result is reported as proof-search/probe
+exhaustion plus closure evidence, not as a confirmed semantic counterexample.
+Consequently ax68 currently has a direct positive fixture but no managed direct
+negative fixture.
+
 The widget uses Lean's native user-widget/infoview mechanism (`Lean.Widget` and
 `@[widget_module]`). It is a presentation layer over elaboration results, not
 proof evidence. The certification result is still determined by Lean elaborating
@@ -417,10 +433,10 @@ as `failed`.
 The canonical facts are:
 
 ```lean
-x : P       -- unary UFO classification predicate
+P(x)        -- unary UFO classification predicate
 x :: T      -- UFO instantiation
 T1 ⊑ T2     -- specialization
-x R y       -- binary relation fact
+R(x, y)     -- binary relation fact
 R(x, y, z)  -- selected ternary primitive or derived relation fact
 ```
 
@@ -428,9 +444,9 @@ Examples:
 
 ```lean
 given actual:
-  Mark : Object
+  Object(Mark)
   Mark :: Person
-  Person : ObjectKind
+  ObjectKind(Person)
   Employee ⊑ Person
 ```
 
@@ -438,13 +454,13 @@ Facts that hold in every declared world use the reserved pseudo-world:
 
 ```lean
 given everywhere:
-  Person : ObjectKind
+  ObjectKind(Person)
 ```
 
 Selected derived relations can be asserted explicitly:
 
 ```lean
-Person IsDisjointWith Organization
+IsDisjointWith(Person, Organization)
 IsPartitionedInto(Person, Employee, NonEmployee)
 ```
 
@@ -454,12 +470,12 @@ override the semantic definitions computed by the compiler.
 Section 3.12 surface syntax is available for finite set and distance data:
 
 ```lean
-tuple MemberOf domain
-TupleProjection(tuple, 0) = component
+MemberOf(tuple, domain)
+TupleProjection(tuple, 0, component)
 Distance(q1, q2, r)
 DistanceSum(r0, r1, s)
-r : DistanceZero
-s DistanceGreaterEq r
+DistanceZero(r)
+DistanceGreaterEq(s, r)
 ```
 
 `MemberOf` is a primitive table fact whose compiled semantics populates set
@@ -571,6 +587,22 @@ base types.
 - `ConcreteExamples/*.lean`: passing certified finite DSL models, negative
   diagnostic examples whose filenames start with `Failed`, and
   `ConceptEvolution.lean`, which documents the current higher-order limitation.
+- `LeanUfoTest.lean`: executable `lake test` driver. It keeps the default suite
+  fast, runs expected-failure checks, checks diagnostics rendering, and reports
+  selected axiom coverage.
+- `LeanUfo/Test/Syntax`: syntax regression fixtures, including accepted
+  predicate-call syntax and rejected stale syntax.
+- `LeanUfo/Test/Certification/Positive`: positive certification fixtures,
+  including the shared all-axioms certified fixture and direct smoke fixtures
+  such as ax68 ultimate-bearer support.
+- `LeanUfo/Test/Certification/Negative`: minimal expected-failure fixtures.
+  A fixture counts as direct negative coverage only when the first confirmed
+  semantic failure is the target axiom.
+- `LeanUfo/Test/Diagnostics`: rendering checks for counterexample wording,
+  current mixed syntax, and stale-syntax rejection in diagnostics.
+- `LeanUfo/Test/Coverage`: registry/manifest checks and the explicit
+  classification of each axiom as direct-negative, compiler-enforced, or
+  blocked.
 
 ## How To Check The DSL
 
@@ -591,6 +623,74 @@ Build the guarantee module:
 ```bash
 lake build LeanUfo.UFO.DSL.Guarantees
 ```
+
+Run the automated DSL regression suite:
+
+```bash
+lake test
+```
+
+The test driver imports positive certification fixtures, runs expected-failure
+smoke fixtures, checks stale syntax rejection, and compares
+`LeanUfo/Test/Coverage/AxiomManifest.lean` against the certificate registry in
+`Syntax.lean`. The default profile is intentionally fast. The full semantic
+witness profile runs the slower positive and negative certification fixtures:
+
+```bash
+LEANUFO_FULL_TESTS=1 lake test
+```
+
+The test tree is:
+
+```text
+LeanUfoTest.lean
+LeanUfo/Test/
+  Syntax/
+  Certification/
+    Positive/
+    Negative/
+  Diagnostics/
+  Coverage/
+```
+
+Selected axiom checks use a comma-separated `LEANUFO_AXIOMS` list. This is the
+intended workflow when changing one axiom extractor or one diagnostic path:
+
+```bash
+LEANUFO_AXIOMS=ax13 lake test
+LEANUFO_AXIOMS=ax10,ax18,ax61 lake test
+LEANUFO_AXIOMS=ax66 lake test
+LEANUFO_AXIOMS=ax68 lake test
+```
+
+Positive direct witnesses are available for every registered certificate field
+through `LeanUfo.Test.Certification.Positive.AllAxioms`. Negative direct
+witnesses are intentionally tracked separately because each one must be a finite
+DSL model whose first confirmed semantic failure is the selected axiom. Audit
+the remaining negative backfill with:
+
+```bash
+LEANUFO_REQUIRE_DIRECT_WITNESSES=1 lake test
+```
+
+The first pass records every registered axiom in the manifest and seeds direct
+high-risk fixtures; the per-axiom positive/negative fixture pass is intended to
+replace shared coverage entries section by section.
+
+Manifest classification has three negative-coverage buckets:
+
+- `directNegativeWitnessAxioms`: a small fixture exists and Lean confirms the
+  finite semantic counterexample for the target axiom.
+- `compilerEnforcedNegativeAxioms`: the DSL compiler/finite semantics prevents
+  direct falsification of the axiom by construction.
+- `blockedNegativeWitnessAxioms`: the axiom still needs missing surface syntax,
+  a principled extractor, or a better negation-proof path before a direct
+  negative fixture can be counted.
+
+`ax68` is in the last bucket for negative coverage. The current test suite can
+exercise positive ultimate-bearer support and can show closure evidence when an
+ultimate bearer is missing, but it does not yet have a Lean-confirmed direct
+negative counterexample fixture.
 
 Run the negative diagnostic examples directly when checking the widget failure
 paths. These commands are expected to fail. They are kept out of

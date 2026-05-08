@@ -36,8 +36,7 @@ The intended surface shape is:
     given actual:
       MonogamousHeterosexualMarriage :: ConjugalRelationshipType
       MonogamousHeterosexualMarriage ⊑ ConjugalRelationship
-      ConjugalRelationshipType Categorizes ConjugalRelationship
-
+      Categorizes(ConjugalRelationshipType, ConjugalRelationship)
     derive_relations
     certify
 

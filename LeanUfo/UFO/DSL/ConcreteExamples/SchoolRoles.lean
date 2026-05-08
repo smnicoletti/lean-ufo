@@ -19,16 +19,15 @@ ufo_model SchoolRolesExample : UFO where
   things Person Teacher Potter Bumblebee
 
   given everywhere:
-    Person : ObjectKind
-
-    Teacher : Role
-    Teacher : ObjectType
+    ObjectKind(Person)
+    Role(Teacher)
+    ObjectType(Teacher)
     Teacher ⊑ Person
 
-    Potter : Object
+    Object(Potter)
     Potter :: Person
 
-    Bumblebee : Object
+    Object(Bumblebee)
     Bumblebee :: Person
 
   given beforeBreak:
