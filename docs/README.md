@@ -13,6 +13,8 @@ diagnostics, tests, and implementation details.
 | [DSL quickstart](dsl/quickstart.md) | Writing and certifying a first finite model |
 | [DSL syntax reference](dsl/syntax.md) | Facts, scopes, derived assertions, and quality/distance primitives |
 | [Diagnostics guide](dsl/diagnostics.md) | Reading failure boxes, evidence, suggestions, and probe status |
+| [Diagnostics internals](dsl/diagnostics-internals.md) | How failed certificates are turned into source-level explanations |
+| [DSL developer guide](dsl/developer-guide.md) | File responsibilities, command pipeline, diagnostics, and generated certificates |
 | [Testing guide](testing.md) | `lake test`, selected axiom checks, and witness coverage |
 | [Current status](status.md) | Implemented features and current caveats |
 | [Architecture and trust boundary](architecture.md) | Compiler pipeline and generated Lean declarations |
@@ -33,8 +35,10 @@ diagnostics, tests, and implementation details.
 
 1. [Architecture and trust boundary](architecture.md)
 2. [Formal guarantees](guarantees.md)
-3. [DSL syntax reference](dsl/syntax.md)
-4. [Roadmap and limitations](roadmap.md)
+3. [DSL developer guide](dsl/developer-guide.md)
+4. [Diagnostics internals](dsl/diagnostics-internals.md)
+5. [DSL syntax reference](dsl/syntax.md)
+6. [Roadmap and limitations](roadmap.md)
 
 ## Core Commands
 

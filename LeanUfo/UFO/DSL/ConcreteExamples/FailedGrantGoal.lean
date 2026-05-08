@@ -3,12 +3,13 @@ import LeanUfo.UFO.DSL.Syntax
 /-
 Natural goal-as-mode example.
 
-This records a modeller-facing sketch where the goal of winning all grants is a
+This records a modeler-facing sketch where the goal of winning all grants is a
 mode inhering in Stefano.
 
 The model is intentionally not imported by `LeanUfo.UFO.DSL.Examples` yet.  In
 the current generated certificate, this natural surface shape stops at ax73
-with proof/probe exhaustion rather than a confirmed semantic counterexample.
+with an unclassified generated-proof/search failure rather than a confirmed
+semantic counterexample.
 -/
 
 open LeanUfo.UFO.DSL

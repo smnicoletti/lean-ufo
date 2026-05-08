@@ -26,14 +26,23 @@ Certificate fields are reported as:
 When a generated certificate fails, the frontend runs a separate negative probe.
 
 If Lean proves the negation of the axiom for the generated finite model, the
-diagnostic says:
-
-```text
-A finite counterexample was confirmed for axN.
-```
+diagnostic marks the failed axiom as a confirmed finite counterexample. This is
+the semantic-failure case: Lean has checked a proof of `¬ axN` for the generated
+finite signature.
 
 If the negation probe also fails, the diagnostic says that no counterexample
-proof was found.
+proof was found. That branch is not a semantic counterexample. It is classified
+as either a heartbeat/timeout-style proof-search limit when Lean reports one, or
+as an unclassified generated-proof/search failure when no timeout marker is
+recognized.
+
+So the reliable reading is:
+
+- confirmed counterexample: kernel-checked proof of the axiom's negation;
+- timeout-style probe failure: operational proof-search limit, not model
+  evidence;
+- unclassified probe failure: implementation/proof-search issue to investigate,
+  not model evidence.
 
 ## Paired Example
 
@@ -75,19 +84,11 @@ obligation:
 The card above shows a `Need one of` obligation: at least one listed
 alternative is missing.
 
-For a witness obligation:
+For a witness obligation, the same information is presented as a diagnostic card:
 
-```text
-Counterexample 1    k = Person, x = Alice, w = actual.
+![Diagnostic card showing missing witness requirements for Alice](../assets/diagnostic-witness-card.svg)
 
-FAILED CONDITION
-Missing witness requirements:
-  - [actual] Kind(AlternateKind)
-  - [actual] Alice :: AlternateKind
-  - not (AlternateKind = Person)
-```
-
-the user needs a witness satisfying all listed requirements.
+The user needs a witness satisfying all listed requirements.
 
 ## Suggestions And Evidence
 

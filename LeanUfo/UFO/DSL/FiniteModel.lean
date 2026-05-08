@@ -181,7 +181,7 @@ Every generated model receives a universal S5 frame.
 The accessibility relation is intentionally not part of the first user syntax:
 for the current single-world and small finite examples, all worlds seeing all
 worlds is enough.  The modal operators are still interpreted by the existing
-S5 semantics; this is only a front-end default.
+S5 semantics; this is only a frontend default.
 -/
 def toS5Frame (M : FiniteModel4) : S5Frame :=
 { World := Fin M.worldCount

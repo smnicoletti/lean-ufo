@@ -27,8 +27,9 @@ Compact implementation snapshot.
   `Student ⊑ Person`.
 - Successful DSL models generate Lean certificate theorems through
   `UFOAxioms4`.
-- The diagnostics widget distinguishes confirmed semantic counterexamples from
-  proof-search/probe exhaustion.
+- The diagnostics widget distinguishes confirmed semantic counterexamples,
+  timeout-style proof-search limits, and unclassified generated-proof/search
+  failures.
 - The test suite covers syntax, certification fixtures, diagnostics rendering,
   and axiom coverage manifest checks.
 

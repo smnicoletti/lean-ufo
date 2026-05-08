@@ -51,11 +51,36 @@ The concrete `ufo_model ... where ...` parser and declaration emitter live in
 `Syntax.lean` and are trusted metaprogramming.
 
 After parsing, the main pipeline is implemented as ordinary Lean functions in
-`Compiler.lean`, `FiniteModel.lean`, and related modules. Generic properties of
-that pipeline are proved in `Guarantees.lean`.
+`Compiler.lean`, its `Compiler/` support modules, `FiniteModel.lean`, and related
+modules. Generic properties of that pipeline are proved in `Guarantees.lean`.
 
 The generated certificate is checked by the Lean kernel. The diagnostics widget
 is a presentation layer over elaboration results; it is not the proof object.
+
+## DSL Module Boundaries
+
+The DSL implementation is split by responsibility:
+
+- `Frontend/SurfaceSyntax.lean` declares the user-facing command grammar.
+- `Frontend/ModelText.lean` maps DSL names to compiler fields and renders generated
+  model/debug text.
+- `Certificate/Tactic.lean` defines the common simplification tactic used by
+  generated certificate proofs.
+- `Certificate/Generation.lean` defines certificate-field metadata and generated
+  theorem source.
+- `Diagnostic/Analysis.lean` reconstructs source-level evidence and suggestions after
+  a generated check fails.
+- `Syntax.lean` elaborates the command, emits Lean declarations, runs generated
+  certificate checks, and saves diagnostics.
+- `Diagnostic/Widget.lean` contains only the editor widget implementation.
+- `Compiler.lean` performs pure name resolution, scope expansion, taxonomy
+  expansion, and table compilation.
+- `Compiler/Fields.lean` and `Compiler/AST.lean` contain compiler vocabulary
+  shared by the parser, diagnostics, and table compiler.
+- `FiniteModel.lean`, `Certification.lean`, and `Guarantees.lean` define the
+  finite semantic representation, certified packaging, and pipeline theorems.
+
+For maintenance notes, see the [DSL developer guide](dsl/developer-guide.md).
 
 ## Generated Declaration Shape
 

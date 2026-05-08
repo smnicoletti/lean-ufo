@@ -95,6 +95,7 @@ A negative fixture only counts as direct coverage if:
 - Lean confirms a finite semantic counterexample;
 - the fixture is small and section-local where feasible.
 
-Proof-search exhaustion does not count as direct negative coverage.
+Timeout-style proof-search limits and unclassified generated-proof/search
+failures do not count as direct negative coverage.
 
 [Docs home](README.md) · [Project README](../README.md)

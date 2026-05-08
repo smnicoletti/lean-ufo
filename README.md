@@ -32,6 +32,7 @@ certificate, and each confirmed failure is traced back to the finite model data.
 | Interpret failures | [Diagnostics guide](docs/dsl/diagnostics.md) |
 | Run tests | [Testing guide](docs/testing.md) |
 | Inspect current status | [Current status](docs/status.md) |
+| Work on DSL internals | [DSL developer guide](docs/dsl/developer-guide.md) |
 
 ## Contribution Highlights
 
@@ -48,8 +49,9 @@ Technical highlights:
    Lean declarations, including one theorem per registered axiom and a final
    `UFOAxioms4` certificate.
 5. **DSL-level diagnostics.** Failed models report whether Lean confirmed a
-   finite counterexample or only exhausted the proof/search probe, and many
-   failures are reconstructed in source-level DSL terms.
+   finite counterexample, hit a timeout-style proof-search limit, or reached an
+   unclassified generated-proof/search failure. Many failures are reconstructed
+   in source-level DSL terms.
 6. **Regression tests.** The `lake test` suite checks syntax, positive
    certification fixtures, negative counterexample fixtures, diagnostics
    rendering, and axiom registry coverage.
@@ -163,6 +165,8 @@ LEANUFO_REQUIRE_DIRECT_WITNESSES=1 lake test
 | [DSL quickstart](docs/dsl/quickstart.md) | First certified model |
 | [DSL syntax](docs/dsl/syntax.md) | Accepted surface syntax |
 | [Diagnostics](docs/dsl/diagnostics.md) | Failure analysis and counterexamples |
+| [DSL developer guide](docs/dsl/developer-guide.md) | Internal DSL module map and generated-certificate workflow |
+| [Diagnostics internals](docs/dsl/diagnostics-internals.md) | How failed generated checks become source-level explanations |
 | [Testing](docs/testing.md) | `lake test` profiles and coverage |
 | [Current status](docs/status.md) | Implemented features and current caveats |
 | [Roadmap](docs/roadmap.md) | Known limitations and next steps |
@@ -174,7 +178,11 @@ LeanUfo/
   UFO/
     Core/              -- semantic signatures, axioms, and theorems
     Models/            -- concrete satisfiability witness models
-    DSL/               -- finite DSL backend and examples
+    DSL/               -- finite DSL public entry point, backend, and examples
+      Frontend/        -- surface grammar and text rendering
+      Compiler/        -- compiler vocabulary and AST support
+      Certificate/     -- generated certificate source and tactic support
+      Diagnostic/      -- source-level failure analysis and editor widget
   Test/                -- DSL syntax, certification, diagnostics, and coverage tests
 docs/                  -- human-facing documentation
 LeanUfoTest.lean       -- executable lake test driver

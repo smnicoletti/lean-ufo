@@ -172,7 +172,7 @@ def manifestFields (src : String) : Array String :=
     pure fields
 
 def checkCoverageManifest : IO (Array String) := do
-  let registrySrc ← IO.FS.readFile "LeanUfo/UFO/DSL/Syntax.lean"
+  let registrySrc ← IO.FS.readFile "LeanUfo/UFO/DSL/Certificate/Generation.lean"
   let manifestSrc ← IO.FS.readFile "LeanUfo/Test/Coverage/AxiomManifest.lean"
   let registry := registryFields registrySrc
   let manifest := manifestFields manifestSrc

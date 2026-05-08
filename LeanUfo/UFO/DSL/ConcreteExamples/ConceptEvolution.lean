@@ -9,11 +9,10 @@ a type such as ConjugalRelationshipType has first-order types as instances,
 and those instances specialize a stable base type such as ConjugalRelationship.
 
 This is a limitation of the finite DSL/backend, not a claim that the
-axiomatisation cannot express the pattern.  The encoded UFO axiom package
-already contains axiom a108
-for `Categorizes`.  What is missing is a level-aware surface and finite model
-layer that distinguishes ordinary individual-to-type instantiation from
-type-to-higher-type instantiation.
+axiomatization cannot express the pattern.  The encoded UFO axiom package
+already contains axiom a108 for `Categorizes`.  What is missing is a
+level-aware surface and finite model layer that distinguishes ordinary
+individual-to-type instantiation from type-to-higher-type instantiation.
 
 The DSL still has one flat `things` namespace and one flat `::` table.
 If we force `MonogamousHeterosexualMarriage :: ConjugalRelationshipType` into

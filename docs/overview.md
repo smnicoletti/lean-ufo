@@ -67,7 +67,8 @@ It then runs a separate negative probe:
 - if Lean proves the negation of the generated axiom for the finite model, the
   diagnostic reports a confirmed semantic counterexample;
 - if both the certificate proof and the negation probe fail, the diagnostic
-  reports proof-search/probe exhaustion.
+  reports either a timeout-style proof-search limit or an unclassified
+  generated-proof/search failure.
 
 Where structured extractors exist, the counterexample is rendered using DSL
 world and thing names, with evidence and repair suggestions.

@@ -1,7 +1,8 @@
 /-!
 Axiom coverage manifest for the DSL test runner.
 
-Every certificate field registered by `Syntax.lean` must occur in this list.
+Every certificate field registered by `Certificate/Generation.lean` must occur
+in this list.
 The current first pass records registry coverage and seeds direct fixtures for
 the highest-risk positive and negative paths.  Per-axiom positive/negative
 fixtures should replace shared coverage entries section by section.
