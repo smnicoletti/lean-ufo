@@ -3,24 +3,26 @@ import LeanUfo.UFO.DSL.Syntax
 /-!
 Expected-failure moment/relator fixture.
 
-The relator is a moment, but no inherence fact supplies an ultimate bearer.  The
-current finite encoding can still satisfy ax68 for this tiny table and reaches
-the first relator-specific founded-by obligation at `certified_ax77`.  This
-fixture remains close to the ax68/ultimate-bearer area while the per-axiom pass
-backfills a stricter ax68 counterexample.
+The relator is a moment with an explicit non-moment bearer, so it passes the
+ultimate-bearer obligation before failing at the relator-specific founded-by
+obligation in `certified_ax77`.
 -/
 
 open LeanUfo.UFO.DSL
 
 ufo_model FailedAx77RelatorFoundedBy : UFO where
   worlds actual
-  things RelationKind Relator1
+  things RelationKind ObjectKind1 Relator1 Bearer
 
   given actual:
     RelatorKind(RelationKind)
+    ObjectKind(ObjectKind1)
+    Object(Bearer)
     Relator(Relator1)
     Moment(Relator1)
+    Bearer :: ObjectKind1
     Relator1 :: RelationKind
+    InheresIn(Relator1, Bearer)
 
   derive_relations
   certify

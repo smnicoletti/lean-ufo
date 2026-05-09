@@ -57,9 +57,9 @@ LEANUFO_AXIOMS=ax66 lake test
 Selecting axioms runs the relevant semantic witness profile for those fields.
 Use this when changing one axiom extractor, one fixture, or one diagnostic path.
 
-`LEANUFO_AXIOMS=ax68 lake test` is useful for checking the current positive
-ultimate-bearer fixture and the explicit blocked status for direct negative
-coverage.
+`LEANUFO_AXIOMS=ax68,ax72 lake test` is useful for checking the current positive
+coverage and the explicit blocked status for direct negative coverage on those
+axioms.
 
 ## Direct Negative Witness Audit
 

@@ -70,7 +70,6 @@ def fullExpectedFailures : Array ExpectedFailure := #[
   ⟨"ax66", "LeanUfo/Test/Certification/Negative/Ax66InherenceFromNonMoment.lean", "certified_ax66", true⟩,
   ⟨"ax67", "LeanUfo/Test/Certification/Negative/Ax67MomentTwoBearers.lean", "certified_ax67", true⟩,
   ⟨"ax71", "LeanUfo/Test/Certification/Negative/Ax71FoundedByWrongFoundationType.lean", "certified_ax71", true⟩,
-  ⟨"ax72", "LeanUfo/Test/Certification/Negative/Ax72ExternallyDependentModeNoFoundation.lean", "certified_ax72", true⟩,
   ⟨"ax73", "LeanUfo/Test/Certification/Negative/Ax73QuaIndividualFoundationBridge.lean", "certified_ax73", true⟩,
   ⟨"ax80", "LeanUfo/Test/Certification/Negative/Ax80MediatesWithoutRelator.lean", "certified_ax80", true⟩,
   ⟨"ax81", "LeanUfo/Test/Certification/Negative/Ax81CharacterizationWrongTypes.lean", "certified_ax81", true⟩,
