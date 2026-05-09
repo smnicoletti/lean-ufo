@@ -19,6 +19,7 @@ ufo_model FailedAx71FoundedByWrongFoundationType : UFO where
     Object(B)
     R :: RK
     B :: K
+    InheresIn(R, B)
     FoundedBy(R, B)
   derive_relations
   certify

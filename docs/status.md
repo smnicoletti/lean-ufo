@@ -43,8 +43,8 @@ Compact implementation snapshot.
   tuple-projection, and distance facts.
 - Some diagnostic extractors remain conservative for product families,
   higher-arity relations, and foundation/equality cases.
-- `ax68` has direct positive coverage, but no managed direct negative fixture
-  with a Lean-confirmed counterexample yet.
+- `ax68` and `ax72` have direct positive coverage, but no managed direct
+  negative fixtures with Lean-confirmed counterexamples yet.
 
 ## Useful Commands
 
