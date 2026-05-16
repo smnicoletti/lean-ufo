@@ -1,5 +1,6 @@
 import Lean
 import LeanUfo.UFO.DSL.Certificate.Tactic
+import LeanUfo.UFO.DSL.Checker
 import LeanUfo.UFO.DSL.Compiler
 
 /-!
@@ -271,122 +272,8 @@ def certFormula : String → String
   | "ax108" => "categorizes(t₁, t₂) ↔ Type(t₁) ∧ ∀ t₃, t₃ :: t₁ → t₃ ⊑ t₂"
   | _ => ""
 
-private def finThingTerm (idx : Nat) : String :=
-  s!"(⟨{idx}, by decide⟩ : Fin data.thingCount)"
-
-private def finWorldTerm (idx : Nat) : String :=
-  s!"(⟨{idx}, by decide⟩ : Fin data.worldCount)"
-
-private def localFinThingTerm (idx : Nat) (proofName : String) : String :=
-  s!"(⟨{idx}, {proofName}⟩ : Fin data.thingCount)"
-
-private def localFinWorldTerm (idx : Nat) (proofName : String) : String :=
-  s!"(⟨{idx}, {proofName}⟩ : Fin data.worldCount)"
-
 private def indentLines (pref source : String) : String :=
   String.intercalate "\n" <| (source.splitOn "\n").map (fun line => pref ++ line)
-
-/-
-Special proof generator for ax68.
-
-Most generated axiom fields are discharged by `ufo_cert_tac`.  Ultimate-bearer
-uniqueness is more brittle because it goes through the inductive `MomentOf`
-closure, so the certificate generator emits explicit finite case splits for
-the direct-terminal bearer pattern detected in the compiled tables.
--/
-private def natExhaustedContradiction
-    (varName boundProofName hypPrefix : String) (count : Nat) : String :=
-  let neqProofs := (List.range count).map fun idx =>
-    s!"have hne_{idx} : {varName} ≠ {idx} := {hypPrefix}_{idx}"
-  String.intercalate "\n" <|
-    ["exfalso", s!"have hlt := {boundProofName}", s!"change {varName} < {count} at hlt"] ++
-      neqProofs ++ ["omega"]
-
-partial def natByCases (varName boundProofName hypPrefix : String) (count idx : Nat)
-    (leaf : Nat → String) : String :=
-  if idx < count then
-    let yesBranch := indentLines "  " s!"subst {varName}
-{leaf idx}"
-    let noBranch := indentLines "  " (natByCases varName boundProofName hypPrefix count (idx + 1) leaf)
-    s!"by_cases {hypPrefix}_{idx} : {varName} = {idx}
-·
-{yesBranch}
-·
-{noBranch}"
-  else
-    natExhaustedContradiction varName boundProofName hypPrefix count
-
-private def ax68UniqueDirectProof (thingCount _m _w _b : Nat) : String :=
-  let cases := natByCases "zVal" "zLt" "h_z" thingCount 0 fun _ =>
-    s!"{certificateSimp} at hz ⊢ <;> (try contradiction) <;> (try omega) <;> (try rfl)"
-  s!"by
-  intro z hz
-  rcases z with ⟨zVal, zLt⟩
-{indentLines "  " cases}"
-
-private def ax68TerminalProof (thingCount _b _w : Nat) : String :=
-  let cases := natByCases "zVal" "zLt" "h_z" thingCount 0 fun _ =>
-    s!"{certificateSimp} at hz <;> (try contradiction) <;> (try omega) <;> (try rfl)"
-  s!"by
-  intro z hz
-  rcases z with ⟨zVal, zLt⟩
-{indentLines "  " cases}"
-
-private def directTerminalBearer?
-    (thingCount : Nat) (tables : FactTables) (w m : Nat) : Option Nat :=
-  Id.run do
-    let mut found? : Option Nat := none
-    for b in [:thingCount] do
-      if tables.binaryLookup "inheresIn" m b w &&
-          !tables.unaryLookup "moment" b w then
-        let mut terminal := true
-        for z in [:thingCount] do
-          if tables.binaryLookup "inheresIn" b z w then
-            terminal := false
-        if terminal then
-          match found? with
-          | none => found? := some b
-          | some _ => return none
-    return found?
-
-private def ax68DirectBearerLeafTactic (thingCount m w b : Nat) : String :=
-  let mTerm := localFinThingTerm m "mLt"
-  let wTerm := localFinWorldTerm w "wLt"
-  s!"refine ⟨{finThingTerm b}, ?_, ?_⟩
-·
-  constructor
-  ·
-    {certificateSimp} <;> (try contradiction) <;> (try omega) <;> (try rfl)
-  ·
-    exact MomentOf.direct (by {certificateSimp} <;> (try contradiction) <;> (try omega) <;> (try rfl))
-·
-  intro y hy
-  exact momentOf_eq_of_unique_direct_bearer
-    (Sig := sig.toUFOSignature3_9)
-    (m := {mTerm}) (b := {finThingTerm b}) (x := y) (w := {wTerm})
-    ({ax68UniqueDirectProof thingCount m w b})
-    ({ax68TerminalProof thingCount b w})
-    hy.2"
-
-private def ax68LeafTactic
-    (thingCount : Nat) (tables : FactTables) (m w : Nat) : String :=
-  if tables.unaryLookup "moment" m w then
-    match directTerminalBearer? thingCount tables w m with
-    | some b => ax68DirectBearerLeafTactic thingCount m w b
-    | none =>
-        s!"{certificateSimp} at hm ⊢ <;> (try contradiction) <;> (try omega) <;> (try grind)"
-  else
-    s!"{certificateSimp} at hm ⊢ <;> contradiction"
-
-partial def ax68WorldCases
-    (thingCount worldCount : Nat) (tables : FactTables) (m idx : Nat) : String :=
-  natByCases "wVal" "wLt" "h_w" worldCount idx fun w =>
-    ax68LeafTactic thingCount tables m w
-
-partial def ax68ThingCases
-    (thingCount worldCount : Nat) (tables : FactTables) (idx : Nat) : String :=
-  natByCases "mVal" "mLt" "h_m" thingCount idx fun m =>
-    ax68WorldCases thingCount worldCount tables m 0
 
 private def numberedAxiomSimpDefs? (field : String) : Option String :=
   match field.dropPrefix? "ax" with
@@ -440,19 +327,321 @@ private def certificateSimpDefs? (field : CertField) : Option String :=
   | "ax_kindStable" => some "ax_kindStable"
   | _ => numberedAxiomSimpDefs? field.field
 
-private def certTactic
-    (worldCount thingCount : Nat) (tables : FactTables) (field : CertField) : String :=
-  if field.field == "ax68" then
-    s!"intro m w hm
-rcases m with ⟨mVal, mLt⟩
-rcases w with ⟨wVal, wLt⟩
-{ax68ThingCases thingCount worldCount tables 0}"
-  else
-    match certificateSimpDefs? field with
-    | some defs =>
-        s!"{certificateSimpSelected defs} <;> (try omega) <;> (try grind) <;> (decide +revert)"
-    | none =>
-        "ufo_cert_tac"
+def checkerBackedField (field : CertField) : Bool :=
+  field.field == "ax1" || field.field == "ax2" || field.field == "ax3" ||
+    field.field == "ax4" || field.field == "ax5" || field.field == "ax6" ||
+    field.field == "ax7" || field.field == "ax8" || field.field == "ax9" ||
+    field.field == "ax10" || field.field == "ax11" || field.field == "ax12" ||
+    field.field == "ax13" || field.field == "ax14" || field.field == "ax15" ||
+    field.field == "ax16" || field.field == "ax17" ||
+    field.field == "ax18" || field.field == "ax19" || field.field == "ax20" ||
+    field.field == "ax21" || field.field == "ax22" || field.field == "ax23" ||
+    field.field == "ax24" || field.field == "ax25" ||
+    field.field == "ax26" || field.field == "ax27" || field.field == "ax28" ||
+    field.field == "ax29" || field.field == "ax30" || field.field == "ax31" ||
+    field.field == "ax32" || field.field == "ax33" ||
+    field.field == "ax_instEndurant" || field.field == "ax_sub_kind_sortal" ||
+    field.field == "ax_nonSortal_up" || field.field == "ax_kindStable" ||
+    field.field == "ax34" || field.field == "ax35" || field.field == "ax36" ||
+    field.field == "ax37" || field.field == "ax38" || field.field == "ax39" ||
+    field.field == "ax40" || field.field == "ax41" || field.field == "ax42" ||
+    field.field == "ax43" ||
+    field.field == "ax44" || field.field == "ax45" || field.field == "ax46" ||
+    field.field == "ax47" || field.field == "ax48" || field.field == "ax49" ||
+    field.field == "ax50" || field.field == "ax51" || field.field == "ax52" ||
+    field.field == "ax53" || field.field == "ax54" || field.field == "ax55" ||
+    field.field == "ax56" || field.field == "ax57" || field.field == "ax58" ||
+    field.field == "ax59" || field.field == "ax60" ||
+    field.field == "ax61" || field.field == "ax62" || field.field == "ax63" ||
+    field.field == "ax64" || field.field == "ax65" || field.field == "ax66" ||
+    field.field == "ax67" || field.field == "ax68" ||
+    field.field == "ax69" || field.field == "ax70" || field.field == "ax71" ||
+    field.field == "ax72" || field.field == "ax73" || field.field == "ax74" || field.field == "ax75" ||
+    field.field == "ax76" || field.field == "ax77" || field.field == "ax78" ||
+    field.field == "ax79" || field.field == "ax80" ||
+    field.field == "axQuaIndividualOfEndurant" ||
+    field.field == "ax81" || field.field == "ax82" ||
+    field.field == "ax83" || field.field == "ax84" || field.field == "ax85" ||
+    field.field == "ax86" || field.field == "ax87" ||
+    field.field == "ax88" || field.field == "ax89" || field.field == "ax90" ||
+    field.field == "ax91" ||
+    field.field == "ax92" || field.field == "ax93" ||
+    field.field == "ax94" || field.field == "ax95" || field.field == "ax96" ||
+    field.field == "ax97" || field.field == "ax98" ||
+    field.field == "ax99" || field.field == "ax100" || field.field == "ax101" ||
+    field.field == "axDistanceIdentity" ||
+    field.field == "axDistanceSymmetry" ||
+    field.field == "axDistanceTriangle" ||
+    field.field == "ax102" || field.field == "ax103" || field.field == "ax104" ||
+    field.field == "ax105" || field.field == "ax106" || field.field == "ax107" ||
+    field.field == "ax108"
+
+private def checkerSoundnessName? (field : CertField) : Option String :=
+  match field.field with
+  | "ax1" => some "checkAx1_sound"
+  | "ax2" => some "checkAx2_sound"
+  | "ax3" => some "checkAx3_sound"
+  | "ax4" => some "checkAx4_sound"
+  | "ax5" => some "checkAx5_sound"
+  | "ax6" => some "checkAx6_sound"
+  | "ax7" => some "checkAx7_sound"
+  | "ax8" => some "checkAx8_sound"
+  | "ax9" => some "checkAx9_sound"
+  | "ax10" => some "checkAx10_sound"
+  | "ax11" => some "checkAx11_sound"
+  | "ax12" => some "checkAx12_sound"
+  | "ax13" => some "checkAx13_sound"
+  | "ax14" => some "checkAx14_sound"
+  | "ax15" => some "checkAx15_sound"
+  | "ax16" => some "checkAx16_sound"
+  | "ax17" => some "checkAx17_sound"
+  | "ax18" => some "checkAx18_sound"
+  | "ax19" => some "checkAx19_sound"
+  | "ax20" => some "checkAx20_sound"
+  | "ax21" => some "checkAx21_sound"
+  | "ax22" => some "checkAx22_sound"
+  | "ax23" => some "checkAx23_sound"
+  | "ax24" => some "checkAx24_sound"
+  | "ax25" => some "checkAx25_sound"
+  | "ax26" => some "checkAx26_sound"
+  | "ax27" => some "checkAx27_sound"
+  | "ax28" => some "checkAx28_sound"
+  | "ax29" => some "checkAx29_sound"
+  | "ax30" => some "checkAx30_sound"
+  | "ax31" => some "checkAx31_sound"
+  | "ax32" => some "checkAx32_sound"
+  | "ax33" => some "checkAx33_sound"
+  | "ax_instEndurant" => some "checkAxInstEndurant_sound"
+  | "ax_sub_kind_sortal" => some "checkAxSubKindSortal_sound"
+  | "ax_nonSortal_up" => some "checkAxNonSortalUp_sound"
+  | "ax_kindStable" => some "checkAxKindStable_sound"
+  | "ax34" => some "checkAx34_sound"
+  | "ax35" => some "checkAx35_sound"
+  | "ax36" => some "checkAx36_sound"
+  | "ax37" => some "checkAx37_sound"
+  | "ax38" => some "checkAx38_sound"
+  | "ax39" => some "checkAx39_sound"
+  | "ax40" => some "checkAx40_sound"
+  | "ax41" => some "checkAx41_sound"
+  | "ax42" => some "checkAx42_sound"
+  | "ax43" => some "checkAx43_sound"
+  | "ax44" => some "checkAx44_sound"
+  | "ax45" => some "checkAx45_sound"
+  | "ax46" => some "checkAx46_sound"
+  | "ax47" => some "checkAx47_sound"
+  | "ax48" => some "checkAx48_sound"
+  | "ax49" => some "checkAx49_sound"
+  | "ax50" => some "checkAx50_sound"
+  | "ax51" => some "checkAx51_sound"
+  | "ax52" => some "checkAx52_sound"
+  | "ax53" => some "checkAx53_sound"
+  | "ax54" => some "checkAx54_sound"
+  | "ax55" => some "checkAx55_sound"
+  | "ax56" => some "checkAx56_sound"
+  | "ax57" => some "checkAx57_sound"
+  | "ax58" => some "checkAx58_sound"
+  | "ax59" => some "checkAx59_sound"
+  | "ax60" => some "checkAx60_sound"
+  | "ax61" => some "checkAx61_sound"
+  | "ax62" => some "checkAx62_sound"
+  | "ax63" => some "checkAx63_sound"
+  | "ax64" => some "checkAx64_sound"
+  | "ax65" => some "checkAx65_sound"
+  | "ax66" => some "checkAx66_sound"
+  | "ax67" => some "checkAx67_sound"
+  | "ax68" => some "checkAx68_sound"
+  | "ax69" => some "checkAx69_sound"
+  | "ax70" => some "checkAx70_sound"
+  | "ax71" => some "checkAx71_sound"
+  | "ax72" => some "checkAx72_sound"
+  | "ax74" => some "checkAx74_sound"
+  | "ax75" => some "checkAx75_sound"
+  | "ax76" => some "checkAx76_sound"
+  | "ax77" => some "checkAx77_sound"
+  | "ax78" => some "checkAx78_sound"
+  | "ax79" => some "checkAx79_sound"
+  | "ax80" => some "checkAx80_sound"
+  | "axQuaIndividualOfEndurant" => some "checkAxQuaIndividualOfEndurant_sound"
+  | "ax81" => some "checkAx81_sound"
+  | "ax82" => some "checkAx82_sound"
+  | "ax83" => some "checkAx83_sound"
+  | "ax84" => some "checkAx84_sound"
+  | "ax85" => some "checkAx85_sound"
+  | "ax86" => some "checkAx86_sound"
+  | "ax87" => some "checkAx87_sound"
+  | "ax88" => some "checkAx88_sound"
+  | "ax89" => some "checkAx89_sound"
+  | "ax90" => some "checkAx90_sound"
+  | "ax91" => some "checkAx91_sound"
+  | "ax92" => some "checkAx92_sound"
+  | "ax93" => some "checkAx93_sound"
+  | "ax94" => some "checkAx94_sound"
+  | "ax95" => some "checkAx95_sound"
+  | "ax96" => some "checkAx96_sound"
+  | "ax97" => some "checkAx97_sound"
+  | "ax98" => some "checkAx98_sound"
+  | "ax99" => some "checkAx99_sound"
+  | "ax100" => some "checkAx100_sound"
+  | "ax101" => some "checkAx101_sound"
+  | "axDistanceIdentity" => some "checkAxDistanceIdentity_sound"
+  | "axDistanceSymmetry" => some "checkAxDistanceSymmetry_sound"
+  | "axDistanceTriangle" => some "checkAxDistanceTriangle_sound"
+  | "ax102" => some "checkAx102_sound"
+  | "ax103" => some "checkAx103_sound"
+  | "ax104" => some "checkAx104_sound"
+  | "ax105" => some "checkAx105_sound"
+  | "ax106" => some "checkAx106_sound"
+  | "ax107" => some "checkAx107_sound"
+  | "ax108" => some "checkAx108_sound"
+  | _ => none
+
+private structure CheckerCounterexampleBackend where
+  checkFn : String
+  completeTheorem : String
+
+private def checkerCounterexampleBackend? (field : CertField) : Option CheckerCounterexampleBackend :=
+  let direct (checkFn completeTheorem : String) : Option CheckerCounterexampleBackend :=
+    some { checkFn, completeTheorem }
+  match field.field with
+  | "ax1" => direct "checkAx1" "checkAx1_complete"
+  | "ax2" => direct "checkAx2" "checkAx2_complete"
+  | "ax3" => direct "checkAx3" "checkAx3_complete"
+  | "ax4" => direct "checkAx4" "checkAx4_complete"
+  | "ax5" => direct "checkAx5" "checkAx5_complete"
+  | "ax6" => direct "checkAx6" "checkAx6_complete"
+  | "ax7" => direct "checkAx7" "checkAx7_complete"
+  | "ax8" => direct "checkAx8" "checkAx8_complete"
+  | "ax9" => direct "checkAx9" "checkAx9_complete"
+  | "ax10" => direct "checkAx10" "checkAx10_complete"
+  | "ax11" => direct "checkAx11" "checkAx11_complete"
+  | "ax12" => direct "checkAx12" "checkAx12_complete"
+  | "ax13" => direct "checkAx13" "checkAx13_complete"
+  | "ax14" => direct "checkAx14" "checkAx14_complete"
+  | "ax15" => direct "checkAx15" "checkAx15_complete"
+  | "ax16" => direct "checkAx16" "checkAx16_complete"
+  | "ax17" => direct "checkAx17" "checkAx17_complete"
+  | "ax18" => direct "checkAx18" "checkAx18_complete"
+  | "ax19" => direct "checkAx19" "checkAx19_complete"
+  | "ax20" => direct "checkAx20" "checkAx20_complete"
+  | "ax21" => direct "checkAx21" "checkAx21_complete"
+  | "ax22" => direct "checkAx22" "checkAx22_complete"
+  | "ax23" => direct "checkAx23" "checkAx23_complete"
+  | "ax24" => direct "checkAx24" "checkAx24_complete"
+  | "ax25" => direct "checkAx25" "checkAx25_complete"
+  | "ax26" => direct "checkAx26" "checkAx26_complete"
+  | "ax27" => direct "checkAx27" "checkAx27_complete"
+  | "ax28" => direct "checkAx28" "checkAx28_complete"
+  | "ax29" => direct "checkAx29" "checkAx29_complete"
+  | "ax30" => direct "checkAx30" "checkAx30_complete"
+  | "ax31" => direct "checkAx31" "checkAx31_complete"
+  | "ax32" => direct "checkAx32" "checkAx32_complete"
+  | "ax33" => direct "checkAx33" "checkAx33_complete"
+  | "ax_instEndurant" => direct "checkAxInstEndurant" "checkAxInstEndurant_complete"
+  | "ax_sub_kind_sortal" => direct "checkAxSubKindSortal" "checkAxSubKindSortal_complete"
+  | "ax_nonSortal_up" => direct "checkAxNonSortalUp" "checkAxNonSortalUp_complete"
+  | "ax_kindStable" => direct "checkAxKindStable" "checkAxKindStable_complete"
+  | "ax34" => direct "checkAx34" "checkAx34_complete"
+  | "ax35" => direct "checkAx35" "checkAx35_complete"
+  | "ax36" => direct "checkAx36" "checkAx36_complete"
+  | "ax37" => direct "checkAx37" "checkAx37_complete"
+  | "ax38" => direct "checkAx38" "checkAx38_complete"
+  | "ax39" => direct "checkAx39" "checkAx39_complete"
+  | "ax40" => direct "checkAx40" "checkAx40_complete"
+  | "ax41" => direct "checkAx41" "checkAx41_complete"
+  | "ax42" => direct "checkAx42" "checkAx42_complete"
+  | "ax43" => direct "checkAx43" "checkAx43_complete"
+  | "ax44" => direct "checkAx44" "checkAx44_complete"
+  | "ax45" => direct "checkAx45" "checkAx45_complete"
+  | "ax46" => direct "checkAx46" "checkAx46_complete"
+  | "ax47" => direct "checkAx47" "checkAx47_complete"
+  | "ax48" => direct "checkAx48" "checkAx48_complete"
+  | "ax49" => direct "checkAx49" "checkAx49_complete"
+  | "ax50" => direct "checkAx50" "checkAx50_complete"
+  | "ax51" => direct "checkAx51" "checkAx51_complete"
+  | "ax52" => direct "checkAx52" "checkAx52_complete"
+  | "ax53" => direct "checkAx53" "checkAx53_complete"
+  | "ax54" => direct "checkAx54" "checkAx54_complete"
+  | "ax55" => direct "checkAx55" "checkAx55_complete"
+  | "ax56" => direct "checkAx56" "checkAx56_complete"
+  | "ax57" => direct "checkAx57" "checkAx57_complete"
+  | "ax58" => direct "checkAx58" "checkAx58_complete"
+  | "ax59" => direct "checkAx59" "checkAx59_complete"
+  | "ax60" => direct "checkAx60" "checkAx60_complete"
+  | "ax61" => direct "checkAx61" "checkAx61_complete"
+  | "ax62" => direct "checkAx62" "checkAx62_complete"
+  | "ax63" => direct "checkAx63" "checkAx63_complete"
+  | "ax64" => direct "checkAx64" "checkAx64_complete"
+  | "ax65" => direct "checkAx65" "checkAx65_complete"
+  | "ax66" => direct "checkAx66" "checkAx66_complete"
+  | "ax67" => direct "checkAx67" "checkAx67_complete"
+  | "ax68" => direct "checkAx68" "checkAx68_complete"
+  | "ax69" => direct "checkAx69" "checkAx69_complete"
+  | "ax70" => direct "checkAx70" "checkAx70_complete"
+  | "ax71" => direct "checkAx71" "checkAx71_complete"
+  | "ax72" => direct "checkAx72" "checkAx72_complete"
+  | "ax74" => direct "checkAx74" "checkAx74_complete"
+  | "ax75" => direct "checkAx75" "checkAx75_complete"
+  | "ax76" => direct "checkAx76" "checkAx76_complete"
+  | "ax77" => direct "checkAx77" "checkAx77_complete"
+  | "ax80" => direct "checkAx80" "checkAx80_complete"
+  | "axQuaIndividualOfEndurant" =>
+      direct "checkAxQuaIndividualOfEndurant" "checkAxQuaIndividualOfEndurant_complete"
+  | "ax81" => direct "checkAx81" "checkAx81_complete"
+  | "ax82" => direct "checkAx82" "checkAx82_complete"
+  | "ax83" => direct "checkAx83" "checkAx83_complete"
+  | "ax84" => direct "checkAx84" "checkAx84_complete"
+  | "ax85" => direct "checkAx85" "checkAx85_complete"
+  | "ax86" => direct "checkAx86" "checkAx86_complete"
+  | "ax87" => direct "checkAx87" "checkAx87_complete"
+  | "ax88" => direct "checkAx88" "checkAx88_complete"
+  | "ax89" => direct "checkAx89" "checkAx89_complete"
+  | "ax90" => direct "checkAx90" "checkAx90_complete"
+  | "ax91" => direct "checkAx91" "checkAx91_complete"
+  | "ax92" => direct "checkAx92" "checkAx92_complete"
+  | "ax93" => direct "checkAx93" "checkAx93_complete"
+  | "ax94" => direct "checkAx94" "checkAx94_complete"
+  | "ax95" => direct "checkAx95" "checkAx95_complete"
+  | "ax96" => direct "checkAx96" "checkAx96_complete"
+  | "ax97" => direct "checkAx97" "checkAx97_complete"
+  | "ax98" => direct "checkAx98" "checkAx98_complete"
+  | "ax100" => direct "checkAx100" "checkAx100_complete"
+  | "ax101" => direct "checkAx101" "checkAx101_complete"
+  | "axDistanceIdentity" =>
+      direct "checkAxDistanceIdentity" "checkAxDistanceIdentity_complete"
+  | "axDistanceSymmetry" =>
+      direct "checkAxDistanceSymmetry" "checkAxDistanceSymmetry_complete"
+  | "axDistanceTriangle" =>
+      direct "checkAxDistanceTriangle" "checkAxDistanceTriangle_complete"
+  | "ax102" => direct "checkAx102" "checkAx102_complete"
+  | "ax103" => direct "checkAx103" "checkAx103_complete"
+  | "ax104" => direct "checkAx104" "checkAx104_complete"
+  | "ax105" => direct "checkAx105" "checkAx105_complete"
+  | "ax106" => direct "checkAx106" "checkAx106_complete"
+  | "ax107" => direct "checkAx107" "checkAx107_complete"
+  | "ax108" => direct "checkAx108" "checkAx108_complete"
+  | _ => none
+
+private def checkerCertificateProof? (field : CertField) : Option String :=
+  match field.field with
+  | "ax73" =>
+      some
+        "exact LeanUfo.UFO.DSL.Checker.checkAx73_sound data (by native_decide) (by native_decide) (by native_decide) (by native_decide) (by native_decide)"
+  | "ax78" =>
+      some
+        "exact LeanUfo.UFO.DSL.Checker.checkAx78_sound data (by native_decide) (by native_decide) (by native_decide) (by native_decide) (by native_decide) (by native_decide) (by native_decide)"
+  | "ax79" =>
+      some
+        "exact LeanUfo.UFO.DSL.Checker.checkAx79_sound data (by native_decide) (by native_decide) (by native_decide)"
+  | _ =>
+      checkerSoundnessName? field |>.map fun theoremName =>
+        s!"exact LeanUfo.UFO.DSL.Checker.{theoremName} data (by native_decide)"
+
+private def certTactic (field : CertField) : String :=
+  match certificateSimpDefs? field with
+  | some defs =>
+      s!"{certificateSimpSelected defs} <;> (try omega) <;> (try grind) <;> (decide +revert)"
+  | none =>
+      "ufo_cert_tac"
 
 /--
 Some axioms must be probed by elaborating the generated theorem command, not by
@@ -464,7 +653,9 @@ command.  A small number of fields are sensitive to that difference:
 
 * `ax1`-`ax6` reduce to finite definitions over all things/worlds; on larger
   models the standalone term probe can run out before the command theorem does.
-* `ax68` uses a generated proof shape that needs command-level context.
+* `ax68` is checker-backed in the final theorem, but the standalone proof-term
+  probe can still diverge from command elaboration around the native checker
+  call and generated finite closure.
 * `ax44` reduces to a large finite type-taxonomy proposition; the term probe may
   fail decidability synthesis even when the generated theorem command succeeds.
 
@@ -477,9 +668,14 @@ def useCommandCertificateProbe (field : CertField) : Bool :=
     field.field == "ax44" || field.field == "ax68"
 
 def certAxiomTheorem
-    (worldCount thingCount : Nat) (tables : FactTables) (field : CertField) : String :=
-  s!"set_option maxHeartbeats 1000000 in set_option linter.unusedSimpArgs false in theorem {certTheoremName field.field} : {field.prop} := by
-{indentLines "  " (certTactic worldCount thingCount tables field)}"
+    (_worldCount _thingCount : Nat) (_tables : FactTables) (field : CertField) : String :=
+  match checkerCertificateProof? field with
+  | some proof =>
+      s!"set_option maxHeartbeats 1000000 in set_option linter.unusedSimpArgs false in theorem {certTheoremName field.field} : {field.prop} := by
+  {proof}"
+  | none =>
+      s!"set_option maxHeartbeats 1000000 in set_option linter.unusedSimpArgs false in theorem {certTheoremName field.field} : {field.prop} := by
+{indentLines "  " (certTactic field)}"
 
 def certificateBody : String :=
   let fieldSource := certFields.map fun field =>
@@ -499,16 +695,104 @@ def derivedFactsBody (props : Array String) : String :=
     "by\n  ufo_cert_tac"
 
 def certAxiomCounterexampleCheck (field : CertField) : String :=
-  s!"show ¬ ({field.prop}) from by
+  if field.field == "ax73" then
+    s!"show ¬ ({field.prop}) from by
   set_option maxHeartbeats 1000000 in
+  set_option maxRecDepth 20000 in
+  set_option linter.unusedSimpArgs false in
+  intro h
+  have h47 : LeanUfo.UFO.DSL.Checker.checkAx47 data = true := by native_decide
+  have h50 : LeanUfo.UFO.DSL.Checker.checkAx50 data = true := by native_decide
+  have h72 : LeanUfo.UFO.DSL.Checker.checkAx72 data = true := by native_decide
+  have h75 : LeanUfo.UFO.DSL.Checker.checkAx75 data = true := by native_decide
+  have hcheck : LeanUfo.UFO.DSL.Checker.checkAx73 data = true :=
+    LeanUfo.UFO.DSL.Checker.checkAx73_complete_with_prereqs data
+      (LeanUfo.UFO.DSL.Checker.checkAx47_sound data h47)
+      (LeanUfo.UFO.DSL.Checker.checkAx50_sound data h50)
+      (LeanUfo.UFO.DSL.Checker.checkAx72_sound data h72)
+      (LeanUfo.UFO.DSL.Checker.checkAx75_sound data h75)
+      h
+  have hcheckFalse : LeanUfo.UFO.DSL.Checker.checkAx73 data = false := by
+    native_decide
+  rw [hcheckFalse] at hcheck
+  contradiction"
+  else if field.field == "ax78" then
+    s!"show ¬ ({field.prop}) from by
+  set_option maxHeartbeats 1000000 in
+  set_option maxRecDepth 20000 in
+  set_option linter.unusedSimpArgs false in
+  intro h
+  have h48 : LeanUfo.UFO.DSL.Checker.checkAx48 data = true := by native_decide
+  have h52 : LeanUfo.UFO.DSL.Checker.checkAx52 data = true := by native_decide
+  have h72 : LeanUfo.UFO.DSL.Checker.checkAx72 data = true := by native_decide
+  have h75 : LeanUfo.UFO.DSL.Checker.checkAx75 data = true := by native_decide
+  have h77 : LeanUfo.UFO.DSL.Checker.checkAx77 data = true := by native_decide
+  have h79 : LeanUfo.UFO.DSL.Checker.checkAx79 data = true := by native_decide
+  have h72Sem := LeanUfo.UFO.DSL.Checker.checkAx72_sound data h72
+  have h75Sem := LeanUfo.UFO.DSL.Checker.checkAx75_sound data h75
+  have h79Sem := LeanUfo.UFO.DSL.Checker.checkAx79_sound_with_prereqs data h72Sem h75Sem h79
+  have hcheck : LeanUfo.UFO.DSL.Checker.checkAx78 data = true :=
+    LeanUfo.UFO.DSL.Checker.checkAx78_complete_with_prereqs data
+      (LeanUfo.UFO.DSL.Checker.checkAx48_sound data h48)
+      (LeanUfo.UFO.DSL.Checker.checkAx52_sound data h52)
+      h72Sem
+      h75Sem
+      (LeanUfo.UFO.DSL.Checker.checkAx77_sound data h77)
+      h79Sem
+      h
+  have hcheckFalse : LeanUfo.UFO.DSL.Checker.checkAx78 data = false := by
+    native_decide
+  rw [hcheckFalse] at hcheck
+  contradiction"
+  else if field.field == "ax79" then
+    s!"show ¬ ({field.prop}) from by
+  set_option maxHeartbeats 1000000 in
+  set_option maxRecDepth 20000 in
+  set_option linter.unusedSimpArgs false in
+  intro h
+  have h72 : LeanUfo.UFO.DSL.Checker.checkAx72 data = true := by native_decide
+  have h75 : LeanUfo.UFO.DSL.Checker.checkAx75 data = true := by native_decide
+  have hcheck : LeanUfo.UFO.DSL.Checker.checkAx79 data = true :=
+    LeanUfo.UFO.DSL.Checker.checkAx79_complete_with_prereqs data
+      (LeanUfo.UFO.DSL.Checker.checkAx72_sound data h72)
+      (LeanUfo.UFO.DSL.Checker.checkAx75_sound data h75)
+      h
+  have hcheckFalse : LeanUfo.UFO.DSL.Checker.checkAx79 data = false := by
+    native_decide
+  rw [hcheckFalse] at hcheck
+  contradiction"
+  else match checkerCounterexampleBackend? field with
+  | some backend =>
+    s!"show ¬ ({field.prop}) from by
+  set_option maxHeartbeats 1000000 in
+  set_option maxRecDepth 20000 in
+  set_option linter.unusedSimpArgs false in
+  intro h
+  have hcheck : LeanUfo.UFO.DSL.Checker.{backend.checkFn} data = true :=
+    LeanUfo.UFO.DSL.Checker.{backend.completeTheorem} data h
+  have hcheckFalse : LeanUfo.UFO.DSL.Checker.{backend.checkFn} data = false := by
+    native_decide
+  rw [hcheckFalse] at hcheck
+  contradiction"
+  | none =>
+    s!"show ¬ ({field.prop}) from by
+  set_option maxHeartbeats 1000000 in
+  set_option maxRecDepth 20000 in
   set_option linter.unusedSimpArgs false in
   {certificateSimp} <;> (try omega) <;> (try grind) <;> native_decide"
 
 def certAxiomProofCheck
-    (worldCount thingCount : Nat) (tables : FactTables) (field : CertField) : String :=
-  s!"show {field.prop} from by
+    (_worldCount _thingCount : Nat) (_tables : FactTables) (field : CertField) : String :=
+  match checkerCertificateProof? field with
+  | some proof =>
+      s!"show {field.prop} from by
   set_option maxHeartbeats 1000000 in
   set_option linter.unusedSimpArgs false in
-{indentLines "  " (certTactic worldCount thingCount tables field)}"
+  {proof}"
+  | none =>
+      s!"show {field.prop} from by
+  set_option maxHeartbeats 1000000 in
+  set_option linter.unusedSimpArgs false in
+{indentLines "  " (certTactic field)}"
 
 end LeanUfo.UFO.DSL

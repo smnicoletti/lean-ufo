@@ -111,7 +111,17 @@ DistanceGreaterEq(LongDistance, ShortDistance)
 DistanceSum(ShortDistance, MediumDistance, LongDistance)
 ```
 
-Richer §3.12 models can still require low-level tuple and membership facts
-until product-family syntax is added.
+Product-family witnesses for axiom (a99) are written outside `given` blocks:
+
+```lean
+product_family ColorSpace for ColorQuality:
+  dimensions HueSpace SaturationSpace BrightnessSpace
+  types Hue Saturation Brightness
+```
+
+The witness supplies the finite `ys`/`zs` family used by the reflective checker.
+Richer §3.12 models can still require low-level tuple, membership,
+`AssociatedWith`, and `Characterization` facts to make such a family
+semantically active.
 
 [Docs home](../README.md) · [Project README](../../README.md)

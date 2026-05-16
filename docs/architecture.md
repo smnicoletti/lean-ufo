@@ -1,102 +1,201 @@
-# Architecture And Trust Boundary
+# Project Architecture
 
 [Docs home](README.md) · [Project README](../README.md)
 
-This page describes the finite DSL backend. The core UFO formalization in
-`LeanUfo/UFO/Core` is ordinary Lean code; the DSL adds a command frontend and a
-finite compiler around that core.
+Lean UFO has two connected layers:
 
-## Pipeline
+1. a semantic Lean formalization of UFO fragments;
+2. a finite DSL that compiles small named models and certifies them against the
+   formalized axiom package.
 
-```text
-ufo_model concrete syntax
-  -> NamedScopedFact
-  -> resolveNamedFacts
-  -> ScopedCompiledFact
-  -> expandScopedFacts
-  -> CompiledFact
-  -> addTaxonomyFacts
-  -> addReflexiveSpecializationFacts
-  -> ModelAST
-  -> compileExplicitModelAST
-  -> FactTables
-  -> compileExplicitModel
-  -> FiniteModel4
-  -> FiniteModel4.toUFOSignature4
-  -> generated UFOAxioms4 certificate
+This page gives the project-level map. For the detailed DSL compiler/checker
+pipeline, see the [DSL architecture](dsl/architecture.md).
+
+## System Map
+
+```mermaid
+flowchart TD
+  A["UFO source theory<br/>paper axioms and theorems"] --> B["Core Lean formalization<br/>Modal + Core"]
+  B --> C["Concrete witness models<br/>Models"]
+  B --> D["S5-derived facts<br/>Core/S5_Derived.lean"]
+
+  E["Finite DSL syntax<br/>ufo_model ... certify"] --> F["DSL compiler<br/>names, scopes, facts, tables"]
+  F --> G["FiniteModel4"]
+  G --> H["Semantic bridge<br/>to UFOSignature4"]
+  H --> B
+  G --> I["Reflective checker<br/>checkAxioms4"]
+  I --> J["Lean certificates<br/>UFOAxioms4"]
+  I --> K["Diagnostics<br/>counterexamples and suggestions"]
+
+  L["Tests and CI"] --> B
+  L --> C
+  L --> F
+  L --> I
+  L --> K
 ```
 
-## Stage Summary
+The core formalization is the semantic target. The DSL does not define a
+separate ontology: it builds finite `UFOSignature4` interpretations and proves
+that they satisfy the same `UFOAxioms4` package used by the rest of the
+repository.
 
-- `NamedScopedFact`: parser output with user-facing world and thing names.
-- `resolveNamedFacts`: pure duplicate-name and unknown-name checking.
-- `ScopedCompiledFact`: resolved facts that still remember whether they are
-  scoped to one world or `everywhere`.
-- `expandScopedFacts`: pure expansion from `everywhere` to all worlds.
-- `CompiledFact`: ordinary world-indexed finite facts.
-- `addTaxonomyFacts`: deterministic unary taxonomy closure.
-- `addReflexiveSpecializationFacts`: insertion of reflexive specialization
-  facts such as `Person ⊑ Person` for instantiated types.
-- `ModelAST`: the expanded finite syntax tree emitted by the command frontend.
-- `compileExplicitModelAST`: pure compilation into compact finite tables.
-- `FiniteModel4`: finite backend representation.
-- `FiniteModel4.toUFOSignature4`: semantic bridge into the Prop-valued UFO
-  signature checked by the core axioms.
-- generated certificate: one theorem per registered axiom and one bundled
-  `UFOAxioms4` theorem.
+## Core Formalization
+
+The core lives under `LeanUfo/UFO/`.
+
+| Area | Purpose |
+| --- | --- |
+| `Modal/` | Semantic modal infrastructure, including S5-style Kripke semantics |
+| `Core/Signature*.lean` | UFO semantic signatures for successive fragments |
+| `Core/Section*.lean` | Axiom packages and derived theorems for those fragments |
+| `Core/S5_Derived.lean` | Additional consequences of the chosen S5 semantics |
+| `Models/` | Small concrete witness models and consistency checkpoints |
+
+Each core fragment follows the same pattern:
+
+```text
+semantic signature
+  -> axiom package
+  -> derived theorems
+  -> concrete witness model
+  -> consistency checkpoint
+```
+
+The consistency checkpoints are model-existence theorems. They establish joint
+satisfiability of the packaged semantic axioms relative to Lean's metatheory and
+the chosen S5 semantics. They are not proof-theoretic consistency results.
+
+## Finite DSL Layer
+
+The DSL lives under `LeanUfo/UFO/DSL/`.
+
+It lets a user write a compact finite model:
+
+```lean
+ufo_model Example : UFO where
+  worlds actual
+  things Person Alice
+
+  given actual:
+    ObjectKind(Person)
+    Object(Alice)
+    Alice :: Person
+
+  derive_relations
+  certify
+```
+
+The DSL architecture has its own detailed page:
+
+- [DSL architecture](dsl/architecture.md): syntax, parser, compiler, finite
+  model representation, reflective checker, positive and negative certificates,
+  diagnostics, and formal complexity results;
+- [DSL developer guide](dsl/developer-guide.md): file responsibilities and
+  maintenance rules;
+- [DSL syntax reference](dsl/syntax.md): user-facing grammar and fact forms.
+
+At the project level, the important point is that `certify` emits ordinary Lean
+declarations:
+
+```lean
+Example.certified : UFOAxioms4 Example.sig
+```
+
+So a successful DSL model is not merely accepted by a custom tool. It leaves a
+Lean-checked theorem proving that the generated finite semantic signature
+satisfies the encoded UFO axioms.
+
+## Certificates And Diagnostics
+
+The DSL has two proof-related paths.
+
+```mermaid
+flowchart TD
+  A["FiniteModel4"] --> B["Reflective checker"]
+  B -->|passes| C["Positive certificate<br/>UFOAxioms4"]
+  B -->|fails| D["Negative probe"]
+  D -->|Lean proves not axN| E["Confirmed semantic counterexample"]
+  D -->|probe fails| F["Unconfirmed diagnostic status"]
+  E --> G["Source-level diagnostic"]
+  F --> G
+```
+
+Positive certification is the trusted success path. For registered axiom fields,
+the generated theorem calls a reusable checker soundness theorem and evaluates
+the finite model with `native_decide`.
+
+Diagnostics are explanatory. A failed model is only a confirmed semantic
+counterexample when Lean checks a proof of the failed axiom's negation for the
+generated finite model. Otherwise the diagnostic reports missing witness data,
+a timeout-style probe limit, or an unclassified probe failure.
+
+## Formal Guarantees
+
+The main guarantee layers are:
+
+- **core semantic theorems** in `Core/Section*.lean` and `Core/S5_Derived.lean`;
+- **witness-model consistency checkpoints** in `Models/`;
+- **DSL compiler and packaging guarantees** in `DSL/Guarantees.lean` and
+  `DSL/Certification.lean`;
+- **checker soundness/completeness theorems** in `DSL/Checker/Soundness.lean`;
+- **checker step bounds** in `DSL/Checker/Complexity.lean`.
+
+The central DSL checker theorem is:
+
+```lean
+checkAxioms4_sound :
+  checkAxioms4 M = true ->
+  UFOAxioms4 M.toUFOSignature4
+```
+
+This theorem connects the executable finite checker to the Prop-valued semantic
+axiom package.
 
 ## Trust Boundary
 
-The concrete `ufo_model ... where ...` parser and declaration emitter live in
-`Syntax.lean` and are trusted metaprogramming.
+The trusted boundary is intentionally explicit.
 
-After parsing, the main pipeline is implemented as ordinary Lean functions in
-`Compiler.lean`, its `Compiler/` support modules, `FiniteModel.lean`, and related
-modules. Generic properties of that pipeline are proved in `Guarantees.lean`.
+- The core formalization is ordinary Lean code checked by the kernel.
+- The concrete DSL parser and declaration emitter are trusted
+  metaprogramming.
+- After parsing, the main compiler pipeline is pure Lean data transformation.
+- Generated declarations are checked by the Lean kernel.
+- The diagnostics widget is presentation only; it is not proof evidence.
 
-The generated certificate is checked by the Lean kernel. The diagnostics widget
-is a presentation layer over elaboration results; it is not the proof object.
+The [DSL architecture](dsl/architecture.md) gives the more detailed trust
+boundary for each DSL transformation.
 
-## DSL Module Boundaries
+## Tests And CI
 
-The DSL implementation is split by responsibility:
+The test layer (i.e., **test coverage and negative witness coverage** under `LeanUfo/Test/`) checks several different claims:
 
-- `Frontend/SurfaceSyntax.lean` declares the user-facing command grammar.
-- `Frontend/ModelText.lean` maps DSL names to compiler fields and renders generated
-  model/debug text.
-- `Certificate/Tactic.lean` defines the common simplification tactic used by
-  generated certificate proofs.
-- `Certificate/Generation.lean` defines certificate-field metadata and generated
-  theorem source.
-- `Diagnostic/Analysis.lean` reconstructs source-level evidence and suggestions after
-  a generated check fails.
-- `Syntax.lean` elaborates the command, emits Lean declarations, runs generated
-  certificate checks, and saves diagnostics.
-- `Diagnostic/Widget.lean` contains only the editor widget implementation.
-- `Compiler.lean` performs pure name resolution, scope expansion, taxonomy
-  expansion, and table compilation.
-- `Compiler/Fields.lean` and `Compiler/AST.lean` contain compiler vocabulary
-  shared by the parser, diagnostics, and table compiler.
-- `FiniteModel.lean`, `Certification.lean`, and `Guarantees.lean` define the
-  finite semantic representation, certified packaging, and pipeline theorems.
+- positive DSL examples still certify;
+- negative fixtures fail at the intended axiom;
+- direct negative fixtures produce Lean-confirmed counterexamples;
+- diagnostic rendering remains coherent;
+- selected axiom runs can target a subset of semantic witnesses;
+- full semantic tests can be run separately from the fast profile.
 
-For maintenance notes, see the [DSL developer guide](dsl/developer-guide.md).
+Useful entry points:
 
-## Generated Declaration Shape
-
-For a model named `M`, the frontend emits declarations similar to:
-
-```lean
-M.ast       : ModelAST
-M.tables    : FactTables
-M.data      : FiniteModel4
-M.sig       : UFOSignature4
-M.certified_ax1 : ax_a1 M.sig.toUFOSignature3_1
--- ...
-M.certified : UFOAxioms4 M.sig
-M.certifiedModel : FiniteModel4.Certified M.data
+```bash
+lake test
+LEANUFO_AXIOMS=ax68 lake test
+LEANUFO_FULL_TESTS=1 lake test
 ```
 
-Failed models stop before the final bundled certificate.
+`LEANUFO_REQUIRE_DIRECT_WITNESSES=1 lake test` is a stricter backfill audit and
+is expected to fail until every registered axiom has a direct negative fixture.
 
-[Docs home](README.md) · [Project README](../README.md)
+See the [testing guide](testing.md) for the current test profiles and CI
+expectations.
+
+## Reading Next
+
+- [Theoretical notes](theory.md) for modal choices, milestones, S5 consequences,
+  and explicit bridge assumptions.
+- [DSL architecture](dsl/architecture.md) for the finite DSL pipeline and
+  checker.
+- [Formal guarantees](guarantees.md) for the theorem-backed parts of the DSL
+  pipeline.
+- [Current status](status.md) for implemented coverage and current caveats.

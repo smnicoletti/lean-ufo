@@ -32,17 +32,16 @@ finite signature.
 
 If the negation probe also fails, the diagnostic says that no counterexample
 proof was found. That branch is not a semantic counterexample. It is classified
-as either a heartbeat/timeout-style proof-search limit when Lean reports one, or
-as an unclassified generated-proof/search failure when no timeout marker is
-recognized.
+as either a heartbeat/timeout-style counterexample-probe limit when Lean reports
+one, or as an unclassified probe failure when no timeout marker is recognized.
 
 So the reliable reading is:
 
 - confirmed counterexample: kernel-checked proof of the axiom's negation;
-- timeout-style probe failure: operational proof-search limit, not model
+- timeout-style probe failure: operational probe limit, not model
   evidence;
-- unclassified probe failure: implementation/proof-search issue to investigate,
-  not model evidence.
+- unclassified probe failure: implementation issue to investigate, not model
+  evidence.
 
 ## Paired Example
 
@@ -97,12 +96,45 @@ same text works in the VS Code widget and terminal output.
 
 Evidence lines show the finite DSL facts that made the obligation apply.
 
-## Current Caveat: ax68
+## Checker-Aware Counterexamples
 
-`ax68` has a custom ultimate-bearer proof shape. The diagnostics closure checker
-can detect finite table situations where a moment lacks a reachable non-moment
-ultimate bearer. The current negation probe does not yet always prove the full
-ax68 negation. Ax68 therefore has direct positive coverage and remains blocked
-for managed direct negative coverage.
+Most checker-backed axioms with direct completeness theorems now use a
+checker-aware negative probe.  The probe proves `¬ axN` by contradiction: if
+the semantic axiom proposition held, `checkAxN_complete` would force the
+Boolean checker to return `true`; for the failing finite model,
+`native_decide` computes `checkAxN data = false`.
+
+`ax68` is the hardest covered example. It is checker-backed by the same bounded
+finite closure idea used by the diagnostic explanation: a moment must reach a
+unique non-moment ultimate bearer through the finite `InheresIn` closure. The
+positive certificate path is proved against the inductive `MomentOf` semantics,
+and the negative path uses `checkAx68_complete`.
+
+For users, the diagnostic text already reports the finite closure reason:
+
+- no reachable non-moment ultimate bearer exists for a moment; or
+- more than one reachable non-moment ultimate bearer exists.
+
+This means direct negative fixtures for checker fields can count as managed
+semantic counterexamples when the checker reports failure. The
+prerequisite-dependent §3.10 fields `ax73`, `ax78`, and `ax79` use the same
+pattern with explicit prerequisite checks before applying their
+prerequisite-aware completeness theorems.
+
+`ax99` is handled more carefully. The axiom requires a finite product-family
+witness for each active quality-domain association, and the reflective checker
+can only inspect witnesses written in the model with `product_family`. If that
+data is missing, diagnostics do not call the result a confirmed semantic
+counterexample. They report that the finite witness table is incomplete and
+name the missing domain/type pair, for example:
+
+```text
+Missing product-family witness data for x = ColorDomain, t = ColorQuality, w = actual.
+```
+
+The message then lists the ordinary facts needed to make the witness checkable:
+the `product_family` block, component `Characterization` facts,
+`AssociatedWith` facts for the dimensions, domain `MemberOf` facts,
+`TupleProjection` facts, and coordinate `MemberOf` facts.
 
 [Docs home](../README.md) · [Project README](../../README.md)

@@ -28,6 +28,21 @@ table later is a local extension of this layer.
 namespace LeanUfo.UFO.DSL
 
 /--
+Finite witness for the product-family existential in axiom (a99).
+
+The witness is intentionally separate from primitive facts: it records the
+finite family that should instantiate the `∃ n, ∃ ys zs : Fin n → Thing, ...`
+part of the core axiom.  Existing models use an empty witness list.
+-/
+structure ProductFamilyWitness (thingCount worldCount : Nat) where
+  domain : Fin thingCount
+  qualityType : Fin thingCount
+  world : Fin worldCount
+  dimensionThings : Array (Fin thingCount)
+  typeThings : Array (Fin thingCount)
+  sameSize : dimensionThings.size = typeThings.size
+
+/--
 Finite data for a UFO model through the current §4 signature.
 
 The first two parameters are positive by construction: a DSL model always has at
@@ -146,6 +161,7 @@ structure FiniteModel4 where
   /- §3.12 qualities, quality spaces, and distance primitives. -/
   quale : Fin thingCount → Fin worldCount → Bool
   set_ : Fin thingCount → Fin worldCount → Bool
+  memberOf : Fin thingCount → Fin thingCount → Fin worldCount → Bool
   setExtension : Fin thingCount → Fin worldCount → Set (Fin thingCount)
   qualityDomain : Fin thingCount → Fin worldCount → Bool
   qualityDimension : Fin thingCount → Fin worldCount → Bool
@@ -154,6 +170,7 @@ structure FiniteModel4 where
   hasValue : Fin thingCount → Fin thingCount → Fin worldCount → Bool
   tupleProjection :
     {n : Nat} → Fin thingCount → Fin n → Fin worldCount → Fin thingCount
+  productFamilies : Array (ProductFamilyWitness thingCount worldCount)
   distance : Fin thingCount → Fin thingCount → Fin thingCount → Fin worldCount → Bool
   distanceZero : Fin thingCount → Fin worldCount → Bool
   distanceSum : Fin thingCount → Fin thingCount → Fin thingCount → Fin worldCount → Bool
@@ -381,7 +398,7 @@ def toUFOSignature4 (M : FiniteModel4) : UFOSignature4 :=
 
   Quale := fun x w => M.quale x w = true
   Set_ := fun x w => M.set_ x w = true
-  SetExtension := M.setExtension
+  SetExtension := fun s w => {x | M.memberOf x s w = true}
   QualityDomain := fun x w => M.qualityDomain x w = true
   QualityDimension := fun x w => M.qualityDimension x w = true
   AssociatedWith := fun x y w => M.associatedWith x y w = true

@@ -179,6 +179,26 @@ def resolveNamedFacts
   checkThingNames things
   facts.mapM (resolveNamedFact worlds things)
 
+/-- Resolve one named product-family witness. -/
+def resolveNamedProductFamily
+    (things : Array String) (family : NamedProductFamily) :
+    Except ResolveError ProductFamilySpec := do
+  if family.dimensionThings.size != family.typeThings.size then
+    throw (.productFamilyArityMismatch
+      family.domain family.qualityType family.dimensionThings.size family.typeThings.size)
+  let domain ← resolveThing things family.domain
+  let qualityType ← resolveThing things family.qualityType
+  let dimensionThings ← family.dimensionThings.mapM (resolveThing things)
+  let typeThings ← family.typeThings.mapM (resolveThing things)
+  pure { domain, qualityType, dimensionThings, typeThings }
+
+/-- Resolve product-family witnesses after thing-name checks. -/
+def resolveNamedProductFamilies
+    (things : Array String) (families : Array NamedProductFamily) :
+    Except ResolveError (Array ProductFamilySpec) := do
+  checkThingNames things
+  families.mapM (resolveNamedProductFamily things)
+
 /--
 Resolved model AST used by the syntax frontend.
 
@@ -190,6 +210,7 @@ structure ModelAST where
   worldCount : Nat
   thingCount : Nat
   facts : Array CompiledFact := #[]
+  productFamilies : Array ProductFamilySpec := #[]
   deriving Repr, Inhabited
 
 /--
@@ -205,6 +226,7 @@ structure FactTables where
   binary : Std.HashMap String (Array (Nat × Nat × Nat)) := {}
   ternary : Std.HashMap String (Array (Nat × Nat × Nat × Nat)) := {}
   tupleProjection : Array (Nat × Nat × Nat × Nat) := #[]
+  productFamilies : Array ProductFamilySpec := #[]
   unaryLookup : String → Nat → Nat → Bool := fun _ _ _ => false
   binaryLookup : String → Nat → Nat → Nat → Bool := fun _ _ _ _ => false
   ternaryLookup : String → Nat → Nat → Nat → Nat → Bool := fun _ _ _ _ _ => false
@@ -319,6 +341,9 @@ def addTupleProjection (tables : FactTables) (tuple index result w : Nat) : Fact
       tables.tupleProjectionLookup tuple' index' result' w' ||
         (tuple' == tuple && index' == index && result' == result && w' == w) }
 
+def addProductFamily (tables : FactTables) (family : ProductFamilySpec) : FactTables :=
+  { tables with productFamilies := tables.productFamilies.push family }
+
 /-- Record an asserted derived-relation proposition for generated checking. -/
 def addDerivedProp (tables : FactTables) (prop : String) : FactTables :=
   { tables with derivedProps := tables.derivedProps.push prop }
@@ -369,7 +394,8 @@ def compileFacts (facts : Array CompiledFact) : FactTables :=
 
 /-- Compile a resolved model AST into finite tables, including global closures. -/
 def compileModelAST (ast : ModelAST) : FactTables :=
-  closeReflexiveSpecialization ast.worldCount (compileFacts ast.facts)
+  let tables := closeReflexiveSpecialization ast.worldCount (compileFacts ast.facts)
+  ast.productFamilies.foldl addProductFamily tables
 
 private def expandAtWorld (world : Nat) : ScopedCompiledFact → CompiledFact
   | .unary field x _ => .unary field x world
@@ -422,7 +448,8 @@ def expandScopedFacts (worldCount : Nat) (facts : Array ScopedCompiledFact) : Ar
 
 /-- Compile a resolved model AST whose global closure facts are already explicit. -/
 def compileExplicitModelAST (ast : ModelAST) : FactTables :=
-  ast.facts.foldl compileExplicitFact {}
+  let tables := ast.facts.foldl compileExplicitFact {}
+  ast.productFamilies.foldl addProductFamily tables
 
 namespace FactTables
 
@@ -539,6 +566,41 @@ def momentOfPath?
     Option (Array Nat) :=
   tables.binaryPath? "inheresIn" thingCount world moment bearer
 
+private def natToFin? (n x : Nat) : Option (Fin n) :=
+  if h : x < n then some ⟨x, h⟩ else none
+
+private def natArrayToFinArray? (n : Nat) (xs : Array Nat) : Option (Array (Fin n)) :=
+  xs.foldl
+    (fun acc? x =>
+      match acc?, natToFin? n x with
+      | some acc, some x => some (acc.push x)
+      | _, _ => none)
+    (some #[])
+
+private def productFamilyWitnesses
+    (worldCount thingCount : Nat) (families : Array ProductFamilySpec) :
+    Array (ProductFamilyWitness thingCount worldCount) :=
+  Id.run do
+    let mut out := #[]
+    for family in families do
+      for w in [:worldCount] do
+        match natToFin? thingCount family.domain,
+            natToFin? thingCount family.qualityType,
+            natToFin? worldCount w,
+            natArrayToFinArray? thingCount family.dimensionThings,
+            natArrayToFinArray? thingCount family.typeThings with
+        | some domain, some qualityType, some world, some dimensionThings, some typeThings =>
+            if h : dimensionThings.size = typeThings.size then
+              out := out.push
+                { domain := domain
+                  qualityType := qualityType
+                  world := world
+                  dimensionThings := dimensionThings
+                  typeThings := typeThings
+                  sameSize := h }
+        | _, _, _, _, _ => pure ()
+    pure out
+
 /--
 Compile finite tables into a `FiniteModel4`.
 
@@ -634,6 +696,7 @@ def toFiniteModel4
 
   quale := tables.unaryTable "quale"
   set_ := tables.unaryTable "set_"
+  memberOf := tables.binaryTable "memberOf"
   setExtension := fun s w => {x | tables.binaryTable "memberOf" x s w = true}
   qualityDomain := tables.unaryTable "qualityDomain"
   qualityDimension := tables.unaryTable "qualityDimension"
@@ -641,6 +704,7 @@ def toFiniteModel4
   intrinsicMomentType := tables.unaryTable "intrinsicMomentType"
   hasValue := tables.binaryTable "hasValue"
   tupleProjection := fun {_n} p i w => tables.tupleProjectionTable p i.val w
+  productFamilies := productFamilyWitnesses worldCount thingCount tables.productFamilies
   distance := tables.ternaryTable "distance"
   distanceZero := tables.unaryTable "distanceZero"
   distanceSum := tables.ternaryTable "distanceSum"
@@ -758,7 +822,9 @@ theorem compileFact_derived_eq
 
 /-- The resolved compiler is exactly fact folding followed by reflexive specialization closure. -/
 theorem compileModelAST_eq (ast : ModelAST) :
-    compileModelAST ast = closeReflexiveSpecialization ast.worldCount (compileFacts ast.facts) :=
+    compileModelAST ast =
+      ast.productFamilies.foldl addProductFamily
+        (closeReflexiveSpecialization ast.worldCount (compileFacts ast.facts)) :=
   rfl
 
 end LeanUfo.UFO.DSL

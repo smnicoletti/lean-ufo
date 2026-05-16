@@ -13,12 +13,13 @@ diagnostics, tests, and implementation details.
 | [Theoretical notes](theory.md) | Modal choices, formal milestones, S5 consequences, and explicit bridge axioms |
 | [DSL quickstart](dsl/quickstart.md) | Writing and certifying a first finite model |
 | [DSL syntax reference](dsl/syntax.md) | Facts, scopes, derived assertions, and quality/distance primitives |
+| [DSL architecture](dsl/architecture.md) | DSL syntax-to-certificate pipeline, checker, diagnostics, and complexity |
 | [Diagnostics guide](dsl/diagnostics.md) | Reading failure boxes, evidence, suggestions, and probe status |
 | [Diagnostics internals](dsl/diagnostics-internals.md) | How failed certificates are turned into source-level explanations |
 | [DSL developer guide](dsl/developer-guide.md) | File responsibilities, command pipeline, diagnostics, and generated certificates |
 | [Testing guide](testing.md) | `lake test`, selected axiom checks, and witness coverage |
 | [Current status](status.md) | Implemented features and current caveats |
-| [Architecture and trust boundary](architecture.md) | Compiler pipeline and generated Lean declarations |
+| [Project architecture](architecture.md) | Core formalization, DSL layer, certificates, tests, and trust boundary |
 | [Formal guarantees](guarantees.md) | The theorem-backed parts of the DSL pipeline |
 | [Roadmap and limitations](roadmap.md) | Known gaps and planned work |
 
@@ -35,13 +36,14 @@ diagnostics, tests, and implementation details.
 
 ### Implementation Pass
 
-1. [Architecture and trust boundary](architecture.md)
+1. [Project architecture](architecture.md)
 2. [Formal guarantees](guarantees.md)
 3. [Theoretical notes](theory.md)
-4. [DSL developer guide](dsl/developer-guide.md)
-5. [Diagnostics internals](dsl/diagnostics-internals.md)
-6. [DSL syntax reference](dsl/syntax.md)
-7. [Roadmap and limitations](roadmap.md)
+4. [DSL architecture](dsl/architecture.md)
+5. [DSL developer guide](dsl/developer-guide.md)
+6. [Diagnostics internals](dsl/diagnostics-internals.md)
+7. [DSL syntax reference](dsl/syntax.md)
+8. [Roadmap and limitations](roadmap.md)
 
 ## Core Commands
 

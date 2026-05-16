@@ -23,6 +23,15 @@ syntax (name := ufoTupleProjectionFact) "TupleProjection" "(" ident "," num "," 
 declare_syntax_cat ufoFactBlock
 syntax (name := ufoGivenAt) "given" ident ":" ppLine ufoFact* : ufoFactBlock
 
+declare_syntax_cat ufoIdentList
+syntax ident+ : ufoIdentList
+
+declare_syntax_cat ufoProductFamily
+syntax (name := ufoProductFamilyBlock)
+  "product_family" ident "for" ident ":"
+  ppLine "dimensions" ufoIdentList
+  ppLine "types" ufoIdentList : ufoProductFamily
+
 declare_syntax_cat ufoDeriveDirective
 syntax (name := ufoDeriveRelations) "derive_relations" : ufoDeriveDirective
 
@@ -34,6 +43,7 @@ syntax (name := ufoModelCmd)
   ppLine "worlds" ident+
   ppLine "things" ident+
   ppLine ufoFactBlock+
+  ppLine ufoProductFamily*
   ppLine ufoDeriveDirective
   ppLine ufoCertDirective : command
 

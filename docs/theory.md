@@ -539,6 +539,13 @@ Formalization notes:
   finite index;
 - quales, quality domains, tuple-like product members, and distance values
   remain UFO `Thing`s rather than being split into separate Lean carrier types;
+- in the finite DSL checker, membership-backed set obligations are executable,
+  and the product-family obligation in (a99) is discharged from explicit
+  finite `product_family` witnesses; this gives a sound checker-backed path for
+  the core axiom and a complete checker for the finite stored-witness
+  proposition `ax99Finite`, but not a converse theorem for arbitrary core
+  `ax_a99` witnesses unless the model also satisfies the explicit
+  representation-completeness condition `ProductFamilyWitnessTableComplete`;
 - metric constraints are expressed relationally at the UFO object-language
   level;
 - no additional bridge axiom is introduced here beyond the encoded metric
