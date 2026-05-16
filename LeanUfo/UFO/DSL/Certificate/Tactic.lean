@@ -52,9 +52,9 @@ def certificateSimp : String :=
 Build the common certificate simplifier with a small axiom-specific tail.
 
 Most certificate fields only need their own axiom definition in addition to the
-finite-model compiler definitions. The fallback `certificateSimp` remains for
-generic counterexample probes and for generated proof fragments that are not tied
-to one certificate field.
+finite-model compiler definitions. The shared `certificateSimp` remains useful
+for diagnostic counterexample probes and legacy helper fragments even though
+ordinary registered certificate fields are checker-backed.
 -/
 def certificateSimpSelected (defs : String) : String :=
   s!"simp [{certificateModelSimpDefs}, {defs}]"

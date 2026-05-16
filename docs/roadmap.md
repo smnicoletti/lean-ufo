@@ -8,16 +8,16 @@ This project is active research infrastructure. Current next steps:
 
 - Add level-aware syntax for higher-order type patterns, especially for the
   concept-evolution examples where types can instantiate higher-order types.
-- Add higher-level product-family syntax for §3.12 quality domains and complex
-  quality structures.
+- Add higher-level generation of §3.12 quality-domain facts around existing
+  `product_family` witnesses.
 - Consider custom accessibility relations beyond the current universal S5
   frame.
 
 ## Diagnostics
 
 - Extend structured extractors for the remaining blocked axioms.
-- Improve ax68 negative proof support so closure-level ultimate-bearer failures
-  can become Lean-confirmed direct negative witnesses.
+- Apply the ax68 checker-aware counterexample pattern to other hard axioms where
+  direct simplification is not enough to confirm semantic failure.
 - Keep suggestions tied to axiom shape: alternatives, missing witnesses,
   forbidden facts, and required conjunctions should remain visually distinct.
 

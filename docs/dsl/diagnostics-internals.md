@@ -7,10 +7,10 @@ proof path: Lean checks generated theorem declarations first, and diagnostics
 then reconstruct source-level evidence from the compiled finite tables.
 
 The only diagnostic branch that establishes a semantic model failure is the
-confirmed-counterexample branch, where Lean checks a generated proof of the
-failed field's negation. A failed negative probe is classified as a timeout-style
-proof-search limit only when Lean reports heartbeat/timeout wording; otherwise
-it remains an unclassified generated-proof/search failure.
+confirmed-counterexample branch, where Lean checks a generated negation theorem
+for the failed field. A failed negative probe is classified as a
+timeout-style counterexample-probe limit only when Lean reports
+heartbeat/timeout wording; otherwise it remains an unclassified probe failure.
 
 ## Flow
 
