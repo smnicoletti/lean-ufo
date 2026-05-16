@@ -461,7 +461,8 @@ Resolved model compilation is exactly:
 -/
 theorem compilation_pipeline (ast : ModelAST) :
     compileModelAST ast =
-      closeReflexiveSpecialization ast.worldCount (compileFacts ast.facts) :=
+      ast.productFamilies.foldl addProductFamily
+        (closeReflexiveSpecialization ast.worldCount (compileFacts ast.facts)) :=
   compileModelAST_eq ast
 
 /--
@@ -470,7 +471,8 @@ This is the path used by generated model declarations after `Syntax.lean`
 materializes taxonomy and reflexive-specialization sugar in the emitted AST.
 -/
 theorem explicit_compilation_pipeline (ast : ModelAST) :
-    compileExplicitModelAST ast = ast.facts.foldl compileExplicitFact {} :=
+    compileExplicitModelAST ast =
+      ast.productFamilies.foldl addProductFamily (ast.facts.foldl compileExplicitFact {}) :=
   rfl
 
 /--
@@ -513,6 +515,14 @@ theorem toFiniteModel4_part_eq
   rfl
 
 /-- `toFiniteModel4` reads set membership from the compiled `MemberOf` table. -/
+theorem toFiniteModel4_memberOf_eq
+    (tables : FactTables) (wc tc : Nat) (hw : 0 < wc) (ht : 0 < tc)
+    (x s : Fin tc) (w : Fin wc) :
+    (tables.toFiniteModel4 wc tc hw ht).memberOf x s w =
+      tables.binaryTable "memberOf" x s w :=
+  rfl
+
+/-- `toFiniteModel4` defines set extensions from the compiled `MemberOf` table. -/
 theorem toFiniteModel4_setExtension_iff_memberOf
     (tables : FactTables) (wc tc : Nat) (hw : 0 < wc) (ht : 0 < tc)
     (x s : Fin tc) (w : Fin wc) :
@@ -673,7 +683,7 @@ theorem compiled_memberOf_iff_setExtension
     (M : FiniteModel4)
     (x s : Fin M.thingCount) (w : Fin M.worldCount) :
     MemberOf M.toUFOSignature4.toUFOSignature3_12 x s w ↔
-      x ∈ M.setExtension s w :=
+      M.memberOf x s w = true :=
   Iff.rfl
 
 /-- Distance in the compiled signature is read directly from the finite table. -/

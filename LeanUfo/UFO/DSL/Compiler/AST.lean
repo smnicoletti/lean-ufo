@@ -61,12 +61,30 @@ inductive NamedScopedFact where
   | derived (fact : NamedDerivedFact) (scope : NamedFactScope)
   deriving Repr, Inhabited
 
+/-- Named product-family witness for the existential content of ax99. -/
+structure NamedProductFamily where
+  domain : String
+  qualityType : String
+  dimensionThings : Array String
+  typeThings : Array String
+  deriving Repr, Inhabited
+
+/-- Resolved product-family witness. The witness applies in every model world. -/
+structure ProductFamilySpec where
+  domain : Nat
+  qualityType : Nat
+  dimensionThings : Array Nat
+  typeThings : Array Nat
+  deriving Repr, Inhabited
+
 /-- Errors that can arise during pure name resolution. -/
 inductive ResolveError where
   | duplicateWorld (name : String)
   | duplicateThing (name : String)
   | unknownWorld (name : String)
   | unknownThing (name : String)
+  | productFamilyArityMismatch
+      (domain qualityType : String) (dimensionCount typeCount : Nat)
   deriving Repr, Inhabited, DecidableEq
 
 

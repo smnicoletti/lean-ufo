@@ -165,13 +165,43 @@ where
         facts ← parseFact worldNames thingNames scope facts fact
       pure facts
 
+private def parseProductFamily
+    (family : TSyntax `ufoProductFamily) : CommandElabM NamedProductFamily := do
+  let mut header : Array String := #[]
+  let mut dims : Array String := #[]
+  let mut tys : Array String := #[]
+  let mut mode : Nat := 0
+  let mut stack : Array Syntax := #[family.raw]
+  while !stack.isEmpty do
+    let stx := stack.back!
+    stack := stack.pop
+    match stx with
+    | .atom _ val =>
+        if val == "dimensions" then
+          mode := 1
+        else if val == "types" then
+          mode := 2
+    | .ident _ _ name _ =>
+        match mode with
+        | 0 => header := header.push name.toString
+        | 1 => dims := dims.push name.toString
+        | _ => tys := tys.push name.toString
+    | _ =>
+        let args := stx.getArgs
+        for i in [:args.size] do
+          stack := stack.push args[args.size - 1 - i]!
+  match header[0]?, header[1]? with
+  | some domain, some qualityType =>
+      pure { domain, qualityType, dimensionThings := dims, typeThings := tys }
+  | _, _ =>
+      throwErrorAt family "unsupported UFO `product_family` block"
+
 /--
 Status classifier used by the diagnostics widget.
 
-`completed` contains exactly the certificate fields whose generated proof-term
-probe succeeded and whose theorem was emitted. `failed?` records the first
-field whose generated proof-term probe failed, if certification stopped before
-all fields completed.
+`completed` contains exactly the certificate fields whose generated certificate
+probe succeeded and whose theorem was emitted. `failed?` records the first field
+whose probe failed, if certification stopped before all fields completed.
 -/
 def diagnosticCertStatus (completed : Array String) (failed? : Option String)
     (field : String) : String :=
@@ -334,7 +364,8 @@ private def elabCommandStringWithErrorCheck (source : String) : CommandElabM Boo
   pure (← elabCommandStringWithReport source).failed
 
 /--
-Check a generated proof as a term while suppressing any messages it produces.
+Check a generated certificate proof as a term while suppressing any messages it
+produces.
 
 This is only a fast preflight check.  It is intentionally not the authoritative
 certificate path, because term elaboration can be weaker than command
@@ -380,23 +411,30 @@ private def certificationFailureAnalysis
   let counterexampleProbe ← profileStep profileEnabled s!"{model}.{field.field}.counterexample-probe" <|
     elabTermStringWithReport (certAxiomCounterexampleCheck field)
   if counterexampleProbe.failed then
-    let probeReason :=
-      if counterexampleProbe.timedOut then
-        "The counterexample probe reported a heartbeat/timeout-style failure. This is an operational proof-search limit, not a semantic counterexample."
-      else
-        "The counterexample probe failed without a recognized timeout. This should be treated as an unclassified generated-proof/search failure, not as a semantic counterexample."
-    let base := #[
-      s!"No counterexample proof was found for {field.field}.",
-      probeReason
-    ]
-    if field.field == "ax68" then
-      pure <| base ++ ax68ClosureAnalysis worldNames thingNames tables
+    if field.field == "ax99" then
+      pure <| #[
+        "Ax99 did not produce a confirmed semantic counterexample.",
+        "This axiom contains an existential product-family witness. The reflective checker can only inspect product-family witnesses that are explicitly stored in the finite model.",
+        "When the required witness data is missing, `checkAx99 = false` means that the finite representation is incomplete for this axiom; it does not by itself prove that the semantic axiom is false."
+      ] ++ diagnosticWitnesses worldNames thingNames namedFacts tables field.field
     else
-      pure base
+      let probeReason :=
+        if counterexampleProbe.timedOut then
+          "The counterexample probe reported a heartbeat/timeout-style failure. This is an operational probe limit, not a semantic counterexample."
+        else
+          "The counterexample probe failed without a recognized timeout. This should be treated as an unclassified probe failure, not as a semantic counterexample."
+      let base := #[
+        s!"No counterexample proof was found for {field.field}.",
+        probeReason
+      ]
+      if field.field == "ax68" then
+        pure <| base ++ ax68ClosureAnalysis worldNames thingNames tables
+      else
+        pure base
   else
     pure <| #[
       s!"A finite counterexample was confirmed for {field.field}.",
-      "Lean successfully proved the negation of this axiom for the generated finite model, so this is a semantic model failure rather than a certificate proof-search limit."
+      "Lean successfully proved the negation of this axiom for the generated finite model, so this is a semantic model failure rather than a counterexample-probe limit."
     ] ++ diagnosticWitnesses worldNames thingNames namedFacts tables field.field
 
 private def throwResolveError : ResolveError → CommandElabM α
@@ -404,6 +442,9 @@ private def throwResolveError : ResolveError → CommandElabM α
   | .duplicateThing name => throwError "duplicate thing name `{name}` in UFO model"
   | .unknownWorld name => throwError "unknown world name `{name}` in UFO model"
   | .unknownThing name => throwError "unknown thing name `{name}` in UFO model"
+  | .productFamilyArityMismatch domain qualityType dimensionCount typeCount =>
+      throwError
+        "product_family `{domain}` for `{qualityType}` has {dimensionCount} dimensions but {typeCount} types"
 
 /--
 Emit the ordinary Lean declarations generated by a `ufo_model` command.
@@ -420,7 +461,8 @@ stopped at the first failed generated axiom field.
 private def emitModel
     (cmdStx : Syntax) (model : Name) (worldNames thingNames : Array Name)
     (namedFacts : Array NamedScopedFact) (scopedFacts : Array ScopedCompiledFact)
-    (facts : Array CompiledFact) (tables : FactTables) : CommandElabM Unit := do
+    (facts : Array CompiledFact) (productFamilies : Array ProductFamilySpec)
+    (tables : FactTables) : CommandElabM Unit := do
   if worldNames.isEmpty then
     throwError "a UFO model must declare at least one world"
   if thingNames.isEmpty then
@@ -430,7 +472,7 @@ private def emitModel
   let profileEnabled ← certProfileEnabled
   let initialErrors ← coreMessageErrorCount
   elabCommand (← `(command| namespace $modelIdent))
-  elabCommandString (modelASTSource worldNames.size thingNames.size facts)
+  elabCommandString (modelASTSource worldNames.size thingNames.size facts productFamilies)
   elabCommandString "def tables : FactTables := compileExplicitModelAST ast"
   elabCommandString "def data : FiniteModel4 := compileExplicitModel ast (by decide) (by decide)"
   elabCommandString "abbrev sig : UFOSignature4 := FiniteModel4.toUFOSignature4 data"
@@ -507,6 +549,7 @@ elab_rules : command
       worlds $ws:ident*
       things $ts:ident*
       $blocks:ufoFactBlock*
+      $families:ufoProductFamily*
       $derive:ufoDeriveDirective
       $cert:ufoCertDirective) => do
     let cmdStx ← getRef
@@ -520,16 +563,25 @@ elab_rules : command
     let mut namedFacts : Array NamedScopedFact := #[]
     for factBlock in blocks do
       namedFacts ← parseFactBlock worldNames thingNames namedFacts factBlock
+    let mut namedProductFamilies : Array NamedProductFamily := #[]
+    for family in families do
+      namedProductFamilies := namedProductFamilies.push (← parseProductFamily family)
     let scopedFacts ←
       match resolveNamedFacts worldNameStrings thingNameStrings namedFacts with
       | .ok facts => pure facts
+      | .error err => throwResolveError err
+    let productFamilies ←
+      match resolveNamedProductFamilies thingNameStrings namedProductFamilies with
+      | .ok families => pure families
       | .error err => throwResolveError err
     let facts := expandScopedFacts worldNames.size scopedFacts
     let expandedFacts := addReflexiveSpecializationFacts worldNames.size (addTaxonomyFacts facts)
     let ast : ModelAST :=
       { worldCount := worldNames.size
         thingCount := thingNames.size
-        facts := expandedFacts }
-    emitModel cmdStx model.getId worldNames thingNames namedFacts scopedFacts expandedFacts (compileExplicitModelAST ast)
+        facts := expandedFacts
+        productFamilies := productFamilies }
+    emitModel cmdStx model.getId worldNames thingNames namedFacts scopedFacts expandedFacts productFamilies
+      (compileExplicitModelAST ast)
 
 end LeanUfo.UFO.DSL

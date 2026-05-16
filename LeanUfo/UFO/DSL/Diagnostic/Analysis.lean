@@ -1327,6 +1327,9 @@ private def ax99QualityDomainAnalysis
         if tables.unaryLookup "qualityDomain" x w then
           for t in [:thingNames.size] do
             if tables.binaryLookup "associatedWith" x t w then
+              let hasEntry :=
+                tables.productFamilies.any fun pf =>
+                  pf.domain == x && pf.qualityType == t
               match productWitness? thingNames.size tables x t w with
               | some _ => pure ()
               | none =>
@@ -1336,15 +1339,24 @@ private def ax99QualityDomainAnalysis
                       "none"
                     else
                       String.intercalate ", " <| zs.toList.map (indexedName thingNames ·)
-                  return #[
-                    s!"Counterexample assignment: x = {indexedName thingNames x}, t = {indexedName thingNames t}, w = {indexedName worldNames w}.",
-                    s!"Missing witness requirements: quality domain `{indexedName thingNames x}` associated with `{indexedName thingNames t}` must be covered by product dimensions for all characterizations of `{indexedName thingNames t}`.",
-                    "Suggestion: add `Characterization(t, z)` facts for the component quality types, `AssociatedWith(y, z)` facts for their quality dimensions, `MemberOf(tuple, x)` facts for domain tuples, matching `TupleProjection(tuple, i, component)` facts, and `MemberOf(component, y)` facts for each coordinate.",
-                    s!"Characterization targets found for `{indexedName thingNames t}`: {renderedZs}."
-                  ]
+                  if hasEntry then
+                    return #[
+                      s!"Product-family witness data is present for x = {indexedName thingNames x}, t = {indexedName thingNames t}, w = {indexedName worldNames w}, but it does not satisfy ax99.",
+                      s!"The witness must list one quality dimension for each characterization of `{indexedName thingNames t}` and prove that every member of `{indexedName thingNames x}` projects into the corresponding dimension.",
+                      "Check the `dimensions` and `types` listed in the `product_family` block, the `Characterization(t, z)` facts, the `AssociatedWith(y, z)` facts for the listed dimensions, and the `TupleProjection(tuple, i, component)` plus `MemberOf(component, y)` facts for every domain member.",
+                      s!"Characterization targets found for `{indexedName thingNames t}`: {renderedZs}."
+                    ]
+                  else
+                    return #[
+                      s!"Missing product-family witness data for x = {indexedName thingNames x}, t = {indexedName thingNames t}, w = {indexedName worldNames w}.",
+                      s!"The model says `{indexedName thingNames x}` is a quality domain associated with `{indexedName thingNames t}`, so ax99 needs an explicit finite product-family witness for that pair.",
+                      s!"Add a block of the form `product_family {indexedName thingNames x} for {indexedName thingNames t}:` with one `dimensions` entry and one `types` entry for each component quality type characterizing `{indexedName thingNames t}`.",
+                      "For each listed dimension/type pair, also provide the ordinary facts that make the witness meaningful: `Characterization(t, z)`, `AssociatedWith(y, z)`, `MemberOf(tuple, x)` for domain members, `TupleProjection(tuple, i, component)`, and `MemberOf(component, y)`.",
+                      s!"Characterization targets currently found for `{indexedName thingNames t}`: {renderedZs}."
+                    ]
     return #[
       "Product check for ax99: every asserted quality-domain association has a finite product witness in the DSL tables.",
-      "If Lean still reports ax99, the remaining issue is likely proof search over the existential finite family rather than an obvious table mismatch."
+      "If ax99 is still reported, the remaining issue is likely missing or mismatched product-family witness data rather than an obvious table mismatch."
     ]
 
 private def thingIndexByString? (thingNames : Array Name) (thing : String) : Option Nat :=

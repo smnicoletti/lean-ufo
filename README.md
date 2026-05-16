@@ -33,7 +33,8 @@ certificate, and each confirmed failure is traced back to the finite model data.
 | Interpret failures | [Diagnostics guide](docs/dsl/diagnostics.md) |
 | Run tests | [Testing guide](docs/testing.md) |
 | Inspect current status | [Current status](docs/status.md) |
-| Work on DSL internals | [DSL developer guide](docs/dsl/developer-guide.md) |
+| Understand the implementation | [Project architecture](docs/architecture.md) |
+| Work on DSL internals | [DSL architecture](docs/dsl/architecture.md) and [DSL developer guide](docs/dsl/developer-guide.md) |
 
 ## Contribution Highlights
 
@@ -46,16 +47,20 @@ Technical highlights:
    constant-domain S5 frames, making the modal assumptions explicit in Lean.
 3. **A certified finite DSL.** A `ufo_model ... certify` command compiles named
    worlds, named things, and UFO facts into a finite `UFOSignature4`.
-4. **Generated Lean certificates.** Successful DSL models elaborate to ordinary
-   Lean declarations, including one theorem per registered axiom and a final
-   `UFOAxioms4` certificate.
+4. **Reflective checker-backed Lean certificates.** Successful DSL models
+   elaborate to ordinary Lean declarations, including one theorem per registered
+   axiom and a final `UFOAxioms4` certificate. The reflective checker now
+   covers all registered axiom fields through §4. In particular, `ax68` uses a
+   proved bounded finite closure checker for `MomentOf`, and `ax99` uses
+   explicit finite product-family witnesses.
 5. **DSL-level diagnostics.** Failed models report whether Lean confirmed a
-   finite counterexample, hit a timeout-style proof-search limit, or reached an
-   unclassified generated-proof/search failure. Many failures are reconstructed
-   in source-level DSL terms.
+   finite counterexample, hit a timeout-style counterexample-probe limit, or
+   reached an unclassified probe failure. Many failures are reconstructed in
+   source-level DSL terms.
 6. **Regression tests.** The `lake test` suite checks syntax, positive
    certification fixtures, negative counterexample fixtures, diagnostics
-   rendering, and axiom registry coverage.
+   rendering, and axiom registry coverage. CI also builds the concrete DSL
+   example collection.
 
 ## Quick Example
 
@@ -151,10 +156,21 @@ Useful test modes:
 ```bash
 LEANUFO_FULL_TESTS=1 lake test
 LEANUFO_AXIOMS=ax13 lake test
+LEANUFO_AXIOMS=ax1,ax2,ax3,ax4,ax5,ax6,ax7,ax8,ax9,ax10,ax11,ax12,ax13,ax14,ax15,ax16,ax17,ax61,ax71,ax77 lake test
+LEANUFO_AXIOMS=ax65,ax66,ax67,ax68 lake test
+LEANUFO_AXIOMS=ax69,ax70,ax71,ax72,ax73,ax74,ax75,ax76,ax77,ax78,ax79,ax80,axQuaIndividualOfEndurant lake test
 LEANUFO_AXIOMS=ax66 lake test
-LEANUFO_AXIOMS=ax68 lake test
+```
+
+The stricter direct-negative audit is intentionally not part of the green fast
+profile yet:
+
+```bash
 LEANUFO_REQUIRE_DIRECT_WITNESSES=1 lake test
 ```
+
+It fails until every registered axiom has a direct negative witness, including
+axioms currently classified as compiler-enforced or blocked.
 
 ## Documentation
 
@@ -162,10 +178,11 @@ LEANUFO_REQUIRE_DIRECT_WITNESSES=1 lake test
 | --- | --- |
 | [Documentation home](docs/README.md) | Guide map and reading paths |
 | [Theoretical notes](docs/theory.md) | Modal choices, formal milestones, S5 consequences, and explicit bridge axioms |
-| [Architecture](docs/architecture.md) | Compiler pipeline and trust boundary |
+| [Project architecture](docs/architecture.md) | Core formalization, DSL layer, certificates, tests, and trust boundary |
 | [Formal guarantees](docs/guarantees.md) | Theorem-backed DSL pipeline facts |
 | [DSL quickstart](docs/dsl/quickstart.md) | First certified model |
 | [DSL syntax](docs/dsl/syntax.md) | Accepted surface syntax |
+| [DSL architecture](docs/dsl/architecture.md) | Syntax-to-certificate pipeline, checker, diagnostics, and complexity |
 | [Diagnostics](docs/dsl/diagnostics.md) | Failure analysis and counterexamples |
 | [DSL developer guide](docs/dsl/developer-guide.md) | Internal DSL module map and generated-certificate workflow |
 | [Diagnostics internals](docs/dsl/diagnostics-internals.md) | How failed generated checks become source-level explanations |
@@ -183,7 +200,8 @@ LeanUfo/
     DSL/               -- finite DSL public entry point, backend, and examples
       Frontend/        -- surface grammar and text rendering
       Compiler/        -- compiler vocabulary and AST support
-      Certificate/     -- generated certificate source and tactic support
+      Checker/         -- reflective Boolean checks and formal step bounds
+      Certificate/     -- generated certificate source and probe support
       Diagnostic/      -- source-level failure analysis and editor widget
   Test/                -- DSL syntax, certification, diagnostics, and coverage tests
 docs/                  -- human-facing documentation

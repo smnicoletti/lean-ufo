@@ -304,6 +304,20 @@ def compiledFactTerm : CompiledFact → String
   | .tupleProjection tuple index result w => s!"CompiledFact.tupleProjection {tuple} {index} {result} {w}"
   | .derived prop => s!"CompiledFact.derived {leanStringLit prop}"
 
+def natArrayTerm (xs : Array Nat) : String :=
+  if xs.isEmpty then
+    "#[]"
+  else
+    "#[" ++ String.intercalate ", " (xs.toList.map toString) ++ "]"
+
+def productFamilyTerm (family : ProductFamilySpec) : String :=
+    "{ " ++
+    s!"domain := {family.domain}, " ++
+    s!"qualityType := {family.qualityType}, " ++
+    s!"dimensionThings := {natArrayTerm family.dimensionThings}, " ++
+    s!"typeThings := {natArrayTerm family.typeThings}" ++
+    " }"
+
 def indexedNamesJson (names : Array Name) : Json :=
   Json.arr <| names.mapIdx fun idx name =>
     Json.mkObj [
@@ -392,18 +406,27 @@ def compiledFactSummary
 def stringsJson (xs : Array String) : Json :=
   Json.arr <| xs.map Json.str
 
-def modelASTSource (worldCount thingCount : Nat) (facts : Array CompiledFact) : String :=
+def modelASTSource
+    (worldCount thingCount : Nat) (facts : Array CompiledFact)
+    (productFamilies : Array ProductFamilySpec := #[]) : String :=
   let factTerms := facts.map compiledFactTerm
   let factArray :=
     if factTerms.isEmpty then
       "#[]"
     else
       "#[" ++ String.intercalate ", " factTerms.toList ++ "]"
+  let productFamilyTerms := productFamilies.map productFamilyTerm
+  let productFamilyArray :=
+    if productFamilyTerms.isEmpty then
+      "#[]"
+    else
+      "#[" ++ String.intercalate ", " productFamilyTerms.toList ++ "]"
   "def ast : ModelAST :=\n" ++
     "{\n" ++
     dataField "worldCount" (toString worldCount) ++
     dataField "thingCount" (toString thingCount) ++
     dataField "facts" factArray ++
+    dataField "productFamilies" productFamilyArray ++
     "}\n"
 
 end LeanUfo.UFO.DSL

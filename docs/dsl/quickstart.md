@@ -68,7 +68,7 @@ lake env lean LeanUfo/Test/Certification/Negative/Ax66InherenceFromNonMoment.lea
 ```
 
 The terminal error and VS Code diagnostics widget report whether the failure is
-a confirmed finite counterexample, a timeout-style proof-search limit, or an
-unclassified generated-proof/search failure.
+a confirmed finite counterexample, a timeout-style counterexample-probe limit,
+or an unclassified probe failure.
 
 [Docs home](../README.md) · [Project README](../../README.md)

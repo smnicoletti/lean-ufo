@@ -56,8 +56,8 @@ The important result is:
 PersonExample.certified : UFOAxioms4 PersonExample.sig
 ```
 
-Successful certification means Lean has checked generated proof terms against
-the existing Prop-valued UFO axiom package.
+Successful certification means Lean has checked generated theorem declarations
+against the existing Prop-valued UFO axiom package.
 
 ## What Failing Models Provide
 
@@ -66,9 +66,9 @@ It then runs a separate negative probe:
 
 - if Lean proves the negation of the generated axiom for the finite model, the
   diagnostic reports a confirmed semantic counterexample;
-- if both the certificate proof and the negation probe fail, the diagnostic
-  reports either a timeout-style proof-search limit or an unclassified
-  generated-proof/search failure.
+- if both the certificate check and the negation probe fail, the diagnostic
+  reports either a timeout-style counterexample-probe limit or an unclassified
+  probe failure.
 
 Where structured extractors exist, the counterexample is rendered using DSL
 world and thing names, with evidence and repair suggestions.
@@ -76,7 +76,8 @@ world and thing names, with evidence and repair suggestions.
 ## Where To Read Next
 
 - [Theoretical notes](theory.md)
-- [Architecture and trust boundary](architecture.md)
+- [Project architecture](architecture.md)
+- [DSL architecture](dsl/architecture.md)
 - [DSL quickstart](dsl/quickstart.md)
 - [Diagnostics guide](dsl/diagnostics.md)
 - [Testing guide](testing.md)
