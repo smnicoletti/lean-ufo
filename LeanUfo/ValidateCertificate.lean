@@ -140,9 +140,7 @@ unsafe def recheckWithModule (json : Json) (moduleString : String) : IO (Except 
   match compareField "finiteModelDigest" finiteModelDigest rebuiltFiniteModelDigest with
   | .ok _ => pure ()
   | .error err => return .error err
-  let tmp : System.FilePath :=
-    s!"/private/tmp/lean-ufo-recheck-{moduleString}-{modelName}.lean"
-      |>.replace "." "-"
+  let tmp ← tempFilePath s!"recheck-{moduleString}-{modelName}" "lean"
   let script :=
     s!"import {moduleString}\n" ++
     s!"#check ({certifiedName} : UFOAxioms4 {modelName}.sig)\n" ++

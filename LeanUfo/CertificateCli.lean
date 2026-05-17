@@ -48,11 +48,30 @@ def sanitizeFileStem (s : String) : String :=
   s.map fun c =>
     if c.isAlphanum then c else '-'
 
+def tempDir : IO System.FilePath := do
+  match (← IO.getEnv "TMPDIR") with
+  | some dir =>
+      if dir.isEmpty then pure ("/tmp" : System.FilePath) else pure dir
+  | none =>
+      match (← IO.getEnv "TEMP") with
+      | some dir =>
+          if dir.isEmpty then pure ("/tmp" : System.FilePath) else pure dir
+      | none =>
+          match (← IO.getEnv "TMP") with
+          | some dir =>
+              if dir.isEmpty then pure ("/tmp" : System.FilePath) else pure dir
+          | none => pure ("/tmp" : System.FilePath)
+
+def tempFilePath (stem extension : String) : IO System.FilePath := do
+  let dir ← tempDir
+  IO.FS.createDirAll dir
+  pure <| dir / s!"lean-ufo-{sanitizeFileStem stem}.{extension}"
+
 def firstToken (s : String) : Option String :=
   s.trimAscii.toString.splitOn " " |>.head?
 
 def sha256OfString (label content : String) : IO String := do
-  let file : System.FilePath := s!"/private/tmp/lean-ufo-{sanitizeFileStem label}.sha-input"
+  let file ← tempFilePath label "sha-input"
   IO.FS.writeFile file content
   let shasum ← IO.Process.output { cmd := "shasum", args := #["-a", "256", file.toString] }
   if shasum.exitCode == 0 then
@@ -71,9 +90,7 @@ def sha256OfString (label content : String) : IO String := do
 
 def evalExpressionTextViaLean
     (moduleString modelString suffix expression : String) : IO String := do
-  let tmp : System.FilePath :=
-    ("/private/tmp" : System.FilePath) /
-      s!"lean-ufo-text-{sanitizeFileStem moduleString}-{sanitizeFileStem modelString}-{sanitizeFileStem suffix}.lean"
+  let tmp ← tempFilePath s!"text-{moduleString}-{modelString}-{suffix}" "lean"
   let source :=
     s!"import {moduleString}\n" ++
     s!"#eval IO.println ({expression})\n"
