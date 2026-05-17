@@ -16,10 +16,10 @@ the missing bridge: each package is decidable exactly when its fields are.
 
 These instances are support infrastructure for proof-producing finite
 certification.  The current `ufo_model ... certify` command emits explicit
-record-field proofs for `UFOAxioms4`.  The bridge instances here make the axiom
-packages available to decidability-based experiments and future checker APIs.
-This is checker completeness relative to the finite model representation, not a
-proof-theoretic completeness theorem for UFO itself.
+record-field proofs for `UFOAxioms4` through the reflective checker.  The
+bridge instances here remain useful for decidability-based experiments and
+diagnostic support around the packaged axiom records. This is finite-model
+decidability, not a proof-theoretic completeness theorem for UFO itself.
 -/
 
 namespace LeanUfo.UFO.DSL

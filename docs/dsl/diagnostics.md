@@ -13,6 +13,8 @@ commands.
 - user-written input facts;
 - expanded finite facts after taxonomy and scope expansion;
 - certificate status for each registered axiom;
+- for successful extension certification, how many certificate fields were
+  reused from a parent and how many were checked fresh;
 - failure analysis for derived assertion failures and certificate failures.
 
 Certificate fields are reported as:
@@ -20,6 +22,15 @@ Certificate fields are reported as:
 - `success`: this generated theorem checked;
 - `failed`: this is the first field that did not certify;
 - `unchecked`: certification stopped before this field.
+
+For models certified with `extends`, the widget also shows a **Certificate
+reuse** section once at least one certificate field has completed. A `reused`
+row means the child model generated and checked a theorem proving that its
+Boolean checker result equals the parent's checker result, then used the
+parent's `checked_axN` theorem. A `fresh` row means that field was checked
+directly for the child. On failed models, this section shows the completed
+fields before the first failure. On successful models, it is the same
+fallback-aware status recorded in the certificate manifest.
 
 ## Counterexample Confirmation
 
@@ -88,6 +99,32 @@ For a witness obligation, the same information is presented as a diagnostic card
 ![Diagnostic card showing missing witness requirements for Alice](../assets/diagnostic-witness-card.svg)
 
 The user needs a witness satisfying all listed requirements.
+
+## Inspectable Failed Examples
+
+The concrete examples directory includes expected-failure files that are useful
+when inspecting diagnostics in VS Code. They are intentionally not imported by
+`LeanUfo.UFO.DSL.Examples`, because they fail by design.
+
+For model extension, open:
+
+```text
+LeanUfo/UFO/DSL/ConcreteExamples/FailedReuseExtension.lean
+```
+
+The base model certifies. The extension adds `Perdurant(Car)` to an inherited
+`Object(Car)`, so certification stops at `ax13` and the widget shows a confirmed
+counterexample for the child extension.
+
+To inspect a later failure after many fields have already reused or freshly
+checked, open:
+
+```text
+LeanUfo/UFO/DSL/ConcreteExamples/FailedReuseConstitutionExtension.lean
+```
+
+The child extension reuses many early checks from its base model, then fails at
+`ax61` after adding symmetric `ConstitutedBy` facts.
 
 ## Suggestions And Evidence
 

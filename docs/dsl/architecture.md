@@ -20,15 +20,17 @@ At a high level, a `ufo_model` command is transformed through five layers:
 ```mermaid
 flowchart TD
   A["DSL model<br/>ufo_model ... where"] --> B["Parser and frontend bridge<br/>SurfaceSyntax.lean + Syntax.lean"]
-  B --> C["Compiler<br/>named facts -> finite tables"]
+  B --> S["Reusable model source<br/>Model.source : ModelSource"]
+  S --> C["Compiler<br/>named facts -> finite tables"]
   C --> D["Finite model representation<br/>FiniteModel4"]
   D --> E["Semantic bridge<br/>FiniteModel4.toUFOSignature4"]
   D --> F["Reflective checker<br/>checkAxN / checkAxioms4"]
 
-  F -->|true| G["Positive certificate<br/>certified_axN and certified"]
+  F -->|true| G["Positive certificate<br/>checked_axN, certified_axN, certified"]
   F -->|false or failed theorem| H["Negative probe<br/>try to prove not axN"]
 
-  G --> I["Lean kernel checks theorem declarations"]
+  G --> M["Certificate manifest<br/>Model.certificateManifest"]
+  M --> I["Lean kernel checks theorem declarations"]
   H --> I
   I --> J["Diagnostics<br/>source-level evidence and widget data"]
 ```
@@ -36,6 +38,7 @@ flowchart TD
 The positive path proves ordinary Lean declarations such as:
 
 ```lean
+Model.checked_axN   : checkAxN Model.data = true
 Model.certified_axN : ax_aN Model.sig...
 Model.certified     : UFOAxioms4 Model.sig
 ```
@@ -110,6 +113,8 @@ The frontend layer is responsible for:
 - declaring the grammar accepted by `ufo_model`;
 - collecting world names, thing names, facts, and directives;
 - translating concrete syntax into internal data;
+- emitting `Model.source`, a reusable `ModelSource` value containing the parsed
+  model before name resolution;
 - emitting Lean declarations and certificate commands.
 
 The relevant files are:
@@ -166,6 +171,18 @@ Generic compiler guarantees are collected in `Guarantees.lean`. These prove
 properties of the pipeline as pure Lean transformations, for example that
 expanded facts and generated tables are related in the intended way.
 
+The compiler also exposes `extendModelSource`, used by:
+
+```lean
+ufo_model Child : UFO extends Parent : UFO where
+  ...
+```
+
+The current extension semantics is intentionally conservative: a child model may
+add things, facts, and product-family witnesses, but it may not add worlds. This
+keeps parent `everywhere` facts stable until we explicitly choose an
+added-world scoping semantics.
+
 ## Finite Model Representation
 
 `FiniteModel4` is the executable representation checked by the DSL backend. It
@@ -202,6 +219,48 @@ checkAxN_S : FiniteModel4 -> Stepped Bool
 
 The plain checker returns the Boolean result. The stepped checker returns the
 same Boolean result together with an abstract step count.
+
+The key change is that semantic certification is now driven by explicit finite
+computation rather than by asking Lean tactics to rediscover a proof for each
+generated model. The old shape was:
+
+```text
+finite model
+  -> large unfolded Prop goal
+  -> broad automation (`simp`, `omega`, `grind`, `decide`)
+  -> proof found, timeout, or unclassified tactic failure
+```
+
+That approach was correct when it succeeded, because Lean still checked the
+generated theorem. But the work was delegated to open-ended proof search over a
+large generated proposition. A failure could mean that the model was invalid, or
+that automation got stuck, or that a heartbeat/typeclass/decidability limit was
+hit.
+
+The checker-backed shape is:
+
+```text
+finite model
+  -> explicit Boolean computation (`checkAxN`)
+  -> `native_decide` evaluates the concrete Boolean result
+  -> reusable soundness theorem turns `true` into the semantic axiom proof
+```
+
+For example, a generated certificate field has the form:
+
+```lean
+theorem Model.certified_axN : ax_aN Model.sig... :=
+  checkAxN_sound Model.data (by native_decide)
+```
+
+The Boolean function `checkAxN` is ordinary Lean code that scans the compiled
+finite tables: worlds, things, instantiation, specialization, classifications,
+relations, membership, tuple projections, distances, and product-family
+witnesses. The reusable theorem `checkAxN_sound` is proved once in
+`Checker/Soundness.lean`; each concrete model only has to evaluate the Boolean
+checker. This makes the semantic certification algorithm explicit and
+predictable, and it is what enables the formal step bounds in
+`Checker/Complexity.lean`.
 
 ```mermaid
 flowchart TD
@@ -263,6 +322,7 @@ Positive certification is the normal success path. The command emits one theorem
 per registered axiom and a final bundled theorem:
 
 ```lean
+Model.checked_ax1     : checkAx1 Model.data = true
 Model.certified_ax1   : ax_a1 Model.sig.toUFOSignature3_1
 Model.certified_ax2   : ax_a2 Model.sig.toUFOSignature3_1
 -- ...
@@ -277,6 +337,103 @@ uses `native_decide` to evaluate the concrete generated model:
 ```lean
 exact LeanUfo.UFO.DSL.Checker.checkAxN_sound data (by native_decide)
 ```
+
+The command now also emits a stored Boolean check theorem per field:
+
+```lean
+Model.checked_axN : checkAxN Model.data = true
+```
+
+These `checked_axN` declarations are the reusable certificate atoms. The public
+semantic theorem names stay unchanged (`certified_axN`, `certified`,
+`certifiedModel`), while the manifest records which check theorem belongs to
+which axiom field. Ordinary `certify` may reuse a parent model's check theorem
+when either the whole `ModelSource` is unchanged or the registered table
+footprint for that axiom is unchanged. `certify_fresh` disables this reuse plan
+and forces fresh check theorem generation.
+
+Each certified model also emits:
+
+```lean
+Model.certificateManifest : CertificateManifest
+```
+
+The manifest is provenance and export metadata, not proof evidence. It records
+the model name, Lean version, axiom package, checker name, source and finite
+model fingerprints, per-field theorem names, and whether a field was checked
+fresh or reused. The Lean theorem declarations remain the authoritative
+certificate. The Lean declaration stores compact structural fingerprints and
+stable internal IDs; the exporter enriches the JSON manifest with SHA-256
+digests of the generated source and finite-table representations.
+
+The footprint-backed reuse registry lives in
+`LeanUfo/UFO/DSL/Certificate/Reuse.lean`. It contains one explicit footprint row
+for every registered certificate field. A footprint lists the primitive finite
+tables read by that field's checker: unary tables, binary tables, ternary
+tables, tuple projections, and product-family witnesses. The original pilot
+fields remain useful examples:
+
+- `ax13`: unchanged `Endurant` and `Perdurant` footprint;
+- `ax61`: unchanged `ConstitutedBy` footprint;
+- `ax68`: unchanged `Moment` and `InheresIn` footprint;
+- `ax101`: unchanged `Quale` and `Distance` footprint.
+
+The registry is intentionally explicit. A row is only a reuse plan, not proof
+evidence. The command generator first asks the registry whether reuse looks
+possible, then emits a child `checked_axN` theorem that proves by computation:
+
+```lean
+checkAxN Child.data = checkAxN Parent.data
+```
+
+Only after Lean checks that equality does the theorem use
+`Parent.checked_axN`. If the equality theorem does not elaborate, the generator
+falls back to a fresh `checked_axN` proof for the child. The manifest records
+the actual result after this fallback, so a field is marked `reused` only when a
+Lean-checked reuse theorem was really emitted.
+
+In all cases, reuse is still a Lean proof, not a trusted cache lookup. The
+formal proof pattern is recorded in `Guarantees.lean`:
+
+```lean
+CertificateReuse.reused_checker_result_sound
+CertificateReuse.reused_checker_semantic_sound
+CertificateReuse.reused_aggregate_checker_certified_sound
+CertificateReuse.certificateReuseSource_fresh_none
+```
+
+These theorems state that a reused child check is sound exactly when Lean has
+proved equality with the parent check, and that semantic correctness still
+comes from the same checker soundness theorem used by fresh certification.
+
+The diagnostics widget receives the same fallback-aware reuse information for
+completed fields. It shows a **Certificate reuse** section with reused and
+fresh rows; a reused row names the parent `checked_axN` theorem used by the
+child proof. If certification later fails, the section still shows the reuse
+status for the fields completed before the failure.
+
+The Lean manifest can be rendered as JSON via:
+
+```lean
+Model.certificateManifest.toJson
+```
+
+The Lake exporter writes these manifests to disk and enriches them with local
+git metadata when available:
+
+```bash
+lake exe export-certificates --module LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension --out certificates/
+lake exe validate-certificate certificates/CarBase.certificate.json --structure-only
+lake exe validate-certificate certificates/CarBase.certificate.json --module LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension
+```
+
+If a module contains one or more `export_certificate ModelName` markers, the
+exporter writes only those marked models. Otherwise it writes every certified
+model it can find in the module source. The JSON value is metadata; the checked
+Lean declarations remain the proof artifact. `--structure-only` checks JSON
+shape. Default validation requires `--module`, rebuilds the module, checks that
+the named Lean declarations have the expected certificate types, and compares
+the regenerated SHA-256 digests and theorem names.
 
 The final bundled theorem is assembled from the generated per-axiom proofs. The
 Lean kernel checks all declarations, so a successful `certify` command leaves an
@@ -312,7 +469,8 @@ the Lean-checked certificate or negation theorem.
 
 ## Internal Formal Guarantees
 
-The main formal guarantees are:
+The central theorem map is [Formal guarantees](../guarantees.md). The main DSL
+guarantee layers are:
 
 - compiler and table-pipeline properties in `Guarantees.lean`;
 - per-axiom checker soundness in `Checker/Soundness.lean`;
@@ -332,11 +490,13 @@ checkAxioms4_sound :
 ```
 
 This is the theorem that justifies using the Boolean checker as the normal DSL
-certification backend.
+certification backend. For the detailed list of theorem names and what each
+component guarantee means, use the formal-guarantees page.
 
 ## Formal Complexity Result
 
-The checker has an abstract step model:
+The formal complexity statements are also summarized in
+[Formal guarantees](../guarantees.md). The checker has an abstract step model:
 
 ```lean
 structure Stepped (alpha : Type) where
@@ -389,4 +549,3 @@ that every build is fast in wall-clock time: Lean still has to elaborate
 generated declarations, run `native_decide`, compile modules, and possibly run
 diagnostic negation probes. The value of the theorem is narrower and stronger:
 the semantic checker itself is no longer open-ended tactic search.
-

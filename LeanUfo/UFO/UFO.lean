@@ -57,5 +57,6 @@ import LeanUfo.UFO.DSL.Certification
 import LeanUfo.UFO.DSL.FiniteModel
 import LeanUfo.UFO.DSL.Compiler
 import LeanUfo.UFO.DSL.Checker
+import LeanUfo.UFO.DSL.Certificate.Reuse
 import LeanUfo.UFO.DSL.Syntax
 import LeanUfo.UFO.DSL.Guarantees

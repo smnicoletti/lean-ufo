@@ -83,6 +83,27 @@ def resolveScope (worlds : Array String) : NamedFactScope → Except ResolveErro
   | .everywhere => pure .everywhere
   | .at world => return .at (← resolveWorld worlds world)
 
+/--
+Merge a parent model source with a child extension.
+
+For now, extensions may add things, facts, and product-family witnesses, but not
+worlds. This avoids deciding whether parent `everywhere` facts should be
+re-expanded over child-added worlds; that semantics is intentionally postponed.
+-/
+def extendModelSource (parent child : ModelSource) : Except ResolveError ModelSource := do
+  if !child.worlds.isEmpty then
+    throw .extensionAddsWorlds
+  if parent.deriveRelations != child.deriveRelations then
+    throw .extensionDisablesDerivations
+  let things := parent.things ++ child.things
+  checkThingNames things
+  pure
+    { worlds := parent.worlds
+      things := things
+      facts := parent.facts ++ child.facts
+      productFamilies := parent.productFamilies ++ child.productFamilies
+      deriveRelations := parent.deriveRelations && child.deriveRelations }
+
 private def finThingSource (idx : Nat) : String :=
   s!"(⟨{idx}, by decide⟩ : Fin data.thingCount)"
 
@@ -232,6 +253,14 @@ structure FactTables where
   ternaryLookup : String → Nat → Nat → Nat → Nat → Bool := fun _ _ _ _ _ => false
   tupleProjectionLookup : Nat → Nat → Nat → Nat → Bool := fun _ _ _ _ => false
   derivedProps : Array String := #[]
+  deriving Inhabited
+
+structure CompiledModelSource where
+  scopedFacts : Array ScopedCompiledFact
+  productFamilies : Array ProductFamilySpec
+  expandedFacts : Array CompiledFact
+  ast : ModelAST
+  tables : FactTables
   deriving Inhabited
 
 def addUnary (tables : FactTables) (field : String) (x w : Nat) : FactTables :=
@@ -787,6 +816,25 @@ def addTaxonomyFacts (facts : Array CompiledFact) : Array CompiledFact :=
       | .unary field x w => acc ++ expandUnaryTaxonomyFact field x w
       | _ => acc.push fact)
     #[]
+
+/-- Run the pure source-to-table compiler pipeline. -/
+def compileModelSource (source : ModelSource) :
+    Except ResolveError CompiledModelSource := do
+  let scopedFacts ← resolveNamedFacts source.worlds source.things source.facts
+  let productFamilies ← resolveNamedProductFamilies source.things source.productFamilies
+  let facts := expandScopedFacts source.worlds.size scopedFacts
+  let expandedFacts := addReflexiveSpecializationFacts source.worlds.size (addTaxonomyFacts facts)
+  let ast : ModelAST :=
+    { worldCount := source.worlds.size
+      thingCount := source.things.size
+      facts := expandedFacts
+      productFamilies := productFamilies }
+  pure
+    { scopedFacts := scopedFacts
+      productFamilies := productFamilies
+      expandedFacts := expandedFacts
+      ast := ast
+      tables := compileExplicitModelAST ast }
 
 /-- Clause theorem for unary fact compilation. -/
 theorem compileFact_unary_eq

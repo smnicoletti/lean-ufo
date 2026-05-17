@@ -3,8 +3,9 @@
 [Docs home](../README.md) · [Project README](../../README.md)
 
 This page is for contributors who need to change the finite UFO DSL internals.
-For the conceptual pipeline and formal guarantee map, first read the
-[DSL architecture](architecture.md). Examples live under
+For the conceptual pipeline, first read the [DSL architecture](architecture.md).
+For theorem statements and what they guarantee, use
+[Formal guarantees](../guarantees.md). Examples live under
 `LeanUfo/UFO/DSL/ConcreteExamples` and are intentionally not covered here.
 
 ## File Map
@@ -12,9 +13,10 @@ For the conceptual pipeline and formal guarantee map, first read the
 | File | Responsibility |
 | --- | --- |
 | `LeanUfo/UFO/DSL/Frontend/SurfaceSyntax.lean` | Concrete `ufo_model` grammar and fact forms. No compilation or proof logic. |
-| `LeanUfo/UFO/DSL/Frontend/ModelText.lean` | Name translation and text rendering for DSL facts, generated `ModelAST` declarations, and diagnostics summaries. |
-| `LeanUfo/UFO/DSL/Certificate/Tactic.lean` | Shared simplification support used by diagnostic probes and legacy helper fragments. |
+| `LeanUfo/UFO/DSL/Frontend/ModelText.lean` | Name translation and text rendering for DSL facts, generated `ModelSource`/`ModelAST` declarations, and diagnostics summaries. |
+| `LeanUfo/UFO/DSL/Certificate/Tactic.lean` | Shared simplification support used by derived-fact assertions, diagnostic probes, and fallback helper fragments. |
 | `LeanUfo/UFO/DSL/Certificate/Generation.lean` | Certificate registry, generated theorem source, checker-backed field selection, and certificate packaging source. |
+| `LeanUfo/UFO/DSL/Certificate/Reuse.lean` | Conservative footprint registry for deciding when generated `checked_axN` theorems can reuse parent checks. |
 | `LeanUfo/UFO/DSL/Checker/` | Reflective Boolean checker, step model, checker-backed axiom proofs, and polynomial step bounds. |
 | `LeanUfo/UFO/DSL/Diagnostic/Analysis.lean` | Source-level counterexample reconstruction, diagnostic formula evaluation, evidence, suggestions, and derived-assertion analysis. |
 | `LeanUfo/UFO/DSL/Syntax.lean` | Command elaborator: parse grammar nodes, call the pure compiler, emit declarations, run generated certificate checks, and save diagnostics. |
@@ -36,6 +38,7 @@ The user-facing command follows this path:
 ```text
 Frontend/SurfaceSyntax grammar
   -> Syntax parser bridge
+  -> ModelSource
   -> Frontend/ModelText name-to-field mapping
   -> NamedScopedFact
   -> Compiler.resolveNamedFacts
@@ -46,7 +49,9 @@ Frontend/SurfaceSyntax grammar
   -> FactTables
   -> FiniteModel4
   -> UFOSignature4
+  -> checked_axN Boolean check theorems
   -> checker-backed per-axiom theorems
+  -> certificateManifest provenance record
   -> generated UFOAxioms4 certificate
   -> Diagnostic/Analysis source-level witness reconstruction on failure
 ```
@@ -68,16 +73,106 @@ explains.
 
 ## Checker-Backed Certificates
 
-The certificate generator proves one theorem per registered axiom field. These
-fields are now checker-backed: each generated theorem calls a reusable Boolean
-checker soundness theorem and evaluates the concrete model with `native_decide`.
+The certificate generator emits one stored Boolean check theorem and one
+semantic theorem per registered axiom field. The stored check theorem is named
+`checked_axN` and has type:
+
+```lean
+checkAxN Model.data = true
+```
+
+The public semantic theorem is still named `certified_axN`. These public names
+are compatibility API and should not be renamed. The semantic theorem calls a
+reusable Boolean checker soundness theorem and evaluates the concrete model
+with `native_decide`.
 
 `Checker/` owns the reflective Boolean checks, `Stepped` step model, soundness
 and completeness theorems, and conservative polynomial step bounds for the
 registered checker-backed fields. `Certificate/Tactic.lean` still provides
-shared simplification support for diagnostic probes and legacy helper
-fragments. `Certificate/Generation.lean` owns theorem names, widget ordering,
-checker-backed theorem source, and final `UFOAxioms4` packaging source.
+shared simplification support for derived-fact assertions, diagnostic probes,
+and fallback helper fragments. `Certificate/Generation.lean` owns theorem names, widget ordering,
+checker-backed theorem source, manifest source, and final `UFOAxioms4`
+packaging source.
+
+Each successful model also emits:
+
+```lean
+Model.source              : ModelSource
+Model.certificateManifest : CertificateManifest
+```
+
+`Model.source` is the parsed, reusable source artifact before name resolution.
+`Model.certificateManifest` is provenance/export metadata. It is not proof
+evidence; the proof evidence remains the generated Lean theorems.
+
+Exact-source extension aliases may reuse a parent's `checked_axN` theorem under
+ordinary `certify`. `certify_fresh` disables that reuse and regenerates the
+Boolean check theorem. Extensions that add things or facts may also reuse a
+field when the field's registered finite-table footprint is unchanged.
+
+Footprint-backed reuse is registered in `Certificate/Reuse.lean`. The registry
+has one row per certificate field and lists the primitive finite tables read by
+that field's checker. A field is marked reused only when the planner selects a
+parent and the generated theorem successfully proves equality of the child and
+parent checker results before using the parent `checked_axN` theorem. If that
+equality proof fails, the command generator falls back to a fresh checker proof
+and the manifest records the field as fresh.
+
+`Guarantees.lean` records the formal proof pattern behind reuse:
+
+```lean
+CertificateReuse.reused_checker_result_sound
+CertificateReuse.reused_checker_semantic_sound
+CertificateReuse.reused_aggregate_checker_certified_sound
+CertificateReuse.certificateReuseSource_fresh_none
+```
+
+The important point is that footprints are planning metadata. They do not prove
+an axiom and they are not trusted as cache hits. Reuse remains correct because
+Lean checks the concrete Boolean equality needed to transport a parent
+`checked_axN` theorem to the child.
+
+To add a reusable footprint:
+
+1. inspect the `checkAxN` implementation in `Checker/Axioms.lean`;
+2. list every primitive table field read by that checker in
+   `reusableFieldFootprints`;
+3. add or update a positive extension fixture showing the expected fresh/reused
+   manifest status;
+4. keep the generated proof shape unchanged, so reuse remains Lean-checked.
+
+Manifest export starts as Lean data: `CertificateManifest.toJson` converts the
+manifest to a JSON value. The supported command-line path is:
+
+```bash
+lake exe export-certificates --module LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension --out certificates/
+lake exe validate-certificate certificates/CarBase.certificate.json --structure-only
+lake exe validate-certificate certificates/CarBase.certificate.json --module LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension
+```
+
+Use `export_certificate ModelName` in a module to request export of selected
+models. If no export marker is present, the exporter attempts to export all
+certified models declared in the module source. `--structure-only` checks only
+manifest structure. The default validation path requires `--module`; it
+rebuilds the Lean module, checks the theorem declarations at their expected
+types, and compares regenerated SHA-256 source/model digests. Do not treat the
+JSON as proof evidence.
+
+Version metadata comes from `LeanUfo/UFO/DSL/Version.lean`. Development builds
+use a `-dev` artifact version; release automation should replace it with the
+release tag before publishing certificate manifests.
+
+The repository includes a minimal release helper for this:
+
+```bash
+scripts/set-artifact-version.sh vX.Y.Z
+```
+
+The `Certificate Manifests` GitHub workflow runs this helper in the release
+runner workspace, exports marked certificate manifests, rechecks them against
+the Lean declarations, and uploads the JSON files as release assets. The helper
+does not need to commit back to `dev`; it only ensures that manifests published
+for a tag carry that tag as their artifact version.
 
 The current checker-backed fields are all registered fields through §4:
 
@@ -123,6 +218,11 @@ stable and add the Boolean checker, stepped checker, soundness proof, and
 targeted `LEANUFO_AXIOMS=axN lake test` run. Add completeness and direct
 negative-probe routing when the checker is equivalent to the core axiom without
 extra representation assumptions.
+
+When touching model-extension code, keep `extendModelSource` as the only merge
+point. It currently rejects child-added worlds so parent `everywhere` facts keep
+their original expansion. Do not add implicit re-expansion in the frontend until
+the scoping semantics is explicitly decided.
 
 The §3.12 checker-backed fields include membership-dependent obligations
 whose finite content is available through `FiniteModel4.memberOf`. The semantic

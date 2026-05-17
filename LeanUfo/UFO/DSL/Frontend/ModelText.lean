@@ -318,6 +318,69 @@ def productFamilyTerm (family : ProductFamilySpec) : String :=
     s!"typeThings := {natArrayTerm family.typeThings}" ++
     " }"
 
+def stringArrayTerm (xs : Array String) : String :=
+  if xs.isEmpty then
+    "#[]"
+  else
+    "#[" ++ String.intercalate ", " (xs.toList.map leanStringLit) ++ "]"
+
+def namedFactScopeTerm : NamedFactScope → String
+  | .at world => s!"NamedFactScope.at {leanStringLit world}"
+  | .everywhere => "NamedFactScope.everywhere"
+
+def namedDerivedFactTerm : NamedDerivedFact → String
+  | .unary field thing =>
+      s!"NamedDerivedFact.unary {leanStringLit field} {leanStringLit thing}"
+  | .binary field left right =>
+      s!"NamedDerivedFact.binary {leanStringLit field} {leanStringLit left} {leanStringLit right}"
+  | .ternary field first second third =>
+      s!"NamedDerivedFact.ternary {leanStringLit field} {leanStringLit first} {leanStringLit second} {leanStringLit third}"
+  | .quaternary field first second third fourth =>
+      s!"NamedDerivedFact.quaternary {leanStringLit field} {leanStringLit first} {leanStringLit second} {leanStringLit third} {leanStringLit fourth}"
+
+def namedScopedFactTerm : NamedScopedFact → String
+  | .unary field thing scope =>
+      s!"NamedScopedFact.unary {unaryFieldTerm field} {leanStringLit thing} ({namedFactScopeTerm scope})"
+  | .binary field left right scope =>
+      s!"NamedScopedFact.binary {binaryFieldTerm field} {leanStringLit left} {leanStringLit right} ({namedFactScopeTerm scope})"
+  | .ternary field first second third scope =>
+      s!"NamedScopedFact.ternary {ternaryFieldTerm field} {leanStringLit first} {leanStringLit second} {leanStringLit third} ({namedFactScopeTerm scope})"
+  | .tupleProjection tuple index result scope =>
+      s!"NamedScopedFact.tupleProjection {leanStringLit tuple} {index} {leanStringLit result} ({namedFactScopeTerm scope})"
+  | .derived fact scope =>
+      s!"NamedScopedFact.derived ({namedDerivedFactTerm fact}) ({namedFactScopeTerm scope})"
+
+def namedProductFamilyTerm (family : NamedProductFamily) : String :=
+  "{ " ++
+    s!"domain := {leanStringLit family.domain}, " ++
+    s!"qualityType := {leanStringLit family.qualityType}, " ++
+    s!"dimensionThings := {stringArrayTerm family.dimensionThings}, " ++
+    s!"typeThings := {stringArrayTerm family.typeThings}" ++
+    " }"
+
+def namedScopedFactArrayTerm (facts : Array NamedScopedFact) : String :=
+  if facts.isEmpty then
+    "#[]"
+  else
+    "#[" ++ String.intercalate ", " (facts.toList.map namedScopedFactTerm) ++ "]"
+
+def namedProductFamilyArrayTerm (families : Array NamedProductFamily) : String :=
+  if families.isEmpty then
+    "#[]"
+  else
+    "#[" ++ String.intercalate ", " (families.toList.map namedProductFamilyTerm) ++ "]"
+
+def modelSourceTerm (source : ModelSource) : String :=
+  "ModelSource.mk " ++
+    stringArrayTerm source.worlds ++ " " ++
+    stringArrayTerm source.things ++ " " ++
+    namedScopedFactArrayTerm source.facts ++ " " ++
+    namedProductFamilyArrayTerm source.productFamilies ++ " " ++
+    (if source.deriveRelations then "true" else "false")
+
+def modelSourceDecl (source : ModelSource) : String :=
+  "def source : ModelSource :=\n" ++ modelSourceTerm source ++ "\n"
+
 def indexedNamesJson (names : Array Name) : Json :=
   Json.arr <| names.mapIdx fun idx name =>
     Json.mkObj [

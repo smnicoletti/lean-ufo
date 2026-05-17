@@ -10,6 +10,14 @@ name = "LeanUfo"
 name = "LeanUfoTest"
 root = "LeanUfoTest"
 
+[[lean_exe]]
+name = "export-certificates"
+root = "LeanUfo.ExportCertificates"
+
+[[lean_exe]]
+name = "validate-certificate"
+root = "LeanUfo.ValidateCertificate"
+
 [[require]]
 name = "mathlib"
 scope = "leanprover-community"

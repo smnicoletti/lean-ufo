@@ -15,23 +15,34 @@ pipeline, see the [DSL architecture](dsl/architecture.md).
 
 ```mermaid
 flowchart TD
-  A["UFO source theory<br/>paper axioms and theorems"] --> B["Core Lean formalization<br/>Modal + Core"]
-  B --> C["Concrete witness models<br/>Models"]
-  B --> D["S5-derived facts<br/>Core/S5_Derived.lean"]
+  A["UFO source theory<br/>paper axioms and theorems"]
+  B["Core semantic formalization<br/>Modal + Core"]
+  C["Core results<br/>derived theorems + witness models"]
 
-  E["Finite DSL syntax<br/>ufo_model ... certify"] --> F["DSL compiler<br/>names, scopes, facts, tables"]
-  F --> G["FiniteModel4"]
-  G --> H["Semantic bridge<br/>to UFOSignature4"]
-  H --> B
-  G --> I["Reflective checker<br/>checkAxioms4"]
-  I --> J["Lean certificates<br/>UFOAxioms4"]
-  I --> K["Diagnostics<br/>counterexamples and suggestions"]
+  D["DSL model<br/>ufo_model ... certify"]
+  E["DSL compiler<br/>names/scopes/facts -> finite tables"]
+  F["FiniteModel4"]
+  G["Semantic bridge<br/>to UFOSignature4"]
+  H["Reflective checker<br/>checkAxioms4"]
+  I["Positive certificate<br/>UFOAxioms4"]
+  J["Diagnostics<br/>confirmed counterexamples or probe status"]
 
-  L["Tests and CI"] --> B
-  L --> C
-  L --> F
-  L --> I
-  L --> K
+  K["Tests and CI<br/>build, examples, witnesses, diagnostics"]
+
+  A -->|"formalized as"| B
+  B -->|"proves"| C
+
+  D -->|"parsed and compiled by"| E
+  E -->|"produces"| F
+  F -->|"interpreted as"| G
+  G -->|"targets the same semantic package as"| B
+  F -->|"checked by"| H
+  H -->|"if true, soundness theorem yields"| I
+  H -->|"if a field fails, negative probe feeds"| J
+
+  K -. "regression checks" .-> B
+  K -. "example builds" .-> D
+  K -. "checker and diagnostics tests" .-> H
 ```
 
 The core formalization is the semantic target. The DSL does not define a
@@ -131,7 +142,8 @@ a timeout-style probe limit, or an unclassified probe failure.
 
 ## Formal Guarantees
 
-The main guarantee layers are:
+The central theorem map is [Formal guarantees](guarantees.md). At project level,
+the main guarantee layers are:
 
 - **core semantic theorems** in `Core/Section*.lean` and `Core/S5_Derived.lean`;
 - **witness-model consistency checkpoints** in `Models/`;
@@ -149,7 +161,10 @@ checkAxioms4_sound :
 ```
 
 This theorem connects the executable finite checker to the Prop-valued semantic
-axiom package.
+axiom package. The formal-guarantees page gives the more detailed theorem map
+for name resolution, table compilation, semantic bridging, checker
+soundness/completeness, certificate reuse, diagnostics, and polynomial checker
+step bounds.
 
 ## Trust Boundary
 
@@ -196,6 +211,6 @@ expectations.
   and explicit bridge assumptions.
 - [DSL architecture](dsl/architecture.md) for the finite DSL pipeline and
   checker.
-- [Formal guarantees](guarantees.md) for the theorem-backed parts of the DSL
-  pipeline.
+- [Formal guarantees](guarantees.md) for theorem-backed guarantees across the
+  core, DSL compiler, checker, reuse, diagnostics, and complexity layers.
 - [Current status](status.md) for implemented coverage and current caveats.
