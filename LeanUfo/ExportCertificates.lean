@@ -17,9 +17,7 @@ private def evalManifestJsonViaLean
     (moduleString modelString : String) (gitCommit gitTag : Option String)
     (sourceDigest finiteModelDigest : String) :
     IO String := do
-  let tmp : System.FilePath :=
-    ("/private/tmp" : System.FilePath) /
-      s!"lean-ufo-export-{sanitizeFileStem moduleString}-{sanitizeFileStem modelString}.lean"
+  let tmp ← tempFilePath s!"export-{moduleString}-{modelString}" "lean"
   let source :=
     s!"import {moduleString}\n" ++
     "#eval IO.println (({ " ++ modelString ++ ".certificateManifest with " ++
