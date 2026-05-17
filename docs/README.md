@@ -20,7 +20,7 @@ diagnostics, tests, and implementation details.
 | [Testing guide](testing.md) | `lake test`, selected axiom checks, and witness coverage |
 | [Current status](status.md) | Implemented features and current caveats |
 | [Project architecture](architecture.md) | Core formalization, DSL layer, certificates, tests, and trust boundary |
-| [Formal guarantees](guarantees.md) | The theorem-backed parts of the DSL pipeline |
+| [Formal guarantees](guarantees.md) | The theorem-backed guarantees for core, DSL, checker, reuse, diagnostics, and complexity |
 | [Roadmap and limitations](roadmap.md) | Known gaps and planned work |
 
 ## Reading Paths

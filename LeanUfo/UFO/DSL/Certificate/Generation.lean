@@ -2,6 +2,7 @@ import Lean
 import LeanUfo.UFO.DSL.Certificate.Tactic
 import LeanUfo.UFO.DSL.Checker
 import LeanUfo.UFO.DSL.Compiler
+import LeanUfo.UFO.DSL.Version
 
 /-!
 # Generated certificate source for finite UFO DSL models
@@ -15,6 +16,54 @@ Lean and reporting failures.
 open Lean
 
 namespace LeanUfo.UFO.DSL
+
+/- Internal deterministic identifier stored in Lean-side manifests.
+Exported JSON manifests add SHA-256 source/model digests; this lightweight
+string is only for in-Lean equality checks and should not be treated as a
+cryptographic hash. -/
+private def stableDigestString (s : String) : String :=
+  let modulus := 4294967296
+  let offset := 2166136261
+  let prime := 16777619
+  let hash := s.foldl (fun acc c => ((acc * prime) + c.toNat) % modulus) offset
+  s!"fnv32:{hash}"
+
+private def stableArrayText [Repr α] (xs : Array α) : String :=
+  "[" ++ String.intercalate "," (xs.toList.map reprStr) ++ "]"
+
+private def tableText (tables : FactTables) (field : String)
+    (kind : FactTables → String → Array α) [Repr α] : String :=
+  field ++ "=" ++ stableArrayText (kind tables field)
+
+private def modelSourceStableText (source : ModelSource) : String :=
+  reprStr source
+
+private def factTablesStableText (tables : FactTables) : String :=
+  let unaryFields :=
+    ["concreteIndividual", "abstractIndividual", "endurant", "perdurant",
+      "endurantType", "perdurantType", "rigid", "antiRigid", "semiRigid",
+      "kind", "sortal", "nonSortal", "subKind", "phase", "role",
+      "semiRigidSortal", "category", "mixin", "phaseMixin", "roleMixin",
+      "substantial", "moment", "object", "collective", "quantity", "relator",
+      "intrinsicMoment", "mode", "qualityKind", "substantialType",
+      "momentType", "objectType", "collectiveType", "quantityType",
+      "relatorType", "modeType", "qualityType", "objectKind",
+      "collectiveKind", "quantityKind", "relatorKind", "modeKind", "ex",
+      "quale", "set_", "qualityDomain", "qualityDimension",
+      "intrinsicMomentType", "distanceZero"]
+  let binaryFields :=
+    ["inst", "sub", "part", "overlap", "properPart", "functionsAs",
+      "constitutedBy", "inheresIn", "foundedBy", "quaIndividualOf",
+      "mediates", "characterization", "associatedWith", "hasValue",
+      "memberOf", "manifests", "lifeOf", "meet", "distanceGreaterEq"]
+  let ternaryFields := ["distance", "distanceSum"]
+  String.intercalate "\n" <|
+    (unaryFields.map fun field => tableText tables field (fun t f => t.unary.getD f #[])) ++
+    (binaryFields.map fun field => tableText tables field (fun t f => t.binary.getD f #[])) ++
+    (ternaryFields.map fun field => tableText tables field (fun t f => t.ternary.getD f #[])) ++
+    ["tupleProjection=" ++ stableArrayText tables.tupleProjection,
+      "productFamilies=" ++ stableArrayText tables.productFamilies,
+      "derivedProps=" ++ stableArrayText tables.derivedProps]
 
 structure CertField where
   field : String
@@ -152,6 +201,25 @@ def certFields : Array CertField :=
 
 def certTheoremName (field : String) : String :=
   s!"certified_{field}"
+
+def checkedTheoremName (field : String) : String :=
+  s!"checked_{field}"
+
+def checkerFunctionName (field : String) : String :=
+  match field with
+  | "ax_instEndurant" => "checkAxInstEndurant"
+  | "ax_sub_kind_sortal" => "checkAxSubKindSortal"
+  | "ax_nonSortal_up" => "checkAxNonSortalUp"
+  | "ax_kindStable" => "checkAxKindStable"
+  | "axQuaIndividualOfEndurant" => "checkAxQuaIndividualOfEndurant"
+  | "axDistanceIdentity" => "checkAxDistanceIdentity"
+  | "axDistanceSymmetry" => "checkAxDistanceSymmetry"
+  | "axDistanceTriangle" => "checkAxDistanceTriangle"
+  | _ =>
+      if field.take 2 == "ax" then
+        "checkAx" ++ field.drop 2
+      else
+        "check" ++ field
 
 def certFormula : String → String
   | "ax1" => "Type(x) ↔ ◇(∃ y, y :: x)"
@@ -634,7 +702,7 @@ private def checkerCertificateProof? (field : CertField) : Option String :=
         "exact LeanUfo.UFO.DSL.Checker.checkAx79_sound data (by native_decide) (by native_decide) (by native_decide)"
   | _ =>
       checkerSoundnessName? field |>.map fun theoremName =>
-        s!"exact LeanUfo.UFO.DSL.Checker.{theoremName} data (by native_decide)"
+        s!"exact LeanUfo.UFO.DSL.Checker.{theoremName} data {checkedTheoremName field.field}"
 
 private def certTactic (field : CertField) : String :=
   match certificateSimpDefs? field with
@@ -677,10 +745,90 @@ def certAxiomTheorem
       s!"set_option maxHeartbeats 1000000 in set_option linter.unusedSimpArgs false in theorem {certTheoremName field.field} : {field.prop} := by
 {indentLines "  " (certTactic field)}"
 
+def checkedAxiomTheorem (field : CertField) (reuseFrom? : Option Name := none) : String :=
+  let checkFn := s!"LeanUfo.UFO.DSL.Checker.{checkerFunctionName field.field}"
+  match reuseFrom? with
+  | none =>
+      s!"set_option maxHeartbeats 1000000 in theorem {checkedTheoremName field.field} : {checkFn} data = true := by
+  native_decide"
+  | some parent =>
+      s!"set_option maxHeartbeats 1000000 in theorem {checkedTheoremName field.field} : {checkFn} data = true := by
+  have hEq : {checkFn} data = {checkFn} {parent}.data := by
+    native_decide
+  simpa [hEq] using {parent}.{checkedTheoremName field.field}"
+
+def checkedAxiomProofCheck (field : CertField) (reuseFrom? : Option Name := none) : String :=
+  let checkFn := s!"LeanUfo.UFO.DSL.Checker.{checkerFunctionName field.field}"
+  match reuseFrom? with
+  | none =>
+      s!"(by
+  native_decide : {checkFn} data = true)"
+  | some parent =>
+      s!"(by
+  have hEq : {checkFn} data = {checkFn} {parent}.data := by
+    native_decide
+  simpa [hEq] using {parent}.{checkedTheoremName field.field} : {checkFn} data = true)"
+
 def certificateBody : String :=
   let fieldSource := certFields.map fun field =>
     s!"    {field.field} := {certTheoremName field.field}"
   "by\n  refine\n  {\n" ++ String.intercalate "\n" fieldSource.toList ++ "\n  }"
+
+private def manifestStatusTerm : CertificateReuseStatus → String
+  | .fresh => "CertificateReuseStatus.fresh"
+  | .reused => "CertificateReuseStatus.reused"
+  | .notReusable => "CertificateReuseStatus.notReusable"
+
+private def optionalStringTerm : Option String → String
+  | none => "none"
+  | some s => s!"some {reprStr s}"
+
+def certificateManifestSource
+    (model : Name) (source : ModelSource) (tables : FactTables)
+    (reuseFor? : String → Option Name := fun _ => none) : String :=
+  let sourceFingerprint :=
+    s!"worlds={source.worlds.size};things={source.things.size};facts={source.facts.size};productFamilies={source.productFamilies.size}"
+  let finiteModelFingerprint :=
+    s!"worlds={source.worlds.size};things={source.things.size};derived={tables.derivedProps.size};productFamilies={tables.productFamilies.size}"
+  let sourceHash := stableDigestString (modelSourceStableText source)
+  let finiteModelHash := stableDigestString (factTablesStableText tables)
+  let fieldRows := certFields.map fun field =>
+    let reuseFrom? := reuseFor? field.field
+    let status := if reuseFrom?.isSome then CertificateReuseStatus.reused else CertificateReuseStatus.fresh
+    let reusedFrom := reuseFrom?.map fun parent => parent.toString ++ "." ++ checkedTheoremName field.field
+    "{ " ++
+      s!"field := {reprStr field.field}, " ++
+      s!"status := {manifestStatusTerm status}, " ++
+      s!"theoremName := {reprStr <| model.toString ++ "." ++ certTheoremName field.field}, " ++
+      s!"checkedTheoremName := {reprStr <| model.toString ++ "." ++ checkedTheoremName field.field}, " ++
+      s!"reusedFrom := {optionalStringTerm reusedFrom}" ++
+      " }"
+  let fieldsTerm :=
+    if fieldRows.isEmpty then
+      "#[]"
+    else
+      "#[" ++ String.intercalate ", " fieldRows.toList ++ "]"
+  "def certificateManifest : CertificateManifest :=\n" ++
+    "{\n" ++
+    s!"  modelName := {reprStr model.toString}\n" ++
+    s!"  artifact := {reprStr artifactName}\n" ++
+    s!"  artifactVersion := {reprStr artifactVersion}\n" ++
+    s!"  leanVersion := {reprStr Lean.versionString}\n" ++
+    s!"  gitCommit := none\n" ++
+    s!"  gitTag := none\n" ++
+    s!"  axiomPackage := {reprStr axiomPackageName}\n" ++
+    s!"  checkerName := {reprStr checkerName}\n" ++
+    s!"  checkerVersion := {reprStr checkerVersion}\n" ++
+    s!"  sourceFingerprint := {reprStr sourceFingerprint}\n" ++
+    s!"  finiteModelFingerprint := {reprStr finiteModelFingerprint}\n" ++
+    s!"  sourceDigest := none\n" ++
+    s!"  finiteModelDigest := none\n" ++
+    s!"  sourceHash := {reprStr sourceHash}\n" ++
+    s!"  finiteModelHash := {reprStr finiteModelHash}\n" ++
+    s!"  fields := {fieldsTerm}\n" ++
+    s!"  certifiedTheorem := {reprStr <| model.toString ++ ".certified"}\n" ++
+    s!"  certifiedModelTheorem := {reprStr <| model.toString ++ ".certifiedModel"}\n" ++
+    "}\n"
 
 def derivedFactsType (props : Array String) : String :=
   if props.isEmpty then

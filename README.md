@@ -33,6 +33,7 @@ certificate, and each confirmed failure is traced back to the finite model data.
 | Interpret failures | [Diagnostics guide](docs/dsl/diagnostics.md) |
 | Run tests | [Testing guide](docs/testing.md) |
 | Inspect current status | [Current status](docs/status.md) |
+| Check theorem-backed guarantees | [Formal guarantees](docs/guarantees.md) |
 | Understand the implementation | [Project architecture](docs/architecture.md) |
 | Work on DSL internals | [DSL architecture](docs/dsl/architecture.md) and [DSL developer guide](docs/dsl/developer-guide.md) |
 
@@ -49,10 +50,11 @@ Technical highlights:
    worlds, named things, and UFO facts into a finite `UFOSignature4`.
 4. **Reflective checker-backed Lean certificates.** Successful DSL models
    elaborate to ordinary Lean declarations, including one theorem per registered
-   axiom and a final `UFOAxioms4` certificate. The reflective checker now
-   covers all registered axiom fields through §4. In particular, `ax68` uses a
-   proved bounded finite closure checker for `MomentOf`, and `ax99` uses
-   explicit finite product-family witnesses.
+   axiom, stored Boolean check theorems (`checked_axN`), reusable model source
+   data, a certificate manifest, and a final `UFOAxioms4` certificate. The
+   reflective checker now covers all registered axiom fields through §4. In
+   particular, `ax68` uses a proved bounded finite closure checker for
+   `MomentOf`, and `ax99` uses explicit finite product-family witnesses.
 5. **DSL-level diagnostics.** Failed models report whether Lean confirmed a
    finite counterexample, hit a timeout-style counterexample-probe limit, or
    reached an unclassified probe failure. Many failures are reconstructed in
@@ -64,7 +66,7 @@ Technical highlights:
 
 ## Quick Example
 
-A tiny model can state that `Person` is an object kind and that `Alice` is an
+A model can state that `PhysicalObject` is an object kind and that `Car` is an
 object instantiating that kind in the actual world. The `certify` directive asks
 Lean to check that the resulting finite interpretation satisfies the encoded UFO
 axioms.
@@ -74,27 +76,154 @@ import LeanUfo.UFO.DSL.Syntax
 
 open LeanUfo.UFO.DSL
 
-ufo_model PersonExample : UFO where
+ufo_model CarBase : UFO where
   worlds actual
-  things Person Alice
+  things PhysicalObject Car
   given actual:
-    ObjectKind(Person)
-    Object(Alice)
-    Alice :: Person
+    ObjectKind(PhysicalObject)
+    Object(Car)
+    Car :: PhysicalObject
   derive_relations
   certify
+
+export_certificate CarBase
 ```
 
 If this command elaborates successfully, Lean has checked a generated theorem:
 
 ```lean
-PersonExample.certified : UFOAxioms4 PersonExample.sig
+CarBase.certified : UFOAxioms4 CarBase.sig
+```
+
+It also leaves reusable certificate artifacts in the environment:
+
+```lean
+CarBase.source              : ModelSource
+CarBase.checked_ax1         : Checker.checkAx1 CarBase.data = true
+CarBase.certificateManifest : CertificateManifest
+```
+
+Models can extend earlier models without adding worlds. Here the child keeps the
+same car scenario and adds a window and a body as proper parts of the car.
+`Body` is not decorative: the UFO mereology axioms include strong
+supplementation, so a car with `Window` as a proper part also needs another part
+that does not overlap the window.
+
+```lean
+ufo_model CarWithWindow : UFO extends CarBase : UFO where
+  things Window Body
+  given actual:
+    Object(Window)
+    Object(Body)
+    Window :: PhysicalObject
+    Body :: PhysicalObject
+
+    Part(PhysicalObject, PhysicalObject)
+    Part(Car, Car)
+    Part(Window, Window)
+    Part(Body, Body)
+    Part(Window, Car)
+    Part(Body, Car)
+
+    Overlap(PhysicalObject, PhysicalObject)
+    Overlap(Car, Car)
+    Overlap(Window, Window)
+    Overlap(Body, Body)
+    Overlap(Window, Car)
+    Overlap(Car, Window)
+    Overlap(Body, Car)
+    Overlap(Car, Body)
+
+    ProperPart(Window, Car)
+    ProperPart(Body, Car)
+  derive_relations
+  certify
+
+export_certificate CarWithWindow
+```
+
+Ordinary `certify` may reuse any parent per-axiom checks whose registered
+finite-table footprint is unchanged; fields affected by the new objects or
+mereology facts are checked freshly.
+
+Use `certify_fresh` when you want to bypass reuse and regenerate all checker
+proofs for the child:
+
+```lean
+ufo_model CarWithWindowFresh : UFO extends CarBase : UFO where
+  things Window Body
+  given actual:
+    Object(Window)
+    Object(Body)
+    Window :: PhysicalObject
+    Body :: PhysicalObject
+
+    Part(PhysicalObject, PhysicalObject)
+    Part(Car, Car)
+    Part(Window, Window)
+    Part(Body, Body)
+    Part(Window, Car)
+    Part(Body, Car)
+
+    Overlap(PhysicalObject, PhysicalObject)
+    Overlap(Car, Car)
+    Overlap(Window, Window)
+    Overlap(Body, Body)
+    Overlap(Window, Car)
+    Overlap(Car, Window)
+    Overlap(Body, Car)
+    Overlap(Car, Body)
+
+    ProperPart(Window, Car)
+    ProperPart(Body, Car)
+  derive_relations
+  certify_fresh
+```
+
+Reuse is not a trusted cache hit. The generated child theorem first proves that
+the child checker result equals the parent checker result, and only then uses
+the parent's `checked_axN` theorem. If that equality proof fails, the generator
+falls back to a fresh check.
+
+The parent can also live in another module:
+
+```lean
+import MyModels.CarBase
+
+open LeanUfo.UFO.DSL
+
+ufo_model CarWithWindow : UFO extends CarBase : UFO where
+  -- add the child things and facts here
+  derive_relations
+  certify
+```
+
+Certificate manifests can be exported and later validated:
+
+```bash
+lake exe export-certificates --module LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension --out certificates/
+lake exe validate-certificate certificates/CarBase.certificate.json --structure-only
+lake exe validate-certificate certificates/CarWithWindow.certificate.json --module LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension
+```
+
+`--structure-only` checks just the JSON manifest shape. The default validation
+path requires `--module`: it rebuilds the Lean module, checks the named theorem
+declarations at their expected types, and compares regenerated SHA-256 digests
+for the source and finite model representations. The manifest is provenance
+metadata; the Lean theorems remain the proof artifact.
+
+The concrete example collection also includes reuse examples for role extension
+and mode/inherence extension:
+
+```text
+LeanUfo/UFO/DSL/ConcreteExamples/ReuseRoleExtension.lean
+LeanUfo/UFO/DSL/ConcreteExamples/ReuseModeExtension.lean
 ```
 
 The DSL keeps UFO notation for instantiation and specialization:
 
 ```lean
-Alice :: Person
+Car :: PhysicalObject
 Employee ⊑ Person
 ```
 
@@ -159,7 +288,6 @@ LEANUFO_AXIOMS=ax13 lake test
 LEANUFO_AXIOMS=ax1,ax2,ax3,ax4,ax5,ax6,ax7,ax8,ax9,ax10,ax11,ax12,ax13,ax14,ax15,ax16,ax17,ax61,ax71,ax77 lake test
 LEANUFO_AXIOMS=ax65,ax66,ax67,ax68 lake test
 LEANUFO_AXIOMS=ax69,ax70,ax71,ax72,ax73,ax74,ax75,ax76,ax77,ax78,ax79,ax80,axQuaIndividualOfEndurant lake test
-LEANUFO_AXIOMS=ax66 lake test
 ```
 
 The stricter direct-negative audit is intentionally not part of the green fast
@@ -179,7 +307,7 @@ axioms currently classified as compiler-enforced or blocked.
 | [Documentation home](docs/README.md) | Guide map and reading paths |
 | [Theoretical notes](docs/theory.md) | Modal choices, formal milestones, S5 consequences, and explicit bridge axioms |
 | [Project architecture](docs/architecture.md) | Core formalization, DSL layer, certificates, tests, and trust boundary |
-| [Formal guarantees](docs/guarantees.md) | Theorem-backed DSL pipeline facts |
+| [Formal guarantees](docs/guarantees.md) | Theorem-backed guarantees for core, DSL, checker, reuse, diagnostics, and complexity |
 | [DSL quickstart](docs/dsl/quickstart.md) | First certified model |
 | [DSL syntax](docs/dsl/syntax.md) | Accepted surface syntax |
 | [DSL architecture](docs/dsl/architecture.md) | Syntax-to-certificate pipeline, checker, diagnostics, and complexity |

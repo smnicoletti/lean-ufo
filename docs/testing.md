@@ -46,6 +46,69 @@ LEANUFO_FULL_TESTS=1 lake test
 
 This runs the slower positive and negative certification fixtures.
 
+## Incremental Certificate Tests
+
+The incremental certificate fixtures live under:
+
+```text
+LeanUfo/Test/Certification/Positive/
+  ModelExtension.lean       -- same-module extends, reuse, certify_fresh
+  ModelExtensionBase.lean   -- exported parent for cross-module extension
+  ModelExtensionChild.lean  -- imported-parent extension and reuse checks
+```
+
+They check that:
+
+- `checked_axN` declarations are generated and usable as Lean proofs;
+- exact-source aliases can reuse parent checker proofs;
+- `certify_fresh` marks fields as fresh rather than reused;
+- an extension that adds car-window mereology facts still certifies;
+- affected mereology fields are checked freshly;
+- unaffected fields can be reused through Lean-checked equality;
+- cross-module parent lookup works after importing the parent module;
+- certificate manifests render to JSON;
+- the full test profile can export concrete manifests and validate one of them
+  with a Lean proof recheck.
+- inherited `given everywhere:` facts remain expanded over the parent's world
+  set in extensions;
+- extension syntax rejects attempts to add new worlds, preserving that
+  `everywhere` scoping policy.
+- a certifying base model can still have a failing extension when the child
+  additions violate an axiom; `ExtensionInvalidAddition.lean` checks this with
+  an inherited object that the child also classifies as a perdurant.
+- `ExtensionInvalidConstitutionAddition.lean` checks the later-failure shape:
+  a certifying base model, reused/fresh checks completed for the child, and a
+  subsequent failure at constitution axiom `ax61`.
+
+Run just this positive seed with:
+
+```bash
+lake build LeanUfo.Test.Certification.Positive.Seed
+```
+
+The user-facing concrete reuse workflows live in:
+
+```text
+LeanUfo/UFO/DSL/ConcreteExamples/ReuseModelExtension.lean -- car/window/body mereology
+LeanUfo/UFO/DSL/ConcreteExamples/ReuseRoleExtension.lean  -- person plus employment role
+LeanUfo/UFO/DSL/ConcreteExamples/ReuseModeExtension.lean  -- person plus inhering enrollment mode
+```
+
+The car/window workflow is also used by the export/recheck examples:
+
+```bash
+lake build LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension
+lake exe export-certificates --module LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension --out certificates/
+lake exe validate-certificate certificates/CarWithWindow.certificate.json --module LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension
+```
+
+Release automation uses the same commands after setting the manifest artifact
+version in the runner workspace with:
+
+```bash
+scripts/set-artifact-version.sh vX.Y.Z
+```
+
 ## Selected Axiom Tests
 
 ```bash

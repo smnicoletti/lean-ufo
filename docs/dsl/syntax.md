@@ -22,6 +22,191 @@ ufo_model ModelName : UFO where
   certify
 ```
 
+Use `certify_fresh` when you want to force fresh per-axiom Boolean check
+theorems instead of allowing parent-certificate reuse in an extension:
+
+```lean
+ufo_model ModelName : UFO where
+  worlds actual
+  things Person Alice
+
+  given actual:
+    ObjectKind(Person)
+    Object(Alice)
+    Alice :: Person
+
+  derive_relations
+  certify_fresh
+```
+
+In the current implementation, ordinary `certify` may reuse a parent's stored
+check theorem when an extension compiles to exactly the same source as the
+parent, or when the registered finite-table footprint for that axiom is
+unchanged. `certify_fresh` forces fresh check theorem generation.
+
+Reuse is still Lean-checked. The generated child theorem first proves that the
+child checker result equals the parent checker result; if Lean cannot check
+that equality, the command falls back to a fresh checker proof.
+
+## Model Extension
+
+A model can extend a model that was elaborated earlier in the same module or
+imported from another module. This example starts with a car as a physical
+object, then adds a window and a body as proper parts. The body is included
+because the encoded UFO mereology includes strong supplementation: if the
+window is a proper part of the car, the car must also have another part that
+does not overlap the window.
+
+```lean
+ufo_model CarBase : UFO where
+  worlds actual
+  things PhysicalObject Car
+
+  given actual:
+    ObjectKind(PhysicalObject)
+    Object(Car)
+    Car :: PhysicalObject
+
+  derive_relations
+  certify
+
+ufo_model CarWithWindow : UFO extends CarBase : UFO where
+  things Window Body
+
+  given actual:
+    Object(Window)
+    Object(Body)
+    Window :: PhysicalObject
+    Body :: PhysicalObject
+
+    Part(PhysicalObject, PhysicalObject)
+    Part(Car, Car)
+    Part(Window, Window)
+    Part(Body, Body)
+    Part(Window, Car)
+    Part(Body, Car)
+
+    Overlap(PhysicalObject, PhysicalObject)
+    Overlap(Car, Car)
+    Overlap(Window, Window)
+    Overlap(Body, Body)
+    Overlap(Window, Car)
+    Overlap(Car, Window)
+    Overlap(Body, Car)
+    Overlap(Car, Body)
+
+    ProperPart(Window, Car)
+    ProperPart(Body, Car)
+
+  derive_relations
+  certify
+
+export_certificate CarWithWindow
+```
+
+The child model reuses the parent's declared worlds, things, facts, and
+product-family witnesses, then adds its own things and facts before compilation.
+It cannot add worlds yet. This avoids changing the meaning of parent
+`given everywhere:` facts; the added-world scoping policy is intentionally left
+for a later design step.
+
+Across modules, import the parent model's module before writing the child:
+
+```lean
+import MyModels.CarBase
+
+open LeanUfo.UFO.DSL
+
+ufo_model CarWithWindow : UFO extends CarBase : UFO where
+  -- add the child things and facts here
+  derive_relations
+  certify
+```
+
+Use `certify_fresh` for the same model shape when you explicitly want to bypass
+reuse and regenerate all checker proofs:
+
+```lean
+ufo_model CarWithWindowFresh : UFO extends CarBase : UFO where
+  things Window Body
+
+  given actual:
+    Object(Window)
+    Object(Body)
+    Window :: PhysicalObject
+    Body :: PhysicalObject
+
+    Part(PhysicalObject, PhysicalObject)
+    Part(Car, Car)
+    Part(Window, Window)
+    Part(Body, Body)
+    Part(Window, Car)
+    Part(Body, Car)
+
+    Overlap(PhysicalObject, PhysicalObject)
+    Overlap(Car, Car)
+    Overlap(Window, Window)
+    Overlap(Body, Body)
+    Overlap(Window, Car)
+    Overlap(Car, Window)
+    Overlap(Body, Car)
+    Overlap(Car, Body)
+
+    ProperPart(Window, Car)
+    ProperPart(Body, Car)
+
+  derive_relations
+  certify_fresh
+```
+
+An extension with no additions is treated as an exact alias and can reuse the
+parent's stored checks:
+
+```lean
+ufo_model CarBaseAlias : UFO extends CarBase : UFO where
+  derive_relations
+  certify
+```
+
+Every certified model exposes reusable certificate artifacts:
+
+```lean
+#check CarBase.source
+#check CarBase.checked_ax1
+#check CarBase.certificateManifest
+#check CarBase.certificateManifest.toJson
+```
+
+Use `export_certificate` to mark a model for manifest export:
+
+```lean
+export_certificate CarBase
+```
+
+The marker emits `CarBase.exportRequested : Bool := true`. It is metadata for
+the Lake exporter, not proof evidence.
+
+Export and validation are ordinary Lake workflows:
+
+```bash
+lake exe export-certificates --module LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension --out certificates/
+lake exe validate-certificate certificates/CarBase.certificate.json --structure-only
+lake exe validate-certificate certificates/CarWithWindow.certificate.json --module LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension
+```
+
+`--structure-only` checks just the JSON manifest shape. The default validation
+path requires `--module`: it rebuilds the module, checks the named Lean theorem
+declarations at their expected types, and compares regenerated SHA-256 source
+and finite-model digests.
+
+Additional concrete reuse examples cover role extension and mode/inherence
+extension:
+
+```text
+LeanUfo/UFO/DSL/ConcreteExamples/ReuseRoleExtension.lean
+LeanUfo/UFO/DSL/ConcreteExamples/ReuseModeExtension.lean
+```
+
 ## Facts
 
 The DSL keeps UFO notation for instantiation and specialization:

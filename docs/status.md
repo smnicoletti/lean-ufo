@@ -4,6 +4,9 @@
 
 Compact implementation snapshot.
 
+For the theorem-backed contract behind these features, see
+[Formal guarantees](guarantees.md).
+
 | Area | Status |
 | --- | --- |
 | Core UFO fragments | Active mechanization with semantic witness models |
@@ -28,6 +31,30 @@ Compact implementation snapshot.
   `Student ⊑ Person`.
 - Successful DSL models generate Lean certificate theorems through
   `UFOAxioms4`.
+- Successful DSL models now also emit `Model.source`, per-field
+  `Model.checked_axN` Boolean check theorems, and
+  `Model.certificateManifest` provenance metadata. Ordinary `certify` reuses
+  parent checks for exact-source extension aliases and for registered
+  footprint-backed fields in `Certificate/Reuse.lean`; `certify_fresh` forces
+  fresh check generation. Reuse remains Lean-checked: the child theorem proves
+  equality with the parent checker result before using the parent
+  `checked_axN` theorem, otherwise generation falls back fresh.
+- Certificate manifests can be exported with
+  `lake exe export-certificates --module ... --out ...`.
+  `lake exe validate-certificate manifest.json --structure-only` checks only
+  JSON structure. The default validation path requires
+  `--module Module.Name`; it rebuilds the Lean module, checks the generated
+  theorem declarations at their expected certificate types, and compares
+  regenerated SHA-256 source/model digests and theorem names.
+  `export_certificate ModelName` marks selected models for export.
+- Release-time certificate publishing is automated by the
+  `Certificate Manifests` workflow. On a published GitHub release, it writes the
+  tag into `Version.lean` in the runner workspace, exports marked manifests,
+  rechecks them against Lean proof declarations, and uploads the JSON manifests
+  to the release.
+- The DSL has a conservative `extends` form for models elaborated earlier in
+  the same module or imported from another module. Extensions may add things,
+  facts, and product-family witnesses, but not worlds.
 - The reflective checker certifies all registered axiom fields through §4. For
   `ax68`, the checker uses a bounded finite closure proved equivalent to the
   inductive `MomentOf` relation used by `UltimateBearerOf`.
@@ -72,6 +99,8 @@ Compact implementation snapshot.
 
 - Generated models use a universal S5 frame; custom accessibility relations are
   not surfaced.
+- Extended models cannot add worlds yet. This avoids silently changing the
+  expansion of parent `given everywhere:` facts.
 - The DSL has one flat `things` namespace and one flat `::` table; level-aware
   higher-order type syntax is postponed.
 - Rich §3.12 quality/product examples still require low-level set,

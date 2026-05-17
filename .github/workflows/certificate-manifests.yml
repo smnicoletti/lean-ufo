@@ -1,0 +1,73 @@
+name: Certificate Manifests
+
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      artifact_version:
+        description: "Artifact version to write into Version.lean before export"
+        required: true
+        default: "0.0.0-dev"
+      module:
+        description: "Module containing export_certificate markers"
+        required: true
+        default: "LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension"
+
+permissions:
+  contents: write
+
+jobs:
+  export-certificates:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || github.ref }}
+          fetch-depth: 0
+
+      - uses: leanprover/lean-action@v1
+        with:
+          build: true
+
+      - name: Select release metadata
+        id: metadata
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "artifact_version=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
+            echo "module=LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension" >> "$GITHUB_OUTPUT"
+          else
+            echo "artifact_version=${{ inputs.artifact_version }}" >> "$GITHUB_OUTPUT"
+            echo "module=${{ inputs.module }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set manifest artifact version
+        run: scripts/set-artifact-version.sh "${{ steps.metadata.outputs.artifact_version }}"
+
+      - name: Build certificate tooling and example module
+        run: |
+          lake build export-certificates validate-certificate
+          lake build "${{ steps.metadata.outputs.module }}"
+
+      - name: Export certificate manifests
+        run: lake exe export-certificates --module "${{ steps.metadata.outputs.module }}" --out certificates/
+
+      - name: Recheck exported certificate manifests
+        run: |
+          for manifest in certificates/*.certificate.json; do
+            lake exe validate-certificate "$manifest" --module "${{ steps.metadata.outputs.module }}"
+          done
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lean-ufo-certificate-manifests-${{ steps.metadata.outputs.artifact_version }}
+          path: certificates/*.certificate.json
+
+      - name: Upload manifests to GitHub release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" certificates/*.certificate.json --clobber

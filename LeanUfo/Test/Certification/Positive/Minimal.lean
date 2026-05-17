@@ -18,3 +18,9 @@ ufo_model TestMinimalCommand : UFO where
     ObjectKind(K)
   derive_relations
   certify
+
+example : LeanUfo.UFO.DSL.Checker.checkAx1 TestMinimalCommand.data = true :=
+  TestMinimalCommand.checked_ax1
+
+example : LeanUfo.UFO.DSL.CertificateManifest :=
+  TestMinimalCommand.certificateManifest

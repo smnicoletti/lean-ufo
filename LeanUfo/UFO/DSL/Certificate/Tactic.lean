@@ -2,12 +2,13 @@ import Lean
 import LeanUfo.UFO.DSL.Compiler
 
 /-!
-# Generated certificate tactic support
+# Generated simplification support
 
-This module contains the common simplification script used by generated finite
-UFO certificate proofs.  It owns only tactic construction; it does not know
-which model is being emitted, which axiom field is being checked, or how
-diagnostics are rendered.
+This module contains the common simplification script still used by generated
+derived-fact assertions, diagnostic counterexample probes, and fallback helper
+fragments. Ordinary registered axiom certificates are checker-backed. This file
+owns only tactic construction; it does not know which model is being emitted,
+which axiom field is being checked, or how diagnostics are rendered.
 -/
 
 open Lean Elab Command Parser
@@ -51,10 +52,10 @@ def certificateSimp : String :=
 /--
 Build the common certificate simplifier with a small axiom-specific tail.
 
-Most certificate fields only need their own axiom definition in addition to the
-finite-model compiler definitions. The shared `certificateSimp` remains useful
-for diagnostic counterexample probes and legacy helper fragments even though
-ordinary registered certificate fields are checker-backed.
+Diagnostic counterexample probes and occasional fallback fragments often need
+only their own axiom definition in addition to the finite-model compiler
+definitions. The shared `certificateSimp` remains here for those paths even
+though ordinary registered certificate fields are checker-backed.
 -/
 def certificateSimpSelected (defs : String) : String :=
   s!"simp [{certificateModelSimpDefs}, {defs}]"

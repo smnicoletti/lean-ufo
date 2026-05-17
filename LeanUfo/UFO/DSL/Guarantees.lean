@@ -572,6 +572,85 @@ theorem toFiniteModel4_distanceGreaterEq_eq
 
 end FactTables
 
+/-!
+## Certificate reuse guarantees
+
+Certificate reuse is deliberately a theorem-generation shortcut, not a new
+trusted cache.  The planner in `Certificate.Reuse` may suggest that a child
+model can reuse a parent `checked_axN` theorem, but the generated child theorem
+still proves that the child checker result is equal to the parent checker
+result before using the parent theorem.  If Lean cannot check that equality,
+the command generator falls back to a fresh checker proof.
+
+The small lemmas below capture the proof pattern used by generated reuse
+theorems.  They are intentionally stated for an arbitrary Boolean checker, so
+they apply uniformly to every checker-backed axiom field.
+-/
+
+namespace CertificateReuse
+
+/--
+If a child checker result is definitionally/computationally equal to the parent
+checker result, then a parent `checked_axN` theorem proves the corresponding
+child `checked_axN` theorem.
+-/
+theorem reused_checker_result_sound
+    (Child Parent : FiniteModel4) (check : FiniteModel4 → Bool)
+    (hEq : check Child = check Parent)
+    (hParent : check Parent = true) :
+    check Child = true := by
+  rw [hEq]
+  exact hParent
+
+/--
+Semantic soundness is preserved by certificate reuse: a reused checker theorem
+can only establish a child semantic property through the same soundness theorem
+used by a fresh checker theorem.
+
+This is the core reason model extension does not undermine certification
+correctness.  Reuse supplies `check Child = true`; semantic correctness still
+comes from the ordinary checker soundness theorem.
+-/
+theorem reused_checker_semantic_sound
+    (Child Parent : FiniteModel4)
+    (check : FiniteModel4 → Bool) (propOf : FiniteModel4 → Prop)
+    (sound : ∀ M, check M = true → propOf M)
+    (hEq : check Child = check Parent)
+    (hParent : check Parent = true) :
+    propOf Child :=
+  sound Child
+    (reused_checker_result_sound Child Parent check hEq hParent)
+
+/--
+Aggregate certificate reuse has the same shape as per-field reuse.  If Lean
+proves that the child aggregate checker result is equal to the parent aggregate
+checker result, then a parent aggregate check establishes the ordinary
+`UFOAxioms4` certificate for the child through `checkAxioms4_sound`.
+-/
+theorem reused_aggregate_checker_certified_sound
+    (Child Parent : FiniteModel4)
+    (hEq : Checker.checkAxioms4 Child = Checker.checkAxioms4 Parent)
+    (hParent : Checker.checkAxioms4 Parent = true) :
+    UFOAxioms4 Child.toUFOSignature4 :=
+  Checker.checkAxioms4_sound Child
+    (reused_checker_result_sound Child Parent Checker.checkAxioms4 hEq hParent)
+
+/--
+`certify_fresh` disables reuse planning at the pure planner level.  The command
+generator still has the final responsibility for emitting and checking theorem
+declarations, but the planner contributes no parent reuse source in fresh mode.
+-/
+theorem certificateReuseSource_fresh_none
+    (parentName : Lean.Name)
+    (parentSource childSource : ModelSource)
+    (parentTables childTables : FactTables)
+    (field : String) :
+    certificateReuseSource? parentName parentSource childSource parentTables
+      childTables true field = none := by
+  simp [certificateReuseSource?]
+
+end CertificateReuse
+
 namespace FiniteModel4
 
 /--

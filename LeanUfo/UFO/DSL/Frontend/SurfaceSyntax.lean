@@ -37,6 +37,7 @@ syntax (name := ufoDeriveRelations) "derive_relations" : ufoDeriveDirective
 
 declare_syntax_cat ufoCertDirective
 syntax (name := ufoCertify) "certify" : ufoCertDirective
+syntax (name := ufoCertifyFresh) "certify_fresh" : ufoCertDirective
 
 syntax (name := ufoModelCmd)
   "ufo_model" ident ":" "UFO" "where"
@@ -46,5 +47,22 @@ syntax (name := ufoModelCmd)
   ppLine ufoProductFamily*
   ppLine ufoDeriveDirective
   ppLine ufoCertDirective : command
+
+syntax (name := ufoExtendedModelCmd)
+  "ufo_model" ident ":" "UFO" "extends" ident ":" "UFO" "where"
+  ppLine "things" ident*
+  ppLine ufoFactBlock*
+  ppLine ufoProductFamily*
+  ppLine ufoDeriveDirective
+  ppLine ufoCertDirective : command
+
+syntax (name := ufoExtendedModelNoThingsCmd)
+  "ufo_model" ident ":" "UFO" "extends" ident ":" "UFO" "where"
+  ppLine ufoFactBlock*
+  ppLine ufoProductFamily*
+  ppLine ufoDeriveDirective
+  ppLine ufoCertDirective : command
+
+syntax (name := ufoExportCertificate) "export_certificate" ident : command
 
 end LeanUfo.UFO.DSL

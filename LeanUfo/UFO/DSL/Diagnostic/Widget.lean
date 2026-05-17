@@ -94,6 +94,39 @@ function CertificationRow({ row }) {
       : null);
 }
 
+function ReuseBadge({ status }) {
+  const reused = status === 'reused';
+  return e('span', {
+    style: {
+      display: 'inline-block',
+      minWidth: '3.7rem',
+      color: reused ? '#58a6ff' : '#2ea043',
+      fontWeight: 600,
+      textTransform: 'capitalize'
+    }
+  }, status);
+}
+
+function ReuseRow({ row }) {
+  return e('div', {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: '4.4rem max-content 1fr',
+      alignItems: 'baseline',
+      columnGap: '0.5rem',
+      fontSize: '0.85rem',
+      marginBottom: '0.2rem',
+      minWidth: 'max-content'
+    }
+  },
+    e(ReuseBadge, { status: row.status }),
+    e('code', null, row.field),
+    row.reusedFrom
+      ? e('span', { style: { opacity: 0.8, whiteSpace: 'nowrap' } },
+          'from ', e('code', null, row.reusedFrom))
+      : e('span', { style: { opacity: 0.72 } }, 'checked in this model'));
+}
+
 function parseFailureAnalysis(lines) {
   const intro = [];
   const cards = [];
@@ -220,7 +253,10 @@ export default function(props) {
   const facts = props.facts || [];
   const expandedFacts = props.expandedFacts || [];
   const statuses = props.certification || [];
+  const reuseRows = props.certificateReuse || [];
   const failed = statuses.find(s => s.status === 'failed');
+  const reusedCount = reuseRows.filter(r => r.status === 'reused').length;
+  const freshCount = reuseRows.filter(r => r.status === 'fresh').length;
 
   return e('div', {
     style: {
@@ -260,6 +296,23 @@ export default function(props) {
     (props.failureAnalysis || []).length
       ? e(Section, { title: 'Failure analysis' },
           e(FailureAnalysis, { lines: props.failureAnalysis }))
+      : null,
+
+    reuseRows.length
+      ? e(Section, { title: 'Certificate reuse' },
+          e('details', { open: reusedCount > 0 },
+            e('summary', null,
+              reusedCount + ' reused, ' + freshCount + ' checked fresh'),
+            e('div', {
+              style: {
+                opacity: 0.82,
+                marginTop: '0.35rem',
+                marginBottom: '0.35rem'
+              }
+            },
+              'Reuse is still Lean-checked: each reused row proves equality with the parent checker result before using the parent theorem.'),
+            e('div', { style: { overflowX: 'auto' } }, reuseRows.map((row, i) =>
+              e(ReuseRow, { key: row.field + i, row })))))
       : null,
 
     e(Section, { title: 'Certification' },

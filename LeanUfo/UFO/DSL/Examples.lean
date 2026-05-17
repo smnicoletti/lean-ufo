@@ -9,6 +9,9 @@ import LeanUfo.UFO.DSL.ConcreteExamples.UltimateBearer
 import LeanUfo.UFO.DSL.ConcreteExamples.StudentEnrollmentMode
 import LeanUfo.UFO.DSL.ConcreteExamples.GrantGoal
 import LeanUfo.UFO.DSL.ConcreteExamples.ColorSpaceProductFamily
+import LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension
+import LeanUfo.UFO.DSL.ConcreteExamples.ReuseRoleExtension
+import LeanUfo.UFO.DSL.ConcreteExamples.ReuseModeExtension
 import LeanUfo.UFO.DSL.ConcreteExamples.ConceptEvolution
 
 /-!
@@ -39,5 +42,8 @@ The user-facing examples live in:
 * `LeanUfo/UFO/DSL/ConcreteExamples/StudentEnrollmentMode.lean`
 * `LeanUfo/UFO/DSL/ConcreteExamples/GrantGoal.lean`
 * `LeanUfo/UFO/DSL/ConcreteExamples/ColorSpaceProductFamily.lean`
+* `LeanUfo/UFO/DSL/ConcreteExamples/ReuseModelExtension.lean`
+* `LeanUfo/UFO/DSL/ConcreteExamples/ReuseRoleExtension.lean`
+* `LeanUfo/UFO/DSL/ConcreteExamples/ReuseModeExtension.lean`
 * `LeanUfo/UFO/DSL/ConcreteExamples/ConceptEvolution.lean`
 -/

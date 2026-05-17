@@ -1,5 +1,6 @@
 import Lean
 import LeanUfo.UFO.DSL.Certificate.Generation
+import LeanUfo.UFO.DSL.Certificate.Reuse
 import LeanUfo.UFO.DSL.Certificate.Tactic
 import LeanUfo.UFO.DSL.Compiler
 import LeanUfo.UFO.DSL.Diagnostic.Analysis
@@ -71,6 +72,14 @@ tables still contain ordinary world-indexed facts.
 open Lean Elab Command Parser
 
 namespace LeanUfo.UFO.DSL
+
+structure CachedModelSource where
+  source : ModelSource
+  tables : FactTables
+  declaredName : Name
+  deriving Inhabited
+
+initialize modelSourceCache : IO.Ref (Std.HashMap Name CachedModelSource) ← IO.mkRef {}
 
 private def checkNoReservedWorldNames (xs : Array Name) : CommandElabM Unit := do
   for x in xs do
@@ -222,13 +231,24 @@ private def certificationJson (completed : Array String) (failed? : Option Strin
       ("status", status)
     ]
 
+private def certificateReuseJson (actualReuse : Array (String × Option Name)) : Json :=
+  Json.arr <| actualReuse.map fun row =>
+    Json.mkObj [
+      ("field", row.1),
+      ("status", if row.2.isSome then "reused" else "fresh"),
+      ("reusedFrom", match row.2 with
+        | none => Json.null
+        | some parent => Json.str s!"{parent}.{checkedTheoremName row.1}")
+    ]
+
 private def diagnosticsProps
     (model : Name) (worldNames thingNames : Array Name)
     (namedFacts : Array NamedScopedFact) (scopedFacts : Array ScopedCompiledFact)
     (expandedFacts : Array CompiledFact)
     (tables : FactTables) (stage : String)
     (completed : Array String := #[]) (failed? : Option String := none)
-    (failure? : Option String := none) (failureAnalysis : Array String := #[]) : Json :=
+    (failure? : Option String := none) (failureAnalysis : Array String := #[])
+    (actualReuse : Array (String × Option Name) := #[]) : Json :=
   let derivedPairs := derivedPropSummaryPairs worldNames namedFacts scopedFacts
   Json.mkObj [
     ("model", model.toString),
@@ -240,7 +260,8 @@ private def diagnosticsProps
     ("facts", stringsJson <| namedFacts.map namedFactSummary),
     ("expandedFacts", stringsJson <| expandedFacts.map (compiledFactSummary worldNames thingNames derivedPairs)),
     ("derivedProps", stringsJson tables.derivedProps),
-    ("certification", certificationJson completed failed?)
+    ("certification", certificationJson completed failed?),
+    ("certificateReuse", certificateReuseJson actualReuse)
   ]
 
 private def saveDiagnosticsWidget
@@ -249,11 +270,12 @@ private def saveDiagnosticsWidget
     (expandedFacts : Array CompiledFact)
     (tables : FactTables) (stage : String)
     (completed : Array String := #[]) (failed? : Option String := none)
-    (failure? : Option String := none) (failureAnalysis : Array String := #[]) :
+    (failure? : Option String := none) (failureAnalysis : Array String := #[])
+    (actualReuse : Array (String × Option Name) := #[]) :
     CommandElabM Unit := do
   liftCoreM <| Widget.savePanelWidgetInfo ufoDiagnosticsWidget.javascriptHash
     (pure <| diagnosticsProps model worldNames thingNames namedFacts scopedFacts expandedFacts tables
-      stage completed failed? failure? failureAnalysis)
+      stage completed failed? failure? failureAnalysis actualReuse)
     cmdStx
 
 private def saveFailedDiagnosticsWidget
@@ -262,9 +284,10 @@ private def saveFailedDiagnosticsWidget
     (expandedFacts : Array CompiledFact)
     (tables : FactTables) (stage : String)
     (completed : Array String) (failed? : Option String)
-    (message : String) (failureAnalysis : Array String := #[]) : CommandElabM Unit := do
+    (message : String) (failureAnalysis : Array String := #[])
+    (actualReuse : Array (String × Option Name) := #[]) : CommandElabM Unit := do
   saveDiagnosticsWidget cmdStx model worldNames thingNames namedFacts scopedFacts expandedFacts tables
-    stage completed failed? (some message) failureAnalysis
+    stage completed failed? (some message) failureAnalysis actualReuse
   let detail :=
     if failureAnalysis.isEmpty then
       message
@@ -404,6 +427,37 @@ private def elabTermStringWithReport (source : String) : CommandElabM ElabCheckR
 private def elabTermStringWithErrorCheck (source : String) : CommandElabM Bool := do
   pure (← elabTermStringWithReport source).failed
 
+private def elabTermStringStrictWithReport (source : String) : CommandElabM ElabCheckResult := do
+  let savedCommandMessages ← modifyGet fun st =>
+    (st.messages, { st with messages := {} })
+  let savedMessages ← liftCoreM <| modifyGetThe Core.State fun st =>
+    (st.messages, { st with messages := {} })
+  let mut threw := false
+  let mut thrownErrors : Array String := #[]
+  try
+    match Parser.runParserCategory (← getEnv) `term source with
+    | .ok stx =>
+        liftTermElabM do
+          let _ ← Lean.Elab.Term.elabTerm stx none
+          Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+    | .error err =>
+        throwError "failed to parse generated UFO proof check:\n{err}\n\nGenerated source:\n{source}"
+  catch e =>
+    threw := true
+    thrownErrors := thrownErrors.push (← exceptionText e)
+  let newMessages ← liftCoreM Core.getMessageLog
+  let newCommandMessages := (← get).messages
+  modify fun st =>
+    { st with messages := savedCommandMessages }
+  liftCoreM <| modifyThe Core.State fun st =>
+    { st with messages := savedMessages }
+  let errors := thrownErrors ++ (← messageErrorTexts newMessages) ++ (← messageErrorTexts newCommandMessages)
+  pure { failed := threw || messageErrorCount newMessages > 0 || messageErrorCount newCommandMessages > 0
+         errors := errors }
+
+private def elabTermStringStrictWithErrorCheck (source : String) : CommandElabM Bool := do
+  pure (← elabTermStringStrictWithReport source).failed
+
 private def certificationFailureAnalysis
     (profileEnabled : Bool) (model : Name)
     (worldNames thingNames : Array Name) (namedFacts : Array NamedScopedFact)
@@ -442,6 +496,11 @@ private def throwResolveError : ResolveError → CommandElabM α
   | .duplicateThing name => throwError "duplicate thing name `{name}` in UFO model"
   | .unknownWorld name => throwError "unknown world name `{name}` in UFO model"
   | .unknownThing name => throwError "unknown thing name `{name}` in UFO model"
+  | .extensionAddsWorlds =>
+      throwError
+        "extended UFO models cannot declare new worlds yet; add only things, facts, and product-family witnesses, or define a fresh model"
+  | .extensionDisablesDerivations =>
+      throwError "extended UFO models must use the same `derive_relations` setting as their parent"
   | .productFamilyArityMismatch domain qualityType dimensionCount typeCount =>
       throwError
         "product_family `{domain}` for `{qualityType}` has {dimensionCount} dimensions but {typeCount} types"
@@ -460,9 +519,11 @@ stopped at the first failed generated axiom field.
 -/
 private def emitModel
     (cmdStx : Syntax) (model : Name) (worldNames thingNames : Array Name)
-    (namedFacts : Array NamedScopedFact) (scopedFacts : Array ScopedCompiledFact)
+    (source : ModelSource) (namedFacts : Array NamedScopedFact)
+    (scopedFacts : Array ScopedCompiledFact)
     (facts : Array CompiledFact) (productFamilies : Array ProductFamilySpec)
-    (tables : FactTables) : CommandElabM Unit := do
+    (tables : FactTables) (reuseFor? : String → Option Name := fun _ => none) :
+    CommandElabM Unit := do
   if worldNames.isEmpty then
     throwError "a UFO model must declare at least one world"
   if thingNames.isEmpty then
@@ -472,6 +533,7 @@ private def emitModel
   let profileEnabled ← certProfileEnabled
   let initialErrors ← coreMessageErrorCount
   elabCommand (← `(command| namespace $modelIdent))
+  elabCommandString (modelSourceDecl source)
   elabCommandString (modelASTSource worldNames.size thingNames.size facts productFamilies)
   elabCommandString "def tables : FactTables := compileExplicitModelAST ast"
   elabCommandString "def data : FiniteModel4 := compileExplicitModel ast (by decide) (by decide)"
@@ -486,34 +548,71 @@ private def emitModel
       failureAnalysis
   else
     let mut completed : Array String := #[]
+    let mut actualReuse : Array (String × Option Name) := #[]
     let mut failedField? : Option CertField := none
     for field in certFields do
       if failedField?.isNone then
         if field.field == "ax68" &&
             hasAx68ClosureFailure worldNames.size thingNames.size tables then
           failedField? := some field
-        else if useCommandCertificateProbe field then
-          let certFailed ← profileStep profileEnabled s!"{model}.{field.field}.command-probe" <|
-            elabCommandStringWithErrorCheck
-              (certAxiomTheorem worldNames.size thingNames.size tables field)
-          if certFailed then
-            failedField? := some field
-          else
-            completed := completed.push field.field
         else
-          let certFailed ← profileStep profileEnabled s!"{model}.{field.field}.term-preflight" <|
-            elabTermStringWithErrorCheck
-              (certAxiomProofCheck worldNames.size thingNames.size tables field)
-          if certFailed then
-            failedField? := some field
-          else
-            let declareFailed ← profileStep profileEnabled s!"{model}.{field.field}.declare" <|
+          let fieldReuseFrom? := reuseFor? field.field
+          let checkedPreflightFailed ←
+            profileStep profileEnabled s!"{model}.{field.field}.checked-preflight" <|
+              elabTermStringStrictWithErrorCheck (checkedAxiomProofCheck field fieldReuseFrom?)
+          let checkedFailed ←
+            if checkedPreflightFailed then
+              pure true
+            else
+              profileStep profileEnabled s!"{model}.{field.field}.checked" <|
+                elabCommandStringWithErrorCheck (checkedAxiomTheorem field fieldReuseFrom?)
+          let actualReuseFrom? ←
+            if checkedFailed then
+              match fieldReuseFrom? with
+              | some _ =>
+                  let freshCheckedPreflightFailed ←
+                    profileStep profileEnabled s!"{model}.{field.field}.checked-fresh-fallback-preflight" <|
+                      elabTermStringStrictWithErrorCheck (checkedAxiomProofCheck field none)
+                  let freshCheckedFailed ←
+                    if freshCheckedPreflightFailed then
+                      pure true
+                    else
+                      profileStep profileEnabled s!"{model}.{field.field}.checked-fresh-fallback" <|
+                        elabCommandStringWithErrorCheck (checkedAxiomTheorem field none)
+                  if freshCheckedFailed then
+                    failedField? := some field
+                  pure none
+              | none =>
+                  failedField? := some field
+                  pure none
+            else
+              pure fieldReuseFrom?
+          if failedField?.isSome then
+            pure ()
+          else if useCommandCertificateProbe field then
+            let certFailed ← profileStep profileEnabled s!"{model}.{field.field}.command-probe" <|
               elabCommandStringWithErrorCheck
                 (certAxiomTheorem worldNames.size thingNames.size tables field)
-            if declareFailed then
+            if certFailed then
               failedField? := some field
             else
+              actualReuse := actualReuse.push (field.field, actualReuseFrom?)
               completed := completed.push field.field
+          else
+            let certFailed ← profileStep profileEnabled s!"{model}.{field.field}.term-preflight" <|
+              elabTermStringWithErrorCheck
+                (certAxiomProofCheck worldNames.size thingNames.size tables field)
+            if certFailed then
+              failedField? := some field
+            else
+              let declareFailed ← profileStep profileEnabled s!"{model}.{field.field}.declare" <|
+                elabCommandStringWithErrorCheck
+                  (certAxiomTheorem worldNames.size thingNames.size tables field)
+              if declareFailed then
+                failedField? := some field
+              else
+                actualReuse := actualReuse.push (field.field, actualReuseFrom?)
+                completed := completed.push field.field
     match failedField? with
     | some failedField =>
         let failureAnalysis ←
@@ -521,7 +620,7 @@ private def emitModel
         saveFailedDiagnosticsWidget cmdStx model worldNames thingNames namedFacts scopedFacts facts tables
           "certification-failed" completed (some failedField.field)
           s!"Generated certificate theorem `{certTheoremName failedField.field}` failed."
-          failureAnalysis
+          failureAnalysis actualReuse
     | none =>
         let certifiedFailed ← profileStep profileEnabled s!"{model}.certified" <|
           elabCommandStringWithErrorCheck
@@ -529,6 +628,7 @@ private def emitModel
         if certifiedFailed then
           saveFailedDiagnosticsWidget cmdStx model worldNames thingNames namedFacts scopedFacts facts tables
             "packaging-failed" completed none "The individual axiom checks completed, but final certificate packaging failed."
+            #[] actualReuse
         else
           let certifiedModelFailed ← profileStep profileEnabled s!"{model}.certifiedModel" <|
             elabCommandStringWithErrorCheck
@@ -536,13 +636,93 @@ private def emitModel
           if certifiedModelFailed then
             saveFailedDiagnosticsWidget cmdStx model worldNames thingNames namedFacts scopedFacts facts tables
               "packaging-failed" completed none "The individual axiom checks completed, but final certified model packaging failed."
+              #[] actualReuse
           else if (← coreMessageErrorCount) > initialErrors then
             saveFailedDiagnosticsWidget cmdStx model worldNames thingNames namedFacts scopedFacts facts tables
               "certification-failed" completed none "Generated certification logged Lean errors; the model is not certified."
-          else
+              #[] actualReuse
+          else do
+            let actualReuseFor? (field : String) : Option Name :=
+              actualReuse.findSome? fun row =>
+                if row.1 == field then row.2 else none
+            elabCommandString (certificateManifestSource model source tables actualReuseFor?)
             saveDiagnosticsWidget cmdStx model worldNames thingNames namedFacts scopedFacts facts tables
-              "certified" completed none none
+              "certified" completed none none #[] actualReuse
   elabCommand (← `(command| end $modelIdent))
+
+private def namesFromStrings (xs : Array String) : Array Name :=
+  xs.map Name.mkSimple
+
+private def parseBlocksAndFamilies
+    (worldNames thingNames : Array Name)
+    (blocks : Array (TSyntax `ufoFactBlock))
+    (families : Array (TSyntax `ufoProductFamily)) :
+    CommandElabM (Array NamedScopedFact × Array NamedProductFamily) := do
+  let mut namedFacts : Array NamedScopedFact := #[]
+  for factBlock in blocks do
+    namedFacts ← parseFactBlock worldNames thingNames namedFacts factBlock
+  let mut namedProductFamilies : Array NamedProductFamily := #[]
+  for family in families do
+    namedProductFamilies := namedProductFamilies.push (← parseProductFamily family)
+  pure (namedFacts, namedProductFamilies)
+
+private def isCertifyFresh (cert : TSyntax `ufoCertDirective) : Bool :=
+  cert.raw.getKind == ``ufoCertifyFresh
+
+private unsafe def evalParentConst? (α : Type) (typeName constName : Name) :
+    CommandElabM (Option α) := do
+  let env ← getEnv
+  let opts ← getOptions
+  match (unsafe env.evalConstCheck α opts typeName constName) with
+  | .ok value => pure (some value)
+  | .error _ => pure none
+
+private unsafe def cachedModelSourceFromEnv? (parent : Name) :
+    CommandElabM (Option CachedModelSource) := do
+  let sourceName := Name.str parent "source"
+  let tablesName := Name.str parent "tables"
+  match (← evalParentConst? ModelSource ``ModelSource sourceName),
+      (← evalParentConst? FactTables ``FactTables tablesName) with
+  | some source, some tables =>
+      pure (some { source, tables, declaredName := parent })
+  | _, _ =>
+      pure none
+
+private unsafe def resolveParentModelSource (parent : Name) :
+    CommandElabM CachedModelSource := do
+  let cache ← modelSourceCache.get
+  match cache.get? parent with
+  | some cached => pure cached
+  | none =>
+      match (← cachedModelSourceFromEnv? parent) with
+      | some cached => pure cached
+      | none =>
+          throwError
+            "unknown parent UFO model `{parent}` for extension; expected `{parent}.source` and `{parent}.tables` to be available from an earlier model or an imported module"
+
+private def makeReusePlan
+    (parent? : Option CachedModelSource) (source : ModelSource) (childTables : FactTables)
+    (fresh : Bool) : String → Option Name :=
+  match parent? with
+  | none => fun _ => none
+  | some parent =>
+      fun field =>
+        certificateReuseSource? parent.declaredName parent.source source
+          parent.tables childTables fresh field
+
+private def emitCompiledModelSource
+    (cmdStx : Syntax) (model : Name) (source : ModelSource)
+    (parent? : Option CachedModelSource := none) (fresh : Bool := false) :
+    CommandElabM Unit := do
+  let compiled ←
+    match compileModelSource source with
+    | .ok compiled => pure compiled
+    | .error err => throwResolveError err
+  emitModel cmdStx model (namesFromStrings source.worlds) (namesFromStrings source.things)
+    source source.facts compiled.scopedFacts compiled.expandedFacts compiled.productFamilies
+    compiled.tables (makeReusePlan parent? source compiled.tables fresh)
+  modelSourceCache.modify (fun cache =>
+    cache.insert model { source, tables := compiled.tables, declaredName := model })
 
 elab_rules : command
   | `(ufo_model $model:ident : UFO where
@@ -560,28 +740,59 @@ elab_rules : command
     checkNoReservedWorldNames worldNames
     let worldNameStrings := worldNames.map (·.toString)
     let thingNameStrings := thingNames.map (·.toString)
-    let mut namedFacts : Array NamedScopedFact := #[]
-    for factBlock in blocks do
-      namedFacts ← parseFactBlock worldNames thingNames namedFacts factBlock
-    let mut namedProductFamilies : Array NamedProductFamily := #[]
-    for family in families do
-      namedProductFamilies := namedProductFamilies.push (← parseProductFamily family)
-    let scopedFacts ←
-      match resolveNamedFacts worldNameStrings thingNameStrings namedFacts with
-      | .ok facts => pure facts
+    let (namedFacts, namedProductFamilies) ← parseBlocksAndFamilies worldNames thingNames blocks families
+    let source : ModelSource :=
+      ModelSource.mk worldNameStrings thingNameStrings namedFacts namedProductFamilies true
+    emitCompiledModelSource cmdStx model.getId source
+
+  | `(ufo_model $model:ident : UFO extends $parent:ident : UFO where
+      things $ts:ident*
+      $blocks:ufoFactBlock*
+      $families:ufoProductFamily*
+      $derive:ufoDeriveDirective
+      $cert:ufoCertDirective) => do
+    let cmdStx ← getRef
+    let _ := derive
+    let _ := cert
+    let parentCached ← unsafe resolveParentModelSource parent.getId
+    let parentSource := parentCached.source
+    let thingNames := ts.map (·.getId)
+    let childThingNameStrings := thingNames.map (·.toString)
+    let allThingNames := parentSource.things.map Name.mkSimple ++ thingNames
+    let worldNames := namesFromStrings parentSource.worlds
+    let (namedFacts, namedProductFamilies) ← parseBlocksAndFamilies worldNames allThingNames blocks families
+    let childSource : ModelSource :=
+      ModelSource.mk #[] childThingNameStrings namedFacts namedProductFamilies true
+    let source ←
+      match extendModelSource parentSource childSource with
+      | .ok source => pure source
       | .error err => throwResolveError err
-    let productFamilies ←
-      match resolveNamedProductFamilies thingNameStrings namedProductFamilies with
-      | .ok families => pure families
+    emitCompiledModelSource cmdStx model.getId source (some parentCached) (isCertifyFresh cert)
+
+  | `(ufo_model $model:ident : UFO extends $parent:ident : UFO where
+      $blocks:ufoFactBlock*
+      $families:ufoProductFamily*
+      $derive:ufoDeriveDirective
+      $cert:ufoCertDirective) => do
+    let cmdStx ← getRef
+    let _ := derive
+    let parentCached ← unsafe resolveParentModelSource parent.getId
+    let parentSource := parentCached.source
+    let worldNames := namesFromStrings parentSource.worlds
+    let thingNames := namesFromStrings parentSource.things
+    let (namedFacts, namedProductFamilies) ← parseBlocksAndFamilies worldNames thingNames blocks families
+    let childSource : ModelSource :=
+      ModelSource.mk #[] #[] namedFacts namedProductFamilies true
+    let source ←
+      match extendModelSource parentSource childSource with
+      | .ok source => pure source
       | .error err => throwResolveError err
-    let facts := expandScopedFacts worldNames.size scopedFacts
-    let expandedFacts := addReflexiveSpecializationFacts worldNames.size (addTaxonomyFacts facts)
-    let ast : ModelAST :=
-      { worldCount := worldNames.size
-        thingCount := thingNames.size
-        facts := expandedFacts
-        productFamilies := productFamilies }
-    emitModel cmdStx model.getId worldNames thingNames namedFacts scopedFacts expandedFacts productFamilies
-      (compileExplicitModelAST ast)
+    emitCompiledModelSource cmdStx model.getId source (some parentCached) (isCertifyFresh cert)
+
+  | `(export_certificate $model:ident) => do
+    let modelIdent := mkIdent model.getId
+    elabCommand (← `(command| namespace $modelIdent))
+    elabCommandString "def exportRequested : Bool := true"
+    elabCommand (← `(command| end $modelIdent))
 
 end LeanUfo.UFO.DSL

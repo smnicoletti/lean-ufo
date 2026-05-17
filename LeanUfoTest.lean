@@ -23,7 +23,9 @@ structure ExpectedOutput where
   rejects : Array String := #[]
 
 def fastExpectedFailures : Array ExpectedFailure := #[
-  ⟨"syntax", "LeanUfo/Test/Syntax/RejectedOldSyntax.lean", "unexpected token ':'", false⟩
+  ⟨"syntax", "LeanUfo/Test/Syntax/RejectedOldSyntax.lean", "unexpected token ':'", false⟩,
+  ⟨"extension-worlds", "LeanUfo/Test/Syntax/RejectedExtensionAddsWorld.lean",
+    "unexpected token 'worlds'", false⟩
 ]
 
 def fullExpectedFailures : Array ExpectedFailure := #[
@@ -87,8 +89,10 @@ def fullExpectedFailures : Array ExpectedFailure := #[
   ⟨"ax13", "LeanUfo/Test/Certification/Negative/Ax13EndurantAndPerdurant.lean", "certified_ax13", true⟩,
   ⟨"ax18", "LeanUfo/Test/Certification/Negative/Ax18AntiRigidKind.lean", "certified_ax18", true⟩,
   ⟨"ax61", "LeanUfo/Test/Certification/Negative/Ax61SymmetricConstitution.lean", "certified_ax61", true⟩,
+  ⟨"ax61", "LeanUfo/Test/Certification/Negative/ExtensionInvalidConstitutionAddition.lean", "certified_ax61", true⟩,
   ⟨"ax10", "LeanUfo/Test/Certification/Negative/Ax10FutureOnlyIndividualClassification.lean", "certified_ax10", true⟩,
-  ⟨"ax77", "LeanUfo/Test/Certification/Negative/Ax77RelatorFoundedBy.lean", "certified_ax77", true⟩
+  ⟨"ax77", "LeanUfo/Test/Certification/Negative/Ax77RelatorFoundedBy.lean", "certified_ax77", true⟩,
+  ⟨"ax13", "LeanUfo/Test/Certification/Negative/ExtensionInvalidAddition.lean", "certified_ax13", true⟩
 ]
 
 def diagnosticOutputChecks : Array ExpectedOutput := #[
@@ -117,6 +121,30 @@ def diagnosticOutputChecks : Array ExpectedOutput := #[
     ],
     rejects := #[
       "V : Quale"
+    ]
+  },
+  {
+    label := "extension ax13 diagnostic rendering",
+    file := "LeanUfo/Test/Certification/Negative/ExtensionInvalidAddition.lean",
+    contains := #[
+      "A finite counterexample was confirmed for ax13.",
+      "Counterexample assignment: x = Car, w = actual.",
+      "Evidence for [actual] Endurant(Car):",
+      "[actual] Object(Car) (taxonomy expansion implies endurant)",
+      "Evidence for [actual] Perdurant(Car):",
+      "[actual] Perdurant(Car)"
+    ]
+  },
+  {
+    label := "extension ax61 diagnostic rendering",
+    file := "LeanUfo/Test/Certification/Negative/ExtensionInvalidConstitutionAddition.lean",
+    contains := #[
+      "A finite counterexample was confirmed for ax61.",
+      "Counterexample assignment: x = X, y = Y, w = actual.",
+      "Evidence for [actual] ConstitutedBy(X, Y):",
+      "[actual] ConstitutedBy(X, Y)",
+      "Evidence for [actual] ConstitutedBy(Y, X):",
+      "[actual] ConstitutedBy(Y, X)"
     ]
   }
 ]
@@ -392,6 +420,19 @@ def checkCommand (label cmd : String) (args : Array String) : IO (Array String) 
   else
     pure #[s!"{label} failed with exit code {out.exitCode}"]
 
+def checkCertificateExportWorkflow : IO (Array String) := do
+  let outDir := "/private/tmp/lean-ufo-test-certificates"
+  let moduleName := "LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension"
+  let mut failures := #[]
+  failures := failures ++ (← checkCommand "certificate manifest export" "lake"
+    #["exe", "export-certificates", "--module", moduleName, "--out", outDir])
+  failures := failures ++ (← checkCommand "certificate manifest structure validation" "lake"
+    #["exe", "validate-certificate", outDir ++ "/CarBase.certificate.json", "--structure-only"])
+  failures := failures ++ (← checkCommand "certificate manifest proof recheck" "lake"
+    #["exe", "validate-certificate", outDir ++ "/CarWithWindow.certificate.json",
+      "--module", moduleName])
+  pure failures
+
 def fullTestsEnabled : IO Bool := do
   if !(← selectedAxioms).isEmpty then
     pure true
@@ -427,6 +468,8 @@ def main : IO UInt32 := do
         failures := failures ++ (← checkExpectedOutput test)
       else if selected.any fun field => test.file.contains s!"/{field.capitalize}" then
         failures := failures ++ (← checkExpectedOutput test)
+    if selected.isEmpty || selected.contains "all" then
+      failures := failures ++ (← checkCertificateExportWorkflow)
   if failures.isEmpty then
     if !(← fullTestsEnabled) then
       IO.println "LeanUfo DSL tests passed (fast profile; set LEANUFO_FULL_TESTS=1 for semantic witness checks)"
