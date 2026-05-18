@@ -214,10 +214,10 @@ completeness lemmas after first checking the required earlier fields with
 `native_decide`.
 
 When adding a checker-backed axiom, keep the public `certified_axN` theorem name
-stable and add the Boolean checker, stepped checker, soundness proof, and
-targeted `LEANUFO_AXIOMS=axN lake test` run. Add completeness and direct
-negative-probe routing when the checker is equivalent to the core axiom without
-extra representation assumptions.
+stable and add the Boolean checker, stepped checker envelope annotation,
+soundness proof, and targeted `LEANUFO_AXIOMS=axN lake test` run. Add
+completeness and direct negative-probe routing when the checker is equivalent to
+the core axiom without extra representation assumptions.
 
 When touching model-extension code, keep `extendModelSource` as the only merge
 point. It currently rejects child-added worlds so parent `everywhere` facts keep

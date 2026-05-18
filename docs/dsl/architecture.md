@@ -218,7 +218,9 @@ checkAxN_S : FiniteModel4 -> Stepped Bool
 ```
 
 The plain checker returns the Boolean result. The stepped checker returns the
-same Boolean result together with an abstract step count.
+same Boolean result together with an abstract step envelope. The envelope is a
+syntactic upper bound used for formal polynomial statements; it is not an exact
+operation counter.
 
 The key change is that semantic certification is now driven by explicit finite
 computation rather than by asking Lean tactics to rediscover a proof for each
@@ -282,7 +284,7 @@ The main checker files are:
   loops;
 - `Checker/Axioms.lean`: executable axiom checkers;
 - `Checker/Soundness.lean`: soundness and completeness theorems;
-- `Checker/Steps.lean`: abstract step accounting;
+- `Checker/Steps.lean`: abstract step-envelope definitions;
 - `Checker/Complexity.lean`: formal step bounds.
 
 The standard per-axiom theorem pattern is:
@@ -495,7 +497,8 @@ component guarantee means, use the formal-guarantees page.
 ## Formal Complexity Result
 
 The formal complexity statements are also summarized in
-[Formal guarantees](../guarantees.md). The checker has an abstract step model:
+[Formal guarantees](../guarantees.md). The checker has an abstract step-envelope
+model:
 
 ```lean
 structure Stepped (alpha : Type) where
@@ -513,38 +516,60 @@ checkAxioms4_S_value :
 states that the stepped checker computes the same Boolean result as the plain
 checker.
 
-The two-dimensional polynomial bound is:
+The raw envelope constructor is:
 
 ```lean
-finite_checker_polynomial_bound :
-  exists C a b,
-    forall M : FiniteModel4,
-      (checkAxioms4_S M).steps <=
-        C * (M.thingCount + 1)^a * (M.worldCount + 1)^b + 115
+Stepped.stepEnvelope M thingPow worldPow =
+  (M.thingCount + 1)^thingPow * (M.worldCount + 1)^worldPow
 ```
 
-There is also a one-variable model-size theorem. The model size is:
+Individual stepped axiom wrappers use `Stepped.axiomStepEnvelope` only where the
+visible finite scans justify local exponents. Otherwise they use
+`Stepped.axiomEnvelope`, the default wrapper backed by the global envelope.
+
+The aggregate step-envelope bound is:
+
+```lean
+checkAxioms4_steps_bound :
+  (checkAxioms4_S M).steps <=
+    116 * Stepped.globalStepEnvelope M + 115
+```
+
+Here `globalStepEnvelope` is the conservative fallback envelope for checker
+steps:
+
+```lean
+Stepped.globalStepEnvelope M =
+  (M.thingCount + 1)^8 * (M.worldCount + 1)^4
+```
+
+There is also a one-variable input-size theorem. The thing/world component is:
 
 ```lean
 modelSize M = (M.thingCount + 1) * (M.worldCount + 1)
 ```
 
-It counts the abstract finite thing/world positions used by the checker. It is
-not a byte-size measurement, a CPU-instruction count, Lean kernel checking time,
-or Lake build time.
+The final size measure adds product-family witness arrays:
+
+```lean
+checkerInputSize M = modelSize M + productFamilyFootprint M + 1
+```
+
+These are abstract checker input measures. They are not byte-size measurements,
+CPU-instruction counts, Lean kernel checking time, or Lake build time.
 
 The corresponding theorem is:
 
 ```lean
-checkAxioms4_steps_polynomial_in_modelSize :
+checkAxioms4_steps_polynomial_in_checkerInputSize :
   exists C d k,
     forall M : FiniteModel4,
-      (checkAxioms4_S M).steps <= C * (modelSize M)^d + k
+      (checkAxioms4_S M).steps <= C * (checkerInputSize M)^d + k
 ```
 
-This proves that, under the abstract `Stepped` model, semantic finite-model
-checking is polynomial in the generated finite model size. It does not prove
-that every build is fast in wall-clock time: Lean still has to elaborate
-generated declarations, run `native_decide`, compile modules, and possibly run
-diagnostic negation probes. The value of the theorem is narrower and stronger:
-the semantic checker itself is no longer open-ended tactic search.
+This proves that, under the abstract `Stepped` envelope model, semantic
+finite-model checking is polynomial in the abstract checker input size. It does
+not prove that every build is fast in wall-clock time: Lean still has to
+elaborate generated declarations, run `native_decide`, compile modules, and
+possibly run diagnostic negation probes. The value of the theorem is narrower
+and stronger: the semantic checker itself is no longer open-ended tactic search.

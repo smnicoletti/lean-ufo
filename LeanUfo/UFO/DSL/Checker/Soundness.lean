@@ -1001,6 +1001,11 @@ theorem checkAx52_complete (M : FiniteModel4) :
     ax_a52 M.toUFOSignature4.toUFOSignature3_5 → checkAx52 M = true :=
   (checkAx52_correct M).2
 
+/--
+Local audit lemma for the Boolean/semantic helper boundary used by axiom 55.
+It is intentionally kept even when the current axiom proof can inline the
+helper expansion.
+-/
 private theorem genericFunctionalDependenceB_eq_true_iff
     (M : FiniteModel4) (x' y' : Fin M.thingCount) (w : Fin M.worldCount) :
     genericFunctionalDependenceB M x' y' w = true ↔
@@ -1009,6 +1014,11 @@ private theorem genericFunctionalDependenceB_eq_true_iff
   simp [FiniteModel4.toUFOSignature4, allThings, anyThings, impliesB]
   grind
 
+/--
+Local audit lemma for the Boolean/semantic helper boundary used by axiom 55.
+It is intentionally kept even when the current axiom proof can inline the
+helper expansion.
+-/
 private theorem individualFunctionalDependenceB_eq_true_iff
     (M : FiniteModel4)
     (x x' y y' : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -1087,6 +1097,11 @@ theorem checkAx57_complete (M : FiniteModel4) :
     ax_a57 M.toUFOSignature4.toUFOSignature3_7 → checkAx57 M = true :=
   (checkAx57_correct M).2
 
+/--
+Local audit lemma for the Boolean/semantic helper boundary used by axiom 58.
+It is intentionally kept even when the current axiom proof can inline the
+helper expansion.
+-/
 private theorem genericConstitutionalDependenceB_eq_true_iff
     (M : FiniteModel4) (x' y' : Fin M.thingCount) (w : Fin M.worldCount) :
     genericConstitutionalDependenceB M x' y' w = true ↔
@@ -1095,6 +1110,11 @@ private theorem genericConstitutionalDependenceB_eq_true_iff
   simp [FiniteModel4.toUFOSignature4, allThings, anyThings, impliesB]
   grind
 
+/--
+Local audit lemma for the Boolean/semantic helper boundary used by axiom 58.
+It is intentionally kept even when the current axiom proof can inline the
+helper expansion.
+-/
 private theorem constitutionB_eq_true_iff
     (M : FiniteModel4)
     (x x' y y' : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -1251,6 +1271,10 @@ theorem checkAx67_complete (M : FiniteModel4) :
     ax_a67 M.toUFOSignature4.toUFOSignature3_9 → checkAx67 M = true :=
   (checkAx67_correct M).2
 
+/--
+Local audit lemma for the Boolean/semantic helper boundary around terminal
+direct bearers.
+-/
 private theorem terminalDirectBearerB_eq_true_iff
     (M : FiniteModel4) (m b : Fin M.thingCount) (w : Fin M.worldCount) :
     terminalDirectBearerB M m b w = true ↔
@@ -1261,6 +1285,10 @@ private theorem terminalDirectBearerB_eq_true_iff
   simp [FiniteModel4.toUFOSignature4, allThings_eq_true_iff]
   grind
 
+/--
+Local audit lemma for the Boolean/semantic helper boundary around terminal
+direct bearers.
+-/
 private theorem existsUniqueTerminalDirectBearerB_eq_true_iff
     (M : FiniteModel4) (m : Fin M.thingCount) (w : Fin M.worldCount) :
     existsUniqueTerminalDirectBearerB M m w = true ↔
@@ -1272,30 +1300,6 @@ private theorem existsUniqueTerminalDirectBearerB_eq_true_iff
   unfold existsUniqueTerminalDirectBearerB
   simp [terminalDirectBearerB_eq_true_iff, FiniteModel4.toUFOSignature4]
   grind
-
-private theorem reachableInheresInFuel_sound
-    (M : FiniteModel4) (fuel : Nat)
-    (m b : Fin M.thingCount) (w : Fin M.worldCount) :
-    reachableInheresInFuel M fuel m b w = true →
-      MomentOf M.toUFOSignature4.toUFOSignature3_9 m b w := by
-  induction fuel generalizing m with
-  | zero =>
-      intro h
-      simp [reachableInheresInFuel] at h
-  | succ fuel ih =>
-      intro h
-      unfold reachableInheresInFuel at h
-      cases hDirect : M.inheresIn m b w
-      · simp [hDirect] at h
-        rcases (anyThings_eq_true_iff M _).1 h with ⟨y, hy⟩
-        have hyPair :
-            M.inheresIn m y w = true ∧ reachableInheresInFuel M fuel y b w = true := by
-          simpa using hy
-        rcases hyPair with ⟨hInh, hReach⟩
-        exact MomentOf.step
-          (by simpa [FiniteModel4.toUFOSignature4] using hInh)
-          (ih y hReach)
-      · exact MomentOf.direct (by simpa [FiniteModel4.toUFOSignature4] using hDirect)
 
 private theorem momentOf_trans
     {Sig : UFOSignature3_9} {a b c : Sig.Thing} {w : Sig.F.World} :
@@ -1557,6 +1561,10 @@ private theorem externallyDependentModeB_eq_true_iff
   unfold externallyDependentModeB
   simp [FiniteModel4.toUFOSignature4, FiniteModel4.toS5Frame, Frame.Box]
 
+/--
+Local audit lemma for the Boolean/semantic helper boundary for external
+dependence.
+-/
 private theorem externallyDependentB_eq_true_iff
     (M : FiniteModel4) (x y : Fin M.thingCount) (w : Fin M.worldCount) :
     externallyDependentB M x y w = true ↔

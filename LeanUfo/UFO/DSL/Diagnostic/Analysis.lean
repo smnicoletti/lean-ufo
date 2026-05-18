@@ -382,9 +382,6 @@ private def envSummary
     | .thing => s!"{var.name} = {indexedName thingNames idx}"
     | .world => s!"{var.name} = {indexedName worldNames idx}"
 
-private def envContains (env : Array (String × Nat)) (name : String) : Bool :=
-  env.any (fun entry => entry.1 == name)
-
 private def envVarKind? (outerVars : Array DiagVar) (name : String) : Option DiagVarKind :=
   outerVars.findSome? fun var =>
     if var.name == name then some var.kind else none
