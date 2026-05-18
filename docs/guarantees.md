@@ -555,13 +555,25 @@ over arbitrary witnesses. With `ProductFamilyWitnessTableComplete`, `ax99`
 failure can be interpreted semantically; without it, failure means missing
 finite witness data.
 
-The abstract step model is:
+The abstract step-envelope model is:
 
 ```lean
 structure Stepped (α : Type) where
   value : α
   steps : Nat
 ```
+
+The `steps` field stores a checker-level envelope, not a measured operation
+count. Local annotations use:
+
+```lean
+Stepped.stepEnvelope M thingPow worldPow =
+  (M.thingCount + 1)^thingPow * (M.worldCount + 1)^worldPow
+```
+
+`Stepped.axiomStepEnvelope` is used only where visible finite scans justify the
+local exponents. Otherwise the stepped wrapper uses `Stepped.axiomEnvelope`, the
+default wrapper backed by the global envelope below.
 
 Value coherence:
 
@@ -570,36 +582,43 @@ checkAxioms4_S_value :
   (checkAxioms4_S M).value = checkAxioms4 M
 ```
 
-Two-dimensional polynomial bound:
+Global step-envelope bound:
 
 ```lean
-finite_checker_polynomial_bound :
-  ∃ C a b,
-    ∀ M : FiniteModel4,
-      (checkAxioms4_S M).steps ≤
-        C * (M.thingCount + 1)^a * (M.worldCount + 1)^b + 115
+checkAxioms4_steps_bound :
+  (checkAxioms4_S M).steps ≤
+    116 * Stepped.globalStepEnvelope M + 115
 ```
 
-The current concrete witnesses are `C = 116`, `a = 4`, and `b = 2`.
+The global envelope is conservative:
 
-One-variable model-size bound:
+```lean
+Stepped.globalStepEnvelope M =
+  (M.thingCount + 1)^8 * (M.worldCount + 1)^4
+```
+
+One-variable input-size bound:
 
 ```lean
 modelSize M = (M.thingCount + 1) * (M.worldCount + 1)
 
-checkAxioms4_steps_polynomial_in_modelSize :
+checkerInputSize M = modelSize M + productFamilyFootprint M + 1
+
+checkAxioms4_steps_polynomial_in_checkerInputSize :
   ∃ C d k,
     ∀ M : FiniteModel4,
-      (checkAxioms4_S M).steps ≤ C * (modelSize M)^d + k
+      (checkAxioms4_S M).steps ≤ C * (checkerInputSize M)^d + k
 ```
 
-The current concrete witnesses are `C = 116`, `d = 6`, and `k = 115`.
+The current concrete witnesses are `C = 116`, `d = 12`, and `k = 115`.
 
 What this means:
 
 - the semantic finite checker is no longer open-ended tactic search;
-- the checked step model is polynomial in the generated finite model size;
+- the checked step-envelope model is polynomial in the abstract checker input
+  size;
 - primitive table lookup is counted as constant in the abstract model;
+- product-family witness arrays are counted separately from thing/world slots;
 - this is not a wall-clock bound for Lean, Lake, native compilation, kernel
   checking, editor diagnostics, or operating-system runtime.
 

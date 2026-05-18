@@ -1079,6 +1079,28 @@ def checkAxDistanceTriangle (M : FiniteModel4) : Bool :=
                       M.distance x z r2 w && M.distanceSum r0 r1 s w)
                     (M.distanceGreaterEq s r2 w)
 
+/-!
+Step envelopes below are conservative syntactic upper bounds, not exact runtime
+counters. The exponents record visible finite scans: each `allThings`/`anyThings`
+adds one thing factor and each `allWorlds`/`anyWorlds` adds one world factor,
+while table lookups and Boolean connectives are treated as constant work.
+
+Examples: `(0, 0)` for definitionally trivial checkers, `(1, 1)` for one
+thing/world scan, `(2, 1)` for two thing variables plus one world, `(3, 1)` for
+three thing variables plus one world, and larger world exponents for modal
+nesting. Checks that expand finite `decide` helpers, reachability, product
+families, or derived predicates stay on `axiomEnvelope`, the global upper bound,
+until those helper expansions are justified separately.
+
+The main fallback classes are:
+* derived definitional helpers such as `typeB`, `qualityB`, and dependence
+  predicates;
+* finite `decide` searches for uniqueness/existence;
+* reachability/transitive-closure checks for inherence;
+* product-family witness scans, whose array sizes are input data beyond
+  `thingCount` and `worldCount`.
+-/
+
 def checkAx1_S (M : FiniteModel4) : Stepped Bool :=
   Stepped.axiomEnvelope M (checkAx1 M)
 
@@ -1089,7 +1111,7 @@ def checkAx3_S (M : FiniteModel4) : Stepped Bool :=
   Stepped.axiomEnvelope M (checkAx3 M)
 
 def checkAx4_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx4 M)
+  Stepped.axiomStepEnvelope M 3 1 (checkAx4 M)
 
 def checkAx5_S (M : FiniteModel4) : Stepped Bool :=
   Stepped.axiomEnvelope M (checkAx5 M)
@@ -1104,31 +1126,31 @@ def checkAx8_S (M : FiniteModel4) : Stepped Bool :=
   Stepped.axiomEnvelope M (checkAx8 M)
 
 def checkAx9_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx9 M)
+  Stepped.axiomStepEnvelope M 1 1 (checkAx9 M)
 
 def checkAx10_S (M : FiniteModel4) : Stepped Bool :=
   Stepped.axiomEnvelope M (checkAx10 M)
 
 def checkAx11_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx11 M)
+  Stepped.axiomStepEnvelope M 1 1 (checkAx11 M)
 
 def checkAx12_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx12 M)
+  Stepped.axiomStepEnvelope M 1 1 (checkAx12 M)
 
 def checkAx13_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx13 M)
+  Stepped.axiomStepEnvelope M 1 1 (checkAx13 M)
 
 def checkAx14_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx14 M)
+  Stepped.axiomStepEnvelope M 1 1 (checkAx14 M)
 
 def checkAx15_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx15 M)
+  Stepped.axiomStepEnvelope M 1 1 (checkAx15 M)
 
 def checkAx16_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx16 M)
+  Stepped.axiomStepEnvelope M 1 1 (checkAx16 M)
 
 def checkAx17_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx17 M)
+  Stepped.axiomStepEnvelope M 1 1 (checkAx17 M)
 
 def checkAx18_S (M : FiniteModel4) : Stepped Bool :=
   Stepped.axiomEnvelope M (checkAx18 M)
@@ -1137,7 +1159,7 @@ def checkAx19_S (M : FiniteModel4) : Stepped Bool :=
   Stepped.axiomEnvelope M (checkAx19 M)
 
 def checkAx20_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx20 M)
+  Stepped.axiomStepEnvelope M 1 1 (checkAx20 M)
 
 def checkAx21_S (M : FiniteModel4) : Stepped Bool :=
   Stepped.axiomEnvelope M (checkAx21 M)
@@ -1149,70 +1171,70 @@ def checkAx23_S (M : FiniteModel4) : Stepped Bool :=
   Stepped.axiomEnvelope M (checkAx23 M)
 
 def checkAx24_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx24 M)
+  Stepped.axiomStepEnvelope M 1 1 (checkAx24 M)
 
 def checkAx25_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx25 M)
+  Stepped.axiomStepEnvelope M 1 1 (checkAx25 M)
 
 def checkAx26_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx26 M)
+  Stepped.axiomStepEnvelope M 1 1 (checkAx26 M)
 
 def checkAx27_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx27 M)
+  Stepped.axiomStepEnvelope M 1 1 (checkAx27 M)
 
 def checkAx28_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx28 M)
+  Stepped.axiomStepEnvelope M 1 1 (checkAx28 M)
 
 def checkAx29_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx29 M)
+  Stepped.axiomStepEnvelope M 1 1 (checkAx29 M)
 
 def checkAx30_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx30 M)
+  Stepped.axiomStepEnvelope M 1 1 (checkAx30 M)
 
 def checkAx31_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx31 M)
+  Stepped.axiomStepEnvelope M 1 1 (checkAx31 M)
 
 def checkAx32_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx32 M)
+  Stepped.axiomStepEnvelope M 1 1 (checkAx32 M)
 
 def checkAx33_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx33 M)
+  Stepped.axiomStepEnvelope M 1 1 (checkAx33 M)
 
 def checkAxInstEndurant_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAxInstEndurant M)
+  Stepped.axiomStepEnvelope M 2 1 (checkAxInstEndurant M)
 
 def checkAxSubKindSortal_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAxSubKindSortal M)
+  Stepped.axiomStepEnvelope M 2 1 (checkAxSubKindSortal M)
 
 def checkAxNonSortalUp_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAxNonSortalUp M)
+  Stepped.axiomStepEnvelope M 2 1 (checkAxNonSortalUp M)
 
 def checkAxKindStable_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAxKindStable M)
+  Stepped.axiomStepEnvelope M 1 2 (checkAxKindStable M)
 
 def checkAx34_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx34 M)
+  Stepped.axiomStepEnvelope M 1 1 (checkAx34 M)
 
 def checkAx35_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx35 M)
+  Stepped.axiomStepEnvelope M 1 1 (checkAx35 M)
 
 def checkAx36_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx36 M)
+  Stepped.axiomStepEnvelope M 1 1 (checkAx36 M)
 
 def checkAx37_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx37 M)
+  Stepped.axiomStepEnvelope M 1 1 (checkAx37 M)
 
 def checkAx38_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx38 M)
+  Stepped.axiomStepEnvelope M 1 1 (checkAx38 M)
 
 def checkAx39_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx39 M)
+  Stepped.axiomStepEnvelope M 1 1 (checkAx39 M)
 
 def checkAx40_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx40 M)
+  Stepped.axiomStepEnvelope M 1 1 (checkAx40 M)
 
 def checkAx41_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx41 M)
+  Stepped.axiomStepEnvelope M 1 1 (checkAx41 M)
 
 def checkAx42_S (M : FiniteModel4) : Stepped Bool :=
   Stepped.axiomEnvelope M (checkAx42 M)
@@ -1230,13 +1252,13 @@ def checkAx46_S (M : FiniteModel4) : Stepped Bool :=
   Stepped.axiomEnvelope M (checkAx46 M)
 
 def checkAx47_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx47 M)
+  Stepped.axiomStepEnvelope M 1 1 (checkAx47 M)
 
 def checkAx48_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx48 M)
+  Stepped.axiomStepEnvelope M 2 1 (checkAx48 M)
 
 def checkAx49_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx49 M)
+  Stepped.axiomStepEnvelope M 3 1 (checkAx49 M)
 
 def checkAx50_S (M : FiniteModel4) : Stepped Bool :=
   Stepped.axiomEnvelope M (checkAx50 M)
@@ -1245,7 +1267,7 @@ def checkAx51_S (M : FiniteModel4) : Stepped Bool :=
   Stepped.axiomEnvelope M (checkAx51 M)
 
 def checkAx52_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx52 M)
+  Stepped.axiomStepEnvelope M 2 1 (checkAx52 M)
 
 def checkAx53_S (M : FiniteModel4) : Stepped Bool :=
   Stepped.axiomEnvelope M (checkAx53 M)
@@ -1257,10 +1279,10 @@ def checkAx55_S (M : FiniteModel4) : Stepped Bool :=
   Stepped.axiomEnvelope M (checkAx55 M)
 
 def checkAx56_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx56 M)
+  Stepped.axiomStepEnvelope M 2 1 (checkAx56 M)
 
 def checkAx57_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx57 M)
+  Stepped.axiomStepEnvelope M 4 1 (checkAx57 M)
 
 def checkAx58_S (M : FiniteModel4) : Stepped Bool :=
   Stepped.axiomEnvelope M (checkAx58 M)
@@ -1269,28 +1291,28 @@ def checkAx59_S (M : FiniteModel4) : Stepped Bool :=
   Stepped.axiomEnvelope M (checkAx59 M)
 
 def checkAx60_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx60 M)
+  Stepped.axiomStepEnvelope M 2 2 (checkAx60 M)
 
 def checkAx61_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx61 M)
+  Stepped.axiomStepEnvelope M 2 1 (checkAx61 M)
 
 def checkAx62_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx62 M)
+  Stepped.axiomStepEnvelope M 1 1 (checkAx62 M)
 
 def checkAx63_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx63 M)
+  Stepped.axiomStepEnvelope M 2 2 (checkAx63 M)
 
 def checkAx64_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx64 M)
+  Stepped.axiomStepEnvelope M 2 2 (checkAx64 M)
 
 def checkAx65_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx65 M)
+  Stepped.axiomStepEnvelope M 2 2 (checkAx65 M)
 
 def checkAx66_S (M : FiniteModel4) : Stepped Bool :=
   Stepped.axiomEnvelope M (checkAx66 M)
 
 def checkAx67_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx67 M)
+  Stepped.axiomStepEnvelope M 3 1 (checkAx67 M)
 
 def checkAx68_S (M : FiniteModel4) : Stepped Bool :=
   Stepped.axiomEnvelope M (checkAx68 M)
@@ -1314,25 +1336,25 @@ def checkAx77_S (M : FiniteModel4) : Stepped Bool :=
   Stepped.axiomEnvelope M (checkAx77 M)
 
 def checkAx74_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx74 M)
+  Stepped.axiomStepEnvelope M 2 1 (checkAx74 M)
 
 def checkAx75_S (M : FiniteModel4) : Stepped Bool :=
   Stepped.axiomEnvelope M (checkAx75 M)
 
 def checkAx76_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx76 M)
+  Stepped.axiomStepEnvelope M 3 1 (checkAx76 M)
 
 def checkAx78_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx78 M)
+  Stepped.axiomStepEnvelope M 3 1 (checkAx78 M)
 
 def checkAx79_S (M : FiniteModel4) : Stepped Bool :=
   Stepped.axiomEnvelope M (checkAx79 M)
 
 def checkAx80_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx80 M)
+  Stepped.axiomStepEnvelope M 3 1 (checkAx80 M)
 
 def checkAxQuaIndividualOfEndurant_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAxQuaIndividualOfEndurant M)
+  Stepped.axiomStepEnvelope M 2 1 (checkAxQuaIndividualOfEndurant M)
 
 def checkAx81_S (M : FiniteModel4) : Stepped Bool :=
   Stepped.axiomEnvelope M (checkAx81 M)
@@ -1341,13 +1363,13 @@ def checkAx82_S (M : FiniteModel4) : Stepped Bool :=
   Stepped.axiomEnvelope M (checkAx82 M)
 
 def checkAx83_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx83 M)
+  Stepped.axiomStepEnvelope M 1 1 (checkAx83 M)
 
 def checkAx84_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx84 M)
+  Stepped.axiomStepEnvelope M 1 1 (checkAx84 M)
 
 def checkAx85_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx85 M)
+  Stepped.axiomStepEnvelope M 1 1 (checkAx85 M)
 
 def checkAx86_S (M : FiniteModel4) : Stepped Bool :=
   Stepped.axiomEnvelope M (checkAx86 M)
@@ -1356,10 +1378,10 @@ def checkAx87_S (M : FiniteModel4) : Stepped Bool :=
   Stepped.axiomEnvelope M (checkAx87 M)
 
 def checkAx88_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx88 M)
+  Stepped.axiomStepEnvelope M 1 1 (checkAx88 M)
 
 def checkAx89_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx89 M)
+  Stepped.axiomStepEnvelope M 1 1 (checkAx89 M)
 
 def checkAx90_S (M : FiniteModel4) : Stepped Bool :=
   Stepped.axiomEnvelope M (checkAx90 M)
@@ -1368,13 +1390,13 @@ def checkAx91_S (M : FiniteModel4) : Stepped Bool :=
   Stepped.axiomEnvelope M (checkAx91 M)
 
 def checkAx92_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx92 M)
+  Stepped.axiomStepEnvelope M 2 1 (checkAx92 M)
 
 def checkAx93_S (M : FiniteModel4) : Stepped Bool :=
   Stepped.axiomEnvelope M (checkAx93 M)
 
 def checkAx94_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx94 M)
+  Stepped.axiomStepEnvelope M 4 1 (checkAx94 M)
 
 def checkAx95_S (M : FiniteModel4) : Stepped Bool :=
   Stepped.axiomEnvelope M (checkAx95 M)
@@ -1392,37 +1414,41 @@ def checkAx99_S (M : FiniteModel4) : Stepped Bool :=
   Stepped.axiomEnvelope M (checkAx99 M)
 
 def checkAx100_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx100 M)
+  Stepped.axiomStepEnvelope M 4 1 (checkAx100 M)
 
 def checkAx101_S (M : FiniteModel4) : Stepped Bool :=
   Stepped.axiomEnvelope M (checkAx101 M)
 
 def checkAx102_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx102 M)
+  Stepped.axiomStepEnvelope M 2 1 (checkAx102 M)
 
 def checkAx103_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx103 M)
+  Stepped.axiomStepEnvelope M 3 1 (checkAx103 M)
 
 def checkAx104_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx104 M)
+  Stepped.axiomStepEnvelope M 2 1 (checkAx104 M)
 
 def checkAx105_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx105 M)
+  -- Definitionally trivial checker.
+  Stepped.axiomStepEnvelope M 0 0 (checkAx105 M)
 
 def checkAx106_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx106 M)
+  -- Definitionally trivial checker.
+  Stepped.axiomStepEnvelope M 0 0 (checkAx106 M)
 
 def checkAx107_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx107 M)
+  -- Definitionally trivial checker.
+  Stepped.axiomStepEnvelope M 0 0 (checkAx107 M)
 
 def checkAx108_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAx108 M)
+  -- Definitionally trivial checker.
+  Stepped.axiomStepEnvelope M 0 0 (checkAx108 M)
 
 def checkAxDistanceIdentity_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAxDistanceIdentity M)
+  Stepped.axiomStepEnvelope M 3 1 (checkAxDistanceIdentity M)
 
 def checkAxDistanceSymmetry_S (M : FiniteModel4) : Stepped Bool :=
-  Stepped.axiomEnvelope M (checkAxDistanceSymmetry M)
+  Stepped.axiomStepEnvelope M 3 1 (checkAxDistanceSymmetry M)
 
 def checkAxDistanceTriangle_S (M : FiniteModel4) : Stepped Bool :=
   Stepped.axiomEnvelope M (checkAxDistanceTriangle M)
@@ -1463,7 +1489,7 @@ def checkAxioms4 (M : FiniteModel4) : Bool :=
 
 def checkAxioms4_S (M : FiniteModel4) : Stepped Bool :=
   { value := checkAxioms4 M
-    steps := 116 * Stepped.polyEnvelope M + 115 }
+    steps := 116 * Stepped.globalStepEnvelope M + 115 }
 
 end Checker
 end LeanUfo.UFO.DSL

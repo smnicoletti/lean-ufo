@@ -3,10 +3,11 @@ import LeanUfo.UFO.DSL.Checker.Basic
 /-!
 # Step model for reflective checks
 
-The step model is intentionally abstract. It counts checker-level evaluation
-steps, not Lean kernel work, OS runtime, or Lake build time. The registered
-checker-backed fields use conservative polynomial envelopes; individual axiom
-checkers can refine these step counts while preserving the same interface.
+The step model is intentionally abstract. It records checker-level step
+envelopes, not Lean kernel work, OS runtime, Lake build time, or separate
+quantitative semantic metrics. The registered checker-backed fields use one
+conservative global envelope; individual axiom checkers can refine that
+envelope where their visible finite scans justify smaller exponents.
 -/
 
 namespace LeanUfo.UFO.DSL
@@ -17,33 +18,34 @@ structure Stepped (α : Type) where
   steps : Nat
 deriving Repr
 
-def Stepped.map (f : α → β) (x : Stepped α) : Stepped β :=
-  { value := f x.value, steps := x.steps }
+def Stepped.stepEnvelope (M : FiniteModel4) (thingPow worldPow : Nat) : Nat :=
+  (M.thingCount + 1) ^ thingPow * (M.worldCount + 1) ^ worldPow
 
-def Stepped.and (x y : Stepped Bool) : Stepped Bool :=
-  { value := x.value && y.value, steps := x.steps + y.steps + 1 }
+/--
+Conservative global envelope for checker-backed axiom fields.
 
-def Stepped.polyEnvelope (M : FiniteModel4) : Nat :=
-  (M.thingCount + 1) ^ 4 * (M.worldCount + 1) ^ 2
+The exponent choice and final polynomial bound are documented in
+`Checker.Complexity`.
+-/
+def Stepped.globalStepEnvelope (M : FiniteModel4) : Nat :=
+  Stepped.stepEnvelope M 8 4
 
+/--
+Attach a syntactic step envelope to a Boolean axiom checker.
+
+`thingPow` and `worldPow` count visible finite scans in the checker body under
+the convention documented at the top of this file. These parameters are upper
+bound exponents, not measured execution counters.
+-/
+def Stepped.axiomStepEnvelope
+    (M : FiniteModel4) (thingPow worldPow : Nat) (b : Bool) : Stepped Bool :=
+  { value := b, steps := Stepped.stepEnvelope M thingPow worldPow }
+
+/--
+Default wrapper for axioms that use the global step envelope.
+-/
 def Stepped.axiomEnvelope (M : FiniteModel4) (b : Bool) : Stepped Bool :=
-  { value := b, steps := Stepped.polyEnvelope M }
-
-def allThingsS (M : FiniteModel4) (p : Fin M.thingCount → Stepped Bool) : Stepped Bool :=
-  { value := allThings M (fun x => (p x).value)
-    steps := M.thingCount + (List.finRange M.thingCount).foldl (fun c x => c + (p x).steps) 0 }
-
-def anyThingsS (M : FiniteModel4) (p : Fin M.thingCount → Stepped Bool) : Stepped Bool :=
-  { value := anyThings M (fun x => (p x).value)
-    steps := M.thingCount + (List.finRange M.thingCount).foldl (fun c x => c + (p x).steps) 0 }
-
-def allWorldsS (M : FiniteModel4) (p : Fin M.worldCount → Stepped Bool) : Stepped Bool :=
-  { value := allWorlds M (fun w => (p w).value)
-    steps := M.worldCount + (List.finRange M.worldCount).foldl (fun c w => c + (p w).steps) 0 }
-
-def anyWorldsS (M : FiniteModel4) (p : Fin M.worldCount → Stepped Bool) : Stepped Bool :=
-  { value := anyWorlds M (fun w => (p w).value)
-    steps := M.worldCount + (List.finRange M.worldCount).foldl (fun c w => c + (p w).steps) 0 }
+  Stepped.axiomStepEnvelope M 8 4 b
 
 end Checker
 end LeanUfo.UFO.DSL
