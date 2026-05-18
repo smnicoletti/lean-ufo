@@ -18,6 +18,7 @@ ufo_model FailedAx26RigidSortalNeitherKindNorSubKind : UFO where
     Rigid(T)
     Sortal(T)
     T ⊑ K
+    K ⊑ T
     Object(I)
     I :: T
     I :: K
