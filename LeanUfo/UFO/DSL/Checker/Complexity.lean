@@ -841,23 +841,6 @@ theorem checkAx108_steps_bound (M : FiniteModel4) :
     (checkAx108_S M).steps ≤ Stepped.polyEnvelope M :=
   Nat.le_refl _
 
-theorem checkAxiomsPilot_S_value (M : FiniteModel4) :
-    (checkAxiomsPilot_S M).value = checkAxiomsPilot M := by
-  rfl
-
-theorem checkAxiomsPilot_steps_bound (M : FiniteModel4) :
-    (checkAxiomsPilot_S M).steps ≤ 89 * Stepped.polyEnvelope M + 88 := by
-  rfl
-
-theorem finite_checker_pilot_polynomial_bound :
-    ∃ C a b,
-      ∀ M : FiniteModel4,
-        (checkAxiomsPilot_S M).steps ≤
-          C * (M.thingCount + 1) ^ a * (M.worldCount + 1) ^ b + 88 := by
-  refine ⟨89, 4, 2, ?_⟩
-  intro M
-  simpa [Stepped.polyEnvelope, Nat.mul_assoc] using checkAxiomsPilot_steps_bound M
-
 theorem checkAxioms4_S_value (M : FiniteModel4) :
     (checkAxioms4_S M).value = checkAxioms4 M := by
   rfl

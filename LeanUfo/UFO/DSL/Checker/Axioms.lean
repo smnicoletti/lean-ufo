@@ -1427,33 +1427,6 @@ def checkAxDistanceSymmetry_S (M : FiniteModel4) : Stepped Bool :=
 def checkAxDistanceTriangle_S (M : FiniteModel4) : Stepped Bool :=
   Stepped.axiomEnvelope M (checkAxDistanceTriangle M)
 
-def checkAxiomsPilot (M : FiniteModel4) : Bool :=
-  checkAx1 M && checkAx2 M && checkAx3 M && checkAx4 M && checkAx5 M &&
-    checkAx6 M && checkAx7 M && checkAx8 M && checkAx9 M && checkAx10 M &&
-    checkAx11 M && checkAx12 M && checkAx13 M && checkAx14 M && checkAx15 M &&
-    checkAx16 M && checkAx17 M && checkAx18 M && checkAx19 M && checkAx20 M &&
-    checkAx21 M && checkAx22 M && checkAx23 M && checkAx24 M && checkAx25 M &&
-    checkAx26 M && checkAx27 M && checkAx28 M && checkAx29 M && checkAx30 M &&
-    checkAx31 M && checkAx32 M && checkAx33 M && checkAxInstEndurant M &&
-    checkAxSubKindSortal M && checkAxNonSortalUp M && checkAxKindStable M &&
-    checkAx34 M && checkAx35 M && checkAx36 M && checkAx37 M && checkAx38 M &&
-    checkAx39 M && checkAx40 M && checkAx41 M && checkAx42 M && checkAx43 M &&
-    checkAx44 M && checkAx45 M && checkAx46 M &&
-    checkAx47 M && checkAx48 M && checkAx49 M && checkAx50 M &&
-    checkAx51 M && checkAx52 M &&
-    checkAx53 M && checkAx54 M && checkAx55 M &&
-    checkAx56 M && checkAx57 M && checkAx58 M && checkAx59 M && checkAx60 M &&
-    checkAx61 M && checkAx62 M && checkAx63 M && checkAx64 M &&
-    checkAx65 M && checkAx66 M && checkAx67 M && checkAx68 M &&
-    checkAx69 M && checkAx70 M && checkAx71 M && checkAx72 M && checkAx73 M &&
-    checkAx74 M && checkAx75 M && checkAx76 M && checkAx77 M && checkAx78 M &&
-    checkAx79 M && checkAx80 M && checkAxQuaIndividualOfEndurant M &&
-    checkAx81 M && checkAx82 M
-
-def checkAxiomsPilot_S (M : FiniteModel4) : Stepped Bool :=
-  { value := checkAxiomsPilot M
-    steps := 89 * Stepped.polyEnvelope M + 88 }
-
 def checkAxioms4Checks (M : FiniteModel4) : List Bool := [
   checkAx1 M, checkAx2 M, checkAx3 M, checkAx4 M, checkAx5 M,
   checkAx6 M, checkAx7 M, checkAx8 M, checkAx9 M, checkAx10 M,

@@ -3967,6 +3967,579 @@ theorem checkAx108_complete (M : FiniteModel4) :
     ax_a108 M.toUFOSignature4 → checkAx108 M = true :=
   (checkAx108_correct M).2
 
+/-!
+Reverse checker bridges for opt-in semantic-to-Boolean simplification.
+
+These lemmas are intentionally registered only in the `ufo_checker` simp set,
+not as global `[simp]` rules.  The normal form for this simp set is the
+executable checker obligation `checkAx... M = true`.
+-/
+
+@[ufo_checker]
+theorem checkAx1_semantic_iff (M : FiniteModel4) :
+    ax_a1 M.toUFOSignature4.toUFOSignature3_1 ↔ checkAx1 M = true :=
+  ⟨checkAx1_complete M, checkAx1_sound M⟩
+
+@[ufo_checker]
+theorem checkAx2_semantic_iff (M : FiniteModel4) :
+    ax_a2 M.toUFOSignature4.toUFOSignature3_1 ↔ checkAx2 M = true :=
+  ⟨checkAx2_complete M, checkAx2_sound M⟩
+
+@[ufo_checker]
+theorem checkAx3_semantic_iff (M : FiniteModel4) :
+    ax_a3 M.toUFOSignature4.toUFOSignature3_1 ↔ checkAx3 M = true :=
+  ⟨checkAx3_complete M, checkAx3_sound M⟩
+
+@[ufo_checker]
+theorem checkAx4_semantic_iff (M : FiniteModel4) :
+    ax_a4 M.toUFOSignature4.toUFOSignature3_1 ↔ checkAx4 M = true :=
+  ⟨checkAx4_complete M, checkAx4_sound M⟩
+
+@[ufo_checker]
+theorem checkAx5_semantic_iff (M : FiniteModel4) :
+    ax_a5 M.toUFOSignature4.toUFOSignature3_1 ↔ checkAx5 M = true :=
+  ⟨checkAx5_complete M, checkAx5_sound M⟩
+
+@[ufo_checker]
+theorem checkAx6_semantic_iff (M : FiniteModel4) :
+    ax_a6 M.toUFOSignature4.toUFOSignature3_1 ↔ checkAx6 M = true :=
+  ⟨checkAx6_complete M, checkAx6_sound M⟩
+
+@[ufo_checker]
+theorem checkAx7_semantic_iff (M : FiniteModel4) :
+    ax_a7 M.toUFOSignature4.toUFOSignature3_1 ↔ checkAx7 M = true :=
+  ⟨checkAx7_complete M, checkAx7_sound M⟩
+
+@[ufo_checker]
+theorem checkAx8_semantic_iff (M : FiniteModel4) :
+    ax_a8 M.toUFOSignature4.toUFOSignature3_1 ↔ checkAx8 M = true :=
+  ⟨checkAx8_complete M, checkAx8_sound M⟩
+
+@[ufo_checker]
+theorem checkAx9_semantic_iff (M : FiniteModel4) :
+    ax_a9 M.toUFOSignature4.toUFOSignature3_1 ↔ checkAx9 M = true :=
+  ⟨checkAx9_complete M, checkAx9_sound M⟩
+
+@[ufo_checker]
+theorem checkAx10_semantic_iff (M : FiniteModel4) :
+    ax_a10 M.toUFOSignature4.toUFOSignature3_1 ↔ checkAx10 M = true :=
+  ⟨checkAx10_complete M, checkAx10_sound M⟩
+
+@[ufo_checker]
+theorem checkAx11_semantic_iff (M : FiniteModel4) :
+    ax_a11 M.toUFOSignature4.toUFOSignature3_1 ↔ checkAx11 M = true :=
+  ⟨checkAx11_complete M, checkAx11_sound M⟩
+
+@[ufo_checker]
+theorem checkAx12_semantic_iff (M : FiniteModel4) :
+    ax_a12 M.toUFOSignature4.toUFOSignature3_1 ↔ checkAx12 M = true :=
+  ⟨checkAx12_complete M, checkAx12_sound M⟩
+
+@[ufo_checker]
+theorem checkAx13_semantic_iff (M : FiniteModel4) :
+    ax_a13 M.toUFOSignature4.toUFOSignature3_1 ↔ checkAx13 M = true :=
+  ⟨checkAx13_complete M, checkAx13_sound M⟩
+
+@[ufo_checker]
+theorem checkAx14_semantic_iff (M : FiniteModel4) :
+    ax_a14 M.toUFOSignature4.toUFOSignature3_1 ↔ checkAx14 M = true :=
+  ⟨checkAx14_complete M, checkAx14_sound M⟩
+
+@[ufo_checker]
+theorem checkAx15_semantic_iff (M : FiniteModel4) :
+    ax_a15 M.toUFOSignature4.toUFOSignature3_1 ↔ checkAx15 M = true :=
+  ⟨checkAx15_complete M, checkAx15_sound M⟩
+
+@[ufo_checker]
+theorem checkAx16_semantic_iff (M : FiniteModel4) :
+    ax_a16 M.toUFOSignature4.toUFOSignature3_1 ↔ checkAx16 M = true :=
+  ⟨checkAx16_complete M, checkAx16_sound M⟩
+
+@[ufo_checker]
+theorem checkAx17_semantic_iff (M : FiniteModel4) :
+    ax_a17 M.toUFOSignature4.toUFOSignature3_1 ↔ checkAx17 M = true :=
+  ⟨checkAx17_complete M, checkAx17_sound M⟩
+
+@[ufo_checker]
+theorem checkAx18_semantic_iff (M : FiniteModel4) :
+    ax_a18 M.toUFOSignature4.toUFOSignature3_2 ↔ checkAx18 M = true :=
+  ⟨checkAx18_complete M, checkAx18_sound M⟩
+
+@[ufo_checker]
+theorem checkAx19_semantic_iff (M : FiniteModel4) :
+    ax_a19 M.toUFOSignature4.toUFOSignature3_2 ↔ checkAx19 M = true :=
+  ⟨checkAx19_complete M, checkAx19_sound M⟩
+
+@[ufo_checker]
+theorem checkAx20_semantic_iff (M : FiniteModel4) :
+    ax_a20 M.toUFOSignature4.toUFOSignature3_2 ↔ checkAx20 M = true :=
+  ⟨checkAx20_complete M, checkAx20_sound M⟩
+
+@[ufo_checker]
+theorem checkAx21_semantic_iff (M : FiniteModel4) :
+    ax_a21 M.toUFOSignature4.toUFOSignature3_2 ↔ checkAx21 M = true :=
+  ⟨checkAx21_complete M, checkAx21_sound M⟩
+
+@[ufo_checker]
+theorem checkAx22_semantic_iff (M : FiniteModel4) :
+    ax_a22 M.toUFOSignature4.toUFOSignature3_2 ↔ checkAx22 M = true :=
+  ⟨checkAx22_complete M, checkAx22_sound M⟩
+
+@[ufo_checker]
+theorem checkAx23_semantic_iff (M : FiniteModel4) :
+    ax_a23 M.toUFOSignature4.toUFOSignature3_2 ↔ checkAx23 M = true :=
+  ⟨checkAx23_complete M, checkAx23_sound M⟩
+
+@[ufo_checker]
+theorem checkAx24_semantic_iff (M : FiniteModel4) :
+    ax_a24 M.toUFOSignature4.toUFOSignature3_2 ↔ checkAx24 M = true :=
+  ⟨checkAx24_complete M, checkAx24_sound M⟩
+
+@[ufo_checker]
+theorem checkAx25_semantic_iff (M : FiniteModel4) :
+    ax_a25 M.toUFOSignature4.toUFOSignature3_2 ↔ checkAx25 M = true :=
+  ⟨checkAx25_complete M, checkAx25_sound M⟩
+
+@[ufo_checker]
+theorem checkAx26_semantic_iff (M : FiniteModel4) :
+    ax_a26 M.toUFOSignature4.toUFOSignature3_2 ↔ checkAx26 M = true :=
+  ⟨checkAx26_complete M, checkAx26_sound M⟩
+
+@[ufo_checker]
+theorem checkAx27_semantic_iff (M : FiniteModel4) :
+    ax_a27 M.toUFOSignature4.toUFOSignature3_2 ↔ checkAx27 M = true :=
+  ⟨checkAx27_complete M, checkAx27_sound M⟩
+
+@[ufo_checker]
+theorem checkAx28_semantic_iff (M : FiniteModel4) :
+    ax_a28 M.toUFOSignature4.toUFOSignature3_2 ↔ checkAx28 M = true :=
+  ⟨checkAx28_complete M, checkAx28_sound M⟩
+
+@[ufo_checker]
+theorem checkAx29_semantic_iff (M : FiniteModel4) :
+    ax_a29 M.toUFOSignature4.toUFOSignature3_2 ↔ checkAx29 M = true :=
+  ⟨checkAx29_complete M, checkAx29_sound M⟩
+
+@[ufo_checker]
+theorem checkAx30_semantic_iff (M : FiniteModel4) :
+    ax_a30 M.toUFOSignature4.toUFOSignature3_2 ↔ checkAx30 M = true :=
+  ⟨checkAx30_complete M, checkAx30_sound M⟩
+
+@[ufo_checker]
+theorem checkAx31_semantic_iff (M : FiniteModel4) :
+    ax_a31 M.toUFOSignature4.toUFOSignature3_2 ↔ checkAx31 M = true :=
+  ⟨checkAx31_complete M, checkAx31_sound M⟩
+
+@[ufo_checker]
+theorem checkAx32_semantic_iff (M : FiniteModel4) :
+    ax_a32 M.toUFOSignature4.toUFOSignature3_2 ↔ checkAx32 M = true :=
+  ⟨checkAx32_complete M, checkAx32_sound M⟩
+
+@[ufo_checker]
+theorem checkAx33_semantic_iff (M : FiniteModel4) :
+    ax_a33 M.toUFOSignature4.toUFOSignature3_2 ↔ checkAx33 M = true :=
+  ⟨checkAx33_complete M, checkAx33_sound M⟩
+
+@[ufo_checker]
+theorem checkAxKindStable_semantic_iff (M : FiniteModel4) :
+    ax_kindStable M.toUFOSignature4.toUFOSignature3_2 ↔ checkAxKindStable M = true :=
+  ⟨checkAxKindStable_complete M, checkAxKindStable_sound M⟩
+
+@[ufo_checker]
+theorem checkAx34_semantic_iff (M : FiniteModel4) :
+    ax_a34 M.toUFOSignature4.toUFOSignature3_3 ↔ checkAx34 M = true :=
+  ⟨checkAx34_complete M, checkAx34_sound M⟩
+
+@[ufo_checker]
+theorem checkAx35_semantic_iff (M : FiniteModel4) :
+    ax_a35 M.toUFOSignature4.toUFOSignature3_3 ↔ checkAx35 M = true :=
+  ⟨checkAx35_complete M, checkAx35_sound M⟩
+
+@[ufo_checker]
+theorem checkAx36_semantic_iff (M : FiniteModel4) :
+    ax_a36 M.toUFOSignature4.toUFOSignature3_3 ↔ checkAx36 M = true :=
+  ⟨checkAx36_complete M, checkAx36_sound M⟩
+
+@[ufo_checker]
+theorem checkAx37_semantic_iff (M : FiniteModel4) :
+    ax_a37 M.toUFOSignature4.toUFOSignature3_3 ↔ checkAx37 M = true :=
+  ⟨checkAx37_complete M, checkAx37_sound M⟩
+
+@[ufo_checker]
+theorem checkAx38_semantic_iff (M : FiniteModel4) :
+    ax_a38 M.toUFOSignature4.toUFOSignature3_3 ↔ checkAx38 M = true :=
+  ⟨checkAx38_complete M, checkAx38_sound M⟩
+
+@[ufo_checker]
+theorem checkAx39_semantic_iff (M : FiniteModel4) :
+    ax_a39 M.toUFOSignature4.toUFOSignature3_3 ↔ checkAx39 M = true :=
+  ⟨checkAx39_complete M, checkAx39_sound M⟩
+
+@[ufo_checker]
+theorem checkAx40_semantic_iff (M : FiniteModel4) :
+    ax_a40 M.toUFOSignature4.toUFOSignature3_3 ↔ checkAx40 M = true :=
+  ⟨checkAx40_complete M, checkAx40_sound M⟩
+
+@[ufo_checker]
+theorem checkAx41_semantic_iff (M : FiniteModel4) :
+    ax_a41 M.toUFOSignature4.toUFOSignature3_3 ↔ checkAx41 M = true :=
+  ⟨checkAx41_complete M, checkAx41_sound M⟩
+
+@[ufo_checker]
+theorem checkAx42_semantic_iff (M : FiniteModel4) :
+    ax_a42 M.toUFOSignature4.toUFOSignature3_3 ↔ checkAx42 M = true :=
+  ⟨checkAx42_complete M, checkAx42_sound M⟩
+
+@[ufo_checker]
+theorem checkAx43_semantic_iff (M : FiniteModel4) :
+    ax_a43 M.toUFOSignature4.toUFOSignature3_3 ↔ checkAx43 M = true :=
+  ⟨checkAx43_complete M, checkAx43_sound M⟩
+
+@[ufo_checker]
+theorem checkAx44_semantic_iff (M : FiniteModel4) :
+    ax_a44 M.toUFOSignature4.toUFOSignature3_4 ↔ checkAx44 M = true :=
+  ⟨checkAx44_complete M, checkAx44_sound M⟩
+
+@[ufo_checker]
+theorem checkAx45_semantic_iff (M : FiniteModel4) :
+    ax_a45 M.toUFOSignature4.toUFOSignature3_4 ↔ checkAx45 M = true :=
+  ⟨checkAx45_complete M, checkAx45_sound M⟩
+
+@[ufo_checker]
+theorem checkAx46_semantic_iff (M : FiniteModel4) :
+    ax_a46 M.toUFOSignature4.toUFOSignature3_4 ↔ checkAx46 M = true :=
+  ⟨checkAx46_complete M, checkAx46_sound M⟩
+
+@[ufo_checker]
+theorem checkAx47_semantic_iff (M : FiniteModel4) :
+    ax_a47 M.toUFOSignature4.toUFOSignature3_5 ↔ checkAx47 M = true :=
+  ⟨checkAx47_complete M, checkAx47_sound M⟩
+
+@[ufo_checker]
+theorem checkAx48_semantic_iff (M : FiniteModel4) :
+    ax_a48 M.toUFOSignature4.toUFOSignature3_5 ↔ checkAx48 M = true :=
+  ⟨checkAx48_complete M, checkAx48_sound M⟩
+
+@[ufo_checker]
+theorem checkAx49_semantic_iff (M : FiniteModel4) :
+    ax_a49 M.toUFOSignature4.toUFOSignature3_5 ↔ checkAx49 M = true :=
+  ⟨checkAx49_complete M, checkAx49_sound M⟩
+
+@[ufo_checker]
+theorem checkAx50_semantic_iff (M : FiniteModel4) :
+    ax_a50 M.toUFOSignature4.toUFOSignature3_5 ↔ checkAx50 M = true :=
+  ⟨checkAx50_complete M, checkAx50_sound M⟩
+
+@[ufo_checker]
+theorem checkAx51_semantic_iff (M : FiniteModel4) :
+    ax_a51 M.toUFOSignature4.toUFOSignature3_5 ↔ checkAx51 M = true :=
+  ⟨checkAx51_complete M, checkAx51_sound M⟩
+
+@[ufo_checker]
+theorem checkAx52_semantic_iff (M : FiniteModel4) :
+    ax_a52 M.toUFOSignature4.toUFOSignature3_5 ↔ checkAx52 M = true :=
+  ⟨checkAx52_complete M, checkAx52_sound M⟩
+
+@[ufo_checker]
+theorem checkAx53_semantic_iff (M : FiniteModel4) :
+    ax_a53 M.toUFOSignature4.toUFOSignature3_6 ↔ checkAx53 M = true :=
+  ⟨checkAx53_complete M, checkAx53_sound M⟩
+
+@[ufo_checker]
+theorem checkAx54_semantic_iff (M : FiniteModel4) :
+    ax_a54 M.toUFOSignature4.toUFOSignature3_6 ↔ checkAx54 M = true :=
+  ⟨checkAx54_complete M, checkAx54_sound M⟩
+
+@[ufo_checker]
+theorem checkAx55_semantic_iff (M : FiniteModel4) :
+    ax_a55 M.toUFOSignature4.toUFOSignature3_6 ↔ checkAx55 M = true :=
+  ⟨checkAx55_complete M, checkAx55_sound M⟩
+
+@[ufo_checker]
+theorem checkAx56_semantic_iff (M : FiniteModel4) :
+    ax_a56 M.toUFOSignature4.toUFOSignature3_7 ↔ checkAx56 M = true :=
+  ⟨checkAx56_complete M, checkAx56_sound M⟩
+
+@[ufo_checker]
+theorem checkAx57_semantic_iff (M : FiniteModel4) :
+    ax_a57 M.toUFOSignature4.toUFOSignature3_7 ↔ checkAx57 M = true :=
+  ⟨checkAx57_complete M, checkAx57_sound M⟩
+
+@[ufo_checker]
+theorem checkAx58_semantic_iff (M : FiniteModel4) :
+    ax_a58 M.toUFOSignature4.toUFOSignature3_7 ↔ checkAx58 M = true :=
+  ⟨checkAx58_complete M, checkAx58_sound M⟩
+
+@[ufo_checker]
+theorem checkAx59_semantic_iff (M : FiniteModel4) :
+    ax_a59 M.toUFOSignature4.toUFOSignature3_7 ↔ checkAx59 M = true :=
+  ⟨checkAx59_complete M, checkAx59_sound M⟩
+
+@[ufo_checker]
+theorem checkAx60_semantic_iff (M : FiniteModel4) :
+    ax_a60 M.toUFOSignature4.toUFOSignature3_7 ↔ checkAx60 M = true :=
+  ⟨checkAx60_complete M, checkAx60_sound M⟩
+
+@[ufo_checker]
+theorem checkAx61_semantic_iff (M : FiniteModel4) :
+    ax_a61 M.toUFOSignature4.toUFOSignature3_7 ↔ checkAx61 M = true :=
+  ⟨checkAx61_complete M, checkAx61_sound M⟩
+
+@[ufo_checker]
+theorem checkAx62_semantic_iff (M : FiniteModel4) :
+    ax_a62 M.toUFOSignature4.toUFOSignature3_8 ↔ checkAx62 M = true :=
+  ⟨checkAx62_complete M, checkAx62_sound M⟩
+
+@[ufo_checker]
+theorem checkAx63_semantic_iff (M : FiniteModel4) :
+    ax_a63 M.toUFOSignature4.toUFOSignature3_8 ↔ checkAx63 M = true :=
+  ⟨checkAx63_complete M, checkAx63_sound M⟩
+
+@[ufo_checker]
+theorem checkAx64_semantic_iff (M : FiniteModel4) :
+    ax_a64 M.toUFOSignature4.toUFOSignature3_8 ↔ checkAx64 M = true :=
+  ⟨checkAx64_complete M, checkAx64_sound M⟩
+
+@[ufo_checker]
+theorem checkAx65_semantic_iff (M : FiniteModel4) :
+    ax_a65 M.toUFOSignature4.toUFOSignature3_9 ↔ checkAx65 M = true :=
+  ⟨checkAx65_complete M, checkAx65_sound M⟩
+
+@[ufo_checker]
+theorem checkAx66_semantic_iff (M : FiniteModel4) :
+    ax_a66 M.toUFOSignature4.toUFOSignature3_9 ↔ checkAx66 M = true :=
+  ⟨checkAx66_complete M, checkAx66_sound M⟩
+
+@[ufo_checker]
+theorem checkAx67_semantic_iff (M : FiniteModel4) :
+    ax_a67 M.toUFOSignature4.toUFOSignature3_9 ↔ checkAx67 M = true :=
+  ⟨checkAx67_complete M, checkAx67_sound M⟩
+
+@[ufo_checker]
+theorem checkAx68_semantic_iff (M : FiniteModel4) :
+    ax_a68 M.toUFOSignature4.toUFOSignature3_9 ↔ checkAx68 M = true :=
+  ⟨checkAx68_complete M, checkAx68_sound M⟩
+
+@[ufo_checker]
+theorem checkAx69_semantic_iff (M : FiniteModel4) :
+    ax_a69 M.toUFOSignature4.toUFOSignature3_10 ↔ checkAx69 M = true :=
+  ⟨checkAx69_complete M, checkAx69_sound M⟩
+
+@[ufo_checker]
+theorem checkAx70_semantic_iff (M : FiniteModel4) :
+    ax_a70 M.toUFOSignature4.toUFOSignature3_10 ↔ checkAx70 M = true :=
+  ⟨checkAx70_complete M, checkAx70_sound M⟩
+
+@[ufo_checker]
+theorem checkAx71_semantic_iff (M : FiniteModel4) :
+    ax_a71 M.toUFOSignature4.toUFOSignature3_10 ↔ checkAx71 M = true :=
+  ⟨checkAx71_complete M, checkAx71_sound M⟩
+
+@[ufo_checker]
+theorem checkAx72_semantic_iff (M : FiniteModel4) :
+    ax_a72 M.toUFOSignature4.toUFOSignature3_10 ↔ checkAx72 M = true :=
+  ⟨checkAx72_complete M, checkAx72_sound M⟩
+
+@[ufo_checker]
+theorem checkAx74_semantic_iff (M : FiniteModel4) :
+    ax_a74 M.toUFOSignature4.toUFOSignature3_10 ↔ checkAx74 M = true :=
+  ⟨checkAx74_complete M, checkAx74_sound M⟩
+
+@[ufo_checker]
+theorem checkAx75_semantic_iff (M : FiniteModel4) :
+    ax_a75 M.toUFOSignature4.toUFOSignature3_10 ↔ checkAx75 M = true :=
+  ⟨checkAx75_complete M, checkAx75_sound M⟩
+
+@[ufo_checker]
+theorem checkAx76_semantic_iff (M : FiniteModel4) :
+    ax_a76 M.toUFOSignature4.toUFOSignature3_10 ↔ checkAx76 M = true :=
+  ⟨checkAx76_complete M, checkAx76_sound M⟩
+
+@[ufo_checker]
+theorem checkAx77_semantic_iff (M : FiniteModel4) :
+    ax_a77 M.toUFOSignature4.toUFOSignature3_10 ↔ checkAx77 M = true :=
+  ⟨checkAx77_complete M, checkAx77_sound M⟩
+
+@[ufo_checker]
+theorem checkAx80_semantic_iff (M : FiniteModel4) :
+    ax_a80 M.toUFOSignature4.toUFOSignature3_10 ↔ checkAx80 M = true :=
+  ⟨checkAx80_complete M, checkAx80_sound M⟩
+
+@[ufo_checker]
+theorem checkAx81_semantic_iff (M : FiniteModel4) :
+    ax_a81 M.toUFOSignature4.toUFOSignature3_11 ↔ checkAx81 M = true :=
+  ⟨checkAx81_complete M, checkAx81_sound M⟩
+
+@[ufo_checker]
+theorem checkAx82_semantic_iff (M : FiniteModel4) :
+    ax_a82 M.toUFOSignature4.toUFOSignature3_11 ↔ checkAx82 M = true :=
+  ⟨checkAx82_complete M, checkAx82_sound M⟩
+
+@[ufo_checker]
+theorem checkAx83_semantic_iff (M : FiniteModel4) :
+    ax_a83 M.toUFOSignature4.toUFOSignature3_12 ↔ checkAx83 M = true :=
+  ⟨checkAx83_complete M, checkAx83_sound M⟩
+
+@[ufo_checker]
+theorem checkAx84_semantic_iff (M : FiniteModel4) :
+    ax_a84 M.toUFOSignature4.toUFOSignature3_12 ↔ checkAx84 M = true :=
+  ⟨checkAx84_complete M, checkAx84_sound M⟩
+
+@[ufo_checker]
+theorem checkAx85_semantic_iff (M : FiniteModel4) :
+    ax_a85 M.toUFOSignature4.toUFOSignature3_12 ↔ checkAx85 M = true :=
+  ⟨checkAx85_complete M, checkAx85_sound M⟩
+
+@[ufo_checker]
+theorem checkAx89_semantic_iff (M : FiniteModel4) :
+    ax_a89 M.toUFOSignature4.toUFOSignature3_12 ↔ checkAx89 M = true :=
+  ⟨checkAx89_complete M, checkAx89_sound M⟩
+
+@[ufo_checker]
+theorem checkAx90_semantic_iff (M : FiniteModel4) :
+    ax_a90 M.toUFOSignature4.toUFOSignature3_12 ↔ checkAx90 M = true :=
+  ⟨checkAx90_complete M, checkAx90_sound M⟩
+
+@[ufo_checker]
+theorem checkAx91_semantic_iff (M : FiniteModel4) :
+    ax_a91 M.toUFOSignature4.toUFOSignature3_12 ↔ checkAx91 M = true :=
+  ⟨checkAx91_complete M, checkAx91_sound M⟩
+
+@[ufo_checker]
+theorem checkAx88_semantic_iff (M : FiniteModel4) :
+    ax_a88 M.toUFOSignature4.toUFOSignature3_12 ↔ checkAx88 M = true :=
+  ⟨checkAx88_complete M, checkAx88_sound M⟩
+
+@[ufo_checker]
+theorem checkAx92_semantic_iff (M : FiniteModel4) :
+    ax_a92 M.toUFOSignature4.toUFOSignature3_12 ↔ checkAx92 M = true :=
+  ⟨checkAx92_complete M, checkAx92_sound M⟩
+
+@[ufo_checker]
+theorem checkAx93_semantic_iff (M : FiniteModel4) :
+    ax_a93 M.toUFOSignature4.toUFOSignature3_12 ↔ checkAx93 M = true :=
+  ⟨checkAx93_complete M, checkAx93_sound M⟩
+
+@[ufo_checker]
+theorem checkAx86_semantic_iff (M : FiniteModel4) :
+    ax_a86 M.toUFOSignature4.toUFOSignature3_12 ↔ checkAx86 M = true :=
+  ⟨checkAx86_complete M, checkAx86_sound M⟩
+
+@[ufo_checker]
+theorem checkAx87_semantic_iff (M : FiniteModel4) :
+    ax_a87 M.toUFOSignature4.toUFOSignature3_12 ↔ checkAx87 M = true :=
+  ⟨checkAx87_complete M, checkAx87_sound M⟩
+
+@[ufo_checker]
+theorem checkAx94_semantic_iff (M : FiniteModel4) :
+    ax_a94 M.toUFOSignature4.toUFOSignature3_12 ↔ checkAx94 M = true :=
+  ⟨checkAx94_complete M, checkAx94_sound M⟩
+
+@[ufo_checker]
+theorem checkAx95_semantic_iff (M : FiniteModel4) :
+    ax_a95 M.toUFOSignature4.toUFOSignature3_12 ↔ checkAx95 M = true :=
+  ⟨checkAx95_complete M, checkAx95_sound M⟩
+
+@[ufo_checker]
+theorem checkAx96_semantic_iff (M : FiniteModel4) :
+    ax_a96 M.toUFOSignature4.toUFOSignature3_12 ↔ checkAx96 M = true :=
+  ⟨checkAx96_complete M, checkAx96_sound M⟩
+
+@[ufo_checker]
+theorem checkAx97_semantic_iff (M : FiniteModel4) :
+    ax_a97 M.toUFOSignature4.toUFOSignature3_12 ↔ checkAx97 M = true :=
+  ⟨checkAx97_complete M, checkAx97_sound M⟩
+
+@[ufo_checker]
+theorem checkAx98_semantic_iff (M : FiniteModel4) :
+    ax_a98 M.toUFOSignature4.toUFOSignature3_12 ↔ checkAx98 M = true :=
+  ⟨checkAx98_complete M, checkAx98_sound M⟩
+
+@[ufo_checker]
+theorem checkAx100_semantic_iff (M : FiniteModel4) :
+    ax_a100 M.toUFOSignature4.toUFOSignature3_12 ↔ checkAx100 M = true :=
+  ⟨checkAx100_complete M, checkAx100_sound M⟩
+
+@[ufo_checker]
+theorem checkAx101_semantic_iff (M : FiniteModel4) :
+    ax_a101 M.toUFOSignature4.toUFOSignature3_12 ↔ checkAx101 M = true :=
+  ⟨checkAx101_complete M, checkAx101_sound M⟩
+
+@[ufo_checker]
+theorem checkAxDistanceIdentity_semantic_iff (M : FiniteModel4) :
+    ax_distance_identity M.toUFOSignature4.toUFOSignature3_12 ↔ checkAxDistanceIdentity M = true :=
+  ⟨checkAxDistanceIdentity_complete M, checkAxDistanceIdentity_sound M⟩
+
+@[ufo_checker]
+theorem checkAxDistanceSymmetry_semantic_iff (M : FiniteModel4) :
+    ax_distance_symmetry M.toUFOSignature4.toUFOSignature3_12 ↔ checkAxDistanceSymmetry M = true :=
+  ⟨checkAxDistanceSymmetry_complete M, checkAxDistanceSymmetry_sound M⟩
+
+@[ufo_checker]
+theorem checkAxDistanceTriangle_semantic_iff (M : FiniteModel4) :
+    ax_distance_triangle M.toUFOSignature4.toUFOSignature3_12 ↔ checkAxDistanceTriangle M = true :=
+  ⟨checkAxDistanceTriangle_complete M, checkAxDistanceTriangle_sound M⟩
+
+@[ufo_checker]
+theorem checkAx102_semantic_iff (M : FiniteModel4) :
+    ax_a102 M.toUFOSignature4.toUFOSignature3_13 ↔ checkAx102 M = true :=
+  ⟨checkAx102_complete M, checkAx102_sound M⟩
+
+@[ufo_checker]
+theorem checkAx103_semantic_iff (M : FiniteModel4) :
+    ax_a103 M.toUFOSignature4.toUFOSignature3_13 ↔ checkAx103 M = true :=
+  ⟨checkAx103_complete M, checkAx103_sound M⟩
+
+@[ufo_checker]
+theorem checkAx104_semantic_iff (M : FiniteModel4) :
+    ax_a104 M.toUFOSignature4.toUFOSignature3_13 ↔ checkAx104 M = true :=
+  ⟨checkAx104_complete M, checkAx104_sound M⟩
+
+@[ufo_checker]
+theorem checkAx105_semantic_iff (M : FiniteModel4) :
+    ax_a105 M.toUFOSignature4 ↔ checkAx105 M = true :=
+  ⟨checkAx105_complete M, checkAx105_sound M⟩
+
+@[ufo_checker]
+theorem checkAx106_semantic_iff (M : FiniteModel4) :
+    ax_a106 M.toUFOSignature4 ↔ checkAx106 M = true :=
+  ⟨checkAx106_complete M, checkAx106_sound M⟩
+
+@[ufo_checker]
+theorem checkAx107_semantic_iff (M : FiniteModel4) :
+    ax_a107 M.toUFOSignature4 ↔ checkAx107 M = true :=
+  ⟨checkAx107_complete M, checkAx107_sound M⟩
+
+@[ufo_checker]
+theorem checkAx108_semantic_iff (M : FiniteModel4) :
+    ax_a108 M.toUFOSignature4 ↔ checkAx108 M = true :=
+  ⟨checkAx108_complete M, checkAx108_sound M⟩
+
+@[ufo_checker]
+theorem checkAxInstEndurant_semantic_iff (M : FiniteModel4) :
+    ax_instEndurant_of_EndurantType (Sig := M.toUFOSignature4.toUFOSignature3_2) ↔
+      checkAxInstEndurant M = true :=
+  ⟨checkAxInstEndurant_complete M, checkAxInstEndurant_sound M⟩
+
+@[ufo_checker]
+theorem checkAxSubKindSortal_semantic_iff (M : FiniteModel4) :
+    ax_sub_of_kind_is_sortal (Sig := M.toUFOSignature4.toUFOSignature3_2) ↔
+      checkAxSubKindSortal M = true :=
+  ⟨checkAxSubKindSortal_complete M, checkAxSubKindSortal_sound M⟩
+
+@[ufo_checker]
+theorem checkAxNonSortalUp_semantic_iff (M : FiniteModel4) :
+    ax_nonSortal_upward (Sig := M.toUFOSignature4.toUFOSignature3_2) ↔
+      checkAxNonSortalUp M = true :=
+  ⟨checkAxNonSortalUp_complete M, checkAxNonSortalUp_sound M⟩
+
+@[ufo_checker]
+theorem checkAxQuaIndividualOfEndurant_semantic_iff (M : FiniteModel4) :
+    ax_quaIndividualOf_endurant M.toUFOSignature4.toUFOSignature3_10 ↔
+      checkAxQuaIndividualOfEndurant M = true :=
+  ⟨checkAxQuaIndividualOfEndurant_complete M, checkAxQuaIndividualOfEndurant_sound M⟩
+
+
 private theorem all_id_eq_true_of_mem {xs : List Bool} {b : Bool} :
     xs.all id = true → b ∈ xs → b = true := by
   intro hall hmem
@@ -4223,19 +4796,6 @@ theorem checkAxioms4_sound (M : FiniteModel4) :
     ax107 := checkAx107_sound M h107
     ax108 := checkAx108_sound M h108
   }
-
-theorem checkAxiomsPilot_sound (M : FiniteModel4) :
-    checkAxiomsPilot M = true →
-      ax_a7 M.toUFOSignature4.toUFOSignature3_1 ∧
-      ax_a13 M.toUFOSignature4.toUFOSignature3_1 ∧
-      ax_a61 M.toUFOSignature4.toUFOSignature3_7 ∧
-      ax_a71 M.toUFOSignature4.toUFOSignature3_10 ∧
-      ax_a77 M.toUFOSignature4.toUFOSignature3_10 := by
-  intro h
-  simp only [checkAxiomsPilot, Bool.and_eq_true] at h
-  exact ⟨checkAx7_sound M (by grind), checkAx13_sound M (by grind),
-    checkAx61_sound M (by grind), checkAx71_sound M (by grind),
-    checkAx77_sound M (by grind)⟩
 
 end Checker
 end LeanUfo.UFO.DSL
