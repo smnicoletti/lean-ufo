@@ -18,5 +18,7 @@ ufo_model FailedAx22MultipleKinds : UFO where
     Object(X)
     X :: T1
     X :: T2
+    T1 ⊑ T2
+    T2 ⊑ T1
   derive_relations
   certify

@@ -379,14 +379,73 @@ def selectedCoverageReport
       s!"- {field}: {positiveCoverageLine positiveFields field}; {negativeCoverageLine cats field}"
     pure <| "Selected axiom coverage:\n" ++ String.intercalate "\n" lines.toList
 
+def textAfter? (marker text : String) : Option String :=
+  match second? (text.splitOn marker) with
+  | some rest => some rest
+  | none => none
+
+def tokenAfter? (marker text : String) : Option String :=
+  match textAfter? marker text with
+  | none => none
+  | some rest => first? (rest.splitOn " ")
+
+def quotedFieldAfter? (marker text : String) : Option String :=
+  match textAfter? marker text with
+  | none => none
+  | some rest => first? (rest.splitOn "`")
+
+def checkerFunctionField? (fn : String) : Option String :=
+  match fn with
+  | "checkAxInstEndurant" => some "ax_instEndurant"
+  | "checkAxSubKindSortal" => some "ax_sub_kind_sortal"
+  | "checkAxNonSortalUp" => some "ax_nonSortal_up"
+  | "checkAxKindStable" => some "ax_kindStable"
+  | "checkAxQuaIndividualOfEndurant" => some "axQuaIndividualOfEndurant"
+  | "checkAxDistanceIdentity" => some "axDistanceIdentity"
+  | "checkAxDistanceSymmetry" => some "axDistanceSymmetry"
+  | "checkAxDistanceTriangle" => some "axDistanceTriangle"
+  | _ =>
+      match fn.dropPrefix? "checkAx" with
+      | some suffix =>
+          if suffix.isEmpty then none else some s!"ax{suffix}"
+      | none => none
+
+def generatedFailureFieldFromLine? (line : String) : Option String :=
+  match quotedFieldAfter? "Generated certificate theorem `certified_" line with
+  | some field => some field
+  | none =>
+      match tokenAfter? "theorem checked_" line with
+      | some token => some token
+      | none =>
+          match tokenAfter? "Checker." line with
+          | some token => checkerFunctionField? token
+          | none => none
+
+def generatedFailureFields (text : String) : Array String :=
+  Id.run do
+    let mut fields := #[]
+    for line in text.splitOn "\n" do
+      match generatedFailureFieldFromLine? line with
+      | some field =>
+          if !fields.contains field then
+            fields := fields.push field
+      | none => pure ()
+    pure fields
+
 def checkExpectedFailure (test : ExpectedFailure) : IO (Array String) := do
   let out ← IO.Process.output {
     cmd := "lake"
     args := #["env", "lean", test.file]
   }
   let text := out.stdout ++ out.stderr
+  let generatedFailures := generatedFailureFields text
+  let unexpectedGeneratedFailures := generatedFailures.filter (· != test.field)
   if out.exitCode == 0 then
     pure #[s!"{test.file} unexpectedly succeeded"]
+  else if !unexpectedGeneratedFailures.isEmpty then
+    pure #[
+      s!"{test.file} expected `{test.field}`, but generated failure output also mentioned `{String.intercalate ", " unexpectedGeneratedFailures.toList}`"
+    ]
   else if text.contains test.expected then
     if test.requireCounterexample &&
         !text.contains s!"A finite counterexample was confirmed for {test.field}." then

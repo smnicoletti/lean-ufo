@@ -180,6 +180,12 @@ A negative fixture only counts as direct coverage if:
 - Lean confirms a finite semantic counterexample;
 - the fixture is small and section-local where feasible.
 
+The test runner enforces the first-failure rule by scanning generated
+certificate/checker failure messages.  A fixture fails the audit if its output
+mentions another generated field, even when the expected `certified_axN` text is
+also present.  This catches over-specified fixtures that happen to expose an
+earlier axiom after the checker or proof backend becomes more precise.
+
 Timeout-style counterexample-probe limits and unclassified probe failures do
 not count as direct negative coverage.
 
