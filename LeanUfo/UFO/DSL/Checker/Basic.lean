@@ -1,3 +1,4 @@
+import Lean.Meta.Tactic.Simp
 import LeanUfo.UFO.DSL.FiniteModel
 
 /-!
@@ -8,6 +9,9 @@ checker. The combinators expose the finite worlds and things of a
 `FiniteModel4` as executable Boolean quantifiers, so axiom checkers can be
 written as ordinary finite scans over the compiled model.
 -/
+
+/-- Opt-in simp set for rewriting UFO semantic axioms to executable checker obligations. -/
+register_simp_attr ufo_checker
 
 namespace LeanUfo.UFO.DSL
 namespace Checker

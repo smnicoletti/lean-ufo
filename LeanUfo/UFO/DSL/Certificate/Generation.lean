@@ -702,7 +702,10 @@ private def checkerCertificateProof? (field : CertField) : Option String :=
         "exact LeanUfo.UFO.DSL.Checker.checkAx79_sound data (by native_decide) (by native_decide) (by native_decide)"
   | _ =>
       checkerSoundnessName? field |>.map fun theoremName =>
-        s!"exact LeanUfo.UFO.DSL.Checker.{theoremName} data {checkedTheoremName field.field}"
+        if field.field == "ax99" then
+          s!"exact LeanUfo.UFO.DSL.Checker.{theoremName} data {checkedTheoremName field.field}"
+        else
+          s!"simpa [sig, ufo_checker] using {checkedTheoremName field.field}"
 
 private def certTactic (field : CertField) : String :=
   match certificateSimpDefs? field with

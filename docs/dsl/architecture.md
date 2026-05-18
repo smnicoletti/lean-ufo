@@ -370,8 +370,7 @@ The footprint-backed reuse registry lives in
 `LeanUfo/UFO/DSL/Certificate/Reuse.lean`. It contains one explicit footprint row
 for every registered certificate field. A footprint lists the primitive finite
 tables read by that field's checker: unary tables, binary tables, ternary
-tables, tuple projections, and product-family witnesses. The original pilot
-fields remain useful examples:
+tables, tuple projections, and product-family witnesses. Representative fields:
 
 - `ax13`: unchanged `Endurant` and `Perdurant` footprint;
 - `ax61`: unchanged `ConstitutedBy` footprint;
