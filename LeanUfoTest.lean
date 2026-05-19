@@ -1,5 +1,6 @@
 import LeanUfo.Test.Coverage.RegistryCheck
 import LeanUfo.Test.Diagnostics.Rendering
+import LeanUfo.CertificateCli
 
 /-!
 Executable test driver for `lake test`.
@@ -477,18 +478,24 @@ def checkCommand (label cmd : String) (args : Array String) : IO (Array String) 
   if out.exitCode == 0 then
     pure #[]
   else
-    pure #[s!"{label} failed with exit code {out.exitCode}"]
+    pure #[s!"{label} failed with exit code {out.exitCode}\nstdout:\n{out.stdout}\nstderr:\n{out.stderr}"]
+
+def testTempDir (stem : String) : IO System.FilePath := do
+  let dir := (← LeanUfo.CertificateCli.tempDir) / stem
+  IO.FS.createDirAll dir
+  pure dir
 
 def checkCertificateExportWorkflow : IO (Array String) := do
-  let outDir := "/private/tmp/lean-ufo-test-certificates"
+  let outDir ← testTempDir "lean-ufo-test-certificates"
   let moduleName := "LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension"
   let mut failures := #[]
   failures := failures ++ (← checkCommand "certificate manifest export" "lake"
-    #["exe", "export-certificates", "--module", moduleName, "--out", outDir])
+    #["exe", "export-certificates", "--module", moduleName, "--out", outDir.toString])
   failures := failures ++ (← checkCommand "certificate manifest structure validation" "lake"
-    #["exe", "validate-certificate", outDir ++ "/CarBase.certificate.json", "--structure-only"])
+    #["exe", "validate-certificate", (outDir / "CarBase.certificate.json").toString,
+      "--structure-only"])
   failures := failures ++ (← checkCommand "certificate manifest proof recheck" "lake"
-    #["exe", "validate-certificate", outDir ++ "/CarWithWindow.certificate.json",
+    #["exe", "validate-certificate", (outDir / "CarWithWindow.certificate.json").toString,
       "--module", moduleName])
   pure failures
 
