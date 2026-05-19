@@ -12,17 +12,13 @@ ufo_model StudentEnrollmentModeExample : UFO where
   worlds current
   things Person Bob Enrollment Bobs_Enrollment
 
-  given everywhere:
+  given current:
     ObjectKind(Person)
-
     Object(Bob)
     Bob :: Person
-
     ModeKind(Enrollment)
-
     Mode(Bobs_Enrollment)
     Bobs_Enrollment :: Enrollment
-
     InheresIn(Bobs_Enrollment, Bob)
 
   derive_relations

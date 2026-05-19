@@ -12,17 +12,13 @@ ufo_model GrantGoalExample : UFO where
   worlds current
   things Goal WinAllGrants Person Stefano
 
-  given everywhere:
+  given current:
     ObjectKind(Person)
-
     Object(Stefano)
     Stefano :: Person
-
     ModeKind(Goal)
-
     Mode(WinAllGrants)
     WinAllGrants :: Goal
-
     InheresIn(WinAllGrants, Stefano)
 
   derive_relations
