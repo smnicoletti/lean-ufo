@@ -21,7 +21,6 @@ ufo_model UltimateBearerExample : UFO where
 
     ModeKind(ColorModeKind)
     AppleColorMode :: ColorModeKind
-    IntrinsicMoment(AppleColorMode)
     Mode(AppleColorMode)
     InheresIn(AppleColorMode, Apple1)
   derive_relations

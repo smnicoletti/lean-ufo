@@ -113,22 +113,12 @@ that does not overlap the window.
 ufo_model CarWithWindow : UFO extends CarBase : UFO where
   things Window Body
   given actual:
-    Object(Window)
-    Object(Body)
     Window :: PhysicalObject
     Body :: PhysicalObject
-
-    Part(PhysicalObject, PhysicalObject)
-    Part(Car, Car)
-    Part(Window, Window)
-    Part(Body, Body)
+    Object(Window)
+    Object(Body)
     Part(Window, Car)
     Part(Body, Car)
-
-    Overlap(PhysicalObject, PhysicalObject)
-    Overlap(Car, Car)
-    Overlap(Window, Window)
-    Overlap(Body, Body)
     Overlap(Window, Car)
     Overlap(Car, Window)
     Overlap(Body, Car)
@@ -153,22 +143,12 @@ proofs for the child:
 ufo_model CarWithWindowFresh : UFO extends CarBase : UFO where
   things Window Body
   given actual:
-    Object(Window)
-    Object(Body)
     Window :: PhysicalObject
     Body :: PhysicalObject
-
-    Part(PhysicalObject, PhysicalObject)
-    Part(Car, Car)
-    Part(Window, Window)
-    Part(Body, Body)
+    Object(Window)
+    Object(Body)
     Part(Window, Car)
     Part(Body, Car)
-
-    Overlap(PhysicalObject, PhysicalObject)
-    Overlap(Car, Car)
-    Overlap(Window, Window)
-    Overlap(Body, Body)
     Overlap(Window, Car)
     Overlap(Car, Window)
     Overlap(Body, Car)

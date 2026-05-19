@@ -15,7 +15,7 @@ ufo_model PersonBearerBase : UFO where
   worlds current
   things Person Bob
 
-  given everywhere:
+  given current:
     ObjectKind(Person)
     Object(Bob)
     Bob :: Person
@@ -28,7 +28,7 @@ export_certificate PersonBearerBase
 ufo_model PersonWithEnrollmentMode : UFO extends PersonBearerBase : UFO where
   things Enrollment Bobs_Enrollment
 
-  given everywhere:
+  given current:
     ModeKind(Enrollment)
     Mode(Bobs_Enrollment)
     Bobs_Enrollment :: Enrollment
@@ -42,7 +42,7 @@ export_certificate PersonWithEnrollmentMode
 ufo_model PersonWithEnrollmentModeFresh : UFO extends PersonBearerBase : UFO where
   things Enrollment Bobs_Enrollment
 
-  given everywhere:
+  given current:
     ModeKind(Enrollment)
     Mode(Bobs_Enrollment)
     Bobs_Enrollment :: Enrollment
