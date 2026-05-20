@@ -95,7 +95,7 @@ def evalExpressionTextViaLean
     s!"import {moduleString}\n" ++
     s!"#eval IO.println ({expression})\n"
   IO.FS.writeFile tmp source
-  let out ← IO.Process.output { cmd := "lake", args := #["env", "lean", tmp.toString] }
+  let out ← IO.Process.output { cmd := "lean", args := #[tmp.toString] }
   if out.exitCode == 0 then
     pure out.stdout
   else
@@ -138,7 +138,7 @@ def lakeSearchPath : IO SearchPath := do
 
 unsafe def loadModule (module : Name) : IO Environment := do
   initSearchPath (← findSysroot) (← lakeSearchPath)
-  importModules #[{ module := module, importAll := true, isMeta := true }] {}
+  importModules #[{ module := module, importAll := true, isMeta := true }] {} (loadExts := true)
 
 unsafe def evalManifest? (env : Environment) (declName : Name) :
     IO (Option LeanUfo.UFO.DSL.CertificateManifest) := do
