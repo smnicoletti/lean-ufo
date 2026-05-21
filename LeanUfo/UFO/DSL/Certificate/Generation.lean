@@ -870,7 +870,6 @@ def certAxiomCounterexampleCheck (field : CertField) : String :=
   else if field.field == "ax78" then
     s!"show ¬ ({field.prop}) from by
   set_option maxHeartbeats 1000000 in
-  set_option maxRecDepth 20000 in
   set_option linter.unusedSimpArgs false in
   intro h
   have h48 : LeanUfo.UFO.DSL.Checker.checkAx48 data = true := by native_decide
@@ -898,7 +897,6 @@ def certAxiomCounterexampleCheck (field : CertField) : String :=
   else if field.field == "ax79" then
     s!"show ¬ ({field.prop}) from by
   set_option maxHeartbeats 1000000 in
-  set_option maxRecDepth 20000 in
   set_option linter.unusedSimpArgs false in
   intro h
   have h72 : LeanUfo.UFO.DSL.Checker.checkAx72 data = true := by native_decide
@@ -916,7 +914,6 @@ def certAxiomCounterexampleCheck (field : CertField) : String :=
   | some backend =>
     s!"show ¬ ({field.prop}) from by
   set_option maxHeartbeats 1000000 in
-  set_option maxRecDepth 20000 in
   set_option linter.unusedSimpArgs false in
   intro h
   have hcheck : LeanUfo.UFO.DSL.Checker.{backend.checkFn} data = true :=
@@ -928,7 +925,6 @@ def certAxiomCounterexampleCheck (field : CertField) : String :=
   | none =>
     s!"show ¬ ({field.prop}) from by
   set_option maxHeartbeats 1000000 in
-  set_option maxRecDepth 20000 in
   set_option linter.unusedSimpArgs false in
   {certificateSimp} <;> (try omega) <;> (try grind) <;> native_decide"
 

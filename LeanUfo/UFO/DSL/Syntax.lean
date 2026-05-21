@@ -481,10 +481,15 @@ private def certificationFailureAnalysis
         s!"No counterexample proof was found for {field.field}.",
         probeReason
       ]
+      let probeErrors :=
+        if counterexampleProbe.timedOut then
+          #[]
+        else
+          counterexampleProbe.errors.map (fun msg => s!"Counterexample probe error: {msg}")
       if field.field == "ax68" then
-        pure <| base ++ ax68ClosureAnalysis worldNames thingNames tables
+        pure <| base ++ probeErrors ++ ax68ClosureAnalysis worldNames thingNames tables
       else
-        pure base
+        pure <| base ++ probeErrors
   else
     pure <| #[
       s!"A finite counterexample was confirmed for {field.field}.",

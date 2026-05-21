@@ -74,6 +74,7 @@ def fullExpectedFailures : Array ExpectedFailure := #[
   ⟨"ax67", "LeanUfo/Test/Certification/Negative/Ax67MomentTwoBearers.lean", "certified_ax67", true⟩,
   ⟨"ax68", "LeanUfo/Test/Certification/Negative/Ax68MomentWithoutUltimateBearer.lean", "certified_ax68", true⟩,
   ⟨"ax71", "LeanUfo/Test/Certification/Negative/Ax71FoundedByWrongFoundationType.lean", "certified_ax71", true⟩,
+  ⟨"ax71", "LeanUfo/Test/Certification/Negative/Ax71ComputedModeMissingExistenceVariation.lean", "certified_ax71", true⟩,
   ⟨"ax73", "LeanUfo/Test/Certification/Negative/Ax73QuaIndividualFoundationBridge.lean", "certified_ax73", true⟩,
   ⟨"ax80", "LeanUfo/Test/Certification/Negative/Ax80MediatesWithoutRelator.lean", "certified_ax80", true⟩,
   ⟨"ax81", "LeanUfo/Test/Certification/Negative/Ax81CharacterizationWrongTypes.lean", "certified_ax81", true⟩,
