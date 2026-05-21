@@ -39,7 +39,7 @@ We interpret:
 - `GenericConstitutionalDependence` as holding exactly for instance-empty types,
 - `Constitution` as empty.
 -/
-def sig3_7 : UFOSignature3_7.{0,0} :=
+def sig3_7 : UFOSignature3_7 :=
 { toUFOSignature3_6 := Model3_6.sig3_6
 
   Ex := fun _x _w => True

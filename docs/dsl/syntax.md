@@ -169,6 +169,7 @@ the Lake exporter, not proof evidence.
 Export and validation are ordinary Lake workflows:
 
 ```bash
+lake build LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension
 lake exe export-certificates --module LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension --out certificates/
 lake exe validate-certificate certificates/CarBase.certificate.json --structure-only
 lake exe validate-certificate certificates/CarWithWindow.certificate.json --module LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension

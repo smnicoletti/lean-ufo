@@ -145,6 +145,7 @@ Manifest export starts as Lean data: `CertificateManifest.toJson` converts the
 manifest to a JSON value. The supported command-line path is:
 
 ```bash
+lake build LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension
 lake exe export-certificates --module LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension --out certificates/
 lake exe validate-certificate certificates/CarBase.certificate.json --structure-only
 lake exe validate-certificate certificates/CarBase.certificate.json --module LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension

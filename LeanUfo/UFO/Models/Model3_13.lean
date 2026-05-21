@@ -30,7 +30,7 @@ The witness still has the same two entities:
 All previous layers remain unchanged. For the new §3.13 layer we interpret
 `Manifests`, `LifeOf`, and `Meet` as empty.
 -/
-def sig3_13 : UFOSignature3_13.{0,0} :=
+def sig3_13 : UFOSignature3_13 :=
 { toUFOSignature3_12 := Model3_12.sig3_12
 
   Manifests := fun _x _y _w => False

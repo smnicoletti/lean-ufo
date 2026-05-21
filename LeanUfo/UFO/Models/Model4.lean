@@ -42,7 +42,7 @@ defined by reusing the corresponding inherited predicates from
 `Model3_13.sig3_13`; this avoids duplicating the whole inherited signature and
 makes the candidate witness follow the displayed §4 formulas literally.
 -/
-def sig4 : UFOSignature4.{0,0} :=
+def sig4 : UFOSignature4 :=
 { toUFOSignature3_13 := Model3_13.sig3_13
 
   /-

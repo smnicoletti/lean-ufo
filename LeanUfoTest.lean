@@ -489,6 +489,8 @@ def checkCertificateExportWorkflow : IO (Array String) := do
   let outDir ← testTempDir "lean-ufo-test-certificates"
   let moduleName := "LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension"
   let mut failures := #[]
+  failures := failures ++ (← checkCommand "certificate source module build" "lake"
+    #["build", moduleName])
   failures := failures ++ (← checkCommand "certificate manifest export" "lake"
     #["exe", "export-certificates", "--module", moduleName, "--out", outDir.toString])
   failures := failures ++ (← checkCommand "certificate manifest structure validation" "lake"

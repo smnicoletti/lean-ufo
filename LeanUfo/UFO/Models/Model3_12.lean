@@ -44,7 +44,7 @@ Since all antecedents requiring the new positive structure are false, the
 §3.12 axioms hold vacuously or by the inherited emptiness of `Quality` and
 `QualityType`.
 -/
-def sig3_12 : UFOSignature3_12.{0,0} :=
+def sig3_12 : UFOSignature3_12 :=
 { toUFOSignature3_11 := Model3_11.sig3_11
 
   Quale := fun _x _w => False

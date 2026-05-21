@@ -39,7 +39,7 @@ moments at all, this is the smallest possible witness:
 - hence no `MomentOf` chains arise,
 - and `UltimateBearerOf` is never instantiated.
 -/
-def sig3_9 : UFOSignature3_9.{0,0} :=
+def sig3_9 : UFOSignature3_9 :=
 { toUFOSignature3_8 := Model3_8.sig3_8
 
   InheresIn := fun _x _y _w => False

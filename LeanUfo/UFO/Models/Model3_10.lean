@@ -42,7 +42,7 @@ For the new §3.10 layer we choose the minimal compatible interpretation:
 - `FoundedBy`, `QuaIndividualOf`, `QuaIndividual`, `Relator`, and `Mediates`
   are all empty in this witness.
 -/
-def sig3_10 : UFOSignature3_10.{0,0} :=
+def sig3_10 : UFOSignature3_10 :=
 { toUFOSignature3_9 := Model3_9.sig3_9
 
   ExternallyDependent := fun _x _y _w => True

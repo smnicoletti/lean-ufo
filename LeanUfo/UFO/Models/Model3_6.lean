@@ -47,7 +47,7 @@ So this witness validates the composition axioms in the most minimal way:
 there are no actual components, and all generic functional dependence claims
 hold only vacuously.
 -/
-def sig3_6 : UFOSignature3_6.{0,0} :=
+def sig3_6 : UFOSignature3_6 :=
 { toUFOSignature3_5 := Model3_5.sig3_5
 
   FunctionsAs := fun _x _t _w => False

@@ -27,7 +27,7 @@ Signature interpretation for §3.3 extending the §3.2 concrete signature.
 We classify all endurants as Substantials (and Objects),
 and leave the other leaf categories empty.
 -/
-def sig3_3 : UFOSignature3_3.{0,0} :=
+def sig3_3 : UFOSignature3_3 :=
 { toUFOSignature3_2 := Model3_2.sig3_2
 
   /- Partition of Endurant individuals -/

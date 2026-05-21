@@ -1,6 +1,6 @@
 # Lean UFO
 
-[![Lean](https://img.shields.io/badge/Lean-4.28.0--rc1-blue)](lean-toolchain)
+[![Lean](https://img.shields.io/badge/Lean-4.29.1-blue)](lean-toolchain)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-project%20guide-informational)](docs/README.md)
 [![Lean CI](https://github.com/smnicoletti/lean-ufo/actions/workflows/lean.yml/badge.svg?branch=dev)](https://github.com/smnicoletti/lean-ufo/actions/workflows/lean.yml?query=branch%3Adev)
@@ -181,6 +181,7 @@ ufo_model CarWithWindow : UFO extends CarBase : UFO where
 Certificate manifests can be exported and later validated:
 
 ```bash
+lake build LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension
 lake exe export-certificates --module LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension --out certificates/
 lake exe validate-certificate certificates/CarBase.certificate.json --structure-only
 lake exe validate-certificate certificates/CarWithWindow.certificate.json --module LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension

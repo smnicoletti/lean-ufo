@@ -88,6 +88,20 @@ def sha256OfString (label content : String) : IO String := do
       throw <| IO.userError
         s!"could not compute SHA-256 digest; shasum failed with:\n{shasum.stderr}\nsha256sum failed with:\n{sha256sum.stderr}"
 
+def lakeSearchPath : IO SearchPath := do
+  let cwd ← IO.currentDir
+  let mut paths : Array System.FilePath := #[cwd / ".lake" / "build" / "lib" / "lean"]
+  let packagesDir := cwd / ".lake" / "packages"
+  if (← packagesDir.pathExists) then
+    for entry in (← packagesDir.readDir) do
+      let packageLeanLib := entry.path / ".lake" / "build" / "lib" / "lean"
+      if (← packageLeanLib.pathExists) then
+        paths := paths.push packageLeanLib
+  pure paths.toList
+
+def leanProcessEnv : IO (Array (String × Option String)) := do
+  pure #[("LEAN_PATH", some (System.SearchPath.toString (← lakeSearchPath)))]
+
 def evalExpressionTextViaLean
     (moduleString modelString suffix expression : String) : IO String := do
   let tmp ← tempFilePath s!"text-{moduleString}-{modelString}-{suffix}" "lean"
@@ -95,7 +109,11 @@ def evalExpressionTextViaLean
     s!"import {moduleString}\n" ++
     s!"#eval IO.println ({expression})\n"
   IO.FS.writeFile tmp source
-  let out ← IO.Process.output { cmd := "lean", args := #[tmp.toString] }
+  let out ← IO.Process.output {
+    cmd := "lean",
+    args := #[tmp.toString],
+    env := (← leanProcessEnv)
+  }
   if out.exitCode == 0 then
     pure out.stdout
   else
@@ -124,17 +142,6 @@ def modelDigestsViaLean (moduleString modelString : String) :
 
 def parseModuleName (s : String) : Name :=
   s.toName
-
-def lakeSearchPath : IO SearchPath := do
-  let cwd ← IO.currentDir
-  let mut paths : Array System.FilePath := #[cwd / ".lake" / "build" / "lib" / "lean"]
-  let packagesDir := cwd / ".lake" / "packages"
-  if (← packagesDir.pathExists) then
-    for entry in (← packagesDir.readDir) do
-      let packageLeanLib := entry.path / ".lake" / "build" / "lib" / "lean"
-      if (← packageLeanLib.pathExists) then
-        paths := paths.push packageLeanLib
-  pure paths.toList
 
 unsafe def loadModule (module : Name) : IO Environment := do
   initSearchPath (← findSysroot) (← lakeSearchPath)

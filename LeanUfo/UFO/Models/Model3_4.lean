@@ -27,7 +27,7 @@ Signature interpretation for §3.4 extending the §3.3 concrete signature.
 We classify the unique endurant type `K` as a `SubstantialType`, `ObjectType`,
 and `ObjectKind`, leaving all other new predicates empty.
 -/
-def sig3_4 : UFOSignature3_4.{0,0} :=
+def sig3_4 : UFOSignature3_4 :=
 { toUFOSignature3_3 := Model3_3.sig3_3
 
   /- Additional type-level categories from §3.4 -/
