@@ -538,11 +538,19 @@ private def emitModel
   elabCommandString "def tables : FactTables := compileExplicitModelAST ast"
   elabCommandString "def data : FiniteModel4 := compileExplicitModel ast (by decide) (by decide)"
   elabCommandString "abbrev sig : UFOSignature4 := FiniteModel4.toUFOSignature4 data"
-  let derivedFailed ← profileStep profileEnabled s!"{model}.assertedDerivedFacts" <|
-    elabCommandStringWithErrorCheck
-      s!"set_option maxHeartbeats 1000000 in set_option linter.unusedSimpArgs false in theorem assertedDerivedFacts : {derivedFactsType tables.derivedProps} := {derivedFactsBody tables.derivedProps}"
+  let derivedFailure? := derivedAssertionFailure? worldNames thingNames namedFacts scopedFacts tables
+  let derivedFailed ←
+    match derivedFailure? with
+    | some _ => pure true
+    | none =>
+        profileStep profileEnabled s!"{model}.assertedDerivedFacts" <|
+          elabCommandStringWithErrorCheck
+            s!"set_option maxHeartbeats 1000000 in set_option linter.unusedSimpArgs false in theorem assertedDerivedFacts : {derivedFactsType tables.derivedProps} := {derivedFactsBody tables.derivedProps}"
   if derivedFailed then
-    let failureAnalysis := derivedAssertionAnalysis worldNames thingNames namedFacts scopedFacts tables
+    let failureAnalysis :=
+      match derivedFailure? with
+      | some analysis => analysis
+      | none => derivedAssertionAnalysis worldNames thingNames namedFacts scopedFacts tables
     saveFailedDiagnosticsWidget cmdStx model worldNames thingNames namedFacts scopedFacts facts tables
       "derived-facts-failed" #[] none "A user-written derived relation assertion failed."
       failureAnalysis

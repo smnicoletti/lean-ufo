@@ -97,6 +97,136 @@ private def hasPossibleInstance
           return true
     return false
 
+private def boxExImpLookup
+    (worldCount : Nat) (tables : FactTables) (x y : Nat) : Bool :=
+  Id.run do
+    for w in [:worldCount] do
+      if tables.unaryLookup "ex" x w && !tables.unaryLookup "ex" y w then
+        return false
+    return true
+
+private def existentialDependenceLookup
+    (worldCount : Nat) (tables : FactTables) (x y : Nat) : Bool :=
+  boxExImpLookup worldCount tables x y
+
+private def existentialIndependenceLookup
+    (worldCount : Nat) (tables : FactTables) (x y : Nat) : Bool :=
+  !existentialDependenceLookup worldCount tables x y &&
+    !existentialDependenceLookup worldCount tables y x
+
+private def externallyDependentLookup
+    (worldCount thingCount : Nat) (tables : FactTables) (x y w : Nat) : Bool :=
+  boxExImpLookup worldCount tables x y &&
+    Id.run do
+      for z in [:thingCount] do
+        if tables.binaryLookup "inheresIn" x z w then
+          let yWithoutZ := Id.run do
+            for w' in [:worldCount] do
+              if tables.unaryLookup "ex" y w' && !tables.unaryLookup "ex" z w' then
+                return true
+            return false
+          let zWithoutY := Id.run do
+            for w' in [:worldCount] do
+              if tables.unaryLookup "ex" z w' && !tables.unaryLookup "ex" y w' then
+                return true
+            return false
+          if !(yWithoutZ && zWithoutY) then
+            return false
+      return true
+
+private def externallyDependentModeLookup
+    (worldCount thingCount : Nat) (tables : FactTables) (x w : Nat) : Bool :=
+  tables.unaryLookup "mode" x w &&
+    Id.run do
+      for y in [:thingCount] do
+        if externallyDependentLookup worldCount thingCount tables x y w then
+          return true
+      return false
+
+private def genericFunctionalDependenceLookup
+    (thingCount : Nat) (tables : FactTables) (x' y' w : Nat) : Bool :=
+  Id.run do
+    for x in [:thingCount] do
+      if tables.binaryLookup "inst" x x' w && tables.binaryLookup "functionsAs" x x' w then
+        let found := Id.run do
+          for y in [:thingCount] do
+            if y != x && tables.binaryLookup "inst" y y' w &&
+                tables.binaryLookup "functionsAs" y y' w then
+              return true
+          return false
+        if !found then
+          return false
+    return true
+
+private def individualFunctionalDependenceLookup
+    (thingCount : Nat) (tables : FactTables) (x x' y y' w : Nat) : Bool :=
+  genericFunctionalDependenceLookup thingCount tables x' y' w &&
+    tables.binaryLookup "inst" x x' w &&
+    tables.binaryLookup "inst" y y' w &&
+    (!tables.binaryLookup "functionsAs" x x' w ||
+      tables.binaryLookup "functionsAs" y y' w)
+
+private def componentOfLookup
+    (thingCount : Nat) (tables : FactTables) (x x' y y' w : Nat) : Bool :=
+  tables.binaryLookup "properPart" x y w &&
+    individualFunctionalDependenceLookup thingCount tables x x' y y' w
+
+private def genericConstitutionalDependenceLookup
+    (thingCount : Nat) (tables : FactTables) (x' y' w : Nat) : Bool :=
+  Id.run do
+    for x in [:thingCount] do
+      if tables.binaryLookup "inst" x x' w then
+        let found := Id.run do
+          for y in [:thingCount] do
+            if tables.binaryLookup "inst" y y' w &&
+                tables.binaryLookup "constitutedBy" x y w then
+              return true
+          return false
+        if !found then
+          return false
+    return true
+
+private def constitutionLookup
+    (thingCount : Nat) (tables : FactTables) (x x' y y' w : Nat) : Bool :=
+  tables.binaryLookup "inst" x x' w &&
+    tables.binaryLookup "inst" y y' w &&
+    genericConstitutionalDependenceLookup thingCount tables x' y' w &&
+    tables.binaryLookup "constitutedBy" x y w
+
+private def quaIndividualLookup
+    (thingCount : Nat) (tables : FactTables) (x w : Nat) : Bool :=
+  Id.run do
+    for y in [:thingCount] do
+      if tables.binaryLookup "quaIndividualOf" x y w then
+        return true
+    return false
+
+private def derivedUnaryLookup
+    (worldCount thingCount : Nat) (tables : FactTables) (field : String) (x w : Nat) : Bool :=
+  match field with
+  | "ExternallyDependentMode" => externallyDependentModeLookup worldCount thingCount tables x w
+  | "QuaIndividual" => quaIndividualLookup thingCount tables x w
+  | _ =>
+      tables.derivedProps.any fun prop =>
+        prop == s!"sig.{field} {diagFinThingTerm x} {diagFinWorldTerm w}"
+
+private def derivedBinaryLookup
+    (worldCount thingCount : Nat) (tables : FactTables) (field : String) (x y w : Nat) : Bool :=
+  match field with
+  | "ExistentialDependence" => existentialDependenceLookup worldCount tables x y
+  | "ExistentialIndependence" => existentialIndependenceLookup worldCount tables x y
+  | "ExternallyDependent" => externallyDependentLookup worldCount thingCount tables x y w
+  | "GenericFunctionalDependence" => genericFunctionalDependenceLookup thingCount tables x y w
+  | "GenericConstitutionalDependence" => genericConstitutionalDependenceLookup thingCount tables x y w
+  | _ =>
+      tables.derivedProps.any fun prop =>
+        prop == s!"sig.{field} {diagFinThingTerm x} {diagFinThingTerm y} {diagFinWorldTerm w}"
+
+private def assertedDerivedBinaryLookup
+    (tables : FactTables) (field : String) (x y w : Nat) : Bool :=
+  tables.derivedProps.any fun prop =>
+    prop == s!"sig.{field} {diagFinThingTerm x} {diagFinThingTerm y} {diagFinWorldTerm w}"
+
 private def evalDiagAtom
     (worldCount thingCount : Nat) (tables : FactTables)
     (env : Array (String × Nat)) : DiagAtom → Bool
@@ -109,8 +239,7 @@ private def evalDiagAtom
   | .derivedUnary field thing world =>
       let thingIdx := lookupVar env thing
       let worldIdx := lookupVar env world
-      tables.derivedProps.any fun prop =>
-        prop == s!"sig.{field} {diagFinThingTerm thingIdx} {diagFinWorldTerm worldIdx}"
+      derivedUnaryLookup worldCount thingCount tables field thingIdx worldIdx
   | .binary (.part) left right world =>
       lookupVar env left == lookupVar env right ||
         tables.binaryLookup "part" (lookupVar env left) (lookupVar env right) (lookupVar env world)
@@ -126,8 +255,7 @@ private def evalDiagAtom
       let leftIdx := lookupVar env left
       let rightIdx := lookupVar env right
       let worldIdx := lookupVar env world
-      tables.derivedProps.any fun prop =>
-        prop == s!"sig.{field} {diagFinThingTerm leftIdx} {diagFinThingTerm rightIdx} {diagFinWorldTerm worldIdx}"
+      derivedBinaryLookup worldCount thingCount tables field leftIdx rightIdx worldIdx
   | .quaternary field first second third fourth world =>
       let firstIdx := lookupVar env first
       let secondIdx := lookupVar env second
@@ -1201,14 +1329,6 @@ def hasAx68ClosureFailure (worldCount thingCount : Nat) (tables : FactTables) : 
   (firstMomentWithoutUltimateBearer worldCount thingCount tables).isSome ||
     (firstMomentWithMultipleUltimateBearers worldCount thingCount tables).isSome
 
-private def derivedUnaryLookup (tables : FactTables) (field : String) (x w : Nat) : Bool :=
-  tables.derivedProps.any fun prop =>
-    prop == s!"sig.{field} {diagFinThingTerm x} {diagFinWorldTerm w}"
-
-private def derivedBinaryLookup (tables : FactTables) (field : String) (x y w : Nat) : Bool :=
-  tables.derivedProps.any fun prop =>
-    prop == s!"sig.{field} {diagFinThingTerm x} {diagFinThingTerm y} {diagFinWorldTerm w}"
-
 private def partLookup (tables : FactTables) (x y w : Nat) : Bool :=
   x == y || tables.binaryLookup "part" x y w
 
@@ -1524,7 +1644,7 @@ private def evalNamedDerivedFact?
       pure <| complexQualityTypeLookup thingNames.size tables x w
   | .unary field x =>
       let x ← thingIndexByString? thingNames x
-      pure <| derivedUnaryLookup tables field x w
+      pure <| derivedUnaryLookup worldNames.size thingNames.size tables field x w
   | .binary "UltimateBearerOf" x y =>
       let x ← thingIndexByString? thingNames x
       let y ← thingIndexByString? thingNames y
@@ -1552,7 +1672,7 @@ private def evalNamedDerivedFact?
   | .binary field x y =>
       let x ← thingIndexByString? thingNames x
       let y ← thingIndexByString? thingNames y
-      pure <| derivedBinaryLookup tables field x y w
+      pure <| derivedBinaryLookup worldNames.size thingNames.size tables field x y w
   | .ternary "IsCompletelyCoveredBy" x y z =>
       let x ← thingIndexByString? thingNames x
       let y ← thingIndexByString? thingNames y
@@ -1565,25 +1685,998 @@ private def evalNamedDerivedFact?
       pure <| isPartitionedIntoLookup worldNames.size thingNames.size tables x y z w
   | .ternary _ _ _ _ =>
       none
+  | .quaternary "IndividualFunctionalDependence" x x' y y' =>
+      let x ← thingIndexByString? thingNames x
+      let x' ← thingIndexByString? thingNames x'
+      let y ← thingIndexByString? thingNames y
+      let y' ← thingIndexByString? thingNames y'
+      pure <| individualFunctionalDependenceLookup thingNames.size tables x x' y y' w
+  | .quaternary "ComponentOf" x x' y y' =>
+      let x ← thingIndexByString? thingNames x
+      let x' ← thingIndexByString? thingNames x'
+      let y ← thingIndexByString? thingNames y
+      let y' ← thingIndexByString? thingNames y'
+      pure <| componentOfLookup thingNames.size tables x x' y y' w
+  | .quaternary "Constitution" x x' y y' =>
+      let x ← thingIndexByString? thingNames x
+      let x' ← thingIndexByString? thingNames x'
+      let y ← thingIndexByString? thingNames y
+      let y' ← thingIndexByString? thingNames y'
+      pure <| constitutionLookup thingNames.size tables x x' y y' w
   | .quaternary _ _ _ _ _ =>
       none
 
 private def derivedAssertionSuggestion (fact : NamedDerivedFact) : String :=
   match fact with
+  | .unary "Quality" _ =>
+      "Computed from `QualityKind(k)` plus `x :: k`, with exactly one such quality kind. Add exactly one quality-kind instantiation for the individual, and avoid competing quality-kind instantiations."
+  | .unary "ExternallyDependentMode" _ =>
+      "Computed from `Mode(x)` plus some computed `ExternallyDependent(x, y)`. `ExternallyDependent` itself is computed from modal existential dependence and independence from each bearer reached by `InheresIn`. Add `Mode`, `InheresIn`, and modal `Ex` facts that make a witness true, or remove the unsupported assertion."
+  | .unary "QuaIndividual" _ =>
+      "Computed from `QuaIndividualOf(x, y)`. Add a matching `QuaIndividualOf` fact and satisfy the §3.10 foundation requirements checked by the relator axioms, or remove the unsupported assertion."
+  | .unary "NonEmptySet" _ =>
+      "Computed from membership at the current world. Add at least one `MemberOf(member, set)` fact at this world, or remove the unsupported assertion."
+  | .unary "QualityStructure" _ =>
+      "Computed from exactly one association with a `QualityType`. Add exactly one `AssociatedWith(structure, qualityType)` fact whose target is a `QualityType`, or remove the unsupported assertion."
+  | .unary "SimpleQuality" _ =>
+      "Computed from `Quality(x)` plus absence of `InheresIn(_, x)`. Make the thing a computed `Quality` and ensure no other thing inheres in it at this world."
+  | .unary "ComplexQuality" _ =>
+      "Computed from `Quality(x)` plus at least one `InheresIn(_, x)`. Make the thing a computed `Quality` and add at least one `InheresIn(part, quality)` fact."
+  | .unary "SimpleQualityType" _ =>
+      "Computed from `QualityType(t)` plus every current instance of `t` being a computed `SimpleQuality`. Assert `QualityType(type)` and repair any non-simple-quality instance."
+  | .unary "ComplexQualityType" _ =>
+      "Computed from `QualityType(t)` plus every current instance of `t` being a computed `ComplexQuality`. Assert `QualityType(type)` and repair any non-complex-quality instance."
+  | .binary "ProperSub" _ _ =>
+      "Computed from `Sub(left, right)` and absence of reverse `Sub(right, left)`. Add the forward `Sub` fact and ensure the reverse `Sub` fact is not present."
+  | .binary "GenericFunctionalDependence" _ _ =>
+      "Computed from `Inst` and `FunctionsAs`: every instance functioning as the source type needs a distinct instance functioning as the target type."
+  | .quaternary "IndividualFunctionalDependence" _ _ _ _ =>
+      "Computed from generic functional dependence, the two instantiations, and the source-to-target `FunctionsAs` implication. Make the type-level dependence true, add the required instantiations, and ensure the target functions whenever the source functions."
+  | .quaternary "ComponentOf" _ _ _ _ =>
+      "Computed from `ProperPart(component, whole)` plus the corresponding computed `IndividualFunctionalDependence`. Add the proper-part fact and repair the functional-dependence side."
+  | .binary "GenericConstitutionalDependence" _ _ =>
+      "Computed from `Inst` and `ConstitutedBy`: every source-type instance needs a target-type instance that constitutionally bears it."
+  | .quaternary "Constitution" _ _ _ _ =>
+      "Computed from the two instantiations, computed generic constitutional dependence, and `ConstitutedBy(instance, constituter)`. Add the required instantiations, repair generic constitutional dependence, and add the concrete `ConstitutedBy` fact."
+  | .binary "ExternallyDependent" _ _ =>
+      "Computed from modal existential dependence plus existential independence from every bearer reached by `InheresIn`. Add modal `Ex` variation and `InheresIn` facts that satisfy external dependence, or remove the unsupported assertion."
+  | .binary "ExistentialDependence" _ _ =>
+      "Computed from `Ex` facts across worlds: every world where the dependent exists must also have the target existing. Add the missing `Ex` facts, or remove the unsupported assertion."
+  | .binary "ExistentialIndependence" _ _ =>
+      "Computed from `Ex` facts across worlds: each side must have a witness world where it exists without the other. Add those modal `Ex` variations, or remove the unsupported assertion."
+  | .binary "UltimateBearerOf" _ _ =>
+      "Computed from the `InheresIn` transitive closure and `Moment`: the bearer must be non-moment and reachable from the moment. Add an `InheresIn` path from the moment to the bearer and ensure the bearer is not a moment."
+  | .binary "SubsetOf" _ _ =>
+      "Computed from `MemberOf`: every member of the left set must also be a member of the right set at this world."
+  | .binary "ProperSubsetOf" _ _ =>
+      "Computed from `SubsetOf(left, right)` plus a strictness witness: some right-set member must not be in the left set."
   | .binary "IsDisjointWith" _ _ =>
-      "Remove the assertion, or remove the common instance facts that make the two types overlap."
+      "Computed from typehood and `Inst`: the two types must have no shared instance. Remove the assertion, or remove the common instance facts that make the two types overlap."
   | .ternary "IsCompletelyCoveredBy" _ _ _ =>
-      "Remove the assertion, or add missing instantiation facts so every instance of the covered type instantiates at least one covering type."
+      "Computed from `Inst`: every instance of the covered type must instantiate at least one covering type. Add missing instantiation facts, or remove the assertion."
   | .ternary "IsPartitionedInto" _ _ _ =>
-      "Remove the assertion, or make the cover complete and the two covering types disjoint."
+      "Computed from complete coverage plus disjointness of the two covering types. Make the cover complete and the covering types disjoint, or remove the assertion."
   | .binary "Categorizes" _ _ =>
-      "Remove the assertion, or add the missing specialization facts from each category-instance type to the categorized type."
+      "Computed from typehood, `Inst`, and `Sub`: every type instantiating the category must specialize the categorized type. Add missing specialization facts, or remove the assertion."
   | _ =>
       "Remove the assertion, or add the primitive DSL facts needed to make this derived relation true in the generated finite model."
 
-def derivedAssertionAnalysis
+private def firstBoxExImpFailure?
+    (worldNames : Array Name) (tables : FactTables) (x y : Nat) : Option Nat :=
+  Id.run do
+    for w in [:worldNames.size] do
+      if tables.unaryLookup "ex" x w && !tables.unaryLookup "ex" y w then
+        return some w
+    return none
+
+private def firstExternalIndependenceFailure?
+    (worldNames thingNames : Array Name) (tables : FactTables) (y z : Nat) :
+    Option String :=
+  let yWithoutZ := Id.run do
+    for w in [:worldNames.size] do
+      if tables.unaryLookup "ex" y w && !tables.unaryLookup "ex" z w then
+        return some w
+    return none
+  let zWithoutY := Id.run do
+    for w in [:worldNames.size] do
+      if tables.unaryLookup "ex" z w && !tables.unaryLookup "ex" y w then
+        return some w
+    return none
+  match yWithoutZ, zWithoutY with
+  | none, none =>
+      some s!"the assertion needs one witness world where Ex({indexedName thingNames y}) holds without Ex({indexedName thingNames z}), and one witness world where Ex({indexedName thingNames z}) holds without Ex({indexedName thingNames y}); neither witness exists in the current `Ex` facts"
+  | none, some _ =>
+      some s!"the assertion needs a witness world where Ex({indexedName thingNames y}) holds without Ex({indexedName thingNames z}), but no such world exists in the current `Ex` facts"
+  | some _, none =>
+      some s!"the assertion needs a witness world where Ex({indexedName thingNames z}) holds without Ex({indexedName thingNames y}), but no such world exists in the current `Ex` facts"
+  | some _, some _ => none
+
+private def firstExternallyDependentFailureReason
+    (worldNames thingNames : Array Name) (tables : FactTables) (x y w : Nat) : String :=
+  match firstBoxExImpFailure? worldNames tables x y with
+  | some witnessWorld =>
+      s!"`{indexedName thingNames x}` exists at `{indexedName worldNames witnessWorld}`, but `{indexedName thingNames y}` does not; this breaks existential dependence."
+  | none =>
+      Id.run do
+        for z in [:thingNames.size] do
+          if tables.binaryLookup "inheresIn" x z w then
+            match firstExternalIndependenceFailure? worldNames thingNames tables y z with
+            | some reason =>
+                return s!"`{indexedName thingNames x}` inheres in `{indexedName thingNames z}` at `{indexedName worldNames w}`, but `{indexedName thingNames y}` is not existentially independent from that bearer: {reason}."
+            | none => pure ()
+        return "no concrete missing `Ex` witness was isolated; inspect the `Ex` and `InheresIn` facts used by external dependence."
+
+private def externallyDependentWitnesses
+    (worldNames thingNames : Array Name) (tables : FactTables) (x w : Nat) : Array Nat :=
+  Id.run do
+    let mut out := #[]
+    for y in [:thingNames.size] do
+      if externallyDependentLookup worldNames.size thingNames.size tables x y w then
+        out := out.push y
+    return out
+
+private def renderExternallyDependentModeStatus
+    (worldNames thingNames : Array Name) (tables : FactTables) (x w : Nat) : Array String :=
+  if !tables.unaryLookup "mode" x w then
+    #[s!"  - Computed ExternallyDependentMode: false, because `{indexedName thingNames x}` is not a `Mode` at `{indexedName worldNames w}`."]
+  else
+    let witnesses := externallyDependentWitnesses worldNames thingNames tables x w
+    if witnesses.isEmpty then
+      Id.run do
+        let declaredCandidates := Id.run do
+          let mut out := #[]
+          for y in [:thingNames.size] do
+            if tables.binaryLookup "externallyDependent" x y w ||
+                assertedDerivedBinaryLookup tables "ExternallyDependent" x y w then
+              out := out.push y
+          return out
+        let candidate? :=
+          declaredCandidates[0]? <|>
+            Id.run do
+              for z in [:thingNames.size] do
+                if tables.binaryLookup "inheresIn" x z w then
+                  return some z
+              return if thingNames.isEmpty then none else some 0
+        let firstReason :=
+          match candidate? with
+          | none =>
+            "there are no candidate things to witness external dependence."
+          | some candidate =>
+            firstExternallyDependentFailureReason worldNames thingNames tables x candidate w
+        let mut out := #[
+          s!"  - Computed ExternallyDependentMode: false. `{indexedName thingNames x}` is a `Mode`, but no thing witnesses computed `ExternallyDependent({indexedName thingNames x}, y)`.",
+          s!"  - First candidate check: {firstReason}"
+        ]
+        if !declaredCandidates.isEmpty then
+          let declared := String.intercalate ", " <| declaredCandidates.toList.map (indexedName thingNames ·)
+          out := out.push s!"  - Note: asserted `ExternallyDependent` facts name candidate(s) {declared}, but certification uses the computed external-dependence semantics."
+        return out
+    else
+      let rendered := String.intercalate ", " <| witnesses.toList.map (indexedName thingNames ·)
+      #[s!"  - Computed ExternallyDependentMode: true, witnessed by {rendered}."]
+
+private def qualityKindCandidates
+    (thingCount : Nat) (tables : FactTables) (x w : Nat) : Array Nat :=
+  Id.run do
+    let mut out := #[]
+    for q in [:thingCount] do
+      if tables.unaryLookup "qualityKind" q w && tables.binaryLookup "inst" x q w then
+        out := out.push q
+    return out
+
+private def qualityStatusEvidence
+    (thingNames : Array Name) (tables : FactTables) (x w : Nat) : Array String :=
+  let candidates := qualityKindCandidates thingNames.size tables x w
+  if candidates.isEmpty then
+    #[s!"  - Computed Quality: false, because `{indexedName thingNames x}` instantiates no `QualityKind` at this world."]
+  else if candidates.size == 1 then
+    let q := candidates[0]!
+    #[s!"  - Computed Quality: true, uniquely witnessed by `QualityKind({indexedName thingNames q})` and `{indexedName thingNames x} :: {indexedName thingNames q}`."]
+  else
+    let rendered := String.intercalate ", " <| candidates.toList.map (indexedName thingNames ·)
+    #[s!"  - Computed Quality: false, because `{indexedName thingNames x}` instantiates multiple quality kinds at this world: {rendered}."]
+
+private def qualityTypeAssociations
+    (thingCount : Nat) (tables : FactTables) (x w : Nat) : Array Nat :=
+  Id.run do
+    let mut out := #[]
+    for t in [:thingCount] do
+      if tables.unaryLookup "qualityType" t w && tables.binaryLookup "associatedWith" x t w then
+        out := out.push t
+    return out
+
+private def firstInheringThing?
+    (thingCount : Nat) (tables : FactTables) (x w : Nat) : Option Nat :=
+  Id.run do
+    for y in [:thingCount] do
+      if tables.binaryLookup "inheresIn" y x w then
+        return some y
+    return none
+
+private def firstMember?
+    (thingCount : Nat) (tables : FactTables) (s w : Nat) : Option Nat :=
+  Id.run do
+    for x in [:thingCount] do
+      if memberLookup tables x s w then
+        return some x
+    return none
+
+private def firstCoveredInstanceFailure?
+    (thingCount : Nat) (tables : FactTables) (t t' t'' w : Nat) : Option Nat :=
+  Id.run do
+    for x in [:thingCount] do
+      if tables.binaryLookup "inst" x t w &&
+          !(tables.binaryLookup "inst" x t' w || tables.binaryLookup "inst" x t'' w) then
+        return some x
+    return none
+
+private def firstSharedInstance?
+    (thingCount : Nat) (tables : FactTables) (t t' w : Nat) : Option Nat :=
+  Id.run do
+    for x in [:thingCount] do
+      if tables.binaryLookup "inst" x t w && tables.binaryLookup "inst" x t' w then
+        return some x
+    return none
+
+private def firstCategorizationFailure?
+    (thingCount : Nat) (tables : FactTables) (category target w : Nat) :
+    Option Nat :=
+  Id.run do
+    for instType in [:thingCount] do
+      if tables.binaryLookup "inst" instType category w &&
+          !tables.binaryLookup "sub" instType target w then
+        return some instType
+    return none
+
+private def firstGfdFailure?
+    (thingCount : Nat) (tables : FactTables) (x' y' w : Nat) : Option Nat :=
+  Id.run do
+    for x in [:thingCount] do
+      if tables.binaryLookup "inst" x x' w && tables.binaryLookup "functionsAs" x x' w then
+        let found := Id.run do
+          for y in [:thingCount] do
+            if y != x && tables.binaryLookup "inst" y y' w &&
+                tables.binaryLookup "functionsAs" y y' w then
+              return true
+          return false
+        if !found then
+          return some x
+    return none
+
+private def firstGcdFailure?
+    (thingCount : Nat) (tables : FactTables) (x' y' w : Nat) : Option Nat :=
+  Id.run do
+    for x in [:thingCount] do
+      if tables.binaryLookup "inst" x x' w then
+        let found := Id.run do
+          for y in [:thingCount] do
+            if tables.binaryLookup "inst" y y' w &&
+                tables.binaryLookup "constitutedBy" x y w then
+              return true
+          return false
+        if !found then
+          return some x
+    return none
+
+private def derivedAssertionRequiredMissing
+    (worldNames thingNames : Array Name) (tables : FactTables)
+    (fact : NamedDerivedFact) (w : Nat) : String :=
+  let fallback :=
+    s!"asserted derived relation `{namedDerivedFactSummary fact}` must be true under the computed semantics at `{indexedName worldNames w}`, but its definition evaluates to false."
+  match fact with
+  | .unary "Quality" x =>
+      match thingIndexByString? thingNames x with
+      | some xIdx =>
+          let candidates := qualityKindCandidates thingNames.size tables xIdx w
+          if candidates.isEmpty then
+            s!"`Quality({indexedName thingNames xIdx})` requires exactly one `QualityKind` instantiation; missing any `QualityKind(k)` with `{indexedName thingNames xIdx} :: k` at `{indexedName worldNames w}`."
+          else
+            let rendered := String.intercalate ", " <| candidates.toList.map (indexedName thingNames ·)
+            s!"`Quality({indexedName thingNames xIdx})` requires exactly one `QualityKind` instantiation; found competing quality kinds {rendered} at `{indexedName worldNames w}`."
+      | none => fallback
+  | .unary "ExternallyDependentMode" x =>
+      match thingIndexByString? thingNames x with
+      | some xIdx =>
+          if !tables.unaryLookup "mode" xIdx w then
+            s!"`ExternallyDependentMode({indexedName thingNames xIdx})` requires `Mode({indexedName thingNames xIdx})` and some computed `ExternallyDependent({indexedName thingNames xIdx}, y)`; missing `Mode({indexedName thingNames xIdx})` at `{indexedName worldNames w}`."
+          else
+            let declaredCandidates := Id.run do
+              let mut out := #[]
+              for y in [:thingNames.size] do
+                if tables.binaryLookup "externallyDependent" xIdx y w ||
+                    assertedDerivedBinaryLookup tables "ExternallyDependent" xIdx y w then
+                  out := out.push y
+              return out
+            let candidate? :=
+              declaredCandidates[0]? <|>
+                Id.run do
+                  for z in [:thingNames.size] do
+                    if tables.binaryLookup "inheresIn" xIdx z w then
+                      return some z
+                  return none
+            match candidate? with
+            | some yIdx =>
+                s!"`ExternallyDependentMode({indexedName thingNames xIdx})` requires `Mode({indexedName thingNames xIdx})` and at least one computed `ExternallyDependent({indexedName thingNames xIdx}, y)`; missing such a witness. Candidate `{indexedName thingNames yIdx}` fails because {firstExternallyDependentFailureReason worldNames thingNames tables xIdx yIdx w}"
+            | none =>
+                s!"`ExternallyDependentMode({indexedName thingNames xIdx})` requires `Mode({indexedName thingNames xIdx})` and at least one computed `ExternallyDependent({indexedName thingNames xIdx}, y)`; missing any candidate witness and any relevant `InheresIn` bearer evidence."
+      | none => fallback
+  | .binary "ExternallyDependent" x y =>
+      match thingIndexByString? thingNames x, thingIndexByString? thingNames y with
+      | some xIdx, some yIdx =>
+          s!"`ExternallyDependent({indexedName thingNames xIdx}, {indexedName thingNames yIdx})` requires existential dependence plus independence from every bearer of `{indexedName thingNames xIdx}`; missing condition: {firstExternallyDependentFailureReason worldNames thingNames tables xIdx yIdx w}"
+      | _, _ => fallback
+  | .binary "ExistentialDependence" x y =>
+      match thingIndexByString? thingNames x, thingIndexByString? thingNames y with
+      | some xIdx, some yIdx =>
+          match firstBoxExImpFailure? worldNames tables xIdx yIdx with
+          | some witnessWorld =>
+              s!"`ExistentialDependence({indexedName thingNames xIdx}, {indexedName thingNames yIdx})` requires `Ex({indexedName thingNames yIdx})` in every world where `Ex({indexedName thingNames xIdx})` holds; missing `Ex({indexedName thingNames yIdx})` at `{indexedName worldNames witnessWorld}`."
+          | none => fallback
+      | _, _ => fallback
+  | .binary "ExistentialIndependence" x y =>
+      match thingIndexByString? thingNames x, thingIndexByString? thingNames y with
+      | some xIdx, some yIdx =>
+          match firstExternalIndependenceFailure? worldNames thingNames tables xIdx yIdx with
+          | some reason =>
+              s!"`ExistentialIndependence({indexedName thingNames xIdx}, {indexedName thingNames yIdx})` requires two modal `Ex` separation witnesses; missing condition: {reason}."
+          | none => fallback
+      | _, _ => fallback
+  | .unary "NonEmptySet" x =>
+      match thingIndexByString? thingNames x with
+      | some xIdx =>
+          s!"`NonEmptySet({indexedName thingNames xIdx})` requires some `MemberOf(member, {indexedName thingNames xIdx})`; missing any member at `{indexedName worldNames w}`."
+      | none => fallback
+  | .unary "QualityStructure" x =>
+      match thingIndexByString? thingNames x with
+      | some xIdx =>
+          let candidates := qualityTypeAssociations thingNames.size tables xIdx w
+          if candidates.isEmpty then
+            s!"`QualityStructure({indexedName thingNames xIdx})` requires exactly one associated `QualityType`; missing any `AssociatedWith({indexedName thingNames xIdx}, t)` where `QualityType(t)` holds."
+          else
+            let rendered := String.intercalate ", " <| candidates.toList.map (indexedName thingNames ·)
+            s!"`QualityStructure({indexedName thingNames xIdx})` requires exactly one associated `QualityType`; found competing associated quality types {rendered}."
+      | none => fallback
+  | .unary "SimpleQuality" x =>
+      match thingIndexByString? thingNames x with
+      | some xIdx =>
+          if !qualityLookup thingNames.size tables xIdx w then
+            s!"`SimpleQuality({indexedName thingNames xIdx})` requires computed `Quality({indexedName thingNames xIdx})`; missing the quality condition."
+          else
+            match firstInheringThing? thingNames.size tables xIdx w with
+            | some yIdx =>
+                s!"`SimpleQuality({indexedName thingNames xIdx})` requires no thing to inhere in it; conflicting `InheresIn({indexedName thingNames yIdx}, {indexedName thingNames xIdx})` is present."
+            | none => fallback
+      | none => fallback
+  | .unary "ComplexQuality" x =>
+      match thingIndexByString? thingNames x with
+      | some xIdx =>
+          if !qualityLookup thingNames.size tables xIdx w then
+            s!"`ComplexQuality({indexedName thingNames xIdx})` requires computed `Quality({indexedName thingNames xIdx})`; missing the quality condition."
+          else
+            s!"`ComplexQuality({indexedName thingNames xIdx})` requires at least one `InheresIn(part, {indexedName thingNames xIdx})`; missing any inhering part."
+      | none => fallback
+  | .unary "SimpleQualityType" x =>
+      match thingIndexByString? thingNames x with
+      | some xIdx =>
+          if !tables.unaryLookup "qualityType" xIdx w then
+            s!"`SimpleQualityType({indexedName thingNames xIdx})` requires `QualityType({indexedName thingNames xIdx})`; missing that primitive classification."
+          else
+            Id.run do
+              for y in [:thingNames.size] do
+                if tables.binaryLookup "inst" y xIdx w &&
+                    !simpleQualityLookup thingNames.size tables y w then
+                  return s!"`SimpleQualityType({indexedName thingNames xIdx})` requires every instance to be a computed `SimpleQuality`; instance `{indexedName thingNames y}` is not simple."
+              return fallback
+      | none => fallback
+  | .unary "ComplexQualityType" x =>
+      match thingIndexByString? thingNames x with
+      | some xIdx =>
+          if !tables.unaryLookup "qualityType" xIdx w then
+            s!"`ComplexQualityType({indexedName thingNames xIdx})` requires `QualityType({indexedName thingNames xIdx})`; missing that primitive classification."
+          else
+            Id.run do
+              for y in [:thingNames.size] do
+                if tables.binaryLookup "inst" y xIdx w &&
+                    !complexQualityLookup thingNames.size tables y w then
+                  return s!"`ComplexQualityType({indexedName thingNames xIdx})` requires every instance to be a computed `ComplexQuality`; instance `{indexedName thingNames y}` is not complex."
+              return fallback
+      | none => fallback
+  | .unary "QuaIndividual" x =>
+      match thingIndexByString? thingNames x with
+      | some xIdx =>
+          s!"`QuaIndividual({indexedName thingNames xIdx})` requires some `QuaIndividualOf({indexedName thingNames xIdx}, y)`; missing any such fact at `{indexedName worldNames w}`."
+      | none => fallback
+  | .binary "UltimateBearerOf" x y =>
+      match thingIndexByString? thingNames x, thingIndexByString? thingNames y with
+      | some xIdx, some yIdx =>
+          if tables.unaryLookup "moment" xIdx w then
+            s!"`UltimateBearerOf({indexedName thingNames xIdx}, {indexedName thingNames yIdx})` requires bearer `{indexedName thingNames xIdx}` not to be a `Moment`; conflicting `Moment({indexedName thingNames xIdx})` holds."
+          else
+            s!"`UltimateBearerOf({indexedName thingNames xIdx}, {indexedName thingNames yIdx})` requires an `InheresIn` path from `{indexedName thingNames yIdx}` to bearer `{indexedName thingNames xIdx}`; missing that path at `{indexedName worldNames w}`."
+      | _, _ => fallback
+  | .binary "SubsetOf" x y =>
+      match thingIndexByString? thingNames x, thingIndexByString? thingNames y with
+      | some xIdx, some yIdx =>
+          Id.run do
+            for z in [:thingNames.size] do
+              if memberLookup tables z xIdx w && !memberLookup tables z yIdx w then
+                return s!"`SubsetOf({indexedName thingNames xIdx}, {indexedName thingNames yIdx})` requires every left member to be a right member; `{indexedName thingNames z}` is in `{indexedName thingNames xIdx}` but missing from `{indexedName thingNames yIdx}`."
+            return fallback
+      | _, _ => fallback
+  | .binary "ProperSubsetOf" x y =>
+      match thingIndexByString? thingNames x, thingIndexByString? thingNames y with
+      | some xIdx, some yIdx =>
+          if !subsetLookup thingNames.size tables xIdx yIdx w then
+            Id.run do
+              for z in [:thingNames.size] do
+                if memberLookup tables z xIdx w && !memberLookup tables z yIdx w then
+                  return s!"`ProperSubsetOf({indexedName thingNames xIdx}, {indexedName thingNames yIdx})` first requires `SubsetOf`; `{indexedName thingNames z}` is in the left set but missing from the right set."
+              return s!"`ProperSubsetOf({indexedName thingNames xIdx}, {indexedName thingNames yIdx})` first requires `SubsetOf({indexedName thingNames xIdx}, {indexedName thingNames yIdx})`; that subset condition is false."
+          else
+            s!"`ProperSubsetOf({indexedName thingNames xIdx}, {indexedName thingNames yIdx})` requires strictness; missing a member of `{indexedName thingNames yIdx}` that is not also a member of `{indexedName thingNames xIdx}`."
+      | _, _ => fallback
+  | .binary "ProperSub" x y =>
+      match thingIndexByString? thingNames x, thingIndexByString? thingNames y with
+      | some xIdx, some yIdx =>
+          if !tables.binaryLookup "sub" xIdx yIdx w then
+            s!"`ProperSub({indexedName thingNames xIdx}, {indexedName thingNames yIdx})` requires `Sub({indexedName thingNames xIdx}, {indexedName thingNames yIdx})`; missing the forward `Sub` fact."
+          else
+            s!"`ProperSub({indexedName thingNames xIdx}, {indexedName thingNames yIdx})` requires absence of reverse `Sub`; conflicting `Sub({indexedName thingNames yIdx}, {indexedName thingNames xIdx})` is present."
+      | _, _ => fallback
+  | .binary "GenericFunctionalDependence" x y =>
+      match thingIndexByString? thingNames x, thingIndexByString? thingNames y with
+      | some xIdx, some yIdx =>
+          match firstGfdFailure? thingNames.size tables xIdx yIdx w with
+          | some witness =>
+              s!"`GenericFunctionalDependence({indexedName thingNames xIdx}, {indexedName thingNames yIdx})` requires a distinct target-functioning witness for source-functioning `{indexedName thingNames witness}`; missing such a `{indexedName thingNames yIdx}` instance."
+          | none => fallback
+      | _, _ => fallback
+  | .quaternary "IndividualFunctionalDependence" x x' y y' =>
+      match thingIndexByString? thingNames x, thingIndexByString? thingNames x',
+        thingIndexByString? thingNames y, thingIndexByString? thingNames y' with
+      | some xIdx, some xTypeIdx, some yIdx, some yTypeIdx =>
+          if !genericFunctionalDependenceLookup thingNames.size tables xTypeIdx yTypeIdx w then
+            s!"`IndividualFunctionalDependence({indexedName thingNames xIdx}, {indexedName thingNames xTypeIdx}, {indexedName thingNames yIdx}, {indexedName thingNames yTypeIdx})` requires `GenericFunctionalDependence({indexedName thingNames xTypeIdx}, {indexedName thingNames yTypeIdx})`; that computed type-level dependence is false."
+          else if !tables.binaryLookup "inst" xIdx xTypeIdx w then
+            s!"`IndividualFunctionalDependence({indexedName thingNames xIdx}, {indexedName thingNames xTypeIdx}, {indexedName thingNames yIdx}, {indexedName thingNames yTypeIdx})` requires `{indexedName thingNames xIdx} :: {indexedName thingNames xTypeIdx}`; missing that instantiation."
+          else if !tables.binaryLookup "inst" yIdx yTypeIdx w then
+            s!"`IndividualFunctionalDependence({indexedName thingNames xIdx}, {indexedName thingNames xTypeIdx}, {indexedName thingNames yIdx}, {indexedName thingNames yTypeIdx})` requires `{indexedName thingNames yIdx} :: {indexedName thingNames yTypeIdx}`; missing that instantiation."
+          else
+            s!"`IndividualFunctionalDependence({indexedName thingNames xIdx}, {indexedName thingNames xTypeIdx}, {indexedName thingNames yIdx}, {indexedName thingNames yTypeIdx})` requires `{indexedName thingNames yIdx}` to function as `{indexedName thingNames yTypeIdx}` whenever `{indexedName thingNames xIdx}` functions as `{indexedName thingNames xTypeIdx}`; missing the target `FunctionsAs` fact."
+      | _, _, _, _ => fallback
+  | .quaternary "ComponentOf" x x' y y' =>
+      match thingIndexByString? thingNames x, thingIndexByString? thingNames x',
+        thingIndexByString? thingNames y, thingIndexByString? thingNames y' with
+      | some xIdx, some xTypeIdx, some yIdx, some yTypeIdx =>
+          if !tables.binaryLookup "properPart" xIdx yIdx w then
+            s!"`ComponentOf({indexedName thingNames xIdx}, {indexedName thingNames xTypeIdx}, {indexedName thingNames yIdx}, {indexedName thingNames yTypeIdx})` requires `ProperPart({indexedName thingNames xIdx}, {indexedName thingNames yIdx})`; missing that proper-part fact."
+          else
+            s!"`ComponentOf({indexedName thingNames xIdx}, {indexedName thingNames xTypeIdx}, {indexedName thingNames yIdx}, {indexedName thingNames yTypeIdx})` also requires computed `IndividualFunctionalDependence`; that dependence is false."
+      | _, _, _, _ => fallback
+  | .binary "GenericConstitutionalDependence" x y =>
+      match thingIndexByString? thingNames x, thingIndexByString? thingNames y with
+      | some xIdx, some yIdx =>
+          match firstGcdFailure? thingNames.size tables xIdx yIdx w with
+          | some witness =>
+              s!"`GenericConstitutionalDependence({indexedName thingNames xIdx}, {indexedName thingNames yIdx})` requires a `{indexedName thingNames yIdx}` instance that constitutionally bears source instance `{indexedName thingNames witness}`; missing such a `ConstitutedBy({indexedName thingNames witness}, _)` witness."
+          | none => fallback
+      | _, _ => fallback
+  | .quaternary "Constitution" x x' y y' =>
+      match thingIndexByString? thingNames x, thingIndexByString? thingNames x',
+        thingIndexByString? thingNames y, thingIndexByString? thingNames y' with
+      | some xIdx, some xTypeIdx, some yIdx, some yTypeIdx =>
+          if !tables.binaryLookup "inst" xIdx xTypeIdx w then
+            s!"`Constitution({indexedName thingNames xIdx}, {indexedName thingNames xTypeIdx}, {indexedName thingNames yIdx}, {indexedName thingNames yTypeIdx})` requires `{indexedName thingNames xIdx} :: {indexedName thingNames xTypeIdx}`; missing that instantiation."
+          else if !tables.binaryLookup "inst" yIdx yTypeIdx w then
+            s!"`Constitution({indexedName thingNames xIdx}, {indexedName thingNames xTypeIdx}, {indexedName thingNames yIdx}, {indexedName thingNames yTypeIdx})` requires `{indexedName thingNames yIdx} :: {indexedName thingNames yTypeIdx}`; missing that instantiation."
+          else if !genericConstitutionalDependenceLookup thingNames.size tables xTypeIdx yTypeIdx w then
+            s!"`Constitution({indexedName thingNames xIdx}, {indexedName thingNames xTypeIdx}, {indexedName thingNames yIdx}, {indexedName thingNames yTypeIdx})` requires computed `GenericConstitutionalDependence({indexedName thingNames xTypeIdx}, {indexedName thingNames yTypeIdx})`; that dependence is false."
+          else
+            s!"`Constitution({indexedName thingNames xIdx}, {indexedName thingNames xTypeIdx}, {indexedName thingNames yIdx}, {indexedName thingNames yTypeIdx})` requires `ConstitutedBy({indexedName thingNames xIdx}, {indexedName thingNames yIdx})`; missing that fact."
+      | _, _, _, _ => fallback
+  | .binary "Categorizes" x y =>
+      match thingIndexByString? thingNames x, thingIndexByString? thingNames y with
+      | some xIdx, some yIdx =>
+          if !typeLookup worldNames.size thingNames.size tables xIdx then
+            s!"`Categorizes({indexedName thingNames xIdx}, {indexedName thingNames yIdx})` requires `{indexedName thingNames xIdx}` to be a computed `Type`; missing any possible instance."
+          else
+            match firstCategorizationFailure? thingNames.size tables xIdx yIdx w with
+            | some instType =>
+                s!"`Categorizes({indexedName thingNames xIdx}, {indexedName thingNames yIdx})` requires each category-instance type to specialize `{indexedName thingNames yIdx}`; missing `Sub({indexedName thingNames instType}, {indexedName thingNames yIdx})`."
+            | none => fallback
+      | _, _ => fallback
+  | .binary "IsDisjointWith" x y =>
+      match thingIndexByString? thingNames x, thingIndexByString? thingNames y with
+      | some xIdx, some yIdx =>
+          match firstSharedInstance? thingNames.size tables xIdx yIdx w with
+          | some z =>
+              s!"`IsDisjointWith({indexedName thingNames xIdx}, {indexedName thingNames yIdx})` requires no shared instance; `{indexedName thingNames z}` instantiates both types."
+          | none =>
+              s!"`IsDisjointWith({indexedName thingNames xIdx}, {indexedName thingNames yIdx})` requires both arguments to be computed types and have no shared instance; missing typehood for one argument."
+      | _, _ => fallback
+  | .ternary "IsCompletelyCoveredBy" x y z =>
+      match thingIndexByString? thingNames x, thingIndexByString? thingNames y,
+        thingIndexByString? thingNames z with
+      | some xIdx, some yIdx, some zIdx =>
+          match firstCoveredInstanceFailure? thingNames.size tables xIdx yIdx zIdx w with
+          | some instIdx =>
+              s!"`IsCompletelyCoveredBy({indexedName thingNames xIdx}, {indexedName thingNames yIdx}, {indexedName thingNames zIdx})` requires every `{indexedName thingNames xIdx}` instance to instantiate at least one covering type; `{indexedName thingNames instIdx}` instantiates neither `{indexedName thingNames yIdx}` nor `{indexedName thingNames zIdx}`."
+          | none => fallback
+      | _, _, _ => fallback
+  | .ternary "IsPartitionedInto" x y z =>
+      match thingIndexByString? thingNames x, thingIndexByString? thingNames y,
+        thingIndexByString? thingNames z with
+      | some xIdx, some yIdx, some zIdx =>
+          match firstCoveredInstanceFailure? thingNames.size tables xIdx yIdx zIdx w with
+          | some instIdx =>
+              s!"`IsPartitionedInto({indexedName thingNames xIdx}, {indexedName thingNames yIdx}, {indexedName thingNames zIdx})` first requires complete coverage; `{indexedName thingNames instIdx}` instantiates the partitioned type but neither part type."
+          | none =>
+              match firstSharedInstance? thingNames.size tables yIdx zIdx w with
+              | some instIdx =>
+                  s!"`IsPartitionedInto({indexedName thingNames xIdx}, {indexedName thingNames yIdx}, {indexedName thingNames zIdx})` also requires disjoint parts; `{indexedName thingNames instIdx}` instantiates both part types."
+              | none => fallback
+      | _, _, _ => fallback
+  | _ => fallback
+
+private def derivedAssertionEvidence
+    (worldNames thingNames : Array Name) (tables : FactTables)
+    (fact : NamedDerivedFact) (w : Nat) : Array String :=
+  match fact with
+  | .unary "Quality" x =>
+      match thingIndexByString? thingNames x with
+      | some xIdx =>
+          #[s!"  - User assertion: `Quality({indexedName thingNames xIdx})`."] ++
+            qualityStatusEvidence thingNames tables xIdx w
+      | none => #[]
+  | .unary "ExternallyDependentMode" x =>
+      match thingIndexByString? thingNames x with
+      | some xIdx =>
+          #[
+            s!"  - User assertion: `ExternallyDependentMode({indexedName thingNames xIdx})`.",
+            "  - Certification treats this as a computed predicate, not as a primitive classification."
+          ] ++ renderExternallyDependentModeStatus worldNames thingNames tables xIdx w
+      | none => #[]
+  | .binary "ExternallyDependent" x y =>
+      match thingIndexByString? thingNames x, thingIndexByString? thingNames y with
+      | some xIdx, some yIdx =>
+          #[
+            s!"  - User assertion: `ExternallyDependent({indexedName thingNames xIdx}, {indexedName thingNames yIdx})`.",
+            "  - Certification computes this from existential dependence plus existential independence from every bearer.",
+            s!"  - Computed ExternallyDependent: false. {firstExternallyDependentFailureReason worldNames thingNames tables xIdx yIdx w}"
+          ]
+      | _, _ => #[]
+  | .binary "ExistentialDependence" x y =>
+      match thingIndexByString? thingNames x, thingIndexByString? thingNames y with
+      | some xIdx, some yIdx =>
+          match firstBoxExImpFailure? worldNames tables xIdx yIdx with
+          | some witnessWorld =>
+              #[
+                s!"  - User assertion: `ExistentialDependence({indexedName thingNames xIdx}, {indexedName thingNames yIdx})`.",
+                s!"  - Computed ExistentialDependence: false, because `{indexedName thingNames xIdx}` exists at `{indexedName worldNames witnessWorld}` but `{indexedName thingNames yIdx}` does not."
+              ]
+          | none =>
+              #[
+                s!"  - User assertion: `ExistentialDependence({indexedName thingNames xIdx}, {indexedName thingNames yIdx})`.",
+              "  - No concrete `Ex` counter-witness was isolated; inspect world-scoped `Ex` facts."
+              ]
+      | _, _ => #[]
+  | .binary "UltimateBearerOf" x y =>
+      match thingIndexByString? thingNames x, thingIndexByString? thingNames y with
+      | some xIdx, some yIdx =>
+          let bearerIsMoment := tables.unaryLookup "moment" xIdx w
+          let path? := tables.momentOfPath? thingNames.size w yIdx xIdx
+          let pathEvidence :=
+            match path? with
+            | some path =>
+                s!"`InheresIn` path exists: {renderThingPath thingNames path}."
+            | none =>
+                s!"no `InheresIn` path reaches `{indexedName thingNames xIdx}` from `{indexedName thingNames yIdx}` at `{indexedName worldNames w}`."
+          #[
+            s!"  - User assertion: `UltimateBearerOf({indexedName thingNames xIdx}, {indexedName thingNames yIdx})`.",
+            s!"  - Bearer `{indexedName thingNames xIdx}` is a Moment: {if bearerIsMoment then "true" else "false"}.",
+            s!"  - {pathEvidence}"
+          ]
+      | _, _ => #[]
+  | .binary "ExistentialIndependence" x y =>
+      match thingIndexByString? thingNames x, thingIndexByString? thingNames y with
+      | some xIdx, some yIdx =>
+          match firstExternalIndependenceFailure? worldNames thingNames tables xIdx yIdx with
+          | some reason =>
+              #[
+                s!"  - User assertion: `ExistentialIndependence({indexedName thingNames xIdx}, {indexedName thingNames yIdx})`.",
+                s!"  - Computed ExistentialIndependence: false: {reason}."
+              ]
+          | none =>
+              #[
+                s!"  - User assertion: `ExistentialIndependence({indexedName thingNames xIdx}, {indexedName thingNames yIdx})`.",
+              "  - No concrete missing independence witness was isolated; inspect world-scoped `Ex` facts."
+              ]
+      | _, _ => #[]
+  | .unary "NonEmptySet" x =>
+      match thingIndexByString? thingNames x with
+      | some xIdx =>
+          match firstMember? thingNames.size tables xIdx w with
+          | some member =>
+              #[
+                s!"  - User assertion: `NonEmptySet({indexedName thingNames xIdx})`.",
+                s!"  - Computed NonEmptySet: true, witnessed by `MemberOf({indexedName thingNames member}, {indexedName thingNames xIdx})` at `{indexedName worldNames w}`."
+              ]
+          | none =>
+              #[
+                s!"  - User assertion: `NonEmptySet({indexedName thingNames xIdx})`.",
+                s!"  - Computed NonEmptySet: false, because no `MemberOf(_, {indexedName thingNames xIdx})` fact holds at `{indexedName worldNames w}`."
+              ]
+      | none => #[]
+  | .unary "QualityStructure" x =>
+      match thingIndexByString? thingNames x with
+      | some xIdx =>
+          let candidates := qualityTypeAssociations thingNames.size tables xIdx w
+          if candidates.isEmpty then
+            #[
+              s!"  - User assertion: `QualityStructure({indexedName thingNames xIdx})`.",
+              s!"  - Computed QualityStructure: false, because `{indexedName thingNames xIdx}` is not associated with any `QualityType` at `{indexedName worldNames w}`."
+            ]
+          else if candidates.size == 1 then
+            #[
+              s!"  - User assertion: `QualityStructure({indexedName thingNames xIdx})`.",
+              s!"  - Computed QualityStructure: true, uniquely associated with `{indexedName thingNames candidates[0]!}`."
+            ]
+          else
+            let rendered := String.intercalate ", " <| candidates.toList.map (indexedName thingNames ·)
+            #[
+              s!"  - User assertion: `QualityStructure({indexedName thingNames xIdx})`.",
+              s!"  - Computed QualityStructure: false, because multiple associated quality types are present: {rendered}."
+            ]
+      | none => #[]
+  | .unary "SimpleQuality" x =>
+      match thingIndexByString? thingNames x with
+      | some xIdx =>
+          if !qualityLookup thingNames.size tables xIdx w then
+            #[s!"  - User assertion: `SimpleQuality({indexedName thingNames xIdx})`."] ++
+              qualityStatusEvidence thingNames tables xIdx w
+          else
+            match firstInheringThing? thingNames.size tables xIdx w with
+            | some yIdx =>
+                #[
+                  s!"  - User assertion: `SimpleQuality({indexedName thingNames xIdx})`.",
+                  s!"  - Computed SimpleQuality: false, because `{indexedName thingNames yIdx}` inheres in `{indexedName thingNames xIdx}` at `{indexedName worldNames w}`."
+                ]
+            | none =>
+                #[
+                  s!"  - User assertion: `SimpleQuality({indexedName thingNames xIdx})`.",
+                  "  - Computed SimpleQuality: true, because it is a computed `Quality` and no thing inheres in it."
+                ]
+      | none => #[]
+  | .unary "ComplexQuality" x =>
+      match thingIndexByString? thingNames x with
+      | some xIdx =>
+          if !qualityLookup thingNames.size tables xIdx w then
+            #[s!"  - User assertion: `ComplexQuality({indexedName thingNames xIdx})`."] ++
+              qualityStatusEvidence thingNames tables xIdx w
+          else
+            match firstInheringThing? thingNames.size tables xIdx w with
+            | some yIdx =>
+                #[
+                  s!"  - User assertion: `ComplexQuality({indexedName thingNames xIdx})`.",
+                  s!"  - Computed ComplexQuality: true, witnessed by `InheresIn({indexedName thingNames yIdx}, {indexedName thingNames xIdx})` at `{indexedName worldNames w}`."
+                ]
+            | none =>
+                #[
+                  s!"  - User assertion: `ComplexQuality({indexedName thingNames xIdx})`.",
+                  "  - Computed ComplexQuality: false, because it is a computed `Quality` but no thing inheres in it."
+                ]
+      | none => #[]
+  | .unary "SimpleQualityType" x =>
+      match thingIndexByString? thingNames x with
+      | some xIdx =>
+          if !tables.unaryLookup "qualityType" xIdx w then
+            #[
+              s!"  - User assertion: `SimpleQualityType({indexedName thingNames xIdx})`.",
+              s!"  - Computed SimpleQualityType: false, because `QualityType({indexedName thingNames xIdx})` is not true at `{indexedName worldNames w}`."
+            ]
+          else
+            Id.run do
+              for y in [:thingNames.size] do
+                if tables.binaryLookup "inst" y xIdx w &&
+                    !simpleQualityLookup thingNames.size tables y w then
+                  return #[
+                    s!"  - User assertion: `SimpleQualityType({indexedName thingNames xIdx})`.",
+                    s!"  - Computed SimpleQualityType: false, because instance `{indexedName thingNames y}` is not a computed `SimpleQuality` at `{indexedName worldNames w}`."
+                  ] ++ qualityStatusEvidence thingNames tables y w
+              return #[
+                s!"  - User assertion: `SimpleQualityType({indexedName thingNames xIdx})`.",
+                "  - Computed SimpleQualityType: true; every current instance is a computed `SimpleQuality`."
+              ]
+      | none => #[]
+  | .unary "ComplexQualityType" x =>
+      match thingIndexByString? thingNames x with
+      | some xIdx =>
+          if !tables.unaryLookup "qualityType" xIdx w then
+            #[
+              s!"  - User assertion: `ComplexQualityType({indexedName thingNames xIdx})`.",
+              s!"  - Computed ComplexQualityType: false, because `QualityType({indexedName thingNames xIdx})` is not true at `{indexedName worldNames w}`."
+            ]
+          else
+            Id.run do
+              for y in [:thingNames.size] do
+                if tables.binaryLookup "inst" y xIdx w &&
+                    !complexQualityLookup thingNames.size tables y w then
+                  return #[
+                    s!"  - User assertion: `ComplexQualityType({indexedName thingNames xIdx})`.",
+                    s!"  - Computed ComplexQualityType: false, because instance `{indexedName thingNames y}` is not a computed `ComplexQuality` at `{indexedName worldNames w}`."
+                  ] ++ qualityStatusEvidence thingNames tables y w
+              return #[
+                s!"  - User assertion: `ComplexQualityType({indexedName thingNames xIdx})`.",
+                "  - Computed ComplexQualityType: true; every current instance is a computed `ComplexQuality`."
+              ]
+      | none => #[]
+  | .unary "QuaIndividual" x =>
+      match thingIndexByString? thingNames x with
+      | some xIdx =>
+          let qs := Id.run do
+            let mut out := #[]
+            for y in [:thingNames.size] do
+              if tables.binaryLookup "quaIndividualOf" xIdx y w then
+                out := out.push y
+            return out
+          if qs.isEmpty then
+            #[
+              s!"  - User assertion: `QuaIndividual({indexedName thingNames xIdx})`.",
+              "  - Computed QuaIndividual: false, because no `QuaIndividualOf` fact has this thing on the left."
+            ]
+          else
+            let rendered := String.intercalate ", " <| qs.toList.map (indexedName thingNames ·)
+            #[
+              s!"  - User assertion: `QuaIndividual({indexedName thingNames xIdx})`.",
+              s!"  - `QuaIndividualOf` candidate(s) exist: {rendered}; inspect the corresponding §3.10 foundation diagnostics if certification still fails."
+            ]
+      | none => #[]
+  | .binary "IsDisjointWith" x y =>
+      match thingIndexByString? thingNames x, thingIndexByString? thingNames y with
+      | some xIdx, some yIdx =>
+          Id.run do
+            for z in [:thingNames.size] do
+              if tables.binaryLookup "inst" z xIdx w && tables.binaryLookup "inst" z yIdx w then
+                return #[
+                  s!"  - User assertion: `IsDisjointWith({indexedName thingNames xIdx}, {indexedName thingNames yIdx})`.",
+                  s!"  - Computed IsDisjointWith: false, because `{indexedName thingNames z}` instantiates both types at `{indexedName worldNames w}`."
+                ]
+            return #[
+              s!"  - User assertion: `IsDisjointWith({indexedName thingNames xIdx}, {indexedName thingNames yIdx})`.",
+              "  - No shared instance was isolated; inspect typehood and instantiation facts."
+            ]
+      | _, _ => #[]
+  | .binary "SubsetOf" x y =>
+      match thingIndexByString? thingNames x, thingIndexByString? thingNames y with
+      | some xIdx, some yIdx =>
+          Id.run do
+            for z in [:thingNames.size] do
+              if memberLookup tables z xIdx w && !memberLookup tables z yIdx w then
+                return #[
+                  s!"  - User assertion: `SubsetOf({indexedName thingNames xIdx}, {indexedName thingNames yIdx})`.",
+                  s!"  - Computed SubsetOf: false, because `{indexedName thingNames z}` is a member of `{indexedName thingNames xIdx}` but not of `{indexedName thingNames yIdx}` at `{indexedName worldNames w}`."
+                ]
+            return #[]
+      | _, _ => #[]
+  | .binary "ProperSubsetOf" x y =>
+      match thingIndexByString? thingNames x, thingIndexByString? thingNames y with
+      | some xIdx, some yIdx =>
+          let subsetOk := subsetLookup thingNames.size tables xIdx yIdx w
+          if !subsetOk then
+            Id.run do
+              for z in [:thingNames.size] do
+                if memberLookup tables z xIdx w && !memberLookup tables z yIdx w then
+                  return #[
+                    s!"  - User assertion: `ProperSubsetOf({indexedName thingNames xIdx}, {indexedName thingNames yIdx})`.",
+                    s!"  - Computed ProperSubsetOf: false, because the subset condition already fails: `{indexedName thingNames z}` is a member of `{indexedName thingNames xIdx}` but not of `{indexedName thingNames yIdx}` at `{indexedName worldNames w}`."
+                  ]
+              return #[
+                s!"  - User assertion: `ProperSubsetOf({indexedName thingNames xIdx}, {indexedName thingNames yIdx})`.",
+                "  - Computed ProperSubsetOf: false, because the subset condition fails."
+              ]
+          else
+            #[
+              s!"  - User assertion: `ProperSubsetOf({indexedName thingNames xIdx}, {indexedName thingNames yIdx})`.",
+              s!"  - Computed ProperSubsetOf: false, because no member of `{indexedName thingNames yIdx}` is outside `{indexedName thingNames xIdx}` at `{indexedName worldNames w}`."
+            ]
+      | _, _ => #[]
+  | .binary "ProperSub" x y =>
+      match thingIndexByString? thingNames x, thingIndexByString? thingNames y with
+      | some xIdx, some yIdx =>
+          let sub := tables.binaryLookup "sub" xIdx yIdx w
+          let reverse := tables.binaryLookup "sub" yIdx xIdx w
+          #[
+            s!"  - User assertion: `ProperSub({indexedName thingNames xIdx}, {indexedName thingNames yIdx})`.",
+            s!"  - Sub({indexedName thingNames xIdx}, {indexedName thingNames yIdx}): {if sub then "true" else "false"}.",
+            s!"  - Reverse Sub({indexedName thingNames yIdx}, {indexedName thingNames xIdx}): {if reverse then "true" else "false"}."
+          ]
+      | _, _ => #[]
+  | .binary "GenericFunctionalDependence" x y =>
+      match thingIndexByString? thingNames x, thingIndexByString? thingNames y with
+      | some xIdx, some yIdx =>
+          match firstGfdFailure? thingNames.size tables xIdx yIdx w with
+          | some witness =>
+              #[
+                s!"  - User assertion: `GenericFunctionalDependence({indexedName thingNames xIdx}, {indexedName thingNames yIdx})`.",
+                s!"  - Computed GenericFunctionalDependence: false, because `{indexedName thingNames witness}` instantiates and functions as `{indexedName thingNames xIdx}` at `{indexedName worldNames w}`, but there is no distinct thing that instantiates and functions as `{indexedName thingNames yIdx}`."
+              ]
+          | none =>
+              #[
+                s!"  - User assertion: `GenericFunctionalDependence({indexedName thingNames xIdx}, {indexedName thingNames yIdx})`.",
+                "  - Computed GenericFunctionalDependence: true; every current source-functioning instance has a distinct target-functioning witness."
+              ]
+      | _, _ => #[]
+  | .quaternary "IndividualFunctionalDependence" x x' y y' =>
+      match thingIndexByString? thingNames x, thingIndexByString? thingNames x',
+        thingIndexByString? thingNames y, thingIndexByString? thingNames y' with
+      | some xIdx, some xTypeIdx, some yIdx, some yTypeIdx =>
+          if !genericFunctionalDependenceLookup thingNames.size tables xTypeIdx yTypeIdx w then
+            match firstGfdFailure? thingNames.size tables xTypeIdx yTypeIdx w with
+            | some witness =>
+                #[
+                  s!"  - User assertion: `IndividualFunctionalDependence({indexedName thingNames xIdx}, {indexedName thingNames xTypeIdx}, {indexedName thingNames yIdx}, {indexedName thingNames yTypeIdx})`.",
+                  s!"  - Computed IndividualFunctionalDependence: false, because type-level functional dependence fails for source witness `{indexedName thingNames witness}`."
+                ]
+            | none =>
+                #[
+                  s!"  - User assertion: `IndividualFunctionalDependence({indexedName thingNames xIdx}, {indexedName thingNames xTypeIdx}, {indexedName thingNames yIdx}, {indexedName thingNames yTypeIdx})`.",
+                  "  - Computed IndividualFunctionalDependence: false, because type-level functional dependence is false."
+                ]
+          else if !tables.binaryLookup "inst" xIdx xTypeIdx w then
+            #[
+              s!"  - User assertion: `IndividualFunctionalDependence({indexedName thingNames xIdx}, {indexedName thingNames xTypeIdx}, {indexedName thingNames yIdx}, {indexedName thingNames yTypeIdx})`.",
+              s!"  - Computed IndividualFunctionalDependence: false, because `{indexedName thingNames xIdx} :: {indexedName thingNames xTypeIdx}` is missing at `{indexedName worldNames w}`."
+            ]
+          else if !tables.binaryLookup "inst" yIdx yTypeIdx w then
+            #[
+              s!"  - User assertion: `IndividualFunctionalDependence({indexedName thingNames xIdx}, {indexedName thingNames xTypeIdx}, {indexedName thingNames yIdx}, {indexedName thingNames yTypeIdx})`.",
+              s!"  - Computed IndividualFunctionalDependence: false, because `{indexedName thingNames yIdx} :: {indexedName thingNames yTypeIdx}` is missing at `{indexedName worldNames w}`."
+            ]
+          else
+            #[
+              s!"  - User assertion: `IndividualFunctionalDependence({indexedName thingNames xIdx}, {indexedName thingNames xTypeIdx}, {indexedName thingNames yIdx}, {indexedName thingNames yTypeIdx})`.",
+              s!"  - Computed IndividualFunctionalDependence: false, because `{indexedName thingNames xIdx}` functions as `{indexedName thingNames xTypeIdx}` but `{indexedName thingNames yIdx}` does not function as `{indexedName thingNames yTypeIdx}` at `{indexedName worldNames w}`."
+            ]
+      | _, _, _, _ => #[]
+  | .quaternary "ComponentOf" x x' y y' =>
+      match thingIndexByString? thingNames x, thingIndexByString? thingNames x',
+        thingIndexByString? thingNames y, thingIndexByString? thingNames y' with
+      | some xIdx, some xTypeIdx, some yIdx, some yTypeIdx =>
+          if !tables.binaryLookup "properPart" xIdx yIdx w then
+            #[
+              s!"  - User assertion: `ComponentOf({indexedName thingNames xIdx}, {indexedName thingNames xTypeIdx}, {indexedName thingNames yIdx}, {indexedName thingNames yTypeIdx})`.",
+              s!"  - Computed ComponentOf: false, because `ProperPart({indexedName thingNames xIdx}, {indexedName thingNames yIdx})` is missing at `{indexedName worldNames w}`."
+            ]
+          else
+            let ifdReason :=
+              if !genericFunctionalDependenceLookup thingNames.size tables xTypeIdx yTypeIdx w then
+                match firstGfdFailure? thingNames.size tables xTypeIdx yTypeIdx w with
+                | some witness =>
+                    s!"type-level functional dependence fails for source witness `{indexedName thingNames witness}`"
+                | none => "type-level functional dependence is false"
+              else if !tables.binaryLookup "inst" xIdx xTypeIdx w then
+                s!"`{indexedName thingNames xIdx} :: {indexedName thingNames xTypeIdx}` is missing"
+              else if !tables.binaryLookup "inst" yIdx yTypeIdx w then
+                s!"`{indexedName thingNames yIdx} :: {indexedName thingNames yTypeIdx}` is missing"
+              else
+                s!"`{indexedName thingNames xIdx}` functions as `{indexedName thingNames xTypeIdx}` but `{indexedName thingNames yIdx}` does not function as `{indexedName thingNames yTypeIdx}`"
+            #[
+              s!"  - User assertion: `ComponentOf({indexedName thingNames xIdx}, {indexedName thingNames xTypeIdx}, {indexedName thingNames yIdx}, {indexedName thingNames yTypeIdx})`.",
+              s!"  - Computed ComponentOf: false, because the required individual functional dependence is false: {ifdReason}."
+            ]
+      | _, _, _, _ => #[]
+  | .binary "GenericConstitutionalDependence" x y =>
+      match thingIndexByString? thingNames x, thingIndexByString? thingNames y with
+      | some xIdx, some yIdx =>
+          match firstGcdFailure? thingNames.size tables xIdx yIdx w with
+          | some witness =>
+              #[
+                s!"  - User assertion: `GenericConstitutionalDependence({indexedName thingNames xIdx}, {indexedName thingNames yIdx})`.",
+                s!"  - Computed GenericConstitutionalDependence: false, because `{indexedName thingNames witness}` instantiates `{indexedName thingNames xIdx}` at `{indexedName worldNames w}`, but no `{indexedName thingNames yIdx}` instance is related by `ConstitutedBy({indexedName thingNames witness}, _)`."
+              ]
+          | none =>
+              #[
+                s!"  - User assertion: `GenericConstitutionalDependence({indexedName thingNames xIdx}, {indexedName thingNames yIdx})`.",
+                "  - Computed GenericConstitutionalDependence: true; every current source instance has a constituting target instance."
+              ]
+      | _, _ => #[]
+  | .quaternary "Constitution" x x' y y' =>
+      match thingIndexByString? thingNames x, thingIndexByString? thingNames x',
+        thingIndexByString? thingNames y, thingIndexByString? thingNames y' with
+      | some xIdx, some xTypeIdx, some yIdx, some yTypeIdx =>
+          if !tables.binaryLookup "inst" xIdx xTypeIdx w then
+            #[
+              s!"  - User assertion: `Constitution({indexedName thingNames xIdx}, {indexedName thingNames xTypeIdx}, {indexedName thingNames yIdx}, {indexedName thingNames yTypeIdx})`.",
+              s!"  - Computed Constitution: false, because `{indexedName thingNames xIdx} :: {indexedName thingNames xTypeIdx}` is missing at `{indexedName worldNames w}`."
+            ]
+          else if !tables.binaryLookup "inst" yIdx yTypeIdx w then
+            #[
+              s!"  - User assertion: `Constitution({indexedName thingNames xIdx}, {indexedName thingNames xTypeIdx}, {indexedName thingNames yIdx}, {indexedName thingNames yTypeIdx})`.",
+              s!"  - Computed Constitution: false, because `{indexedName thingNames yIdx} :: {indexedName thingNames yTypeIdx}` is missing at `{indexedName worldNames w}`."
+            ]
+          else if !genericConstitutionalDependenceLookup thingNames.size tables xTypeIdx yTypeIdx w then
+            match firstGcdFailure? thingNames.size tables xTypeIdx yTypeIdx w with
+            | some witness =>
+                #[
+                  s!"  - User assertion: `Constitution({indexedName thingNames xIdx}, {indexedName thingNames xTypeIdx}, {indexedName thingNames yIdx}, {indexedName thingNames yTypeIdx})`.",
+                  s!"  - Computed Constitution: false, because generic constitutional dependence fails for source witness `{indexedName thingNames witness}`."
+                ]
+            | none =>
+                #[
+                  s!"  - User assertion: `Constitution({indexedName thingNames xIdx}, {indexedName thingNames xTypeIdx}, {indexedName thingNames yIdx}, {indexedName thingNames yTypeIdx})`.",
+                  "  - Computed Constitution: false, because generic constitutional dependence is false."
+                ]
+          else
+            #[
+              s!"  - User assertion: `Constitution({indexedName thingNames xIdx}, {indexedName thingNames xTypeIdx}, {indexedName thingNames yIdx}, {indexedName thingNames yTypeIdx})`.",
+              s!"  - Computed Constitution: false, because `ConstitutedBy({indexedName thingNames xIdx}, {indexedName thingNames yIdx})` is missing at `{indexedName worldNames w}`."
+            ]
+      | _, _, _, _ => #[]
+  | .binary "Categorizes" x y =>
+      match thingIndexByString? thingNames x, thingIndexByString? thingNames y with
+      | some xIdx, some yIdx =>
+          if !typeLookup worldNames.size thingNames.size tables xIdx then
+            #[
+              s!"  - User assertion: `Categorizes({indexedName thingNames xIdx}, {indexedName thingNames yIdx})`.",
+              s!"  - Computed Categorizes: false, because `{indexedName thingNames xIdx}` is not a computed `Type`."
+            ]
+          else
+            match firstCategorizationFailure? thingNames.size tables xIdx yIdx w with
+            | some instType =>
+                #[
+                  s!"  - User assertion: `Categorizes({indexedName thingNames xIdx}, {indexedName thingNames yIdx})`.",
+                  s!"  - Computed Categorizes: false, because `{indexedName thingNames instType}` instantiates `{indexedName thingNames xIdx}` at `{indexedName worldNames w}` but `Sub({indexedName thingNames instType}, {indexedName thingNames yIdx})` is missing."
+                ]
+            | none =>
+                #[
+                  s!"  - User assertion: `Categorizes({indexedName thingNames xIdx}, {indexedName thingNames yIdx})`.",
+                  s!"  - Computed Categorizes: true; every instance type of `{indexedName thingNames xIdx}` specializes `{indexedName thingNames yIdx}`."
+                ]
+      | _, _ => #[]
+  | .ternary "IsCompletelyCoveredBy" x y z =>
+      match thingIndexByString? thingNames x, thingIndexByString? thingNames y,
+        thingIndexByString? thingNames z with
+      | some xIdx, some yIdx, some zIdx =>
+          match firstCoveredInstanceFailure? thingNames.size tables xIdx yIdx zIdx w with
+          | some instIdx =>
+              #[
+                s!"  - User assertion: `IsCompletelyCoveredBy({indexedName thingNames xIdx}, {indexedName thingNames yIdx}, {indexedName thingNames zIdx})`.",
+                s!"  - Computed IsCompletelyCoveredBy: false, because `{indexedName thingNames instIdx}` instantiates `{indexedName thingNames xIdx}` but instantiates neither covering type at `{indexedName worldNames w}`."
+              ]
+          | none =>
+              #[
+                s!"  - User assertion: `IsCompletelyCoveredBy({indexedName thingNames xIdx}, {indexedName thingNames yIdx}, {indexedName thingNames zIdx})`.",
+                "  - Computed IsCompletelyCoveredBy: true; every current covered instance is assigned to at least one covering type."
+              ]
+      | _, _, _ => #[]
+  | .ternary "IsPartitionedInto" x y z =>
+      match thingIndexByString? thingNames x, thingIndexByString? thingNames y,
+        thingIndexByString? thingNames z with
+      | some xIdx, some yIdx, some zIdx =>
+          match firstCoveredInstanceFailure? thingNames.size tables xIdx yIdx zIdx w with
+          | some instIdx =>
+              #[
+                s!"  - User assertion: `IsPartitionedInto({indexedName thingNames xIdx}, {indexedName thingNames yIdx}, {indexedName thingNames zIdx})`.",
+                s!"  - Computed IsPartitionedInto: false, because coverage fails: `{indexedName thingNames instIdx}` instantiates `{indexedName thingNames xIdx}` but instantiates neither covering type at `{indexedName worldNames w}`."
+              ]
+          | none =>
+              match firstSharedInstance? thingNames.size tables yIdx zIdx w with
+              | some instIdx =>
+                  #[
+                    s!"  - User assertion: `IsPartitionedInto({indexedName thingNames xIdx}, {indexedName thingNames yIdx}, {indexedName thingNames zIdx})`.",
+                    s!"  - Computed IsPartitionedInto: false, because disjointness fails: `{indexedName thingNames instIdx}` instantiates both covering types at `{indexedName worldNames w}`."
+                  ]
+              | none =>
+                  #[
+                    s!"  - User assertion: `IsPartitionedInto({indexedName thingNames xIdx}, {indexedName thingNames yIdx}, {indexedName thingNames zIdx})`.",
+                    "  - Coverage and disjointness counterexamples were not isolated; inspect typehood and instantiation facts."
+                  ]
+      | _, _, _ => #[]
+  | _ => #[]
+
+def derivedAssertionFailure?
     (worldNames thingNames : Array Name) (namedFacts : Array NamedScopedFact)
-    (scopedFacts : Array ScopedCompiledFact) (tables : FactTables) : Array String :=
+    (scopedFacts : Array ScopedCompiledFact) (tables : FactTables) : Option (Array String) :=
   Id.run do
     for i in [:namedFacts.size] do
       match namedFacts[i]?, scopedFacts[i]? with
@@ -1592,19 +2685,54 @@ def derivedAssertionAnalysis
             match evalNamedDerivedFact? worldNames thingNames tables fact w with
             | some true => pure ()
             | some false =>
-                return #[
+                return some <| #[
                   s!"Counterexample assignment: w = {indexedName worldNames w}.",
-                  s!"Required but missing: asserted derived relation `{namedDerivedFactSummary fact}` is false in the generated finite model.",
+                  s!"Required but missing: {derivedAssertionRequiredMissing worldNames thingNames tables fact w}",
                   s!"Suggestion: {derivedAssertionSuggestion fact}",
                   s!"Evidence: the assertion was written at `{namedScopeSummary scope}` and expands to world `{indexedName worldNames w}`."
-                ]
+                ] ++ derivedAssertionEvidence worldNames thingNames tables fact w
             | none =>
-                return #[
+                return some #[
                   s!"Could not reconstruct the asserted derived relation `{namedDerivedFactSummary fact}` at the DSL level.",
                   "Suggestion: check that all mentioned things are declared and that the relation has a registered diagnostic evaluator."
                 ]
       | _, _ => pure ()
-    return #["A user-written derived relation assertion failed, but the structured checker could not isolate a false asserted derived fact."]
+    return none
+
+def derivedAssertionAnalysis
+    (worldNames thingNames : Array Name) (namedFacts : Array NamedScopedFact)
+    (scopedFacts : Array ScopedCompiledFact) (tables : FactTables) : Array String :=
+  (derivedAssertionFailure? worldNames thingNames namedFacts scopedFacts tables).getD
+    #["A user-written derived relation assertion failed, but the structured checker could not isolate a false asserted derived fact."]
+
+private def ax71FoundationAnalysis
+    (worldNames thingNames : Array Name) (tables : FactTables) : Array String :=
+  Id.run do
+    for w in [:worldNames.size] do
+      for x in [:thingNames.size] do
+        for y in [:thingNames.size] do
+          if tables.binaryLookup "foundedBy" x y w then
+            let classified :=
+              externallyDependentModeLookup worldNames.size thingNames.size tables x w ||
+                tables.unaryLookup "relator" x w
+            let foundationOk := tables.unaryLookup "perdurant" y w
+            if !(classified && foundationOk) then
+              let mut out := #[
+                s!"Counterexample assignment: x = {indexedName thingNames x}, y = {indexedName thingNames y}, w = {indexedName worldNames w}.",
+                s!"Triggered by: `FoundedBy({indexedName thingNames x}, {indexedName thingNames y})`.",
+                "Required together: the founded thing must be a computed `ExternallyDependentMode` or a `Relator`, and the foundation must be a `Perdurant`.",
+                s!"  - Relator({indexedName thingNames x}): {if tables.unaryLookup "relator" x w then "true" else "false"}.",
+                s!"  - Perdurant({indexedName thingNames y}): {if foundationOk then "true" else "false"}."
+              ]
+              out := out ++ renderExternallyDependentModeStatus worldNames thingNames tables x w
+              if !classified then
+                out := out.push "Suggestion: add the modal `Ex` variation and `InheresIn` facts needed for computed external dependence, or remove/relax the `FoundedBy` fact if this thing is not a relator or externally dependent mode."
+              else if !foundationOk then
+                out := out.push s!"Suggestion: classify `{indexedName thingNames y}` as `Perdurant`, or change the `FoundedBy` target to a perdurant foundation."
+              return out
+    return #[
+      "Foundation check for ax71: every `FoundedBy` fact has a computed externally dependent mode or relator on the left and a perdurant on the right."
+    ]
 
 private def ax73FoundationAnalysis
     (worldNames thingNames : Array Name) (tables : FactTables) : Array String :=
@@ -1617,7 +2745,7 @@ private def ax73FoundationAnalysis
           for z in [:thingNames.size] do
             let overlaps := overlapLookup tables z x w
             let rightWithoutFoundation :=
-              derivedUnaryLookup tables "ExternallyDependentMode" z w &&
+              derivedUnaryLookup worldNames.size thingNames.size tables "ExternallyDependentMode" z w &&
               tables.binaryLookup "inheresIn" z y w
             if qio && overlaps && rightWithoutFoundation then
               match foundationEq? thingNames.size tables z x w with
@@ -1650,6 +2778,7 @@ private def ax73FoundationAnalysis
 private def ax78FoundationAnalysis
     (worldNames thingNames : Array Name) (tables : FactTables) : Array String :=
   Id.run do
+    let mut out := #[]
     for w in [:worldNames.size] do
       for x in [:thingNames.size] do
         if tables.unaryLookup "relator" x w then
@@ -1658,23 +2787,19 @@ private def ax78FoundationAnalysis
               match foundationEq? thingNames.size tables x y w with
               | some true => pure ()
               | some false =>
-                  return #[
-                    s!"Counterexample assignment: x = {indexedName thingNames x}, y = {indexedName thingNames y}, w = {indexedName worldNames w}.",
-                    s!"Required but missing: Relator `{indexedName thingNames x}` and its part `{indexedName thingNames y}` must share the same `FoundationOf`.",
-                    "Suggestion: align the `FoundedBy` facts for the relator and its parts, or remove/relax the `Relator`/`Part` assertions.",
-                    s!"Evidence for FoundationOf({indexedName thingNames x}) = FoundationOf({indexedName thingNames y}):",
-                    s!"  - {indexedName thingNames x}: {renderFoundationStatus thingNames tables x w}",
-                    s!"  - {indexedName thingNames y}: {renderFoundationStatus thingNames tables y w}"
-                  ]
+                  out := out.push s!"Counterexample assignment: x = {indexedName thingNames x}, y = {indexedName thingNames y}, w = {indexedName worldNames w}."
+                  out := out.push s!"Required but missing: Relator `{indexedName thingNames x}` and its part `{indexedName thingNames y}` must share the same `FoundationOf`."
+                  out := out.push s!"Evidence for FoundationOf({indexedName thingNames x}) = FoundationOf({indexedName thingNames y}):"
+                  out := out.push s!"  - {indexedName thingNames x}: {renderFoundationStatus thingNames tables x w}"
+                  out := out.push s!"  - {indexedName thingNames y}: {renderFoundationStatus thingNames tables y w}"
               | none =>
-                  return #[
-                    s!"Counterexample assignment: x = {indexedName thingNames x}, y = {indexedName thingNames y}, w = {indexedName worldNames w}.",
-                    s!"Missing witness requirements: Relator `{indexedName thingNames x}` and its part `{indexedName thingNames y}` are compared with `FoundationOf`, but the DSL facts do not determine unique foundations.",
-                    "Suggestion: add exactly one `FoundedBy` fact for the relator and for each relevant part, or remove/relax the `Relator`/`Part` assertions.",
-                    s!"Evidence for FoundationOf({indexedName thingNames x}) = FoundationOf({indexedName thingNames y}):",
-                    s!"  - {indexedName thingNames x}: {renderFoundationStatus thingNames tables x w}",
-                    s!"  - {indexedName thingNames y}: {renderFoundationStatus thingNames tables y w}"
-                  ]
+                  out := out.push s!"Counterexample assignment: x = {indexedName thingNames x}, y = {indexedName thingNames y}, w = {indexedName worldNames w}."
+                  out := out.push s!"Missing witness requirements: Relator `{indexedName thingNames x}` and its part `{indexedName thingNames y}` are compared with `FoundationOf`, but the DSL facts do not determine unique foundations."
+                  out := out.push s!"Evidence for FoundationOf({indexedName thingNames x}) = FoundationOf({indexedName thingNames y}):"
+                  out := out.push s!"  - {indexedName thingNames x}: {renderFoundationStatus thingNames tables x w}"
+                  out := out.push s!"  - {indexedName thingNames y}: {renderFoundationStatus thingNames tables y w}"
+    if !out.isEmpty then
+      return out.push "Suggestion: align the `FoundedBy` facts for the relator and every relevant part, or remove/relax the `Relator`/`Part` assertions."
     return #[
       "Foundation check for ax78: every relator/part pair with unique DSL foundations has matching foundations.",
       "If Lean still reports ax78, inspect relator parts whose foundations are not explicitly determined by `FoundedBy` facts."
@@ -1700,8 +2825,8 @@ private def ax79FoundationAnalysis
             ]
           for y in parts do
             for z in parts do
-              if !(derivedUnaryLookup tables "QuaIndividual" y w) ||
-                  !(derivedUnaryLookup tables "QuaIndividual" z w) then
+              if !(derivedUnaryLookup worldNames.size thingNames.size tables "QuaIndividual" y w) ||
+                  !(derivedUnaryLookup worldNames.size thingNames.size tables "QuaIndividual" z w) then
                 return #[
                   s!"Counterexample assignment: x = {indexedName thingNames x}, y = {indexedName thingNames y}, z = {indexedName thingNames z}, w = {indexedName worldNames w}.",
                   s!"Required together: proper parts of relator `{indexedName thingNames x}` must be qua individuals.",
@@ -1727,8 +2852,8 @@ private def ax79FoundationAnalysis
                     s!"  - {indexedName thingNames y}: {renderFoundationStatus thingNames tables y w}",
                     s!"  - {indexedName thingNames z}: {renderFoundationStatus thingNames tables z w}"
                   ]
-              if !(derivedBinaryLookup tables "ExistentialDependence" y z w) ||
-                  !(derivedBinaryLookup tables "ExistentialDependence" z y w) then
+              if !(derivedBinaryLookup worldNames.size thingNames.size tables "ExistentialDependence" y z w) ||
+                  !(derivedBinaryLookup worldNames.size thingNames.size tables "ExistentialDependence" z y w) then
                 return #[
                   s!"Counterexample assignment: x = {indexedName thingNames x}, y = {indexedName thingNames y}, z = {indexedName thingNames z}, w = {indexedName worldNames w}.",
                   s!"Required together: proper parts of relator `{indexedName thingNames x}` must be mutually existentially dependent.",
@@ -2748,6 +3873,8 @@ def diagnosticWitnesses
     (tables : FactTables) (field : String) : Array String :=
   if field == "ax68" then
     ax68ClosureAnalysis worldNames thingNames tables
+  else if field == "ax71" then
+    ax71FoundationAnalysis worldNames thingNames tables
   else if field == "ax73" then
     ax73FoundationAnalysis worldNames thingNames tables
   else if field == "ax78" then

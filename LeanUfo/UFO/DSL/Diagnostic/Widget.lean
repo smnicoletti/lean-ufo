@@ -22,7 +22,11 @@ import * as React from 'react';
 const e = React.createElement;
 
 function item(text, key) {
-  return e('li', { key }, text);
+  const isDerived = typeof text === 'string' && text.includes('[derived assertion]');
+  return e('li', {
+    key,
+    style: isDerived ? { color: '#d29922', fontWeight: 600 } : null
+  }, text);
 }
 
 function Section({ title, children }) {
@@ -265,7 +269,7 @@ export default function(props) {
       maxWidth: 'none',
       overflowX: 'auto'
     }
-  },
+    },
     e('h3', { style: { margin: '0 0 0.25rem' } }, 'UFO diagnostics'),
     e('div', { style: { opacity: 0.8, marginBottom: '0.5rem' } },
       props.model ? 'Model: ' + props.model : 'DSL model'),

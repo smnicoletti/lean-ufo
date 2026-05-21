@@ -113,6 +113,28 @@ def diagnosticOutputChecks : Array ExpectedOutput := #[
     ]
   },
   {
+    label := "ax71 computed externally dependent mode diagnostic",
+    file := "LeanUfo/Test/Certification/Negative/Ax71ComputedModeMissingExistenceVariation.lean",
+    contains := #[
+      "A finite counterexample was confirmed for ax71.",
+      "Computed ExternallyDependentMode: false",
+      "no thing witnesses computed `ExternallyDependent(M, y)`",
+      "add the modal `Ex` variation"
+    ]
+  },
+  {
+    label := "derived externally dependent mode diagnostic",
+    file := "LeanUfo/Test/Diagnostics/DerivedExternallyDependentMode.lean",
+    contains := #[
+      "A user-written derived relation assertion failed.",
+      "`ExternallyDependentMode(M)` requires `Mode(M)` and at least one computed `ExternallyDependent(M, y)`",
+      "Computed from `Mode(x)` plus some computed `ExternallyDependent(x, y)`"
+    ],
+    rejects := #[
+      "certified_ax71"
+    ]
+  },
+  {
     label := "ax87 quality diagnostic rendering",
     file := "LeanUfo/Test/Certification/Negative/Ax87QualeWithoutUniqueQualityStructure.lean",
     contains := #[
