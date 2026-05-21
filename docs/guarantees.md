@@ -469,6 +469,7 @@ The certificate manifest records whether a field was fresh or reused. The
 manifest is audit metadata, not proof evidence. It can be exported with:
 
 ```bash
+lake build Module.Name
 lake exe export-certificates --module Module.Name --out certificates/
 lake exe validate-certificate certificates/Model.certificate.json --structure-only
 lake exe validate-certificate certificates/Model.certificate.json --module Module.Name

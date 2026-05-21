@@ -39,8 +39,9 @@ For the theorem-backed contract behind these features, see
   fresh check generation. Reuse remains Lean-checked: the child theorem proves
   equality with the parent checker result before using the parent
   `checked_axN` theorem, otherwise generation falls back fresh.
-- Certificate manifests can be exported with
-  `lake exe export-certificates --module ... --out ...`.
+- Certificate manifests can be exported after building the source module with
+  `lake build Module.Name`, then
+  `lake exe export-certificates --module Module.Name --out ...`.
   `lake exe validate-certificate manifest.json --structure-only` checks only
   JSON structure. The default validation path requires
   `--module Module.Name`; it rebuilds the Lean module, checks the generated

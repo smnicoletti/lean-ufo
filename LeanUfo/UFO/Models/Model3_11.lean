@@ -29,7 +29,7 @@ The witness still has the same two entities:
 All previous layers remain unchanged. For the new §3.11 layer we interpret
 `Characterization` as empty.
 -/
-def sig3_11 : UFOSignature3_11.{0,0} :=
+def sig3_11 : UFOSignature3_11 :=
 { toUFOSignature3_10 := Model3_10.sig3_10
 
   Characterization := fun _t _m _w => False

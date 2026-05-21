@@ -27,7 +27,11 @@ private def evalManifestJsonViaLean
     s!"finiteModelDigest := some {leanStringTerm finiteModelDigest}" ++
     " }).toJson.pretty 100)\n"
   IO.FS.writeFile tmp source
-  let out ← IO.Process.output { cmd := "lean", args := #[tmp.toString] }
+  let out ← IO.Process.output {
+    cmd := "lean",
+    args := #[tmp.toString],
+    env := (← leanProcessEnv)
+  }
   if out.exitCode == 0 then
     pure out.stdout
   else

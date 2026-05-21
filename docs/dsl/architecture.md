@@ -423,6 +423,7 @@ The Lake exporter writes these manifests to disk and enriches them with local
 git metadata when available:
 
 ```bash
+lake build LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension
 lake exe export-certificates --module LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension --out certificates/
 lake exe validate-certificate certificates/CarBase.certificate.json --structure-only
 lake exe validate-certificate certificates/CarBase.certificate.json --module LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension

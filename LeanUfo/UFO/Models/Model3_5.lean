@@ -40,7 +40,7 @@ compatible with the axioms:
 So in this witness nothing has a proper part, and the mereology is the
 degenerate identity-based one.
 -/
-def sig3_5 : UFOSignature3_5.{0,0} :=
+def sig3_5 : UFOSignature3_5 :=
 { toUFOSignature3_4 := Model3_4.sig3_4
 
   Part := fun x y _w => x = y

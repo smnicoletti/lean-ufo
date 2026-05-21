@@ -2747,6 +2747,11 @@ private theorem nonEmptySetB_eq_true_iff
     nonEmptySetB M s w = true ↔ NonEmptySet M.toUFOSignature4.toUFOSignature3_12 s w := by
   unfold nonEmptySetB NonEmptySet anyThings
   simp [FiniteModel4.toUFOSignature4, Set.Nonempty]
+  constructor
+  · rintro ⟨x, hx⟩
+    exact ⟨x, hx⟩
+  · rintro ⟨x, hx⟩
+    exact ⟨x, hx⟩
 
 private theorem checkAx89_correct (M : FiniteModel4) :
     checkAx89 M = true ↔ ax_a89 M.toUFOSignature4.toUFOSignature3_12 := by

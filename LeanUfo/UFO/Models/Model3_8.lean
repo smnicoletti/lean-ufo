@@ -44,7 +44,7 @@ modal condition `□(Ex(x) → Ex(y))` is always true for every pair `x, y`, so:
 - existential dependence is total,
 - existential independence is empty.
 -/
-def sig3_8 : UFOSignature3_8.{0,0} :=
+def sig3_8 : UFOSignature3_8 :=
 { toUFOSignature3_7 := Model3_7.sig3_7
 
   /-
