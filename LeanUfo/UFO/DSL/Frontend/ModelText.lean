@@ -422,7 +422,7 @@ def namedFactSummary : NamedScopedFact → String
   | .tupleProjection tuple index result scope =>
       s!"[{namedScopeSummary scope}] TupleProjection({tuple}, {index}, {result})"
   | .derived fact scope =>
-      s!"[{namedScopeSummary scope}] {namedDerivedFactSummary fact}"
+      s!"[{namedScopeSummary scope}] [derived assertion] {namedDerivedFactSummary fact}"
 
 def derivedPropSummaryPairs
     (worldNames : Array Name)
@@ -441,7 +441,7 @@ def derivedPropSummaryPairs
           for j in [:worldIdxs.size] do
             let w := worldIdxs[j]!
             let worldLabel := worldLabels[j]?.getD (indexedName worldNames w)
-            out := out.push (propAtWorld w, s!"[{worldLabel}] {namedDerivedFactSummary named}")
+            out := out.push (propAtWorld w, s!"[{worldLabel}] [derived assertion] {namedDerivedFactSummary named}")
       | _, _ => pure ()
     pure out
 

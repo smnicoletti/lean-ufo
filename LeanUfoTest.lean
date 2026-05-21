@@ -74,6 +74,7 @@ def fullExpectedFailures : Array ExpectedFailure := #[
   ⟨"ax67", "LeanUfo/Test/Certification/Negative/Ax67MomentTwoBearers.lean", "certified_ax67", true⟩,
   ⟨"ax68", "LeanUfo/Test/Certification/Negative/Ax68MomentWithoutUltimateBearer.lean", "certified_ax68", true⟩,
   ⟨"ax71", "LeanUfo/Test/Certification/Negative/Ax71FoundedByWrongFoundationType.lean", "certified_ax71", true⟩,
+  ⟨"ax71", "LeanUfo/Test/Certification/Negative/Ax71ComputedModeMissingExistenceVariation.lean", "certified_ax71", true⟩,
   ⟨"ax73", "LeanUfo/Test/Certification/Negative/Ax73QuaIndividualFoundationBridge.lean", "certified_ax73", true⟩,
   ⟨"ax80", "LeanUfo/Test/Certification/Negative/Ax80MediatesWithoutRelator.lean", "certified_ax80", true⟩,
   ⟨"ax81", "LeanUfo/Test/Certification/Negative/Ax81CharacterizationWrongTypes.lean", "certified_ax81", true⟩,
@@ -110,6 +111,28 @@ def diagnosticOutputChecks : Array ExpectedOutput := #[
     rejects := #[
       "X : Object",
       "X : Perdurant"
+    ]
+  },
+  {
+    label := "ax71 computed externally dependent mode diagnostic",
+    file := "LeanUfo/Test/Certification/Negative/Ax71ComputedModeMissingExistenceVariation.lean",
+    contains := #[
+      "A finite counterexample was confirmed for ax71.",
+      "Computed ExternallyDependentMode: false",
+      "no thing witnesses computed `ExternallyDependent(M, y)`",
+      "add the modal `Ex` variation"
+    ]
+  },
+  {
+    label := "derived externally dependent mode diagnostic",
+    file := "LeanUfo/Test/Diagnostics/DerivedExternallyDependentMode.lean",
+    contains := #[
+      "A user-written derived relation assertion failed.",
+      "`ExternallyDependentMode(M)` requires `Mode(M)` and at least one computed `ExternallyDependent(M, y)`",
+      "Computed from `Mode(x)` plus some computed `ExternallyDependent(x, y)`"
+    ],
+    rejects := #[
+      "certified_ax71"
     ]
   },
   {

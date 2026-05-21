@@ -34,6 +34,7 @@ import LeanUfo.UFO.Core.Section3_11
 import LeanUfo.UFO.Core.Section3_12
 import LeanUfo.UFO.Core.Section3_13
 import LeanUfo.UFO.Core.Section4
+import LeanUfo.UFO.Core.AxiomaticAnalysis
 
 /- Concrete Models -/
 import LeanUfo.UFO.Models.Model3_1

@@ -244,20 +244,40 @@ adds the fact at every declared world.
 
 ## Derived Relations
 
-Some relations can be asserted in `derive_relations`, but their truth is still
-computed from the finite model semantics. Assertions are checked, not used to
-override the compiler.
+Some relations can be written in `given` blocks when a model uses
+`derive_relations`. The compiler still computes their truth from the finite
+model semantics. These assertions are checks, not primitive table facts.
+
+In diagnostics and the widget these facts are labeled **derived assertion**.
 
 Current supported derived assertions include:
 
+- `Quality(x)`
+- `NonEmptySet(s)`
+- `QualityStructure(x)`
+- `SimpleQuality(x)`
+- `ComplexQuality(x)`
+- `SimpleQualityType(t)`
+- `ComplexQualityType(t)`
+- `ExternallyDependentMode(x)`
+- `QuaIndividual(x)`
+- `ProperSub(t, u)`
+- `ExistentialDependence(x, y)`
+- `ExistentialIndependence(x, y)`
+- `ExternallyDependent(x, y)`
+- `UltimateBearerOf(b, m)`
+- `SubsetOf(s, t)`
+- `ProperSubsetOf(s, t)`
 - `IsDisjointWith(Person, Organization)`
 - `IsCompletelyCoveredBy(Person, Student, NonStudent)`
 - `IsPartitionedInto(Person, Student, NonStudent)`
 - `Categorizes(EmploymentCategory, Employee)`
+- `IndividualFunctionalDependence(x, y, t, u)`
+- `ComponentOf(x, y, t, u)`
+- `Constitution(x, y, t, u)`
 
-The compiler also computes definition-like predicates such as `Type`,
-`Individual`, `UltimateBearerOf`, `ExistentialDependence`,
-`ExternallyDependentMode`, and selected quality/set predicates.
+The compiler also computes definition-like predicates such as `Type` and
+`Individual`, but those are not surface assertions.
 
 ## Quality And Distance Primitives
 

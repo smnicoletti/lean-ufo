@@ -4,7 +4,8 @@
 
 The DSL frontend saves a VS Code diagnostics widget for each
 `ufo_model ... certify` command. It also emits terminal errors for failed
-commands.
+commands. The widget is saved when the command reaches a terminal success or
+failure path; it is presentation data, not proof evidence.
 
 ## What The Widget Shows
 
@@ -16,6 +17,12 @@ commands.
 - for successful extension certification, how many certificate fields were
   reused from a parent and how many were checked fresh;
 - failure analysis for derived assertion failures and certificate failures.
+
+Input facts labeled **derived assertion** are checks against computed finite
+semantics. They do not override primitive model data. For example,
+`ExternallyDependentMode(x)` is checked from `Mode`, `InheresIn`, and modal
+`Ex` facts. If the check fails, diagnostics report the missing witness pattern
+rather than accepting the assertion as a classification.
 
 Certificate fields are reported as:
 

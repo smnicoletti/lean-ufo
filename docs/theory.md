@@ -461,6 +461,7 @@ Files:
 
 - `LeanUfo/UFO/Core/Signature3_10.lean`
 - `LeanUfo/UFO/Core/Section3_10.lean`
+- `LeanUfo/UFO/Core/AxiomaticAnalysis.lean`
 - `LeanUfo/UFO/Models/Model3_10.lean`
 
 Mechanized axioms:
@@ -486,6 +487,131 @@ consistent_3_10 :
 Formalization note: `FoundationOf` is defined using `Classical.epsilon`, which
 is why the signatures carry a nonempty domain witness. The proof of `th_t33`
 requires the explicit bridge axiom that qua individuals are of endurants.
+
+#### Theoretical Finding: Relators Are Forced Empty
+
+`LeanUfo/UFO/Core/AxiomaticAnalysis.lean` records a stronger consequence of the
+current §3.10 encoding:
+
+```lean
+no_relators :
+  [UFOAxioms3_10 Sig] ->
+  forall x w, not (Sig.Relator x w)
+```
+
+The theorem is a derived result about the current axiom package. The proof
+chain is:
+
+1. `Relator x` and (a79) give a proper part `p` of `x`.
+2. The same (a79) makes that proper part a `QuaIndividual`.
+3. (a74) gives a bearer `b` with `QuaIndividualOf p b`.
+4. (a52) turns `ProperPart p x` into `Part p x`; (a47) gives `Part p p`; and
+   (a50) gives `Overlap x p`.
+5. (a73) says every overlapper of qua individual `p` is an
+   `ExternallyDependentMode`, so the relator `x` itself becomes an
+   externally dependent mode.
+6. (a70) gives `Mode x`, and (a42) gives `IntrinsicMoment x`.
+7. (a41) forbids anything from being both a relator and an intrinsic moment.
+
+The same file also proves immediate propagated consequences:
+
+```lean
+no_mediates      : forall x y w, not (Sig.Mediates x y w)
+no_relatorTypes  : forall t w, not (Sig.RelatorType t w)
+no_relatorKinds  : forall t w, not (Sig.RelatorKind t w)
+```
+
+The current mechanization therefore proves that the relator branch is empty in
+every model of the current §3.10 package.
+
+#### Possible Relator Weakenings
+
+The contradiction uses (a73), (a79), and ordinary overlap from (a50). The
+following axiom variants are not implemented; they record repair directions for
+future §3.10 variants.
+
+**Guard (a73) by externally dependent mode.**
+
+Current (a73) has the shape:
+
+```text
+QuaIndividualOf(x, y) <->
+  forall z,
+    Overlap(z, x) <->
+      ExternallyDependentMode(z) and
+      InheresIn(z, y) and
+      FoundationOf(z) = FoundationOf(x)
+```
+
+The right-hand side classifies every ordinary overlapper, so a containing
+relator is forced to be an externally dependent mode. A guarded variant would
+only characterize externally dependent mode candidates:
+
+```text
+QuaIndividualOf(x, y) ->
+  forall z,
+    ExternallyDependentMode(z) ->
+      (Overlap(z, x) <->
+        InheresIn(z, y) and
+        FoundationOf(z) = FoundationOf(x))
+```
+
+Another variant could include `ExternallyDependentMode(x)` in the definition
+of `QuaIndividualOf(x, y)`. The axiom would then identify which externally
+dependent modes belong to the qua individual without reclassifying all ordinary
+overlappers.
+
+**Make (a73) one-way.**
+
+A one-way axiom could keep only:
+
+```text
+Overlap(z, x) and ExternallyDependentMode(z) ->
+  InheresIn(z, y) and FoundationOf(z) = FoundationOf(x)
+```
+
+or only:
+
+```text
+ExternallyDependentMode(z) and
+InheresIn(z, y) and
+FoundationOf(z) = FoundationOf(x) ->
+  Overlap(z, x)
+```
+
+This blocks the relator-as-mode collapse, but it weakens the current
+extensional characterization of qua individuals.
+
+**Avoid ordinary parthood in (a79).**
+
+Current (a79) says relators are sums whose qua individuals are ordinary
+`ProperPart`s. Together with (a50), ordinary proper parthood implies overlap
+between the whole relator and its qua-individual part. A more local variant
+would introduce a dedicated relation, for example `HasQuaPart(y, x)`, or a
+guarded parthood-like relation for relator composition. This prevents the
+specific overlap step without weakening general mereology.
+
+**Do not weaken (a50) first.**
+
+Weakening ordinary overlap would also prevent the contradiction, but (a50) is a
+central mereological principle:
+
+```text
+Overlap(x, y) <-> exists z, Part(z, x) and Part(z, y)
+```
+
+Changing it would affect many sections outside relators.
+
+**Do not collapse relators into modes unless intended.**
+
+Weakening (a41) or (a42) would allow relators to be intrinsic moments or
+modes, stopping the final contradiction. This is a much larger ontological
+shift than changing (a73) or (a79), because it removes a major taxonomy
+separation.
+
+A guarded or one-way (a73) is the most local repair candidate. Replacing
+ordinary `ProperPart` in (a79) with a dedicated relation for qua-individual
+participation in a relator is the more explicit structural repair.
 
 ### Section 3.11: Characterization
 
