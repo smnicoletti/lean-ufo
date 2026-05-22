@@ -561,16 +561,24 @@ of `QuaIndividualOf(x, y)`. The axiom would then identify which externally
 dependent modes belong to the qua individual without reclassifying all ordinary
 overlappers.
 
-**Make (a73) one-way.**
+**Use a guarded one-way reading of (a73).**
 
-A one-way axiom could keep only:
+A weaker axiom could keep the constraint from overlap to inherence and shared
+foundation only for things already known to be externally dependent modes:
 
 ```text
 Overlap(z, x) and ExternallyDependentMode(z) ->
   InheresIn(z, y) and FoundationOf(z) = FoundationOf(x)
 ```
 
-or only:
+This blocks the relator-as-mode collapse at the relevant point. From
+`ProperPart(p, r)`, ordinary mereology still gives `Overlap(r, p)`, but that
+overlap no longer reclassifies the containing relator `r` as an externally
+dependent mode.
+
+**Keep only the converse overlap-generation direction.**
+
+Another weaker axiom could keep only:
 
 ```text
 ExternallyDependentMode(z) and
@@ -579,8 +587,10 @@ FoundationOf(z) = FoundationOf(x) ->
   Overlap(z, x)
 ```
 
-This blocks the relator-as-mode collapse, but it weakens the current
-extensional characterization of qua individuals.
+This also avoids the relator-as-mode collapse, because ordinary overlap no
+longer entails external dependence. It weakens the current extensional
+characterization of qua individuals in the opposite direction from the guarded
+one-way option above.
 
 **Avoid ordinary parthood in (a79).**
 
@@ -590,6 +600,29 @@ between the whole relator and its qua-individual part. A more local variant
 would introduce a dedicated relation, for example `HasQuaPart(y, x)`, or a
 guarded parthood-like relation for relator composition. This prevents the
 specific overlap step without weakening general mereology.
+
+**Add distinctness to (a79)'s pairwise proper-part clause.**
+
+The mechanized proof instantiates (a79)'s pairwise clause with the same proper
+part twice:
+
+```text
+ProperPart(p, r) and ProperPart(p, r)
+```
+
+If that clause required distinct proper parts, for example:
+
+```text
+ProperPart(y, r) and ProperPart(z, r) and y != z -> ...
+```
+
+then the proof could not derive `QuaIndividual(p)` from a single proper-part
+witness. This is a possible way to block the current derivation, but it is less
+principled than repairing (a73): it weakens the relator-to-qua-individual link
+rather than addressing the ordinary-overlap-to-external-dependence step. With
+the distinctness guard, a proper part of a relator is forced to be a qua
+individual only when it can be paired with a distinct proper part. The axiom no
+longer says directly that every relator proper part is a qua individual.
 
 **Do not weaken (a50) first.**
 

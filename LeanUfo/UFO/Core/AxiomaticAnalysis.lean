@@ -119,22 +119,30 @@ are intentionally recorded as comments rather than implemented alternatives.
    individual gathers externally dependent modes without reclassifying every
    ordinary overlapper, including the containing relator.
 
-2. Make ax73 one-way.
+2. Use a guarded one-way reading of ax73.
 
-   A weaker ax73 could keep only one implication, for example:
+   A weaker ax73 could keep the constraint from overlap to inherence and shared
+   foundation only for things already known to be externally dependent modes:
 
      Overlap z x ∧ ExternallyDependentMode z →
        InheresIn z y ∧ sameFoundation z x
 
-   or:
+   This blocks the proof at the intended point. From `ProperPart p r`, ordinary
+   mereology still gives `Overlap r p`, but this overlap no longer reclassifies
+   the containing relator `r` as an externally dependent mode.
+
+3. Keep only the converse overlap-generation direction.
+
+   Another weaker ax73 could keep only:
 
      ExternallyDependentMode z ∧ InheresIn z y ∧ sameFoundation z x →
        Overlap z x
 
-   This avoids the relator-as-mode collapse but gives up the current full
-   extensional characterization of qua individuals.
+   This also avoids the relator-as-mode collapse, because ordinary overlap no
+   longer entails external dependence. It gives up the current full extensional
+   characterization of qua individuals in the opposite direction from option 2.
 
-3. Avoid ordinary mereological parthood in ax79.
+4. Avoid ordinary mereological parthood in ax79.
 
    Current ax79 uses `ProperPart y x` to say qua individuals are parts of a
    relator. Together with ax50, that immediately creates overlap between the
@@ -142,13 +150,33 @@ are intentionally recorded as comments rather than implemented alternatives.
    `HasQuaPart(y, x)` or a guarded parthood notion could express relator
    composition without triggering the ordinary overlap clause.
 
-4. Do not weaken ax50 first.
+5. Add a distinctness guard to ax79's pairwise proper-part clause.
+
+   The current proof instantiates ax79's pairwise clause with the same proper
+   part twice:
+
+     ProperPart p r ∧ ProperPart p r
+
+   If that clause required distinct proper parts, for example:
+
+     ProperPart y r ∧ ProperPart z r ∧ y ≠ z → ...
+
+   then the proof could not derive `QuaIndividual p` from a single proper-part
+   witness. This is a possible way to block the current derivation, but it is
+   less principled than repairing ax73: it weakens the relator-to-qua-individual
+   link rather than addressing the ordinary-overlap-to-external-dependence
+   step. With the distinctness guard, a proper part of a relator is forced to be
+   a qua individual only when it can be paired with a distinct proper part. The
+   axiom no longer says directly that every relator proper part is a qua
+   individual.
+
+6. Do not weaken ax50 first.
 
    Weakening `Overlap x y ↔ ∃z (Part z x ∧ Part z y)` would avoid the immediate
    overlap step, but it changes a central mereological principle and would have
    broad effects outside relators.
 
-5. Do not make relators modes unless this is intended.
+7. Do not make relators modes unless this is intended.
 
    Weakening ax41 or ax42 would allow the proof to stop after deriving that a
    relator is an externally dependent mode. That repair would collapse the
