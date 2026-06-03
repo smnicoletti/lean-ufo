@@ -1,6 +1,6 @@
 # Lean UFO
 
-[![Lean](https://img.shields.io/badge/Lean-4.29.1-blue)](lean-toolchain)
+[![Lean](https://img.shields.io/badge/Lean-4.30.0-blue)](lean-toolchain)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-project%20guide-informational)](docs/README.md)
 [![Lean CI](https://github.com/smnicoletti/lean-ufo/actions/workflows/lean.yml/badge.svg?branch=dev)](https://github.com/smnicoletti/lean-ufo/actions/workflows/lean.yml?query=branch%3Adev)

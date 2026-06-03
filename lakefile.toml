@@ -21,4 +21,4 @@ root = "LeanUfo.ValidateCertificate"
 [[require]]
 name = "mathlib"
 scope = "leanprover-community"
-rev = "v4.29.1"
+rev = "v4.30.0"
