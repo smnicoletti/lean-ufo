@@ -11,6 +11,12 @@ semantic axiom proof follows from the corresponding theorem here.
 namespace LeanUfo.UFO.DSL
 namespace Checker
 
+private theorem finiteMemberOf_iff
+    (M : FiniteModel4) (x s : Fin M.thingCount) (w : Fin M.worldCount) :
+    MemberOf M.toUFOSignature4.toUFOSignature3_12 x s w ↔
+      M.memberOf x s w = true :=
+  Iff.rfl
+
 private theorem checkAx1_correct (M : FiniteModel4) :
     checkAx1 M = true ↔ ax_a1 M.toUFOSignature4.toUFOSignature3_1 := by
   unfold checkAx1 ax_a1 typeB iffB allThings allWorlds anyWorlds anyThings
@@ -2780,10 +2786,10 @@ private theorem properSubsetB_eq_true_iff
     constructor
     · intro x hx
       have hxB : M.memberOf x s w = true := by
-        simpa [FiniteModel4.toUFOSignature4] using hx
+        exact (finiteMemberOf_iff M x s w).1 hx
       have hxDisj := h.1 x
       simp [hxB] at hxDisj
-      simpa [FiniteModel4.toUFOSignature4] using hxDisj
+      exact (finiteMemberOf_iff M x t w).2 hxDisj
     · intro hReverse
       rcases h.2 with ⟨x, hxt, hxsFalse⟩
       have hxs : M.memberOf x s w = true := hReverse hxt
@@ -3074,7 +3080,7 @@ private theorem checkAx94_correct (M : FiniteModel4) :
     exact ⟨t, s,
       by simpa [FiniteModel4.toUFOSignature4] using hs.1.1,
       by simpa [FiniteModel4.toUFOSignature4] using hs.1.2,
-      by simpa [FiniteModel4.toUFOSignature4, MemberOf] using hs.2⟩
+      (finiteMemberOf_iff M y s w).2 hs.2⟩
   · intro h
     unfold checkAx94
     apply (allThings_eq_true_iff M _).2
@@ -3091,7 +3097,7 @@ private theorem checkAx94_correct (M : FiniteModel4) :
       have hsB : M.associatedWith s t w = true := by
         simpa [FiniteModel4.toUFOSignature4] using hs
       have hMemB : M.memberOf y s w = true := by
-        simpa [FiniteModel4.toUFOSignature4, MemberOf] using hMem
+        exact (finiteMemberOf_iff M y s w).1 hMem
       have hSome :
           (anyThings M fun t =>
             anyThings M fun s =>
@@ -3443,7 +3449,6 @@ private theorem checkAx98_correct (M : FiniteModel4) :
     have hy := (allThings_eq_true_iff M _).1 hw y
     have hyInheresB : M.inheresIn y x w = true := by
       simpa [FiniteModel4.toUFOSignature4] using hyInheres
-    unfold impliesB at hy
     simp [hyInheresB] at hy
     exact (simpleQualityB_eq_true_iff M y w).1 hy
   · intro h
@@ -3681,10 +3686,11 @@ theorem checkAx99_sound (M : FiniteModel4) :
   refine ⟨pf.dimensionThings.size, productFamilyDimensions pf, productFamilyTypes pf, ?_, ?_, ?_⟩
   · intro p hp
     have hpB : M.memberOf p pf.domain pf.world = true := by
-      simpa [FiniteModel4.toUFOSignature4] using hp
+      exact (finiteMemberOf_iff M p pf.domain pf.world).1 hp
     intro i
     have hi := hProduct p hpB i
-    simpa [FiniteModel4.toUFOSignature4] using hi
+    exact (finiteMemberOf_iff M (M.tupleProjection p i pf.world)
+      (productFamilyDimensions pf i) pf.world).2 hi
   · intro i
     exact ⟨by
       simpa [FiniteModel4.toUFOSignature4] using (hAssocChar i).1, by
@@ -3744,8 +3750,8 @@ private theorem checkAx100_correct (M : FiniteModel4) :
       by simpa [FiniteModel4.toUFOSignature4] using hxQual,
       by simpa [FiniteModel4.toUFOSignature4] using hyQual,
       z,
-      by simpa [FiniteModel4.toUFOSignature4, MemberOf] using hz.1,
-      by simpa [FiniteModel4.toUFOSignature4, MemberOf] using hz.2⟩
+      (finiteMemberOf_iff M x z w).2 hz.1,
+      (finiteMemberOf_iff M y z w).2 hz.2⟩
   · intro h
     unfold checkAx100
     apply (allThings_eq_true_iff M _).2
@@ -3764,9 +3770,9 @@ private theorem checkAx100_correct (M : FiniteModel4) :
       have hyQualB : M.quale y w = true := by
         simpa [FiniteModel4.toUFOSignature4] using hyQual
       have hxMemB : M.memberOf x z w = true := by
-        simpa [FiniteModel4.toUFOSignature4, MemberOf] using hxMem
+        exact (finiteMemberOf_iff M x z w).1 hxMem
       have hyMemB : M.memberOf y z w = true := by
-        simpa [FiniteModel4.toUFOSignature4, MemberOf] using hyMem
+        exact (finiteMemberOf_iff M y z w).1 hyMem
       have hCommonB :
           (anyThings M fun z => M.memberOf x z w && M.memberOf y z w) = true := by
         apply (anyThings_eq_true_iff M _).2
