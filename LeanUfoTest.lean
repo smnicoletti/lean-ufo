@@ -456,11 +456,14 @@ def generatedFailureFields (text : String) : Array String :=
       | none => pure ()
     pure fields
 
-def checkExpectedFailure (test : ExpectedFailure) : IO (Array String) := do
-  let out ← IO.Process.output {
-    cmd := "lake"
-    args := #["env", "lean", test.file]
+def runLeanFile (file : String) : IO IO.Process.Output :=
+  IO.Process.output {
+    cmd := "lean"
+    args := #[file]
   }
+
+def checkExpectedFailure (test : ExpectedFailure) : IO (Array String) := do
+  let out ← runLeanFile test.file
   let text := out.stdout ++ out.stderr
   let generatedFailures := generatedFailureFields text
   let unexpectedGeneratedFailures := generatedFailures.filter (· != test.field)
@@ -480,10 +483,7 @@ def checkExpectedFailure (test : ExpectedFailure) : IO (Array String) := do
     pure #[s!"{test.file} failed, but output did not contain `{test.expected}`"]
 
 def checkExpectedOutput (test : ExpectedOutput) : IO (Array String) := do
-  let out ← IO.Process.output {
-    cmd := "lake"
-    args := #["env", "lean", test.file]
-  }
+  let out ← runLeanFile test.file
   let text := out.stdout ++ out.stderr
   let mut failures := #[]
   if out.exitCode == 0 then

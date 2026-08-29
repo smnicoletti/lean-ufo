@@ -3373,7 +3373,7 @@ private theorem checkAx97_correct (M : FiniteModel4) :
     cases hprem.2.2.2.2.2
     unfold impliesB at hw
     simp [hxComplexB, hyInstB, hzInstB, hyInheresB, hzInheresB] at hw
-    exact hw
+    exact hw.resolve_left (fun h => h rfl)
   · intro h
     unfold checkAx97
     apply (allThings_eq_true_iff M _).2

@@ -73,17 +73,18 @@ theorem ax49_sig3_5 : ax_a49 sig3_5 := by
 theorem ax50_sig3_5 : ax_a50 sig3_5 := by
   intro x y w
   cases w
-  simp [sig3_5]
+  change x = y ↔ ∃ z, z = x ∧ z = y
+  constructor
+  · intro h
+    exact ⟨x, rfl, h⟩
+  · rintro ⟨z, hzx, hzy⟩
+    exact hzx.symm.trans hzy
 
 /-- Proof that `sig3_5` satisfies (a51). -/
 theorem ax51_sig3_5 : ax_a51 sig3_5 := by
   intro x y w hNotPart
   cases w
-  refine ⟨y, ?_, ?_⟩
-  · simp [sig3_5]
-  ·
-    intro hEq
-    exact hNotPart hEq
+  exact ⟨y, rfl, hNotPart⟩
 
 /-- Proof that `sig3_5` satisfies (a52). -/
 theorem ax52_sig3_5 : ax_a52 sig3_5 := by
