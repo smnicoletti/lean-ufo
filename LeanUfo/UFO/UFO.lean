@@ -52,6 +52,8 @@ import LeanUfo.UFO.Models.Model3_12
 import LeanUfo.UFO.Models.Model3_13
 import LeanUfo.UFO.Models.Model4
 import LeanUfo.UFO.Models.Consistency
+import LeanUfo.UFO.Models.RelatorRepair.Model3_10
+import LeanUfo.UFO.Models.RelatorRepair.GuardedOverlapCountermodel
 
 /- Finite DSL backend. -/
 import LeanUfo.UFO.DSL.Certification

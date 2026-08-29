@@ -463,6 +463,8 @@ Files:
 - `LeanUfo/UFO/Core/Section3_10.lean`
 - `LeanUfo/UFO/Core/AxiomaticAnalysis.lean`
 - `LeanUfo/UFO/Models/Model3_10.lean`
+- `LeanUfo/UFO/Models/RelatorRepair/Model3_1.lean` through `Model3_10.lean`
+- `LeanUfo/UFO/Models/RelatorRepair/GuardedOverlapCountermodel.lean`
 
 Mechanized axioms:
 
@@ -524,127 +526,110 @@ no_relatorKinds  : forall t w, not (Sig.RelatorKind t w)
 The current mechanization therefore proves that the relator branch is empty in
 every model of the current §3.10 package.
 
-#### Possible Relator Weakenings
+#### First Repair Attempt: Distinct Proper Parts
 
-The contradiction uses (a73), (a79), and ordinary overlap from (a50). The
-following axiom variants are not implemented; they record repair directions for
-future §3.10 variants.
+The first analyzed repair follows a suggestion from Giancarlo Guizzardi: add a
+distinctness guard to (a79)'s pairwise proper-part clause. The guarded clause
+has the shape:
 
-**Guard (a73) by externally dependent mode.**
+```text
+ProperPart(y, r) and ProperPart(z, r) and y != z ->
+  QuaIndividual(y) and QuaIndividual(z) and
+  FoundationOf(y) = FoundationOf(z) and
+  ed(y, z) and ed(z, y)
+```
 
-Current (a73) has the shape:
+This blocks the original proof's direct instantiation with `(p, p)`. The
+analysis-only proposition `ax_a79_distinct_guard` records this variant without
+changing the packaged `ax_a79`, the DSL, or the reflective checker.
+
+The repair is nevertheless insufficient. General extensional mereology already
+forces every proper part to have a distinct proper-part companion:
+
+```lean
+properPart_has_distinct_companion :
+  ProperPart p x w -> exists q, ProperPart q x w and p != q
+```
+
+Given `ProperPart(p, r)`, strong supplementation (a51) supplies a part `q` of
+`r` that does not overlap `p`. Transitivity and the overlap definition show
+that `r` cannot be part of `q`, so (a52) makes `q` a proper part of `r`; the
+non-overlap fact also gives `p != q`. The guarded pairwise clause then applies
+to `(p, q)` and still yields `QuaIndividual(p)`.
+
+The original contradiction therefore resumes through (a74), (a73), (a70),
+(a42), and (a41). This is proved without assuming the original (a79):
+
+```lean
+no_relators_from_distinct_guard_attempt :
+  ax_a79_distinct_guard Sig ->
+  forall x w, not (Sig.Relator x w)
+```
+
+The distinctness guard alone cannot support a positive model with a nonempty
+relator. Moreover, under the existing mereology and reflexive existential
+dependence, `ax_a79_distinct_guard` and the original (a79) imply one another.
+The guard is therefore retained as a failed experiment and possible
+clarification of pairwise intent, not as a semantic repair.
+
+#### Selected Analysis-Only Repair: Part-Based (a73)
+
+The general no-go result isolates the defect independently of every version of
+(a79):
+
+```lean
+no_relator_with_quaIndividual_properPart :
+  Relator r w -> ProperPart q r w -> QuaIndividual q w -> False
+
+relator_composition_refutes_current_ax73 :
+  Relator r w -> ProperPart q r w -> QuaIndividual q w ->
+  not (ax_a73 Sig)
+```
+
+These theorems retain the relevant taxonomy and ordinary mereology assumptions
+but do not assume (a79). Consequently, if relators remain ordinary wholes with
+qua-individual proper parts, current (a73) must change. Its unrestricted
+overlap characterization incorrectly classifies the containing relator as an
+externally dependent mode.
+
+The selected replacement characterizes a qua individual by its parts:
 
 ```text
 QuaIndividualOf(x, y) <->
   forall z,
-    Overlap(z, x) <->
+    Part(z, x) <->
       ExternallyDependentMode(z) and
       InheresIn(z, y) and
       FoundationOf(z) = FoundationOf(x)
 ```
 
-The right-hand side classifies every ordinary overlapper, so a containing
-relator is forced to be an externally dependent mode. A guarded variant would
-only characterize externally dependent mode candidates:
+`ax_a73_part_characterization` records this formula. The analysis package
+`UFOAxioms3_10PartRepair` combines it with every unchanged §3.10 assumption,
+including the original (a79), while explicitly excluding current (a73). The
+following results establish theorem preservation:
 
-```text
-QuaIndividualOf(x, y) ->
-  forall z,
-    ExternallyDependentMode(z) ->
-      (Overlap(z, x) <->
-        InheresIn(z, y) and
-        FoundationOf(z) = FoundationOf(x))
-```
+- `th_t31_part_characterization` proves the original (t31) conclusion directly
+  from the part-based formula;
+- `th_t32_without_current_ax73` shows that (t32) is independent of (a73);
+- `th_t33_part_characterization` preserves (t33) unchanged.
 
-Another variant could include `ExternallyDependentMode(x)` in the definition
-of `QuaIndividualOf(x, y)`. The axiom would then identify which externally
-dependent modes belong to the qua individual without reclassifying all ordinary
-overlappers.
+The guarded-overlap formula remains in the analysis as historical comparison
+evidence. It supports a nonempty relator and preserves (t32) and (t33), but
+`th_t31_guarded_overlap` needs the additional premise that the part is already
+an externally dependent mode. `GuardedOverlapCountermodel.lean` gives a finite
+countermodel to the original (t31), so this alternative was not selected.
 
-**Use a guarded one-way reading of (a73).**
+The direct model chain under `LeanUfo/UFO/Models/RelatorRepair/` mirrors the
+section-by-section witness style of the main `ModelX` files. `Model3_10.lean`
+constructs a model of `UFOAxioms3_10PartRepair` containing a relator with two
+qua-individual proper parts, distinct mediated bearers, and a shared perdurant
+foundation. The theorem `positive_relator_witness` exposes these facts.
 
-A weaker axiom could keep the constraint from overlap to inherence and shared
-foundation only for things already known to be externally dependent modes:
-
-```text
-Overlap(z, x) and ExternallyDependentMode(z) ->
-  InheresIn(z, y) and FoundationOf(z) = FoundationOf(x)
-```
-
-This blocks the relator-as-mode collapse at the relevant point. From
-`ProperPart(p, r)`, ordinary mereology still gives `Overlap(r, p)`, but that
-overlap no longer reclassifies the containing relator `r` as an externally
-dependent mode.
-
-**Keep only the converse overlap-generation direction.**
-
-Another weaker axiom could keep only:
-
-```text
-ExternallyDependentMode(z) and
-InheresIn(z, y) and
-FoundationOf(z) = FoundationOf(x) ->
-  Overlap(z, x)
-```
-
-This also avoids the relator-as-mode collapse, because ordinary overlap no
-longer entails external dependence. It weakens the current extensional
-characterization of qua individuals in the opposite direction from the guarded
-one-way option above.
-
-**Avoid ordinary parthood in (a79).**
-
-Current (a79) says relators are sums whose qua individuals are ordinary
-`ProperPart`s. Together with (a50), ordinary proper parthood implies overlap
-between the whole relator and its qua-individual part. A more local variant
-would introduce a dedicated relation, for example `HasQuaPart(y, x)`, or a
-guarded parthood-like relation for relator composition. This prevents the
-specific overlap step without weakening general mereology.
-
-**Add distinctness to (a79)'s pairwise proper-part clause.**
-
-The mechanized proof instantiates (a79)'s pairwise clause with the same proper
-part twice:
-
-```text
-ProperPart(p, r) and ProperPart(p, r)
-```
-
-If that clause required distinct proper parts, for example:
-
-```text
-ProperPart(y, r) and ProperPart(z, r) and y != z -> ...
-```
-
-then the proof could not derive `QuaIndividual(p)` from a single proper-part
-witness. This is a possible way to block the current derivation, but it is less
-principled than repairing (a73): it weakens the relator-to-qua-individual link
-rather than addressing the ordinary-overlap-to-external-dependence step. With
-the distinctness guard, a proper part of a relator is forced to be a qua
-individual only when it can be paired with a distinct proper part. The axiom no
-longer says directly that every relator proper part is a qua individual.
-
-**Do not weaken (a50) first.**
-
-Weakening ordinary overlap would also prevent the contradiction, but (a50) is a
-central mereological principle:
-
-```text
-Overlap(x, y) <-> exists z, Part(z, x) and Part(z, y)
-```
-
-Changing it would affect many sections outside relators.
-
-**Do not collapse relators into modes unless intended.**
-
-Weakening (a41) or (a42) would allow relators to be intrinsic moments or
-modes, stopping the final contradiction. This is a much larger ontological
-shift than changing (a73) or (a79), because it removes a major taxonomy
-separation.
-
-A guarded or one-way (a73) is the most local repair candidate. Replacing
-ordinary `ProperPart` in (a79) with a dedicated relation for qua-individual
-participation in a relator is the more explicit structural repair.
+This branch records the diagnosis, experiments, countermodel, selected formula,
+theorem-preservation proofs, and positive witness. It does not yet replace
+(a73) in `Section3_10.lean` or propagate the repair through the DSL, reflective
+checker, diagnostics, or certified fixtures. That production change is deferred
+to the next feature branch.
 
 ### Section 3.11: Characterization
 

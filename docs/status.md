@@ -10,6 +10,7 @@ For the theorem-backed contract behind these features, see
 | Area | Status |
 | --- | --- |
 | Core UFO fragments | Active mechanization with semantic witness models |
+| Relator repair | Part-based (a73) selected and witnessed in analysis; production propagation deferred |
 | Finite DSL | Certified models through `UFOAxioms4` |
 | Reflective checker | All registered axiom fields through §4; ax99 uses explicit product-family witnesses |
 | Diagnostics | Checker-aware counterexamples for direct-complete checker fields |
@@ -22,6 +23,11 @@ For the theorem-backed contract behind these features, see
   and theorems.
 - Concrete witness models establish satisfiability checkpoints for implemented
   fragments.
+- The axiomatic analysis proves that current (a73), independently of (a79),
+  conflicts with a qua-individual proper part of a relator. It records the
+  distinctness-guard and guarded-overlap experiments and their limitations,
+  selects the part-based (a73), proves preservation of (t31)-(t33), and
+  constructs a finite nonempty-relator witness model.
 - The finite DSL accepts named worlds, named things, scoped facts, taxonomy
   classifications, instantiation, specialization, primitive relations, and
   selected derived assertions.
@@ -98,6 +104,10 @@ For the theorem-backed contract behind these features, see
 
 ## Current DSL Caveats
 
+- The selected part-based (a73) repair is not yet part of `Section3_10.lean`,
+  the reflective checker, diagnostics, or certified DSL fixtures. Those layers
+  still implement the published 2022 formula; propagation is deferred to the
+  next feature branch.
 - Generated models use a universal S5 frame; custom accessibility relations are
   not surfaced.
 - Extended models cannot add worlds yet. This avoids silently changing the

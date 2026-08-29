@@ -55,11 +55,20 @@ Technical highlights:
    reflective checker now covers all registered axiom fields through §4. In
    particular, `ax68` uses a proved bounded finite closure checker for
    `MomentOf`, and `ax99` uses explicit finite product-family witnesses.
-5. **DSL-level diagnostics.** Failed models report whether Lean confirmed a
+5. **Axiom diagnosis and relator repair analysis.** The mechanization exposes
+   that current (a73) is incompatible with ordinary qua-individual parthood in
+   a relator, independently of (a79). The analysis proves an (a79) distinctness
+   guard insufficient and equivalent under the background axioms, records why
+   guarded-overlap (a73) does not preserve original (t31), selects a part-based
+   (a73), preserves (t31)-(t33), and constructs a finite nonempty-relator model.
+   These results are retained as analysis evidence; the active axiom package
+   and checker still use the published 2022 formula pending propagation in the
+   next feature branch.
+6. **DSL-level diagnostics.** Failed models report whether Lean confirmed a
    finite counterexample, hit a timeout-style counterexample-probe limit, or
    reached an unclassified probe failure. Many failures are reconstructed in
    source-level DSL terms.
-6. **Regression tests.** The `lake test` suite checks syntax, positive
+7. **Regression tests.** The `lake test` suite checks syntax, positive
    certification fixtures, negative counterexample fixtures, diagnostics
    rendering, and axiom registry coverage. CI also builds the concrete DSL
    example collection.
@@ -286,7 +295,7 @@ axioms currently classified as compiler-enforced or blocked.
 | Document | Purpose |
 | --- | --- |
 | [Documentation home](docs/README.md) | Guide map and reading paths |
-| [Theoretical notes](docs/theory.md) | Modal choices, formal milestones, S5 consequences, and explicit bridge axioms |
+| [Theoretical notes](docs/theory.md) | Modal choices, formal milestones, relator diagnosis and repair analysis, S5 consequences, and explicit bridge axioms |
 | [Project architecture](docs/architecture.md) | Core formalization, DSL layer, certificates, tests, and trust boundary |
 | [Formal guarantees](docs/guarantees.md) | Theorem-backed guarantees for core, DSL, checker, reuse, diagnostics, and complexity |
 | [DSL quickstart](docs/dsl/quickstart.md) | First certified model |
