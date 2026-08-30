@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.event.release.tag_name || github.ref }}
           fetch-depth: 0
@@ -61,7 +61,7 @@ jobs:
           done
 
       - name: Upload workflow artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: lean-ufo-certificate-manifests-${{ steps.metadata.outputs.artifact_version }}
           path: certificates/*.certificate.json
