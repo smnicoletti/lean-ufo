@@ -34,26 +34,29 @@ import LeanUfo.UFO.Core.Section3_11
 import LeanUfo.UFO.Core.Section3_12
 import LeanUfo.UFO.Core.Section3_13
 import LeanUfo.UFO.Core.Section4
-import LeanUfo.UFO.Core.AxiomaticAnalysis
+import LeanUfo.UFO.FormalAnalysis.AxiomaticAnalysis
 
 /- Concrete Models -/
-import LeanUfo.UFO.Models.Model3_1
-import LeanUfo.UFO.Models.Model3_2
-import LeanUfo.UFO.Models.Model3_3
-import LeanUfo.UFO.Models.Model3_4
-import LeanUfo.UFO.Models.Model3_5
-import LeanUfo.UFO.Models.Model3_6
-import LeanUfo.UFO.Models.Model3_7
-import LeanUfo.UFO.Models.Model3_8
-import LeanUfo.UFO.Models.Model3_9
-import LeanUfo.UFO.Models.Model3_10
-import LeanUfo.UFO.Models.Model3_11
-import LeanUfo.UFO.Models.Model3_12
-import LeanUfo.UFO.Models.Model3_13
-import LeanUfo.UFO.Models.Model4
-import LeanUfo.UFO.Models.Consistency
-import LeanUfo.UFO.Models.RelatorRepair.Model3_10
-import LeanUfo.UFO.Models.RelatorRepair.GuardedOverlapCountermodel
+import LeanUfo.UFO.FormalAnalysis.Satisfiability.Model3_1
+import LeanUfo.UFO.FormalAnalysis.Satisfiability.Model3_2
+import LeanUfo.UFO.FormalAnalysis.Satisfiability.Model3_3
+import LeanUfo.UFO.FormalAnalysis.Satisfiability.Model3_4
+import LeanUfo.UFO.FormalAnalysis.Satisfiability.Model3_5
+import LeanUfo.UFO.FormalAnalysis.Satisfiability.Model3_6
+import LeanUfo.UFO.FormalAnalysis.Satisfiability.Model3_7
+import LeanUfo.UFO.FormalAnalysis.Satisfiability.Model3_8
+import LeanUfo.UFO.FormalAnalysis.Satisfiability.Model3_9
+import LeanUfo.UFO.FormalAnalysis.Satisfiability.Model3_10
+import LeanUfo.UFO.FormalAnalysis.Satisfiability.Model3_11
+import LeanUfo.UFO.FormalAnalysis.Satisfiability.Model3_12
+import LeanUfo.UFO.FormalAnalysis.Satisfiability.Model3_13
+import LeanUfo.UFO.FormalAnalysis.Satisfiability.Model4
+import LeanUfo.UFO.FormalAnalysis.Satisfiability.Consistency
+import LeanUfo.UFO.FormalAnalysis.Satisfiability.Relator.Model3_10
+
+/- Analysis modules -/
+import LeanUfo.UFO.FormalAnalysis.AntiVacuity.AntiVacuity
+import LeanUfo.UFO.FormalAnalysis.Historical.GuardedOverlapCountermodel
 
 /- Finite DSL backend. -/
 import LeanUfo.UFO.DSL.Certification

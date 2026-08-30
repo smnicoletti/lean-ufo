@@ -71,7 +71,7 @@ axiom fields and lets later sections extend earlier signatures.
 
 ## Consistency Checkpoints
 
-The model-existence theorems live in `LeanUfo/UFO/Models/Consistency.lean`.
+The model-existence theorems live in `LeanUfo/UFO/FormalAnalysis/Satisfiability/Consistency.lean`.
 They have the following shape:
 
 ```lean
@@ -89,6 +89,23 @@ The intended reading is joint satisfiability relative to:
 
 It is deliberately not a proof-theoretic claim about derivability from a
 syntactic UFO calculus.
+
+These checkpoints establish ordinary joint satisfiability. They do not require
+every primitive predicate to have a nonempty extension. The stronger and
+separate analyses under `LeanUfo/UFO/FormalAnalysis/AntiVacuity/` provide one
+cumulative model per section from §3.1 through §4. In each model, every
+predicate introduced by that section is inhabited simultaneously. The analysis
+also covers the named derived predicates defined in the section files:
+`ProperSub`, `Quality`, `UltimateBearerOf`, and the membership, subset,
+quality-structure, simple/complex-quality, and simple/complex-quality-type
+predicates of §3.12.
+
+The two model families remain separate. A sparse `ModelX` interpretation
+witnesses joint satisfiability; an anti-vacuity model tests whether the
+section's vocabulary can have nonempty extensions together.
+For example, the §4 model adds a metatype whose instance is itself a type, which
+is required to inhabit `Categorizes`. `AntiVacuity.lean` is the aggregate entry
+point, parallel to `Satisfiability/Consistency.lean`.
 
 ## S5-Derived Semantic Facts
 
@@ -210,7 +227,7 @@ Files:
 
 - `LeanUfo/UFO/Core/Signature3_1.lean`
 - `LeanUfo/UFO/Core/Section3_1.lean`
-- `LeanUfo/UFO/Models/Model3_1.lean`
+- `LeanUfo/UFO/FormalAnalysis/Satisfiability/Model3_1.lean`
 
 Mechanized axioms:
 
@@ -234,7 +251,7 @@ Files:
 
 - `LeanUfo/UFO/Core/Signature3_2.lean`
 - `LeanUfo/UFO/Core/Section3_2.lean`
-- `LeanUfo/UFO/Models/Model3_2.lean`
+- `LeanUfo/UFO/FormalAnalysis/Satisfiability/Model3_2.lean`
 
 Mechanized axioms:
 
@@ -267,7 +284,7 @@ Files:
 
 - `LeanUfo/UFO/Core/Signature3_3.lean`
 - `LeanUfo/UFO/Core/Section3_3.lean`
-- `LeanUfo/UFO/Models/Model3_3.lean`
+- `LeanUfo/UFO/FormalAnalysis/Satisfiability/Model3_3.lean`
 
 Mechanized axioms:
 
@@ -295,7 +312,7 @@ Files:
 
 - `LeanUfo/UFO/Core/Signature3_4.lean`
 - `LeanUfo/UFO/Core/Section3_4.lean`
-- `LeanUfo/UFO/Models/Model3_4.lean`
+- `LeanUfo/UFO/FormalAnalysis/Satisfiability/Model3_4.lean`
 
 Mechanized axioms:
 
@@ -331,7 +348,7 @@ Files:
 
 - `LeanUfo/UFO/Core/Signature3_5.lean`
 - `LeanUfo/UFO/Core/Section3_5.lean`
-- `LeanUfo/UFO/Models/Model3_5.lean`
+- `LeanUfo/UFO/FormalAnalysis/Satisfiability/Model3_5.lean`
 
 Mechanized axioms:
 
@@ -355,7 +372,7 @@ Files:
 
 - `LeanUfo/UFO/Core/Signature3_6.lean`
 - `LeanUfo/UFO/Core/Section3_6.lean`
-- `LeanUfo/UFO/Models/Model3_6.lean`
+- `LeanUfo/UFO/FormalAnalysis/Satisfiability/Model3_6.lean`
 
 Mechanized axioms:
 
@@ -379,7 +396,7 @@ Files:
 
 - `LeanUfo/UFO/Core/Signature3_7.lean`
 - `LeanUfo/UFO/Core/Section3_7.lean`
-- `LeanUfo/UFO/Models/Model3_7.lean`
+- `LeanUfo/UFO/FormalAnalysis/Satisfiability/Model3_7.lean`
 
 Mechanized axioms:
 
@@ -405,7 +422,7 @@ Files:
 
 - `LeanUfo/UFO/Core/Signature3_8.lean`
 - `LeanUfo/UFO/Core/Section3_8.lean`
-- `LeanUfo/UFO/Models/Model3_8.lean`
+- `LeanUfo/UFO/FormalAnalysis/Satisfiability/Model3_8.lean`
 
 Mechanized axioms:
 
@@ -428,7 +445,7 @@ Files:
 
 - `LeanUfo/UFO/Core/Signature3_9.lean`
 - `LeanUfo/UFO/Core/Section3_9.lean`
-- `LeanUfo/UFO/Models/Model3_9.lean`
+- `LeanUfo/UFO/FormalAnalysis/Satisfiability/Model3_9.lean`
 
 Mechanized axioms:
 
@@ -461,10 +478,11 @@ Files:
 
 - `LeanUfo/UFO/Core/Signature3_10.lean`
 - `LeanUfo/UFO/Core/Section3_10.lean`
-- `LeanUfo/UFO/Core/AxiomaticAnalysis.lean`
-- `LeanUfo/UFO/Models/Model3_10.lean`
-- `LeanUfo/UFO/Models/RelatorRepair/Model3_1.lean` through `Model3_10.lean`
-- `LeanUfo/UFO/Models/RelatorRepair/GuardedOverlapCountermodel.lean`
+- `LeanUfo/UFO/FormalAnalysis/AxiomaticAnalysis.lean`
+- `LeanUfo/UFO/FormalAnalysis/Satisfiability/Model3_10.lean`
+- `LeanUfo/UFO/FormalAnalysis/Satisfiability/Relator/Model3_1.lean` through `Model3_10.lean`
+- `LeanUfo/UFO/FormalAnalysis/Historical/GuardedOverlapCountermodel.lean`
+- `LeanUfo/UFO/FormalAnalysis/AntiVacuity/AntiVacuity3_10.lean`
 
 Mechanized axioms:
 
@@ -490,14 +508,14 @@ Formalization note: `FoundationOf` is defined using `Classical.epsilon`, which
 is why the signatures carry a nonempty domain witness. The proof of `th_t33`
 requires the explicit bridge axiom that qua individuals are of endurants.
 
-#### Theoretical Finding: Relators Are Forced Empty
+#### Historical Finding: Printed (a73) Forces Relators Empty
 
-`LeanUfo/UFO/Core/AxiomaticAnalysis.lean` records a stronger consequence of the
-current §3.10 encoding:
+`LeanUfo/UFO/FormalAnalysis/AxiomaticAnalysis.lean` records a stronger consequence of
+the printed §3.10 formula:
 
 ```lean
 no_relators :
-  [UFOAxioms3_10 Sig] ->
+  [UFOAxioms3_10PrintedA73 Sig] ->
   forall x w, not (Sig.Relator x w)
 ```
 
@@ -523,8 +541,9 @@ no_relatorTypes  : forall t w, not (Sig.RelatorType t w)
 no_relatorKinds  : forall t w, not (Sig.RelatorKind t w)
 ```
 
-The current mechanization therefore proves that the relator branch is empty in
-every model of the current §3.10 package.
+The printed overlap-based (a73) therefore makes the relator branch empty when
+combined with the retained §3.10 background. This is a theorem about the
+historical package, not the active corrected `UFOAxioms3_10` package.
 
 #### First Repair Attempt: Distinct Proper Parts
 
@@ -572,7 +591,7 @@ dependence, `ax_a79_distinct_guard` and the original (a79) imply one another.
 The guard is therefore retained as a failed experiment and possible
 clarification of pairwise intent, not as a semantic repair.
 
-#### Selected Analysis-Only Repair: Part-Based (a73)
+#### Selected Repair: Part-Based (a73)
 
 The general no-go result isolates the defect independently of every version of
 (a79):
@@ -583,7 +602,7 @@ no_relator_with_quaIndividual_properPart :
 
 relator_composition_refutes_current_ax73 :
   Relator r w -> ProperPart q r w -> QuaIndividual q w ->
-  not (ax_a73 Sig)
+  not (ax_a73_printed Sig)
 ```
 
 These theorems retain the relevant taxonomy and ordinary mereology assumptions
@@ -603,10 +622,11 @@ QuaIndividualOf(x, y) <->
       FoundationOf(z) = FoundationOf(x)
 ```
 
-`ax_a73_part_characterization` records this formula. The analysis package
-`UFOAxioms3_10PartRepair` combines it with every unchanged §3.10 assumption,
-including the original (a79), while explicitly excluding current (a73). The
-following results establish theorem preservation:
+`ax_a73` now records this formula in `Section3_10.lean`, and
+`UFOAxioms3_10.ax73` uses it. The analysis alias
+`ax_a73_part_characterization` and package `UFOAxioms3_10PartRepair` are
+retained so the earlier formula comparison remains reproducible. The following
+results establish theorem preservation:
 
 - `th_t31_part_characterization` proves the original (t31) conclusion directly
   from the part-based formula;
@@ -619,17 +639,18 @@ evidence. It supports a nonempty relator and preserves (t32) and (t33), but
 an externally dependent mode. `GuardedOverlapCountermodel.lean` gives a finite
 countermodel to the original (t31), so this alternative was not selected.
 
-The direct model chain under `LeanUfo/UFO/Models/RelatorRepair/` mirrors the
+The direct model chain under `LeanUfo/UFO/FormalAnalysis/Satisfiability/Relator/` mirrors the
 section-by-section witness style of the main `ModelX` files. `Model3_10.lean`
 constructs a model of `UFOAxioms3_10PartRepair` containing a relator with two
 qua-individual proper parts, distinct mediated bearers, and a shared perdurant
 foundation. The theorem `positive_relator_witness` exposes these facts.
 
-This branch records the diagnosis, experiments, countermodel, selected formula,
-theorem-preservation proofs, and positive witness. It does not yet replace
-(a73) in `Section3_10.lean` or propagate the repair through the DSL, reflective
-checker, diagnostics, or certified fixtures. That production change is deferred
-to the next feature branch.
+The active core package and direct relator model now use the part-based (a73).
+The printed formula remains as `ax_a73_printed`, and the ordinary sparse
+`Model3_10` proves both formulas only because its relator branch is empty. The
+finite DSL, reflective checker, diagnostics, and certified fixtures are updated
+in a separate propagation step so that this core change and its checker impact
+remain independently reviewable.
 
 ### Section 3.11: Characterization
 
@@ -637,7 +658,7 @@ Files:
 
 - `LeanUfo/UFO/Core/Signature3_11.lean`
 - `LeanUfo/UFO/Core/Section3_11.lean`
-- `LeanUfo/UFO/Models/Model3_11.lean`
+- `LeanUfo/UFO/FormalAnalysis/Satisfiability/Model3_11.lean`
 
 Mechanized axioms:
 
@@ -659,7 +680,7 @@ Files:
 
 - `LeanUfo/UFO/Core/Signature3_12.lean`
 - `LeanUfo/UFO/Core/Section3_12.lean`
-- `LeanUfo/UFO/Models/Model3_12.lean`
+- `LeanUfo/UFO/FormalAnalysis/Satisfiability/Model3_12.lean`
 
 Mechanized axioms:
 
@@ -704,7 +725,7 @@ Files:
 
 - `LeanUfo/UFO/Core/Signature3_13.lean`
 - `LeanUfo/UFO/Core/Section3_13.lean`
-- `LeanUfo/UFO/Models/Model3_13.lean`
+- `LeanUfo/UFO/FormalAnalysis/Satisfiability/Model3_13.lean`
 
 Mechanized axioms:
 
@@ -733,7 +754,7 @@ Files:
 
 - `LeanUfo/UFO/Core/Signature4.lean`
 - `LeanUfo/UFO/Core/Section4.lean`
-- `LeanUfo/UFO/Models/Model4.lean`
+- `LeanUfo/UFO/FormalAnalysis/Satisfiability/Model4.lean`
 
 Mechanized axioms:
 
@@ -881,8 +902,10 @@ The development follows a repeated pattern:
 5. Record any extra bridge principle needed for the paper's theorem statements.
 
 The small witness models are intentionally sparse. Empty interpretations are
-often informative: they show that a fragment's axioms constrain structure
-without forcing unnecessary ontological richness.
+permitted in ordinary model-existence checkpoints and show joint satisfiability
+without asserting ontological richness. The separate anti-vacuity modules add
+section-by-section simultaneous-nonemptiness checks for the complete primitive
+vocabulary and the named derived predicates listed above.
 
 ## Relation To The DSL
 

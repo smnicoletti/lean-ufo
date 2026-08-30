@@ -13,7 +13,9 @@ The main theorem files are:
 
 ```text
 LeanUfo/UFO/Core/*.lean
-LeanUfo/UFO/Models/*.lean
+LeanUfo/UFO/FormalAnalysis/Satisfiability/*.lean
+LeanUfo/UFO/FormalAnalysis/AxiomaticAnalysis.lean
+LeanUfo/UFO/FormalAnalysis/AntiVacuity/AntiVacuity.lean
 LeanUfo/UFO/DSL/Guarantees.lean
 LeanUfo/UFO/DSL/Checker/Soundness.lean
 LeanUfo/UFO/DSL/Checker/Complexity.lean
@@ -69,7 +71,7 @@ Guarantee offered:
 
 ## Witness Models and Consistency Checkpoints
 
-The `Models/` layer constructs concrete semantic witnesses for implemented UFO
+The `FormalAnalysis/Satisfiability/` layer constructs concrete semantic witnesses for implemented UFO
 fragments. These establish joint satisfiability checkpoints, for example:
 
 ```lean
@@ -88,6 +90,25 @@ the packaged axioms.
 Guarantee offered:
 
 - the implemented axiom packages have concrete satisfying interpretations;
+
+## Anti-Vacuity Checkpoints
+
+`FormalAnalysis/AntiVacuity/` strengthens the model-existence evidence without
+changing the ordinary `ModelX` chain. There is one module per section from
+§3.1 through §4. Each section module provides a cumulative axiom-package
+instance and a theorem giving simultaneous witnesses for every predicate added
+by that section. Named derived predicates from the core section files are also
+included.
+
+This establishes that no encoded vocabulary item is forced empty by its
+cumulative section package. It does not assert that one final interpretation
+simultaneously realizes every possible combination of UFO categories.
+
+Guarantee offered:
+
+- every primitive predicate has a nonempty extension in its section's
+  cumulative anti-vacuity model;
+- named derived predicates in the section files have explicit witnesses;
 - each checkpoint is relative to Lean's metatheory and the selected semantic
   encoding;
 - witness models are independent of the finite DSL command frontend.

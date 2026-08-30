@@ -55,15 +55,16 @@ Technical highlights:
    reflective checker now covers all registered axiom fields through §4. In
    particular, `ax68` uses a proved bounded finite closure checker for
    `MomentOf`, and `ax99` uses explicit finite product-family witnesses.
-5. **Axiom diagnosis and relator repair analysis.** The mechanization exposes
-   that current (a73) is incompatible with ordinary qua-individual parthood in
+5. **Axiom diagnosis and relator repair.** The mechanization exposes
+   that the printed (a73) is incompatible with ordinary qua-individual parthood in
    a relator, independently of (a79). The analysis proves an (a79) distinctness
    guard insufficient and equivalent under the background axioms, records why
    guarded-overlap (a73) does not preserve original (t31), selects a part-based
    (a73), preserves (t31)-(t33), and constructs a finite nonempty-relator model.
-   These results are retained as analysis evidence; the active axiom package
-   and checker still use the published 2022 formula pending propagation in the
-   next feature branch.
+   The part-based formula is now active in the core `UFOAxioms3_10` package. The
+   printed formula, failed distinctness guard, guarded-overlap comparison, and
+   countermodel remain available as historical analysis evidence. Propagation
+   through the finite DSL and reflective checker is tracked separately.
 6. **DSL-level diagnostics.** Failed models report whether Lean confirmed a
    finite counterexample, hit a timeout-style counterexample-probe limit, or
    reached an unclassified probe failure. Many failures are reconstructed in
@@ -72,6 +73,12 @@ Technical highlights:
    certification fixtures, negative counterexample fixtures, diagnostics
    rendering, and axiom registry coverage. CI also builds the concrete DSL
    example collection.
+8. **Section-by-section anti-vacuity.** Separate cumulative interpretations
+   through §4 inhabit every primitive signature predicate introduced by each
+   section. They also inhabit the named derived predicates `ProperSub`,
+   `Quality`, `UltimateBearerOf`, and the §3.12 quality/set predicates. These
+   checks are kept distinct from the sparse `ModelX` joint-satisfiability
+   witnesses.
 
 ## Quick Example
 
@@ -314,7 +321,11 @@ axioms currently classified as compiler-enforced or blocked.
 LeanUfo/
   UFO/
     Core/              -- semantic signatures, axioms, and theorems
-    Models/            -- concrete satisfiability witness models
+    FormalAnalysis/    -- semantic analysis kept separate from the active core and DSL
+      AxiomaticAnalysis.lean
+      Historical/      -- retained repair experiments and countermodels
+      AntiVacuity/     -- section witnesses and aggregate anti-vacuity checkpoints
+      Satisfiability/  -- ordinary ModelX and positive-relator model chains
     DSL/               -- finite DSL public entry point, backend, and examples
       Frontend/        -- surface grammar and text rendering
       Compiler/        -- compiler vocabulary and AST support

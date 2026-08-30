@@ -10,7 +10,7 @@ For the theorem-backed contract behind these features, see
 | Area | Status |
 | --- | --- |
 | Core UFO fragments | Active mechanization with semantic witness models |
-| Relator repair | Part-based (a73) selected and witnessed in analysis; production propagation deferred |
+| Relator repair | Part-based (a73) active in the core package and witnessed by a nonempty-relator model |
 | Finite DSL | Certified models through `UFOAxioms4` |
 | Reflective checker | All registered axiom fields through §4; ax99 uses explicit product-family witnesses |
 | Diagnostics | Checker-aware counterexamples for direct-complete checker fields |
@@ -23,11 +23,20 @@ For the theorem-backed contract behind these features, see
   and theorems.
 - Concrete witness models establish satisfiability checkpoints for implemented
   fragments.
-- The axiomatic analysis proves that current (a73), independently of (a79),
+- The axiomatic analysis proves that the printed (a73), independently of (a79),
   conflicts with a qua-individual proper part of a relator. It records the
   distinctness-guard and guarded-overlap experiments and their limitations,
   selects the part-based (a73), proves preservation of (t31)-(t33), and
   constructs a finite nonempty-relator witness model.
+- The active `UFOAxioms3_10` package uses the part-based (a73). The printed
+  overlap formula remains available as `ax_a73_printed`, and its forced-empty
+  consequence is packaged separately as `UFOAxioms3_10PrintedA73`.
+- Anti-vacuity analysis is separate from ordinary joint satisfiability. The
+  `FormalAnalysis/AntiVacuity` modules provide one file per section through §4.
+  For each section, a cumulative axiom model simultaneously inhabits every
+  predicate introduced in that section; named derived predicates are covered
+  as well. `AntiVacuity.lean` imports these checked interpretations without
+  changing the sparse `FormalAnalysis/Satisfiability/ModelX` checkpoints.
 - The finite DSL accepts named worlds, named things, scoped facts, taxonomy
   classifications, instantiation, specialization, primitive relations, and
   selected derived assertions.
@@ -104,10 +113,17 @@ For the theorem-backed contract behind these features, see
 
 ## Current DSL Caveats
 
-- The selected part-based (a73) repair is not yet part of `Section3_10.lean`,
-  the reflective checker, diagnostics, or certified DSL fixtures. Those layers
-  still implement the published 2022 formula; propagation is deferred to the
-  next feature branch.
+- The aggregate anti-vacuity entry point imports checked interpretations for
+  every section from §3.1 through §4. Coverage includes all primitive signature
+  predicates, proper specialization, the full §3.2 modal taxonomy, the §3.3
+  and §3.4 individual/type taxonomies, relation vocabularies through §3.10,
+  characterization, quality structures, manifestation/life/meet, and all four
+  §4 type-structure relations.
+- The selected part-based (a73) is active in `Section3_10.lean`, but the
+  reflective checker, diagnostics, and certified DSL fixtures still implement
+  the printed overlap formula. Their coordinated propagation is the next
+  feature branch; until then the core and DSL layers intentionally expose the
+  migration boundary.
 - Generated models use a universal S5 frame; custom accessibility relations are
   not surfaced.
 - Extended models cannot add worlds yet. This avoids silently changing the
