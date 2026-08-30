@@ -298,7 +298,7 @@ def certFormula : String → String
   | "ax70" => "ExternallyDependentMode(x) ↔ Mode(x) ∧ ∃ y, ExternallyDependent(x, y)"
   | "ax71" => "FoundedBy(x, y) → (ExternallyDependentMode(x) ∨ Relator(x)) ∧ Perdurant(y)"
   | "ax72" => "ExternallyDependentMode(x) → ∃! y, FoundedBy(x, y)"
-  | "ax73" => "QuaIndividualOf(x, y) ↔ overlap-defined externally dependent modes sharing x's foundation"
+  | "ax73" => "QuaIndividualOf(x, y) ↔ part-defined externally dependent modes sharing x's foundation"
   | "ax74" => "QuaIndividual(x) ↔ ∃ y, QuaIndividualOf(x, y)"
   | "ax75" => "QuaIndividual(x) → ExternallyDependentMode(x)"
   | "ax76" => "QuaIndividualOf(x, y) ∧ QuaIndividualOf(x, y') → y = y'"
@@ -693,7 +693,7 @@ private def checkerCertificateProof? (field : CertField) : Option String :=
   match field.field with
   | "ax73" =>
       some
-        "exact LeanUfo.UFO.DSL.Checker.checkAx73_sound data (by native_decide) (by native_decide) (by native_decide) (by native_decide) (by native_decide)"
+        "exact LeanUfo.UFO.DSL.Checker.checkAx73_sound data (by native_decide) (by native_decide) (by native_decide) (by native_decide)"
   | "ax78" =>
       some
         "exact LeanUfo.UFO.DSL.Checker.checkAx78_sound data (by native_decide) (by native_decide) (by native_decide) (by native_decide) (by native_decide) (by native_decide) (by native_decide)"
@@ -853,13 +853,11 @@ def certAxiomCounterexampleCheck (field : CertField) : String :=
   set_option linter.unusedSimpArgs false in
   intro h
   have h47 : LeanUfo.UFO.DSL.Checker.checkAx47 data = true := by native_decide
-  have h50 : LeanUfo.UFO.DSL.Checker.checkAx50 data = true := by native_decide
   have h72 : LeanUfo.UFO.DSL.Checker.checkAx72 data = true := by native_decide
   have h75 : LeanUfo.UFO.DSL.Checker.checkAx75 data = true := by native_decide
   have hcheck : LeanUfo.UFO.DSL.Checker.checkAx73 data = true :=
     LeanUfo.UFO.DSL.Checker.checkAx73_complete_with_prereqs data
       (LeanUfo.UFO.DSL.Checker.checkAx47_sound data h47)
-      (LeanUfo.UFO.DSL.Checker.checkAx50_sound data h50)
       (LeanUfo.UFO.DSL.Checker.checkAx72_sound data h72)
       (LeanUfo.UFO.DSL.Checker.checkAx75_sound data h75)
       h

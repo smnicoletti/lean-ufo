@@ -60,7 +60,9 @@ The core lives under `LeanUfo/UFO/`.
 | `Core/Signature*.lean` | UFO semantic signatures for successive fragments |
 | `Core/Section*.lean` | Axiom packages and derived theorems for those fragments |
 | `Core/S5_Derived.lean` | Additional consequences of the chosen S5 semantics |
-| `Models/` | Small concrete witness models and consistency checkpoints |
+| `FormalAnalysis/` | Axiom diagnosis, historical comparisons, anti-vacuity interpretations, and satisfiability models |
+| `FormalAnalysis/Satisfiability/` | Ordinary `ModelX` checkpoints and the positive-relator model chain |
+| `FormalAnalysis/AntiVacuity/` | Stronger simultaneous-nonemptiness interpretations |
 
 Each core fragment follows the same pattern:
 
@@ -146,7 +148,8 @@ The central theorem map is [Formal guarantees](guarantees.md). At project level,
 the main guarantee layers are:
 
 - **core semantic theorems** in `Core/Section*.lean` and `Core/S5_Derived.lean`;
-- **witness-model consistency checkpoints** in `Models/`;
+- **ordinary witness-model consistency checkpoints** in `FormalAnalysis/Satisfiability/`;
+- **stronger simultaneous-nonemptiness checks** in `FormalAnalysis/AntiVacuity/`;
 - **DSL compiler and packaging guarantees** in `DSL/Guarantees.lean` and
   `DSL/Certification.lean`;
 - **checker soundness/completeness theorems** in `DSL/Checker/Soundness.lean`;

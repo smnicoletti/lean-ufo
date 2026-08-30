@@ -46,4 +46,10 @@ The user-facing examples live in:
 * `LeanUfo/UFO/DSL/ConcreteExamples/ReuseRoleExtension.lean`
 * `LeanUfo/UFO/DSL/ConcreteExamples/ReuseModeExtension.lean`
 * `LeanUfo/UFO/DSL/ConcreteExamples/ConceptEvolution.lean`
+
+`ConcreteExamples/RelatorProbe.lean` is intentionally not imported by this
+aggregate. It certifies a larger three-world, ten-thing relator model and is
+therefore long-running on a fresh build (about 22 minutes in the measured
+development run). The selected `ax73` test target builds it directly and checks
+the resulting certificate.
 -/

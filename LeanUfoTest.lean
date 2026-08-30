@@ -124,6 +124,19 @@ def diagnosticOutputChecks : Array ExpectedOutput := #[
     ]
   },
   {
+    label := "ax73 part characterization diagnostic",
+    file := "LeanUfo/Test/Certification/Negative/Ax73QuaIndividualFoundationBridge.lean",
+    contains := #[
+      "A finite counterexample was confirmed for ax73.",
+      "constituent `Q` must `InheresIn(Q, B)`",
+      "because it is a part of `QuaIndividualOf(Q, B)`"
+    ],
+    rejects := #[
+      "overlap witness",
+      "overlapping externally dependent mode"
+    ]
+  },
+  {
     label := "derived externally dependent mode diagnostic",
     file := "LeanUfo/Test/Diagnostics/DerivedExternallyDependentMode.lean",
     contains := #[
@@ -180,7 +193,8 @@ structure PositiveWitness where
 def fullPositiveWitnesses : Array PositiveWitness := #[
   ⟨"all", "LeanUfo.Test.Certification.Positive.AllAxioms"⟩,
   ⟨"seed", "LeanUfo.Test.Certification.Positive.Seed"⟩,
-  ⟨"ax68", "LeanUfo.Test.Certification.Positive.Ax68"⟩
+  ⟨"ax68", "LeanUfo.Test.Certification.Positive.Ax68"⟩,
+  ⟨"ax73", "LeanUfo.Test.Certification.Positive.Relator"⟩
 ]
 
 def second? {α : Type} : List α → Option α
@@ -456,11 +470,14 @@ def generatedFailureFields (text : String) : Array String :=
       | none => pure ()
     pure fields
 
-def checkExpectedFailure (test : ExpectedFailure) : IO (Array String) := do
-  let out ← IO.Process.output {
-    cmd := "lake"
-    args := #["env", "lean", test.file]
+def runLeanFile (file : String) : IO IO.Process.Output :=
+  IO.Process.output {
+    cmd := "lean"
+    args := #[file]
   }
+
+def checkExpectedFailure (test : ExpectedFailure) : IO (Array String) := do
+  let out ← runLeanFile test.file
   let text := out.stdout ++ out.stderr
   let generatedFailures := generatedFailureFields text
   let unexpectedGeneratedFailures := generatedFailures.filter (· != test.field)
@@ -480,10 +497,7 @@ def checkExpectedFailure (test : ExpectedFailure) : IO (Array String) := do
     pure #[s!"{test.file} failed, but output did not contain `{test.expected}`"]
 
 def checkExpectedOutput (test : ExpectedOutput) : IO (Array String) := do
-  let out ← IO.Process.output {
-    cmd := "lake"
-    args := #["env", "lean", test.file]
-  }
+  let out ← runLeanFile test.file
   let text := out.stdout ++ out.stderr
   let mut failures := #[]
   if out.exitCode == 0 then

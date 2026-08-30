@@ -10,6 +10,7 @@ For the theorem-backed contract behind these features, see
 | Area | Status |
 | --- | --- |
 | Core UFO fragments | Active mechanization with semantic witness models |
+| Relator repair | Part-based (a73) active in the core package and witnessed by a nonempty-relator model |
 | Finite DSL | Certified models through `UFOAxioms4` |
 | Reflective checker | All registered axiom fields through §4; ax99 uses explicit product-family witnesses |
 | Diagnostics | Checker-aware counterexamples for direct-complete checker fields |
@@ -22,6 +23,20 @@ For the theorem-backed contract behind these features, see
   and theorems.
 - Concrete witness models establish satisfiability checkpoints for implemented
   fragments.
+- The axiomatic analysis proves that the printed (a73), independently of (a79),
+  conflicts with a qua-individual proper part of a relator. It records the
+  distinctness-guard and guarded-overlap experiments and their limitations,
+  selects the part-based (a73), proves preservation of (t31)-(t33), and
+  constructs a finite nonempty-relator witness model.
+- The active `UFOAxioms3_10` package uses the part-based (a73). The printed
+  overlap formula remains available as `ax_a73_printed`, and its forced-empty
+  consequence is packaged separately as `UFOAxioms3_10PrintedA73`.
+- Anti-vacuity analysis is separate from ordinary joint satisfiability. The
+  `FormalAnalysis/AntiVacuity` modules provide one file per section through §4.
+  For each section, a cumulative axiom model simultaneously inhabits every
+  predicate introduced in that section; named derived predicates are covered
+  as well. `AntiVacuity.lean` imports these checked interpretations without
+  changing the sparse `FormalAnalysis/Satisfiability/ModelX` checkpoints.
 - The finite DSL accepts named worlds, named things, scoped facts, taxonomy
   classifications, instantiation, specialization, primitive relations, and
   selected derived assertions.
@@ -67,10 +82,11 @@ For the theorem-backed contract behind these features, see
   necessary-instance helpers.
 - The checker-backed §3.10 fields include `ax69`, `ax70`, `ax71`,
   `ax72`, `ax73`, `ax74`, `ax75`, `ax76`, `ax77`, `ax78`, `ax79`, `ax80`, and
-  `axQuaIndividualOfEndurant`. The `ax73` proof uses `sameFoundationB` plus
-  the already checker-backed unique-foundation premises needed to relate it to
-  the core `FoundationOf` definition; `ax78` and `ax79` use the same bridge
-  with explicit prerequisite checker calls.
+  `axQuaIndividualOfEndurant`. The part-based `ax73` proof uses
+  `sameFoundationB` plus checker-backed `ax47`, `ax72`, and `ax75` to relate
+  the finite common-foundation test to the core `FoundationOf` definition;
+  overlap axiom `ax50` is no longer a prerequisite. `ax78` and `ax79` use the
+  same foundation bridge with their explicit prerequisite checker calls.
 - The checker-backed §3.11 fields cover `ax81` and `ax82` through executable
   finite existence/uniqueness checks over `Inst` and `InheresIn`.
 - The checker-backed §3.12 fields cover `ax83`, `ax84`, `ax85`,
@@ -98,6 +114,16 @@ For the theorem-backed contract behind these features, see
 
 ## Current DSL Caveats
 
+- The aggregate anti-vacuity entry point imports checked interpretations for
+  every section from §3.1 through §4. Coverage includes all primitive signature
+  predicates, proper specialization, the full §3.2 modal taxonomy, the §3.3
+  and §3.4 individual/type taxonomies, relation vocabularies through §3.10,
+  characterization, quality structures, manifestation/life/meet, and all four
+  §4 type-structure relations.
+- The selected part-based (a73) is active in `Section3_10.lean`, the reflective
+  checker, diagnostics, certificate generation, and reuse metadata. The
+  certified `RelatorProbe` example supplies an end-to-end nonempty-relator
+  witness and refutes the historical printed formula.
 - Generated models use a universal S5 frame; custom accessibility relations are
   not surfaced.
 - Extended models cannot add worlds yet. This avoids silently changing the
@@ -109,8 +135,10 @@ For the theorem-backed contract behind these features, see
   executable and backs `SetExtension`; product-family witnesses are supported,
   while higher-level generation of all required quality-domain facts remains
   future work.
-- Some diagnostic extractors remain conservative for product families,
-  higher-arity relations, and foundation/equality cases.
+- Some diagnostic extractors remain conservative for product families and
+  higher-arity relations. The `ax73` extractor now reports both directions of
+  the part characterization and separates constituent, bearer, foundation,
+  missing-part, and missing-`QuaIndividualOf` failures.
 - Several §3.10 fields still lack small managed direct negative fixtures:
   `ax72`, `ax75`, `ax76`, `ax78`, `ax79`, and
   `axQuaIndividualOfEndurant`. The checker-aware negative probe infrastructure

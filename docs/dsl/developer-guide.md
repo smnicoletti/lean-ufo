@@ -203,11 +203,14 @@ ax105-ax108
 `ax68` is checker-backed through a bounded finite closure checker for
 `MomentOf`. The executable closure is proved sound and complete with respect to
 the inductive transitive-closure encoding used by the core `UltimateBearerOf`
-definition. `ax73` uses
-`sameFoundationB`, which is proved equivalent to `FoundationOf` only under the
-unique-foundation premises supplied by `ax72` and `ax75`. `ax78` and `ax79`
-use the same finite foundation bridge; their soundness theorems make the
-required prerequisite checker calls explicit.
+definition. `ax73` compares `Part(z,x)` directly with the constituent
+characterization. It uses `sameFoundationB`, which is proved equivalent to
+`FoundationOf` under reflexive parthood (`ax47`) and the unique-foundation
+premises supplied by `ax72` and `ax75`. The former overlap prerequisite `ax50`
+is not used. `ax78` and `ax79` use the same finite foundation bridge; their
+soundness theorems make their prerequisite checker calls explicit. The reuse
+footprint for `ax73` reads `part`, `mode`, `ex`, `inheresIn`, `foundedBy`, and
+`quaIndividualOf`, but not `overlap`.
 
 The negative probe generator mirrors this shape. Direct-complete fields use
 `checkAxN_complete`; `ax73`, `ax78`, and `ax79` use prerequisite-aware
@@ -360,6 +363,11 @@ Use targeted `LEANUFO_AXIOMS=...` runs before a full `lake test` when changing a
 specific checker, generated declaration, or diagnostic path. A successful term
 preflight is only a quick check; theorem commands are the authoritative
 generated declarations.
+
+`ConcreteExamples/RelatorProbe.lean` is the direct end-to-end `ax73` witness.
+It is excluded from the examples aggregate and positive seed because a measured
+fresh certification of the complete package over three worlds and ten things
+took about 22 minutes. `LEANUFO_AXIOMS=ax73 lake test` selects it explicitly.
 
 
 [Docs home](../README.md) · [Project README](../../README.md)

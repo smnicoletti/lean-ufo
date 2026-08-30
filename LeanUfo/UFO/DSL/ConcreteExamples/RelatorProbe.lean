@@ -1,60 +1,88 @@
 import LeanUfo.UFO.DSL.Syntax
 
+/-!
+Certified nonempty-relator example.
+
+`RelatorInstance` has two qua-individual proper parts. Each qua individual
+inheres in a different bearer, while both share `Foundation`. Their identical
+existence profiles provide the mutual existential dependence required by
+(a79), and the two bearer links provide the mediation facts required by (a80).
+
+The two qua individuals use the opposite bearer as their external-dependence
+target. Their actual-world existence witnesses dependence, while the two
+bearer-only worlds witness independence between the distinct bearers.
+
+A measured fresh build of this example took about 22 minutes because
+certification checks the complete axiom package over three worlds and ten
+things. It is therefore a standalone selected test rather than part of the
+examples aggregate or positive seed. Subsequent builds reuse Lean's compiled
+artifact.
+-/
+
 open LeanUfo.UFO.DSL
 
-/-!
-This file records the minimal relator-boundary probe used during the §3.10
-axiomatic analysis.
-
-This is useful as source documentation for the computed
-`ExternallyDependentMode` pattern and the modal `Ex` witnesses it requires:
-`actual` witnesses dependence of `C1` on `UT`, while `markOnly` and `utOnly`
-witness independence between `Mark` and `UT`.
--/
-
-/-
 ufo_model RelatorProbe : UFO where
-worlds actual markOnly utOnly
-things Person Commitment Mark UT SigningEvent C1
+  worlds actual bearerAOnly bearerBOnly
+  things RelatorType ModeType ObjectType EventType
+    RelatorInstance QuaA QuaB BearerA BearerB Foundation
 
-given everywhere:
-   Object(Mark)
-   Mark :: Person
+  given everywhere:
+    RelatorKind(RelatorType)
+    ModeKind(ModeType)
+    ObjectKind(ObjectType)
+    PerdurantType(EventType)
 
-   AbstractIndividual(UT)
+    Relator(RelatorInstance)
+    Mode(QuaA)
+    Mode(QuaB)
+    Object(BearerA)
+    Object(BearerB)
+    Perdurant(Foundation)
 
-   Perdurant(SigningEvent)
+    RelatorInstance :: RelatorType
+    QuaA :: ModeType
+    QuaB :: ModeType
+    BearerA :: ObjectType
+    BearerB :: ObjectType
+    Foundation :: EventType
 
-   Mode(C1)
-   C1 :: Commitment
+    Part(QuaA, RelatorInstance)
+    Part(QuaB, RelatorInstance)
+    ProperPart(QuaA, RelatorInstance)
+    ProperPart(QuaB, RelatorInstance)
 
-   ObjectKind(Person)
-   ModeKind(Commitment)
+    Overlap(QuaA, RelatorInstance)
+    Overlap(RelatorInstance, QuaA)
+    Overlap(QuaB, RelatorInstance)
+    Overlap(RelatorInstance, QuaB)
 
-   InheresIn(C1,Mark)
-   FoundedBy(C1,SigningEvent)
-   QuaIndividualOf(C1,Mark)
+    InheresIn(RelatorInstance, BearerA)
+    InheresIn(QuaA, BearerA)
+    InheresIn(QuaB, BearerB)
 
-given actual:
--- Derived assertions: these are checked against computed semantics.
--- They need the modal Ex variation below so C1 can be externally dependent
--- on UT while inhering in Mark.
-   ExternallyDependentMode(C1)
-   ExternallyDependent(C1,UT)
+    FoundedBy(RelatorInstance, Foundation)
+    FoundedBy(QuaA, Foundation)
+    FoundedBy(QuaB, Foundation)
 
--- Additional needed facts to pass ExternallyDependentMode checks.
--- `actual` witnesses existential dependence of C1 on UT.
--- `markOnly` and `utOnly` witness independence between Mark and UT.
-   Ex(Mark)
-   Ex(UT)
-   Ex(C1)
+    QuaIndividualOf(QuaA, BearerA)
+    QuaIndividualOf(QuaB, BearerB)
 
-given markOnly:
-   Ex(Mark)
+    Mediates(RelatorInstance, BearerA)
+    Mediates(RelatorInstance, BearerB)
 
-given utOnly:
-   Ex(UT)
+  given actual:
+    Ex(RelatorInstance)
+    Ex(QuaA)
+    Ex(QuaB)
+    Ex(BearerA)
+    Ex(BearerB)
+    Ex(Foundation)
 
-derive_relations
-certify
--/
+  given bearerAOnly:
+    Ex(BearerA)
+
+  given bearerBOnly:
+    Ex(BearerB)
+
+  derive_relations
+  certify

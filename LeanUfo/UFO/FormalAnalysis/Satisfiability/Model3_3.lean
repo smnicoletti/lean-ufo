@@ -1,6 +1,6 @@
 import LeanUfo.UFO.Core.Signature3_3
 import LeanUfo.UFO.Core.Section3_3
-import LeanUfo.UFO.Models.Model3_2
+import LeanUfo.UFO.FormalAnalysis.Satisfiability.Model3_2
 
 universe u
 

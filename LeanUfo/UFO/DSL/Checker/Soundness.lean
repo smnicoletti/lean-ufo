@@ -1784,12 +1784,11 @@ theorem checkAx72_iff (M : FiniteModel4) :
 
 theorem checkAx73_sound_with_prereqs (M : FiniteModel4) :
     ax_a47 M.toUFOSignature4.toUFOSignature3_5 →
-    ax_a50 M.toUFOSignature4.toUFOSignature3_5 →
     ax_a72 M.toUFOSignature4.toUFOSignature3_10 →
     ax_a75 M.toUFOSignature4.toUFOSignature3_10 →
     checkAx73 M = true →
     ax_a73 M.toUFOSignature4.toUFOSignature3_10 := by
-  intro h47 h50 h72 h75 h x y w
+  intro h47 h72 h75 h x y w
   have hx := (allThings_eq_true_iff M _).1 h x
   have hy := (allThings_eq_true_iff M _).1 hx y
   have hw := (allWorlds_eq_true_iff M _).1 hy w
@@ -1804,10 +1803,10 @@ theorem checkAx73_sound_with_prereqs (M : FiniteModel4) :
     have hEDMx := h75 x w hQI
     have hUniqueX := h72 x w hEDMx
     constructor
-    · intro hOv
-      have hOvB : M.overlap z x w = true := by
-        simpa [FiniteModel4.toUFOSignature4] using hOv
-      have rhsB := hzIff.1 hOvB
+    · intro hPart
+      have hPartB : M.part z x w = true := by
+        simpa [FiniteModel4.toUFOSignature4] using hPart
+      have rhsB := hzIff.1 hPartB
       have rhs :
           (externallyDependentModeB M z w = true ∧
             M.inheresIn z y w = true) ∧ sameFoundationB M z x w = true := by
@@ -1830,23 +1829,21 @@ theorem checkAx73_sound_with_prereqs (M : FiniteModel4) :
               sameFoundationB M z x w) = true := by
         simp [hEDMzB, hInhB, hSameB]
       exact by
-        have hOvB := hzIff.2 rhsB
-        simpa [FiniteModel4.toUFOSignature4] using hOvB
+        have hPartB := hzIff.2 rhsB
+        simpa [FiniteModel4.toUFOSignature4] using hPartB
   · intro hSem
     apply hQiff.2
     apply (allThings_eq_true_iff M _).2
     have hPartXX := h47 x w
-    have hOvXX : M.toUFOSignature4.Overlap x x w :=
-      (h50 x x w).2 ⟨x, hPartXX, hPartXX⟩
-    have hEDMx := (hSem x).1 hOvXX |>.1
+    have hEDMx := (hSem x).1 hPartXX |>.1
     have hUniqueX := h72 x w hEDMx
     intro z
     apply (iffB_eq_true_iff _ _).2
     constructor
-    · intro hOvB
-      have hOv : M.toUFOSignature4.Overlap z x w := by
-        simpa [FiniteModel4.toUFOSignature4] using hOvB
-      rcases (hSem z).1 hOv with ⟨hEDMz, hInh, hSame⟩
+    · intro hPartB
+      have hPart : M.toUFOSignature4.Part z x w := by
+        simpa [FiniteModel4.toUFOSignature4] using hPartB
+      rcases (hSem z).1 hPart with ⟨hEDMz, hInh, hSame⟩
       have hUniqueZ := h72 z w hEDMz
       have hEDMzB := (externallyDependentModeB_eq_true_iff M z w).2 hEDMz
       have hInhB : M.inheresIn z y w = true := by
@@ -1864,9 +1861,9 @@ theorem checkAx73_sound_with_prereqs (M : FiniteModel4) :
       have hUniqueZ := h72 z w hEDMz
       have hSame :=
         (sameFoundationB_eq_true_iff_of_unique M z x w hUniqueZ hUniqueX).1 hSameB
-      have hOv := (hSem z).2
+      have hPart := (hSem z).2
         ⟨hEDMz, by simpa [FiniteModel4.toUFOSignature4] using hInhB, hSame⟩
-      simpa [FiniteModel4.toUFOSignature4] using hOv
+      simpa [FiniteModel4.toUFOSignature4] using hPart
 
 private theorem checkAx74_correct (M : FiniteModel4) :
     checkAx74 M = true ↔ ax_a74 M.toUFOSignature4.toUFOSignature3_10 := by
@@ -1931,27 +1928,24 @@ theorem checkAx75_iff (M : FiniteModel4) :
 
 theorem checkAx73_sound (M : FiniteModel4) :
     checkAx47 M = true →
-    checkAx50 M = true →
     checkAx72 M = true →
     checkAx75 M = true →
     checkAx73 M = true →
     ax_a73 M.toUFOSignature4.toUFOSignature3_10 := by
-  intro h47 h50 h72 h75 h73
+  intro h47 h72 h75 h73
   exact checkAx73_sound_with_prereqs M
     (checkAx47_sound M h47)
-    (checkAx50_sound M h50)
     (checkAx72_sound M h72)
     (checkAx75_sound M h75)
     h73
 
 theorem checkAx73_complete_with_prereqs (M : FiniteModel4) :
     ax_a47 M.toUFOSignature4.toUFOSignature3_5 →
-    ax_a50 M.toUFOSignature4.toUFOSignature3_5 →
     ax_a72 M.toUFOSignature4.toUFOSignature3_10 →
     ax_a75 M.toUFOSignature4.toUFOSignature3_10 →
     ax_a73 M.toUFOSignature4.toUFOSignature3_10 →
     checkAx73 M = true := by
-  intro h47 h50 h72 h75 h73
+  intro h47 h72 h75 h73
   unfold checkAx73
   apply (allThings_eq_true_iff M _).2
   intro x
@@ -1966,12 +1960,12 @@ theorem checkAx73_complete_with_prereqs (M : FiniteModel4) :
     intro z
     apply (iffB_eq_true_iff _ _).2
     constructor
-    · intro hOvB
+    · intro hPartB
       have hQ : M.toUFOSignature4.QuaIndividualOf x y w := by
         simpa [FiniteModel4.toUFOSignature4] using hQB
-      have hOv : M.toUFOSignature4.Overlap z x w := by
-        simpa [FiniteModel4.toUFOSignature4] using hOvB
-      rcases (h73 x y w).1 hQ z |>.1 hOv with ⟨hEDMz, hInh, hSame⟩
+      have hPart : M.toUFOSignature4.Part z x w := by
+        simpa [FiniteModel4.toUFOSignature4] using hPartB
+      rcases (h73 x y w).1 hQ z |>.1 hPart with ⟨hEDMz, hInh, hSame⟩
       have hQI : M.toUFOSignature4.QuaIndividual x w := ⟨y, hQ⟩
       have hEDMx := h75 x w hQI
       have hUniqueX := h72 x w hEDMx
@@ -1997,9 +1991,9 @@ theorem checkAx73_complete_with_prereqs (M : FiniteModel4) :
       have hUniqueZ := h72 z w hEDMz
       have hSame :=
         (sameFoundationB_eq_true_iff_of_unique M z x w hUniqueZ hUniqueX).1 hSameB
-      have hOv := (h73 x y w).1 hQ z |>.2
+      have hPart := (h73 x y w).1 hQ z |>.2
         ⟨hEDMz, by simpa [FiniteModel4.toUFOSignature4] using hInhB, hSame⟩
-      simpa [FiniteModel4.toUFOSignature4] using hOv
+      simpa [FiniteModel4.toUFOSignature4] using hPart
   · intro hAllZ
     have hSem : M.toUFOSignature4.QuaIndividualOf x y w := by
       apply (h73 x y w).2
@@ -2007,10 +2001,10 @@ theorem checkAx73_complete_with_prereqs (M : FiniteModel4) :
       have hz := (allThings_eq_true_iff M _).1 hAllZ z
       have hzIff := (iffB_eq_true_iff _ _).1 hz
       constructor
-      · intro hOv
-        have hOvB : M.overlap z x w = true := by
-          simpa [FiniteModel4.toUFOSignature4] using hOv
-        have rhsB := hzIff.1 hOvB
+      · intro hPart
+        have hPartB : M.part z x w = true := by
+          simpa [FiniteModel4.toUFOSignature4] using hPart
+        have rhsB := hzIff.1 hPartB
         have rhs :
             (externallyDependentModeB M z w = true ∧
               M.inheresIn z y w = true) ∧ sameFoundationB M z x w = true := by
@@ -2018,13 +2012,11 @@ theorem checkAx73_complete_with_prereqs (M : FiniteModel4) :
         rcases rhs with ⟨⟨hEDMzB, hInhB⟩, hSameB⟩
         have hEDMz := (externallyDependentModeB_eq_true_iff M z w).1 hEDMzB
         have hPartXX := h47 x w
-        have hOvXX : M.toUFOSignature4.Overlap x x w :=
-          (h50 x x w).2 ⟨x, hPartXX, hPartXX⟩
         have hx := (allThings_eq_true_iff M _).1 hAllZ x
         have hxIff := (iffB_eq_true_iff _ _).1 hx
-        have hOvXXB : M.overlap x x w = true := by
-          simpa [FiniteModel4.toUFOSignature4] using hOvXX
-        have rhsBX := hxIff.1 hOvXXB
+        have hPartXXB : M.part x x w = true := by
+          simpa [FiniteModel4.toUFOSignature4] using hPartXX
+        have rhsBX := hxIff.1 hPartXXB
         have hEDMxB : externallyDependentModeB M x w = true := by
           have parsed :
               (externallyDependentModeB M x w = true ∧
@@ -2044,13 +2036,11 @@ theorem checkAx73_complete_with_prereqs (M : FiniteModel4) :
         have hInhB : M.inheresIn z y w = true := by
           simpa [FiniteModel4.toUFOSignature4] using hInh
         have hPartXX := h47 x w
-        have hOvXX : M.toUFOSignature4.Overlap x x w :=
-          (h50 x x w).2 ⟨x, hPartXX, hPartXX⟩
         have hx := (allThings_eq_true_iff M _).1 hAllZ x
         have hxIff := (iffB_eq_true_iff _ _).1 hx
-        have hOvXXB : M.overlap x x w = true := by
-          simpa [FiniteModel4.toUFOSignature4] using hOvXX
-        have rhsBX := hxIff.1 hOvXXB
+        have hPartXXB : M.part x x w = true := by
+          simpa [FiniteModel4.toUFOSignature4] using hPartXX
+        have rhsBX := hxIff.1 hPartXXB
         have hEDMxB : externallyDependentModeB M x w = true := by
           have parsed :
               (externallyDependentModeB M x w = true ∧
@@ -2065,8 +2055,8 @@ theorem checkAx73_complete_with_prereqs (M : FiniteModel4) :
             (externallyDependentModeB M z w && M.inheresIn z y w &&
                 sameFoundationB M z x w) = true := by
           simp [hEDMzB, hInhB, hSameB]
-        have hOvB := hzIff.2 rhsB
-        simpa [FiniteModel4.toUFOSignature4] using hOvB
+        have hPartB := hzIff.2 rhsB
+        simpa [FiniteModel4.toUFOSignature4] using hPartB
     simpa [FiniteModel4.toUFOSignature4] using hSem
 
 private theorem checkAx76_correct (M : FiniteModel4) :
@@ -3373,7 +3363,7 @@ private theorem checkAx97_correct (M : FiniteModel4) :
     cases hprem.2.2.2.2.2
     unfold impliesB at hw
     simp [hxComplexB, hyInstB, hzInstB, hyInheresB, hzInheresB] at hw
-    exact hw
+    exact hw.resolve_left (fun h => h rfl)
   · intro h
     unfold checkAx97
     apply (allThings_eq_true_iff M _).2
@@ -4774,7 +4764,7 @@ theorem checkAxioms4_sound (M : FiniteModel4) :
     ax70 := checkAx70_sound M h70
     ax71 := checkAx71_sound M h71
     ax72 := checkAx72_sound M h72
-    ax73 := checkAx73_sound M h47 h50 h72 h75 h73
+    ax73 := checkAx73_sound M h47 h72 h75 h73
     ax74 := checkAx74_sound M h74
     ax75 := checkAx75_sound M h75
     ax76 := checkAx76_sound M h76
