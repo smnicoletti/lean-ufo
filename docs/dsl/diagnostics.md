@@ -165,6 +165,13 @@ prerequisite-dependent §3.10 fields `ax73`, `ax78`, and `ax79` use the same
 pattern with explicit prerequisite checks before applying their
 prerequisite-aware completeness theorems.
 
+The specialized `ax73` analyzer mirrors both directions of the part-based
+biconditional. It distinguishes a part that is not an externally dependent
+mode, a constituent that does not inhere in the asserted bearer, missing or
+conflicting foundation data, a characterized entity missing from `Part`, and a
+complete part characterization missing its `QuaIndividualOf` fact. Its advice
+therefore refers to parts and constituents rather than overlap witnesses.
+
 `ax99` is handled more carefully. The axiom requires a finite product-family
 witness for each active quality-domain association, and the reflective checker
 can only inspect witnesses written in the model with `product_family`. If that

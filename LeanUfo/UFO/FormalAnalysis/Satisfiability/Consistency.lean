@@ -1,17 +1,17 @@
-import LeanUfo.UFO.Models.Model3_1
-import LeanUfo.UFO.Models.Model3_2
-import LeanUfo.UFO.Models.Model3_3
-import LeanUfo.UFO.Models.Model3_4
-import LeanUfo.UFO.Models.Model3_5
-import LeanUfo.UFO.Models.Model3_6
-import LeanUfo.UFO.Models.Model3_7
-import LeanUfo.UFO.Models.Model3_8
-import LeanUfo.UFO.Models.Model3_9
-import LeanUfo.UFO.Models.Model3_10
-import LeanUfo.UFO.Models.Model3_11
-import LeanUfo.UFO.Models.Model3_12
-import LeanUfo.UFO.Models.Model3_13
-import LeanUfo.UFO.Models.Model4
+import LeanUfo.UFO.FormalAnalysis.Satisfiability.Model3_1
+import LeanUfo.UFO.FormalAnalysis.Satisfiability.Model3_2
+import LeanUfo.UFO.FormalAnalysis.Satisfiability.Model3_3
+import LeanUfo.UFO.FormalAnalysis.Satisfiability.Model3_4
+import LeanUfo.UFO.FormalAnalysis.Satisfiability.Model3_5
+import LeanUfo.UFO.FormalAnalysis.Satisfiability.Model3_6
+import LeanUfo.UFO.FormalAnalysis.Satisfiability.Model3_7
+import LeanUfo.UFO.FormalAnalysis.Satisfiability.Model3_8
+import LeanUfo.UFO.FormalAnalysis.Satisfiability.Model3_9
+import LeanUfo.UFO.FormalAnalysis.Satisfiability.Model3_10
+import LeanUfo.UFO.FormalAnalysis.Satisfiability.Model3_11
+import LeanUfo.UFO.FormalAnalysis.Satisfiability.Model3_12
+import LeanUfo.UFO.FormalAnalysis.Satisfiability.Model3_13
+import LeanUfo.UFO.FormalAnalysis.Satisfiability.Model4
 /--
 Consistency checkpoint for UFO subsection 3.1 (relative to Lean):
 axioms (a1)–(a17) are jointly satisfiable.

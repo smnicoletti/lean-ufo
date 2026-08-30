@@ -1,5 +1,5 @@
 import LeanUfo.UFO.Core.Section3_10
-import LeanUfo.UFO.Models.Model3_9
+import LeanUfo.UFO.FormalAnalysis.Satisfiability.Model3_9
 
 universe u
 
@@ -100,6 +100,14 @@ theorem ax73_sig3_10 : ax_a73 sig3_10 := by
   intro x y w
   cases w
   cases x <;> cases y <;> simp [sig3_10, Model3_9.sig3_9, Model3_8.sig3_8, Model3_7.sig3_7, Model3_6.sig3_6, Model3_5.sig3_5]
+
+/-- The empty-relator witness also satisfies the printed version of (a73). -/
+theorem ax73_printed_sig3_10 : ax_a73_printed sig3_10 := by
+  unfold ax_a73_printed FoundationOf
+  intro x y w
+  cases w
+  cases x <;> cases y <;> simp [sig3_10, Model3_9.sig3_9, Model3_8.sig3_8,
+    Model3_7.sig3_7, Model3_6.sig3_6, Model3_5.sig3_5]
 
 /-- Proof that `sig3_10` satisfies (a74). -/
 theorem ax74_sig3_10 : ax_a74 sig3_10 := by

@@ -1,5 +1,5 @@
 import LeanUfo.UFO.Core.Section3_9
-import LeanUfo.UFO.Models.Model3_8
+import LeanUfo.UFO.FormalAnalysis.Satisfiability.Model3_8
 
 universe u
 

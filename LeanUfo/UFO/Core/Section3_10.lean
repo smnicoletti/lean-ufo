@@ -115,7 +115,7 @@ by
     exact h.unique hFound hy
 
 /--
-(a73)
+(a73), printed version
 
 quaIndividualOf(x, y) ↔
   ∀z (O(z, x) ↔ (ExternallyDependentMode(z) ∧ inheresIn(z, y) ∧
@@ -126,13 +126,41 @@ Natural language:
 externally dependent modes that inhere in `y` and share the same foundation as
 `x`.
 
-We encode equality of `foundationOf` terms directly.
+We encode equality of `foundationOf` terms directly. The unrestricted overlap
+characterization is retained as historical evidence.
+It is incompatible with the intended composition of relators from ordinary
+qua-individual parts; see `AxiomaticAnalysis.lean`.
+-/
+def ax_a73_printed : Prop :=
+  ∀ (x y : Sig.Thing) (w : Sig.F.World),
+    Sig.QuaIndividualOf x y w ↔
+      ∀ z : Sig.Thing,
+        Sig.Overlap z x w ↔
+          (Sig.ExternallyDependentMode z w ∧
+           Sig.InheresIn z y w ∧
+           FoundationOf Sig z w = FoundationOf Sig x w)
+
+/--
+(a73), corrected part-based encoding
+
+quaIndividualOf(x, y) ↔
+  ∀z (P(z, x) ↔ (ExternallyDependentMode(z) ∧ inheresIn(z, y) ∧
+                  foundationOf(z) = foundationOf(x)))
+
+Natural language:
+`x` is a qua individual of `y` exactly when its parts are precisely the
+externally dependent modes that inhere in `y` and share the same foundation as
+`x`.
+
+This repair preserves the intended account of qua individuals as potentially
+complex externally dependent modes while preventing a containing relator from
+being classified merely because it overlaps one of its qua-individual parts.
 -/
 def ax_a73 : Prop :=
   ∀ (x y : Sig.Thing) (w : Sig.F.World),
     Sig.QuaIndividualOf x y w ↔
       ∀ z : Sig.Thing,
-        Sig.Overlap z x w ↔
+        Sig.Part z x w ↔
           (Sig.ExternallyDependentMode z w ∧
            Sig.InheresIn z y w ∧
            FoundationOf Sig z w = FoundationOf Sig x w)
@@ -148,22 +176,15 @@ Every part of a qua individual has the same foundation as the qua individual.
 Again, equality of `foundationOf` terms is encoded directly.
 -/
 theorem th_t31
-  (hA47 : ax_a47 Sig.toUFOSignature3_5)
-  (hA50 : ax_a50 Sig.toUFOSignature3_5)
+  (_hA47 : ax_a47 Sig.toUFOSignature3_5)
+  (_hA50 : ax_a50 Sig.toUFOSignature3_5)
   (hA73 : ax_a73 Sig) :
   ∀ (x x' y : Sig.Thing) (w : Sig.F.World),
     (Sig.QuaIndividualOf x y w ∧ Sig.Part x' x w) →
       FoundationOf Sig x w = FoundationOf Sig x' w :=
 by
   intro x x' y w h
-  rcases h with ⟨hQua, hPart⟩
-  have hOv : Sig.Overlap x' x w :=
-    (hA50 x' x w).2 ⟨x', hA47 x' w, hPart⟩
-  have hx' : Sig.ExternallyDependentMode x' w ∧
-      Sig.InheresIn x' y w ∧
-      FoundationOf Sig x' w = FoundationOf Sig x w :=
-    ((hA73 x y w).1 hQua x').1 hOv
-  grind
+  exact (((hA73 x y w).1 h.1 x').1 h.2).2.2.symm
 
 /--
 (a74)
@@ -396,7 +417,7 @@ bearer of a qua individual.
 -/
 theorem th_t33
   (hA47 : ax_a47 Sig.toUFOSignature3_5)
-  (hA48 : ax_a48 Sig.toUFOSignature3_5)
+  (_hA48 : ax_a48 Sig.toUFOSignature3_5)
   (hA49 : ax_a49 Sig.toUFOSignature3_5)
   (hA50 : ax_a50 Sig.toUFOSignature3_5)
   (hA51 : ax_a51 Sig.toUFOSignature3_5)
@@ -434,36 +455,15 @@ theorem th_t33
   rcases (hA74 q w).1 hQq with ⟨z, hQOfq⟩
   have hEndy : Sig.Endurant y w := hQuaEnd p y w hQOfp
   have hEndz : Sig.Endurant z w := hQuaEnd q z w hQOfq
+  have hDisjoint : ¬ Sig.Overlap q p w := hNoOvqp
   have hyNez : y ≠ z := by
     intro hyz
-    have hSameOverlaps : ∀ u : Sig.Thing, Sig.Overlap u p w ↔ Sig.Overlap u q w := by
-      intro u
-      constructor
-      · intro huOp
-        have huData :=
-          ((hA73 p y w).1 hQOfp u).1 huOp
-        have huData' :
-            Sig.ExternallyDependentMode u w ∧
-            Sig.InheresIn u z w ∧
-            FoundationOf Sig u w = FoundationOf Sig q w := by
-          refine ⟨huData.1, ?_, ?_⟩
-          · simpa [hyz] using huData.2.1
-          · rw [huData.2.2, hFoEq]
-        exact ((hA73 q z w).1 hQOfq u).2 huData'
-      · intro huOq
-        have huData :=
-          ((hA73 q z w).1 hQOfq u).1 huOq
-        have huData' :
-            Sig.ExternallyDependentMode u w ∧
-            Sig.InheresIn u y w ∧
-            FoundationOf Sig u w = FoundationOf Sig p w := by
-          refine ⟨huData.1, ?_, ?_⟩
-          · simpa [hyz] using huData.2.1
-          · rw [huData.2.2, hFoEq.symm]
-        exact ((hA73 p y w).1 hQOfp u).2 huData'
-    have hpEqq : p = q :=
-      eq_of_same_overlappers (Sig := Sig) hA47 hA48 hA50 hA51 hSameOverlaps
-    exact hpNeq hpEqq
+    have hPartQQ : Sig.Part q q w := hA47 q w
+    have hQData := ((hA73 q z w).1 hQOfq q).1 hPartQQ
+    have hPartQP : Sig.Part q p w :=
+      ((hA73 p y w).1 hQOfp q).2
+        ⟨hQData.1, by simpa [hyz] using hQData.2.1, hFoEq.symm⟩
+    exact hDisjoint ((hA50 q p w).2 ⟨q, hA47 q w, hPartQP⟩)
   have hMedy : Sig.Mediates x y w :=
     (hA80 x y w).2 ⟨hRel, hEndy, ⟨p, hQOfp, hpPartx⟩⟩
   have hMedz : Sig.Mediates x z w :=
@@ -478,7 +478,7 @@ Extends §3.9 axioms with:
 - (a70) externally dependent modes,
 - (a71) constraints on foundations,
 - (a72) uniqueness of foundation for externally dependent modes,
-- (a73) qua individuals,
+- (a73) qua individuals, using the corrected part-based encoding,
 - (a74) definition of qua individual,
 - (a75) qua individuals are externally dependent modes,
 - (a76) uniqueness of bearer of a qua individual,
@@ -489,6 +489,9 @@ Extends §3.9 axioms with:
 
 Also records the bridge axiom required for (t33):
 - qua individuals are of endurants.
+
+The printed overlap-based version is retained separately as
+`ax_a73_printed`, but is not included in this package.
 -/
 class UFOAxioms3_10 (Sig : UFOSignature3_10) : Prop
   extends UFOAxioms3_9 Sig.toUFOSignature3_9 where

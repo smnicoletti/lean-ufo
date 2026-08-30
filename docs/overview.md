@@ -15,7 +15,8 @@ adds a finite DSL for writing small named UFO models.
 The repository has two layers:
 
 - **Core mechanization.** The `LeanUfo/UFO/Core` files define semantic
-  signatures and axioms section by section. The `LeanUfo/UFO/Models` files build
+  signatures and axioms section by section. The
+  `LeanUfo/UFO/FormalAnalysis/Satisfiability` files build
   concrete models that witness joint satisfiability of those fragments.
 - **Certified finite DSL.** The `LeanUfo/UFO/DSL` backend compiles a small
   `ufo_model` command into a finite semantic signature and generates Lean
