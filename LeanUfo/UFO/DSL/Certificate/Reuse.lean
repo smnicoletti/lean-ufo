@@ -129,7 +129,7 @@ def reusableFieldFootprints : Array ReusableFieldFootprint :=
     { field := "ax70", unary := #["mode", "ex"], binary := #["inheresIn"] },
     { field := "ax71", unary := #["mode", "relator", "perdurant", "ex"], binary := #["foundedBy", "inheresIn"] },
     { field := "ax72", unary := #["mode", "ex"], binary := #["inheresIn", "foundedBy"] },
-    { field := "ax73", unary := #["mode", "ex"], binary := #["overlap", "inheresIn", "foundedBy", "quaIndividualOf"] },
+    { field := "ax73", unary := #["mode", "ex"], binary := #["part", "inheresIn", "foundedBy", "quaIndividualOf"] },
     { field := "ax74", binary := #["quaIndividualOf"] },
     { field := "ax75", unary := #["mode", "ex"], binary := #["quaIndividualOf", "inheresIn"] },
     { field := "ax76", binary := #["quaIndividualOf"] },

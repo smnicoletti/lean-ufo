@@ -5,9 +5,9 @@ Expected-failure ax73 fixture.
 
 `Q` is explicitly a qua individual of `B`, and the prerequisite foundation
 axioms are satisfied: `Q` is an externally dependent mode with a unique
-perdurant foundation.  The first failure is the foundation-based
-`QuaIndividualOf` definition, because the required overlap witness `Q` inheres
-in `Bearer`, not in `B`.
+perdurant foundation. The first failure is the part-based characterization:
+reflexive parthood makes `Q` one of its own parts, but `Q` inheres in `Bearer`
+rather than in the asserted bearer `B`.
 -/
 
 open LeanUfo.UFO.DSL

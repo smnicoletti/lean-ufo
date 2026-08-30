@@ -124,6 +124,19 @@ def diagnosticOutputChecks : Array ExpectedOutput := #[
     ]
   },
   {
+    label := "ax73 part characterization diagnostic",
+    file := "LeanUfo/Test/Certification/Negative/Ax73QuaIndividualFoundationBridge.lean",
+    contains := #[
+      "A finite counterexample was confirmed for ax73.",
+      "constituent `Q` must `InheresIn(Q, B)`",
+      "because it is a part of `QuaIndividualOf(Q, B)`"
+    ],
+    rejects := #[
+      "overlap witness",
+      "overlapping externally dependent mode"
+    ]
+  },
+  {
     label := "derived externally dependent mode diagnostic",
     file := "LeanUfo/Test/Diagnostics/DerivedExternallyDependentMode.lean",
     contains := #[
@@ -180,7 +193,8 @@ structure PositiveWitness where
 def fullPositiveWitnesses : Array PositiveWitness := #[
   ⟨"all", "LeanUfo.Test.Certification.Positive.AllAxioms"⟩,
   ⟨"seed", "LeanUfo.Test.Certification.Positive.Seed"⟩,
-  ⟨"ax68", "LeanUfo.Test.Certification.Positive.Ax68"⟩
+  ⟨"ax68", "LeanUfo.Test.Certification.Positive.Ax68"⟩,
+  ⟨"ax73", "LeanUfo.Test.Certification.Positive.Relator"⟩
 ]
 
 def second? {α : Type} : List α → Option α

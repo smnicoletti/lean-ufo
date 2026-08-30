@@ -82,10 +82,11 @@ For the theorem-backed contract behind these features, see
   necessary-instance helpers.
 - The checker-backed §3.10 fields include `ax69`, `ax70`, `ax71`,
   `ax72`, `ax73`, `ax74`, `ax75`, `ax76`, `ax77`, `ax78`, `ax79`, `ax80`, and
-  `axQuaIndividualOfEndurant`. The `ax73` proof uses `sameFoundationB` plus
-  the already checker-backed unique-foundation premises needed to relate it to
-  the core `FoundationOf` definition; `ax78` and `ax79` use the same bridge
-  with explicit prerequisite checker calls.
+  `axQuaIndividualOfEndurant`. The part-based `ax73` proof uses
+  `sameFoundationB` plus checker-backed `ax47`, `ax72`, and `ax75` to relate
+  the finite common-foundation test to the core `FoundationOf` definition;
+  overlap axiom `ax50` is no longer a prerequisite. `ax78` and `ax79` use the
+  same foundation bridge with their explicit prerequisite checker calls.
 - The checker-backed §3.11 fields cover `ax81` and `ax82` through executable
   finite existence/uniqueness checks over `Inst` and `InheresIn`.
 - The checker-backed §3.12 fields cover `ax83`, `ax84`, `ax85`,
@@ -119,11 +120,10 @@ For the theorem-backed contract behind these features, see
   and §3.4 individual/type taxonomies, relation vocabularies through §3.10,
   characterization, quality structures, manifestation/life/meet, and all four
   §4 type-structure relations.
-- The selected part-based (a73) is active in `Section3_10.lean`, but the
-  reflective checker, diagnostics, and certified DSL fixtures still implement
-  the printed overlap formula. Their coordinated propagation is the next
-  feature branch; until then the core and DSL layers intentionally expose the
-  migration boundary.
+- The selected part-based (a73) is active in `Section3_10.lean`, the reflective
+  checker, diagnostics, certificate generation, and reuse metadata. The
+  certified `RelatorProbe` example supplies an end-to-end nonempty-relator
+  witness and refutes the historical printed formula.
 - Generated models use a universal S5 frame; custom accessibility relations are
   not surfaced.
 - Extended models cannot add worlds yet. This avoids silently changing the
@@ -135,8 +135,10 @@ For the theorem-backed contract behind these features, see
   executable and backs `SetExtension`; product-family witnesses are supported,
   while higher-level generation of all required quality-domain facts remains
   future work.
-- Some diagnostic extractors remain conservative for product families,
-  higher-arity relations, and foundation/equality cases.
+- Some diagnostic extractors remain conservative for product families and
+  higher-arity relations. The `ax73` extractor now reports both directions of
+  the part characterization and separates constituent, bearer, foundation,
+  missing-part, and missing-`QuaIndividualOf` failures.
 - Several §3.10 fields still lack small managed direct negative fixtures:
   `ax72`, `ax75`, `ax76`, `ax78`, `ax79`, and
   `axQuaIndividualOfEndurant`. The checker-aware negative probe infrastructure

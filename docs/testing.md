@@ -134,6 +134,13 @@ Selecting axioms runs the relevant semantic witness profile for those fields.
 Use this when changing one axiom extractor, one fixture, or one diagnostic path.
 The long selections above exercise grouped regions of the reflective checker.
 
+The selected `ax73` profile builds
+`LeanUfo.Test.Certification.Positive.Relator`. This fixture certifies a
+three-world model with a relator, two qua-individual proper parts, distinct
+bearers, a shared foundation, and two mediation facts. It also proves that the
+compiled signature satisfies active part-based (a73) and refutes historical
+`ax_a73_printed`.
+
 `ax68` is included in the §3.9 checker-backed selection. It uses the bounded
 finite closure checker for `MomentOf` and `UltimateBearerOf`.
 

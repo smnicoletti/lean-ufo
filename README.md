@@ -63,8 +63,9 @@ Technical highlights:
    (a73), preserves (t31)-(t33), and constructs a finite nonempty-relator model.
    The part-based formula is now active in the core `UFOAxioms3_10` package. The
    printed formula, failed distinctness guard, guarded-overlap comparison, and
-   countermodel remain available as historical analysis evidence. Propagation
-   through the finite DSL and reflective checker is tracked separately.
+   countermodel remain available as historical analysis evidence. The finite
+   DSL checker now implements the same part-based formula, with a certified
+   nonempty-relator example that also refutes the printed formula.
 6. **DSL-level diagnostics.** Failed models report whether Lean confirmed a
    finite counterexample, hit a timeout-style counterexample-probe limit, or
    reached an unclassified probe failure. Many failures are reconstructed in

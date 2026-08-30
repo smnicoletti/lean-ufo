@@ -1367,6 +1367,15 @@ private def foundationEq?
   | some fx, some fy => some (fx == fy)
   | _, _ => none
 
+private def sameFoundationLookup
+    (thingCount : Nat) (tables : FactTables) (x y w : Nat) : Bool :=
+  Id.run do
+    for foundation in [:thingCount] do
+      if tables.binaryLookup "foundedBy" x foundation w &&
+          tables.binaryLookup "foundedBy" y foundation w then
+        return true
+    return false
+
 /-
 DSL-level reconstruction for ax99.
 
@@ -2734,46 +2743,75 @@ private def ax71FoundationAnalysis
       "Foundation check for ax71: every `FoundedBy` fact has a computed externally dependent mode or relator on the left and a perdurant on the right."
     ]
 
-private def ax73FoundationAnalysis
+private def ax73PartCharacterizationAnalysis
     (worldNames thingNames : Array Name) (tables : FactTables) : Array String :=
   Id.run do
-    let mut out := #[]
     for w in [:worldNames.size] do
       for x in [:thingNames.size] do
         for y in [:thingNames.size] do
           let qio := tables.binaryLookup "quaIndividualOf" x y w
           for z in [:thingNames.size] do
-            let overlaps := overlapLookup tables z x w
-            let rightWithoutFoundation :=
-              derivedUnaryLookup worldNames.size thingNames.size tables "ExternallyDependentMode" z w &&
-              tables.binaryLookup "inheresIn" z y w
-            if qio && overlaps && rightWithoutFoundation then
-              match foundationEq? thingNames.size tables z x w with
-              | some true => pure ()
-              | some false =>
-                  out := out.push s!"Counterexample assignment: x = {indexedName thingNames x}, y = {indexedName thingNames y}, z = {indexedName thingNames z}, w = {indexedName worldNames w}."
-                  out := out.push s!"Required but missing: QuaIndividualOf({indexedName thingNames x}, {indexedName thingNames y}) requires overlapping externally dependent mode `{indexedName thingNames z}` to share `FoundationOf` with `{indexedName thingNames x}`."
-                  out := out.push "Suggestion: align the `FoundedBy` facts for the qua individual and its overlapping externally dependent modes, or remove/relax the `QuaIndividualOf` assertion."
-                  out := out.push s!"Evidence for FoundationOf({indexedName thingNames z}) = FoundationOf({indexedName thingNames x}):"
-                  out := out.push s!"  - {indexedName thingNames z}: {renderFoundationStatus thingNames tables z w}"
-                  out := out.push s!"  - {indexedName thingNames x}: {renderFoundationStatus thingNames tables x w}"
-                  return out
-              | none =>
-                  out := out.push s!"Counterexample assignment: x = {indexedName thingNames x}, y = {indexedName thingNames y}, z = {indexedName thingNames z}, w = {indexedName worldNames w}."
-                  out := out.push s!"Missing witness requirements: QuaIndividualOf({indexedName thingNames x}, {indexedName thingNames y}) uses `FoundationOf`, but the DSL facts do not determine unique foundations for the compared terms."
-                  out := out.push "Suggestion: add exactly one `FoundedBy` fact for each compared externally dependent mode/qua individual, or remove/relax the `QuaIndividualOf` assertion."
-                  out := out.push s!"Evidence for FoundationOf({indexedName thingNames z}) = FoundationOf({indexedName thingNames x}):"
-                  out := out.push s!"  - {indexedName thingNames z}: {renderFoundationStatus thingNames tables z w}"
-                  out := out.push s!"  - {indexedName thingNames x}: {renderFoundationStatus thingNames tables x w}"
-                  return out
+            let isPart := partLookup tables z x w
+            let isEDM :=
+              derivedUnaryLookup worldNames.size thingNames.size tables
+                "ExternallyDependentMode" z w
+            let inheres := tables.binaryLookup "inheresIn" z y w
+            let sameFoundation := sameFoundationLookup thingNames.size tables z x w
+            let characterized := isEDM && inheres && sameFoundation
+            let assignment :=
+              s!"Counterexample assignment: x = {indexedName thingNames x}, y = {indexedName thingNames y}, z = {indexedName thingNames z}, w = {indexedName worldNames w}."
+            if qio && isPart && !isEDM then
+              return #[
+                assignment,
+                s!"Required but missing: constituent `{indexedName thingNames z}` is a part of qua individual `{indexedName thingNames x}` but is not a computed `ExternallyDependentMode`.",
+                "Suggestion: supply the mode, modal existence, and inherence facts needed for external dependence, or revise the `Part`/`QuaIndividualOf` assertions."
+              ]
+            else if qio && isPart && !inheres then
+              return #[
+                assignment,
+                s!"Required but missing: constituent `{indexedName thingNames z}` must `InheresIn({indexedName thingNames z}, {indexedName thingNames y})` because it is a part of `QuaIndividualOf({indexedName thingNames x}, {indexedName thingNames y})`.",
+                "Suggestion: add the constituent's inherence in the asserted bearer, or revise the `Part`/`QuaIndividualOf` assertions."
+              ]
+            else if qio && isPart && isEDM && inheres && !sameFoundation then
+              let reason := match foundationEq? thingNames.size tables z x w with
+                | some false => "different foundations"
+                | none => "missing or ambiguous foundation data"
+                | some true => "matching foundations"
+              return #[
+                assignment,
+                s!"Required but missing: constituent `{indexedName thingNames z}` and qua individual `{indexedName thingNames x}` must share `FoundationOf`; the tables show {reason}.",
+                s!"  - {indexedName thingNames z}: {renderFoundationStatus thingNames tables z w}",
+                s!"  - {indexedName thingNames x}: {renderFoundationStatus thingNames tables x w}",
+                "Suggestion: give both constituents exactly one common `FoundedBy` target, or revise the `Part`/`QuaIndividualOf` assertions."
+              ]
+            else if qio && !isPart && characterized then
+              return #[
+                assignment,
+                s!"Required but missing: `Part({indexedName thingNames z}, {indexedName thingNames x})`; the entity is an externally dependent mode that inheres in the asserted bearer and shares the qua individual's foundation.",
+                "Suggestion: add the missing constituent part fact, or revise the facts that satisfy the right-hand characterization."
+              ]
             else
               pure ()
-    if out.isEmpty then
-      return #[
-        "Foundation check for ax73: no DSL-level foundation mismatch was found among asserted `QuaIndividualOf` facts.",
-        "If Lean still reports ax73, the remaining issue is likely the proof bridge around `FoundationOf` rather than an obvious finite-table mismatch."
-      ]
-    return out
+          if !qio then
+            let mut characterizationHolds := true
+            for z in [:thingNames.size] do
+              let isPart := partLookup tables z x w
+              let characterized :=
+                  derivedUnaryLookup worldNames.size thingNames.size tables
+                    "ExternallyDependentMode" z w &&
+                  tables.binaryLookup "inheresIn" z y w &&
+                  sameFoundationLookup thingNames.size tables z x w
+              if isPart != characterized then
+                characterizationHolds := false
+            if characterizationHolds then
+              return #[
+                s!"Counterexample assignment: x = {indexedName thingNames x}, y = {indexedName thingNames y}, w = {indexedName worldNames w}.",
+                s!"Required but missing: `QuaIndividualOf({indexedName thingNames x}, {indexedName thingNames y})`; its complete part characterization holds.",
+                "Suggestion: add the missing `QuaIndividualOf` fact, or revise a constituent part, inherence, external-dependence, or foundation fact."
+              ]
+    return #[
+      "Part-characterization check for ax73 found no direct mismatch in either direction of the biconditional."
+    ]
 
 private def ax78FoundationAnalysis
     (worldNames thingNames : Array Name) (tables : FactTables) : Array String :=
@@ -3876,7 +3914,7 @@ def diagnosticWitnesses
   else if field == "ax71" then
     ax71FoundationAnalysis worldNames thingNames tables
   else if field == "ax73" then
-    ax73FoundationAnalysis worldNames thingNames tables
+    ax73PartCharacterizationAnalysis worldNames thingNames tables
   else if field == "ax78" then
     ax78FoundationAnalysis worldNames thingNames tables
   else if field == "ax79" then

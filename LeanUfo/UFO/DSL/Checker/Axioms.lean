@@ -716,7 +716,7 @@ def checkAx73 (M : FiniteModel4) : Bool :=
       allWorlds M fun w =>
         iffB (M.quaIndividualOf x y w)
           (allThings M fun z =>
-            iffB (M.overlap z x w)
+            iffB (M.part z x w)
               (externallyDependentModeB M z w &&
                 M.inheresIn z y w &&
                 sameFoundationB M z x w))
