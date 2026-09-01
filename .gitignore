@@ -25,3 +25,6 @@ build/
 
 # VSCode local settings
 .vscode/settings.json
+
+# Local Codex repository instructions
+/AGENTS.md
