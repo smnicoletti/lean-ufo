@@ -1,6 +1,6 @@
 import LeanUfo.UFO.DSL.Syntax
 
-/-
+/-!
 Anti-rigid role DSL model
 
 This two-world example shows the intended pattern for a role.  Mark rigidly

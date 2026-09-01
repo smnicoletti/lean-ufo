@@ -3,7 +3,7 @@ import LeanUfo.UFO.Core.Section4
 /-!
 # Decidable certification support for finite UFO models
 
-This module is deliberately small and conservative: it does **not** alter the
+This module has a small, conservative scope: it does **not** alter the
 semantic UFO kernel.  The kernel still consists of the Prop-valued signatures
 and axiom typeclasses in `LeanUfo/UFO/Core`.
 
@@ -55,7 +55,7 @@ theorem existsFinSucc {n : Nat} {P : Fin (n + 1) → Prop} :
       (fun hLast => ⟨Fin.last n, hLast⟩)⟩
 
 /-!
-The following instances are intentionally phrased as equivalences with nested
+The following instances use equivalences with nested
 conjunctions.  That keeps the trusted bridge transparent: a value of an axiom
 package is just a record containing one proof per axiom, and conversely the
 record fields give back those proofs.

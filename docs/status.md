@@ -105,8 +105,21 @@ For the theorem-backed contract behind these features, see
   are derived directly in `FiniteModel4.toUFOSignature4`, so their checker
   proofs establish that the generated semantic definitions satisfy the packaged
   axioms without per-model tactic search.
-- The checker includes a formal `Stepped` step model and conservative
-  polynomial step bounds for the full aggregate checker.
+- The production checker is the erasure of a counted 116-entry registry. Each
+  entry carries its own proved operational formula, and the aggregate theorem
+  sums those heterogeneous bounds plus actual short-circuit traversal charges.
+  The counted source compiler also has a derived `80·inputSize⁴` scalar corollary. The
+  checker has a `2940·modelSize⁸` corollary, and the composed bound is
+  `3020·(sourceSize+modelSize)⁸`; the [complexity guide](dsl/complexity.md)
+  defines these metrics and records the theorem inventory.
+  A reproducible `lake exe complexity-benchmarks` target now emits CSV for
+  sparse, dense, cyclic, product-family, and projection-heavy generated inputs.
+  Native finite relation lookup uses typed dense arrays. Kernel reduction uses
+  compact sparse definitions for generated certificates. The cost theorem
+  covers the dense native path. `ExplicitTableCorrespondence` proves that the
+  sparse and dense unary, binary, ternary, and projection lookups return equal
+  values for a well-bounded finite AST. It does not claim equal step counts.
+  Finite quantifiers are erasures of counted short-circuit scans.
 - The diagnostics widget distinguishes confirmed semantic counterexamples,
   timeout-style counterexample-probe limits, and unclassified probe failures.
 - The test suite covers syntax, certification fixtures, diagnostics rendering,

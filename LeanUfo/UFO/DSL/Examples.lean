@@ -13,6 +13,7 @@ import LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension
 import LeanUfo.UFO.DSL.ConcreteExamples.ReuseRoleExtension
 import LeanUfo.UFO.DSL.ConcreteExamples.ReuseModeExtension
 import LeanUfo.UFO.DSL.ConcreteExamples.ConceptEvolution
+import LeanUfo.UFO.DSL.ConcreteExamples.RelatorProbe
 
 /-!
 # Concrete DSL examples
@@ -20,7 +21,7 @@ import LeanUfo.UFO.DSL.ConcreteExamples.ConceptEvolution
 This module is only an index, so opening `LeanUfo.UFO.DSL.Examples` does not
 force readers to inspect generated finite tables or backend proof terms.
 
-The checked concrete examples intentionally use the lightweight surface style:
+The checked concrete examples use the lightweight surface style:
 they state leaf classifications such as `Object`, `ObjectKind`, `Role`, and
 `QuantityKind`, while the DSL compiler inserts deterministic taxonomy ancestors
 before certification.
@@ -46,10 +47,9 @@ The user-facing examples live in:
 * `LeanUfo/UFO/DSL/ConcreteExamples/ReuseRoleExtension.lean`
 * `LeanUfo/UFO/DSL/ConcreteExamples/ReuseModeExtension.lean`
 * `LeanUfo/UFO/DSL/ConcreteExamples/ConceptEvolution.lean`
+* `LeanUfo/UFO/DSL/ConcreteExamples/RelatorProbe.lean`
 
-`ConcreteExamples/RelatorProbe.lean` is intentionally not imported by this
-aggregate. It certifies a larger three-world, ten-thing relator model and is
-therefore long-running on a fresh build (about 22 minutes in the measured
-development run). The selected `ax73` test target builds it directly and checks
-the resulting certificate.
+`RelatorProbe.lean` is the main certificate-performance stress example. It
+certifies a three-world relator model and exercises the part, foundation,
+inherence, and mediation axioms together.
 -/

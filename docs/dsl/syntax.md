@@ -97,7 +97,7 @@ export_certificate CarWithWindow
 The child model reuses the parent's declared worlds, things, facts, and
 product-family witnesses, then adds its own things and facts before compilation.
 It cannot add worlds yet. This avoids changing the meaning of parent
-`given everywhere:` facts; the added-world scoping policy is intentionally left
+`given everywhere:` facts; the added-world scoping policy remains
 for a later design step.
 
 Across modules, import the parent model's module before writing the child:

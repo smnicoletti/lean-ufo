@@ -1,6 +1,6 @@
 import LeanUfo.UFO.DSL.Syntax
 
-/-
+/-!
 Paper example: concept evolution
 
 Section 4.5 uses marriage to illustrate anticipated concept evolution.  Unlike

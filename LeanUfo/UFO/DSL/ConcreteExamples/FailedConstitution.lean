@@ -1,13 +1,13 @@
 import LeanUfo.UFO.DSL.Syntax
 
-/-
+/-!
 Negative diagnostic example: symmetric constitution between two endurants.
 
 This is a small variation of `WoodenTable.lean`.  The passing example has one
 endurant constituting another endurant.  Here the constitution relation is
 asserted in both directions, violating the asymmetry constraint.
 
-The model is intentionally not certifiable.  Open this file in VS Code to see
+The model must fail certification. Open this file in VS Code to see
 the UFO diagnostics widget stop at `certified_ax61`.
 -/
 

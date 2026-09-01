@@ -26,7 +26,9 @@ structure ExpectedOutput where
 def fastExpectedFailures : Array ExpectedFailure := #[
   ⟨"syntax", "LeanUfo/Test/Syntax/RejectedOldSyntax.lean", "unexpected token ':'", false⟩,
   ⟨"extension-worlds", "LeanUfo/Test/Syntax/RejectedExtensionAddsWorld.lean",
-    "unexpected token 'worlds'", false⟩
+    "unexpected token 'worlds'", false⟩,
+  ⟨"projection-conflict", "LeanUfo/Test/Syntax/RejectedConflictingTupleProjection.lean",
+    "conflicting tuple projection", false⟩
 ]
 
 def fullExpectedFailures : Array ExpectedFailure := #[
@@ -538,8 +540,26 @@ def checkCertificateExportWorkflow : IO (Array String) := do
       "--module", moduleName])
   pure failures
 
+/--
+Build the user-facing aggregate, which includes `RelatorProbe`, then build the
+Relator semantic fixture. Use equivalent clean build directories for
+wall-clock comparisons. An incremental run checks wiring only.
+-/
+def checkPerformanceFixtures : IO (Array String) := do
+  let mut failures := #[]
+  failures := failures ++ (← checkCommand "user-facing example aggregate" "lake"
+    #["build", "LeanUfo.UFO.DSL.Examples"])
+  failures := failures ++ (← checkCommand "positive relator performance probe" "lake"
+    #["build", "LeanUfo.Test.Certification.Positive.Relator"])
+  pure failures
+
+def performanceTestsEnabled : IO Bool := do
+  match (← IO.getEnv "LEANUFO_PERFORMANCE_TESTS") with
+  | some "1" | some "true" | some "yes" => pure true
+  | _ => pure false
+
 def fullTestsEnabled : IO Bool := do
-  if !(← selectedAxioms).isEmpty then
+  if !(← selectedAxioms).isEmpty || (← performanceTestsEnabled) then
     pure true
   else
     match (← IO.getEnv "LEANUFO_FULL_TESTS") with
@@ -575,11 +595,16 @@ def main : IO UInt32 := do
         failures := failures ++ (← checkExpectedOutput test)
     if selected.isEmpty || selected.contains "all" then
       failures := failures ++ (← checkCertificateExportWorkflow)
+    if (← performanceTestsEnabled) then
+      failures := failures ++ (← checkPerformanceFixtures)
   if failures.isEmpty then
     if !(← fullTestsEnabled) then
       IO.println "LeanUfo DSL tests passed (fast profile; set LEANUFO_FULL_TESTS=1 for semantic witness checks)"
     else if selected.isEmpty then
-      IO.println "LeanUfo DSL tests passed (full profile)"
+      if (← performanceTestsEnabled) then
+        IO.println "LeanUfo DSL tests passed (full profile with user-facing performance fixtures)"
+      else
+        IO.println "LeanUfo DSL tests passed (full profile)"
     else
       IO.println s!"LeanUfo DSL tests passed (selected axioms: {String.intercalate ", " selected.toList})"
       IO.println (← selectedCoverageReport selected (directPositiveFields fullPositiveWitnesses) negativeCategories)

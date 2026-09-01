@@ -13,7 +13,8 @@ diagnostics, tests, and implementation details.
 | [Theoretical notes](theory.md) | Modal choices, formal milestones, relator diagnosis and repair analysis, S5 consequences, and explicit bridge axioms |
 | [DSL quickstart](dsl/quickstart.md) | Writing and certifying a first finite model |
 | [DSL syntax reference](dsl/syntax.md) | Facts, scopes, derived assertions, and quality/distance primitives |
-| [DSL architecture](dsl/architecture.md) | DSL syntax-to-certificate pipeline, checker, diagnostics, and complexity |
+| [DSL architecture](dsl/architecture.md) | DSL directory ownership, import direction, syntax-to-certificate pipeline, checker, and diagnostics |
+| [Concrete complexity](dsl/complexity.md) | Operational cost model, explicit encoding, verified-DSL theorem map, and literature |
 | [Diagnostics guide](dsl/diagnostics.md) | Reading failure boxes, evidence, suggestions, and probe status |
 | [Diagnostics internals](dsl/diagnostics-internals.md) | How failed certificates are turned into source-level explanations |
 | [DSL developer guide](dsl/developer-guide.md) | File responsibilities, command pipeline, diagnostics, and generated certificates |
@@ -40,10 +41,11 @@ diagnostics, tests, and implementation details.
 2. [Formal guarantees](guarantees.md)
 3. [Theoretical notes](theory.md)
 4. [DSL architecture](dsl/architecture.md)
-5. [DSL developer guide](dsl/developer-guide.md)
-6. [Diagnostics internals](dsl/diagnostics-internals.md)
-7. [DSL syntax reference](dsl/syntax.md)
-8. [Roadmap and limitations](roadmap.md)
+5. [Concrete complexity](dsl/complexity.md)
+6. [DSL developer guide](dsl/developer-guide.md)
+7. [Diagnostics internals](dsl/diagnostics-internals.md)
+8. [DSL syntax reference](dsl/syntax.md)
+9. [Roadmap and limitations](roadmap.md)
 
 ## Core Commands
 

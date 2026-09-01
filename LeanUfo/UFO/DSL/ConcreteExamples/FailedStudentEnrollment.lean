@@ -1,6 +1,6 @@
 import LeanUfo.UFO.DSL.Syntax
 
-/-
+/-!
 Negative diagnostic example: future-only classification of an individual.
 
 This is the minimized failure extracted from an incomplete student-enrollment

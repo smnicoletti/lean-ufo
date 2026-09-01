@@ -4,7 +4,7 @@ import LeanUfo.UFO.DSL.Syntax
 # Reuse mode extension example
 
 This example starts with Bob as a person and then extends the model with a
-student-enrollment mode inhering in Bob.  It is intentionally single-world:
+student-enrollment mode inhering in Bob. It uses one world:
 the point is to show extension and certificate reuse around an inherence fact,
 not modal role change.
 -/

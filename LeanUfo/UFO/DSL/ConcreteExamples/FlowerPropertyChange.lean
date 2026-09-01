@@ -1,6 +1,6 @@
 import LeanUfo.UFO.DSL.Syntax
 
-/-
+/-!
 Paper example: minimal flower property-change witness
 
 Section 4.3 first discusses a flower whose color changes from red to brown.

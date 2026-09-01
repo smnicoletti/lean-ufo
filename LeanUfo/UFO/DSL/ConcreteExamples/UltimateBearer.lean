@@ -1,6 +1,6 @@
 import LeanUfo.UFO.DSL.Syntax
 
-/-
+/-!
 Small ultimate-bearer example.
 
 `AppleColorMode` is a mode, hence an intrinsic moment.  The full UFO

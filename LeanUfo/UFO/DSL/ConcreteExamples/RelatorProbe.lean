@@ -12,11 +12,10 @@ The two qua individuals use the opposite bearer as their external-dependence
 target. Their actual-world existence witnesses dependence, while the two
 bearer-only worlds witness independence between the distinct bearers.
 
-A measured fresh build of this example took about 22 minutes because
-certification checks the complete axiom package over three worlds and ten
-things. It is therefore a standalone selected test rather than part of the
-examples aggregate or positive seed. Subsequent builds reuse Lean's compiled
-artifact.
+This model is the main certificate-performance stress example. It belongs to
+the user-facing examples aggregate and to the optional performance profile.
+Certification checks the complete axiom package over three worlds and ten
+things.
 -/
 
 open LeanUfo.UFO.DSL

@@ -46,6 +46,11 @@ LEANUFO_FULL_TESTS=1 lake test
 
 This runs the slower positive and negative certification fixtures.
 
+Use this profile when only semantic fixtures changed. For a final gate after
+compiler, checker, certificate, or performance-sensitive work, use the
+performance profile below instead of running both profiles: the performance
+profile already includes the full semantic suite.
+
 ## Incremental Certificate Tests
 
 The incremental certificate fixtures live under:
@@ -129,6 +134,27 @@ LEANUFO_AXIOMS=ax81,ax82 lake test
 LEANUFO_AXIOMS=ax83,ax84,ax85,ax86,ax87,ax88,ax89,ax91,ax92,ax93,ax94,ax100,ax101,axDistanceIdentity,axDistanceSymmetry,axDistanceTriangle lake test
 LEANUFO_AXIOMS=ax102,ax103,ax104,ax105,ax106,ax107,ax108 lake test
 ```
+
+Use the performance profile after compiler, checker, table-representation, or
+certificate-tactic changes:
+
+```bash
+LEANUFO_PERFORMANCE_TESTS=1 lake test
+```
+
+This profile runs the full suite and builds every user-facing example through
+`LeanUfo.UFO.DSL.Examples`. That aggregate includes the `Company`,
+`WoodenTable`, `FlowerPropertyChange`, and `RedirectedWalk` examples that guard
+against certificate-elaboration regressions. It also includes `RelatorProbe`,
+the main certificate-performance stress example. The profile builds
+`LeanUfo.Test.Certification.Positive.Relator` to check the model's semantic
+properties directly. Use clean, otherwise equivalent build directories for
+wall-clock comparisons. Incremental runs verify wiring but are not comparable
+benchmarks.
+
+For such changes, this is the single most comprehensive final command. Do not
+precede it with separate default and full-profile runs unless diagnosing a
+failure; those checks are already included and would only repeat work.
 
 Selecting axioms runs the relevant semantic witness profile for those fields.
 Use this when changing one axiom extractor, one fixture, or one diagnostic path.

@@ -18,15 +18,29 @@ namespace LeanUfo.UFO.DSL
 def certificateModelSimpDefs : String :=
   "sig, data, tables, ast, compileModel, compileModelAST, compileFacts, compileFact,
     compileExplicitModel, compileExplicitModelAST, compileExplicitFact,
+    FactTables.withDenseFacts, FactTables.initializeDense, FactTables.writeDenseFact,
     FactTables.toFiniteModel4, FactTables.unaryTable, FactTables.binaryTable, FactTables.ternaryTable,
-    FactTables.tupleProjectionTable, FactTables.identityBinaryTable, addUnary, addUnaryWithTaxonomy,
+    FactTables.unaryTypedTable, FactTables.binaryTypedTable, FactTables.ternaryTypedTable,
+    FactTables.tupleProjectionTypedTable, FactTables.identityBinaryTable, addUnary, addUnaryWithTaxonomy,
     addUnaryWithTaxonomyAux, addBinary, addTernary, addTupleProjection, addDerivedProp,
     closeReflexiveSpecialization, unaryTaxonomyParents,
+    UnaryField.all, UnaryField.index, UnaryField.count,
+    BinaryField.all, BinaryField.index, BinaryField.count,
+    TernaryField.all, TernaryField.index, TernaryField.count,
+    unaryCoordinate, binaryCoordinate, ternaryCoordinate, projectionCoordinate,
+    projectionArityOfFacts, CompiledFact.projectionArity,
     UnaryField.toTableField, BinaryField.toTableField, TernaryField.toTableField,
     FiniteModel4.toUFOSignature4, FiniteModel4.toS5Frame,
     FiniteModel4.typeSem, FiniteModel4.individualSem, Frame.Dia, Frame.Box,
     forallFinSucc, existsFinSucc"
 
+/--
+Conservative reduction set for heterogeneous fallback proofs and derived
+assertions. A generated assertion usually needs only a subset, but that subset
+depends on its semantic predicate and compiled model shape. The emitter
+therefore disables `unusedSimpArgs` only around derived-assertion commands;
+checker-backed certificate fields keep the linter active.
+-/
 def certificateSimp : String :=
   s!"simp [{certificateModelSimpDefs},
     ax_a1, ax_a2, ax_a3, ax_a4, ax_a5, ax_a6, ax_a7, ax_a8, ax_a9, ax_a10, ax_a11, ax_a12,

@@ -1,6 +1,6 @@
 import LeanUfo.UFO.DSL.Syntax
 
-/-
+/-!
 Paper example: minimal school-role witness
 
 This file captures a minimal core of Section 4.2, where people contingently

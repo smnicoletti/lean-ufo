@@ -1,6 +1,6 @@
 import LeanUfo.UFO.DSL.Syntax
 
-/-
+/-!
 Paper example: minimal redirected-walk witness
 
 Section 4.4 argues that the redirected-walk case is not a genuine change of an

@@ -1,6 +1,6 @@
 import LeanUfo.UFO.DSL.Syntax
 
-/-
+/-!
 Minimal certified DSL model
 
 This is the smallest concrete UFO DSL example: one individual I, one kind K,

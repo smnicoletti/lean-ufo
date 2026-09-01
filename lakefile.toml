@@ -18,6 +18,10 @@ root = "LeanUfo.ExportCertificates"
 name = "validate-certificate"
 root = "LeanUfo.ValidateCertificate"
 
+[[lean_exe]]
+name = "complexity-benchmarks"
+root = "LeanUfo.ComplexityBenchmarks"
+
 [[require]]
 name = "mathlib"
 scope = "leanprover-community"

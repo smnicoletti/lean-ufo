@@ -4,10 +4,16 @@ import LeanUfo.UFO.DSL.Compiler
 /-!
 # Textual model helpers for the finite UFO DSL
 
-This module owns name translation and text rendering for finite DSL facts.  It
+This module owns name translation and text rendering for finite DSL facts. It
 maps user-facing relation names to compiler fields, renders compiler fields back
 to DSL labels, and builds the Lean source for generated `ModelAST` declarations.
-It intentionally does not elaborate commands or prove certificates.
+Command elaboration and certificate proofs belong to other modules.
+
+The explicit translation tables are a compatibility boundary. Surface names
+are stable terms in user models; compiler fields are typed constructors that can
+be reorganized without silently changing those models. Keeping translation and
+rendering here also prevents parser, diagnostic, and certificate code from
+maintaining competing copies of the same naming policy.
 -/
 
 open Lean
