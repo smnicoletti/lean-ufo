@@ -1,8 +1,8 @@
-# DSL Syntax Reference
+# DSL syntax reference
 
 [Docs home](../README.md) · [Project README](../../README.md)
 
-## Model Command
+## Model command
 
 ```lean
 ufo_model ModelName : UFO where
@@ -44,11 +44,11 @@ check theorem when an extension compiles to exactly the same source as the
 parent, or when the registered finite-table footprint for that axiom is
 unchanged. `certify_fresh` forces fresh check theorem generation.
 
-Reuse is still Lean-checked. The generated child theorem first proves that the
+Reuse is Lean-checked. The generated child theorem first proves that the
 child checker result equals the parent checker result; if Lean cannot check
 that equality, the command falls back to a fresh checker proof.
 
-## Model Extension
+## Model extension
 
 A model can extend a model that was elaborated earlier in the same module or
 imported from another module. This example starts with a car as a physical
@@ -242,7 +242,7 @@ given everywhere:
 
 adds the fact at every declared world.
 
-## Derived Relations
+## Derived relations
 
 Some relations can be written in `given` blocks when a model uses
 `derive_relations`. The compiler still computes their truth from the finite
@@ -279,7 +279,7 @@ Current supported derived assertions include:
 The compiler also computes definition-like predicates such as `Type` and
 `Individual`, but those are not surface assertions.
 
-## Quality And Distance Primitives
+## Quality and distance primitives
 
 The current surface supports primitive finite facts for quality/set examples:
 

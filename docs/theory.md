@@ -1,13 +1,11 @@
-# Theoretical Notes
+# Theoretical notes
 
 [Docs home](README.md) · [Project README](../README.md)
 
-This page records the theoretical and axiom-level information from the
-axiomatization effort. It focuses on semantic choices, formal milestones, S5
-consequences, and structural assumptions that the Lean mechanization makes
-explicit.
+These notes record the semantic choices, formal milestones, S5 consequences,
+and structural assumptions made explicit by the Lean axiomatization.
 
-## Semantic Framework
+## Semantic framework
 
 Lean UFO is a semantic formalization, not a proof calculus for UFO.
 
@@ -49,7 +47,7 @@ completeness theorem for a UFO proof system. Consistency checkpoints in this
 repository are model-existence theorems: Lean constructs a semantic model
 satisfying the packaged axioms.
 
-## Axiom Packages
+## Axiom packages
 
 Each UFO fragment is represented by:
 
@@ -69,7 +67,7 @@ instance : UFOAxioms3_7 sig3_7 := ...
 This typeclass organization gives ordinary Lean proofs access to inherited
 axiom fields and lets later sections extend earlier signatures.
 
-## Consistency Checkpoints
+## Consistency checkpoints
 
 The model-existence theorems live in `LeanUfo/UFO/FormalAnalysis/Satisfiability/Consistency.lean`.
 They have the following shape:
@@ -107,13 +105,13 @@ For example, the §4 model adds a metatype whose instance is itself a type, whic
 is required to inhabit `Categorizes`. `AntiVacuity.lean` is the aggregate entry
 point, parallel to `Satisfiability/Consistency.lean`.
 
-## S5-Derived Semantic Facts
+## S5-derived semantic facts
 
 Several consequences are not stated as UFO axioms in the paper, but follow from
 the chosen S5 semantics together with the modal form of the encoded definitions.
 These results are collected in `LeanUfo/UFO/Core/S5_Derived.lean`.
 
-### Modal Stability Principles
+### Modal stability principles
 
 The core frame lemmas are:
 
@@ -126,10 +124,10 @@ They say that, in S5, possibility and necessity are invariant across accessible
 worlds. Because accessibility is symmetric and transitive, moving from one
 accessible world to another does not change the truth of `Dia phi` or `Box phi`.
 
-This has important ontological consequences: modal definitions tend to become
-world-invariant classifications, modulo accessibility.
+As a result, modal definitions tend to become world-invariant classifications
+along accessibility.
 
-### Section 3.1: Type, Individual, And Specialization
+### Section 3.1: type, individual, and specialization
 
 From the modal definitions:
 
@@ -146,12 +144,10 @@ and the S5 stability lemmas, Lean proves:
 - `sub_stable`;
 - `properSub_stable`.
 
-The conceptual point is that under S5, `Type`, `Individual`, `Sub`, and
-`ProperSub` are not merely local classifications. Once they are defined through
-possibility or necessity over an S5 frame, they become invariant across
-accessible worlds.
+Under S5, `Type`, `Individual`, `Sub`, and `ProperSub` are invariant across
+accessible worlds because their definitions use possibility or necessity.
 
-### Section 3.2: Kind Stability
+### Section 3.2: kind stability
 
 Kind invariance does not follow from S5 alone. It depends on an additional
 structural axiom made explicit in the mechanization:
@@ -169,11 +165,11 @@ Using `ax_kindStable` and S5 frame properties, Lean proves:
 - `kind_stable`;
 - kindhood transports rigid/sortal consequences across accessible worlds.
 
-The conceptual point is that the Kind branch is modally persistent only because
-the mechanization explicitly adds the stability principle that the informal
-development relies on.
+The Kind branch is modally persistent because the mechanization adds the
+stability principle used by the informal development; S5 alone does not prove
+it.
 
-### Section 3.4: Endurant-Type Refinements
+### Section 3.4: endurant-type refinements
 
 The endurant-type refinements introduced by (a44) are defined using:
 
@@ -202,11 +198,10 @@ type plus `Kind`. Lean proves:
 - `modeKind_stable`;
 - `qualityKind_stable`.
 
-The conceptual point is that S5 turns modal type refinements into stable
-classifications, and `ax_kindStable` lifts that persistence to the specific
-kind predicates.
+S5 makes the modal type refinements stable, while `ax_kindStable` extends that
+stability to the specific kind predicates.
 
-### Later S5 Consequences
+### Later S5 consequences
 
 `S5_Derived.lean` also records later modal consequences, including:
 
@@ -217,11 +212,11 @@ kind predicates.
 These are not new UFO axioms. They are semantic consequences of representing the
 paper's modal constraints inside S5.
 
-## Formalization Milestones
+## Formalization milestones
 
-This section summarizes what is currently mechanized section by section.
+The following inventory records the mechanized content section by section.
 
-### Section 3.1: Types, Individuals, Instantiation
+### Section 3.1: types, individuals, instantiation
 
 Files:
 
@@ -245,7 +240,7 @@ consistent_3_1 :
 
 Interpretation: the encoded Section 3.1 axioms are jointly satisfiable.
 
-### Section 3.2: Rigidity Taxonomy
+### Section 3.2: rigidity taxonomy
 
 Files:
 
@@ -278,7 +273,7 @@ consistent_3_2 :
 The small witness has one kind and one instance of that kind; other
 rigidity-based categories can remain empty.
 
-### Section 3.3: Endurant Individual Taxonomy
+### Section 3.3: endurant individual taxonomy
 
 Files:
 
@@ -306,7 +301,7 @@ consistent_3_3 :
 The small witness interprets all endurants as substantial objects and keeps
 moment categories empty.
 
-### Section 3.4: Endurant Types
+### Section 3.4: endurant types
 
 Files:
 
@@ -342,7 +337,7 @@ consistent_3_4 :
 The witness uses one endurant type, classifies it as an object kind, and gives
 it one endurant individual instance.
 
-### Section 3.5: Mereology
+### Section 3.5: mereology
 
 Files:
 
@@ -366,7 +361,7 @@ The small witness interprets `Part` and `Overlap` as identity and `ProperPart`
 as empty. This is a minimal extensional mereology compatible with the previous
 tiny model.
 
-### Section 3.6: Composition
+### Section 3.6: composition
 
 Files:
 
@@ -390,7 +385,7 @@ The small witness keeps `FunctionsAs` and `ComponentOf` empty and interprets
 the dependence relations so the definitional constraints hold over the inherited
 tiny model.
 
-### Section 3.7: Constitution
+### Section 3.7: constitution
 
 Files:
 
@@ -416,7 +411,7 @@ consistent_3_7 :
 
 The small witness interprets existence as total and keeps constitution empty.
 
-### Section 3.8: Existence And Existential Dependence
+### Section 3.8: existence and existential dependence
 
 Files:
 
@@ -439,7 +434,7 @@ consistent_3_8 :
 The small witness has one world and total existence, so existential dependence
 collapses to a total relation in the inherited tiny model.
 
-### Section 3.9: Moments And Inherence
+### Section 3.9: moments and inherence
 
 Files:
 
@@ -472,7 +467,7 @@ relation, and ultimate-bearer uniqueness is encoded using Lean's unique
 existence form (`exists unique`, displayed in Lean as `exists!` or
 `ExistsUnique` in supporting code).
 
-### Section 3.10: Relators
+### Section 3.10: relators
 
 Files:
 
@@ -508,7 +503,7 @@ Formalization note: `FoundationOf` is defined using `Classical.epsilon`, which
 is why the signatures carry a nonempty domain witness. The proof of `th_t33`
 requires the explicit bridge axiom that qua individuals are of endurants.
 
-#### Historical Finding: Printed (a73) Forces Relators Empty
+#### Historical finding: printed (a73) forces relators empty
 
 `LeanUfo/UFO/FormalAnalysis/AxiomaticAnalysis.lean` records a stronger consequence of
 the printed §3.10 formula:
@@ -545,7 +540,7 @@ The printed overlap-based (a73) therefore makes the relator branch empty when
 combined with the retained §3.10 background. This is a theorem about the
 historical package, not the active corrected `UFOAxioms3_10` package.
 
-#### First Repair Attempt: Distinct Proper Parts
+#### First repair attempt: distinct proper parts
 
 The first analyzed repair follows a suggestion from Giancarlo Guizzardi: add a
 distinctness guard to (a79)'s pairwise proper-part clause. The guarded clause
@@ -562,7 +557,7 @@ This blocks the original proof's direct instantiation with `(p, p)`. The
 analysis-only proposition `ax_a79_distinct_guard` records this variant without
 changing the packaged `ax_a79`, the DSL, or the reflective checker.
 
-The repair is nevertheless insufficient. General extensional mereology already
+The repair is insufficient. General extensional mereology already
 forces every proper part to have a distinct proper-part companion:
 
 ```lean
@@ -586,12 +581,12 @@ no_relators_from_distinct_guard_attempt :
 ```
 
 The distinctness guard alone cannot support a positive model with a nonempty
-relator. Moreover, under the existing mereology and reflexive existential
+relator. Under the existing mereology and reflexive existential
 dependence, `ax_a79_distinct_guard` and the original (a79) imply one another.
 The guard is therefore retained as a failed experiment and possible
 clarification of pairwise intent, not as a semantic repair.
 
-#### Selected Repair: Part-Based (a73)
+#### Selected repair: part-based (a73)
 
 The general no-go result isolates the defect independently of every version of
 (a79):
@@ -606,8 +601,8 @@ relator_composition_refutes_current_ax73 :
 ```
 
 These theorems retain the relevant taxonomy and ordinary mereology assumptions
-but do not assume (a79). Consequently, if relators remain ordinary wholes with
-qua-individual proper parts, current (a73) must change. Its unrestricted
+but do not assume (a79). If relators remain ordinary wholes with qua-individual
+proper parts, the printed (a73) must change: its unrestricted
 overlap characterization incorrectly classifies the containing relator as an
 externally dependent mode.
 
@@ -622,7 +617,7 @@ QuaIndividualOf(x, y) <->
       FoundationOf(z) = FoundationOf(x)
 ```
 
-`ax_a73` now records this formula in `Section3_10.lean`, and
+`ax_a73` records this formula in `Section3_10.lean`, and
 `UFOAxioms3_10.ax73` uses it. The analysis alias
 `ax_a73_part_characterization` and package `UFOAxioms3_10PartRepair` are
 retained so the earlier formula comparison remains reproducible. The following
@@ -645,14 +640,14 @@ constructs a model of `UFOAxioms3_10PartRepair` containing a relator with two
 qua-individual proper parts, distinct mediated bearers, and a shared perdurant
 foundation. The theorem `positive_relator_witness` exposes these facts.
 
-The active core package and direct relator model now use the part-based (a73).
+The active core package and direct relator model use the part-based (a73).
 The printed formula remains as `ax_a73_printed`, and the ordinary sparse
 `Model3_10` proves both formulas only because its relator branch is empty. The
 finite DSL, reflective checker, diagnostics, and certified fixtures are updated
 in a separate propagation step so that this core change and its checker impact
 remain independently reviewable.
 
-### Section 3.11: Characterization
+### Section 3.11: characterization
 
 Files:
 
@@ -674,7 +669,7 @@ consistent_3_11 :
 
 The small witness keeps `Characterization` empty.
 
-### Section 3.12: Qualities And Quality Structures
+### Section 3.12: qualities and quality structures
 
 Files:
 
@@ -719,7 +714,7 @@ Formalization notes:
 The witness keeps quality structures, quales, distance values, and set
 extensions empty.
 
-### Section 3.13: Endurants And Perdurants
+### Section 3.13: endurants and perdurants
 
 Files:
 
@@ -748,7 +743,7 @@ manifests(x, y) -> Perdurant(x) and Endurant(y)
 
 The printed order is retained separately as `ax_a102_printed`.
 
-### Section 4: Type Structures
+### Section 4: type structures
 
 Files:
 
@@ -774,14 +769,14 @@ consistent_4 :
 The witness reuses the inherited tiny model and interprets the Section 4
 relations extensionally by the right-hand side of their defining axioms.
 
-## Structural Assumptions Made Explicit
+## Structural assumptions made explicit
 
 During mechanization, several assumptions that are implicit in the paper's
 informal exposition had to be added as explicit axioms. This section records
 them so the difference between paper text, encoded axioms, and Lean semantics is
 visible.
 
-### Kind Stability
+### Kind stability
 
 File:
 
@@ -807,7 +802,7 @@ Used for:
 - Section 3.4 theorems that transport specific kind information across worlds;
 - the S5-derived kind and specific-kind stability theorems.
 
-### Instances Of Endurant Types Are Endurants
+### Instances of endurant types are endurants
 
 File:
 
@@ -828,7 +823,7 @@ Intended reading: an instance of an endurant type is an endurant.
 This typing principle is used by results such as `th_t16` and by the Section
 3.4 endurant-type taxonomy results.
 
-### Subtypes Of Kinds Are Sortals
+### Subtypes of kinds are sortals
 
 File:
 
@@ -849,7 +844,7 @@ Intended reading: the subtypes below kinds stay in the sortal branch.
 This is used in the subtype branch of `th_t16` and in the Section 3.4
 characterization of specific endurant sortals.
 
-### Upward Closure Of NonSortal
+### Upward closure of NonSortal
 
 File:
 
@@ -870,7 +865,7 @@ also non-sortal.
 
 This is used in the common-supertype branch of `th_t16`.
 
-### Qua Individuals Are Of Endurants
+### Qua individuals are of endurants
 
 File:
 
@@ -891,7 +886,7 @@ This is required for `th_t33`, because the informal proof that every relator
 mediates at least two distinct endurants relies on a typing assumption not
 forced by (a73)-(a80) alone.
 
-## Methodological Notes
+## Methodological notes
 
 The development follows a repeated pattern:
 
@@ -907,7 +902,7 @@ without asserting ontological richness. The separate anti-vacuity modules add
 section-by-section simultaneous-nonemptiness checks for the complete primitive
 vocabulary and the named derived predicates listed above.
 
-## Relation To The DSL
+## Relation to the DSL
 
 The finite DSL is downstream of the core theory. It compiles named finite models
 into `UFOSignature4` and asks Lean to check generated theorem declarations:

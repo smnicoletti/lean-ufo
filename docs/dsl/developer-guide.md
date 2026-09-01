@@ -1,14 +1,14 @@
-# DSL Developer Guide
+# DSL developer guide
 
 [Docs home](../README.md) · [Project README](../../README.md)
 
-This page is for contributors who need to change the finite UFO DSL internals.
-For the conceptual pipeline, first read the [DSL architecture](architecture.md).
+Use this guide when changing the finite UFO DSL internals. Read the
+[DSL architecture](architecture.md) first for the conceptual pipeline.
 For theorem statements and what they guarantee, use
 [Formal guarantees](../guarantees.md). Examples live under
 `LeanUfo/UFO/DSL/ConcreteExamples` and are outside this guide's scope.
 
-## File Map
+## File map
 
 | File | Responsibility |
 | --- | --- |
@@ -17,7 +17,8 @@ For theorem statements and what they guarantee, use
 | `LeanUfo/UFO/DSL/Certificate/Tactic.lean` | Shared simplification support used by derived-fact assertions, diagnostic probes, and fallback helper fragments. |
 | `LeanUfo/UFO/DSL/Certificate/Generation.lean` | Certificate registry, generated theorem source, checker-backed field selection, and certificate packaging source. |
 | `LeanUfo/UFO/DSL/Certificate/Reuse.lean` | Conservative footprint registry for deciding when generated `checked_axN` theorems can reuse parent checks. |
-| `LeanUfo/UFO/DSL/Checker/` | Reflective Boolean checker, step model, checker-backed axiom proofs, and polynomial step bounds. |
+| `LeanUfo/UFO/DSL/Checker/` | Reflective Boolean checks and their semantic soundness and completeness proofs. |
+| `LeanUfo/UFO/DSL/Complexity/` | Counted compiler, checker, closure, table, and diagnostic computations with their operational bounds. |
 | `LeanUfo/UFO/DSL/Diagnostic/Analysis.lean` | Source-level counterexample reconstruction, diagnostic formula evaluation, evidence, suggestions, and derived-assertion analysis. |
 | `LeanUfo/UFO/DSL/Syntax.lean` | Command elaborator: parse grammar nodes, call the pure compiler, emit declarations, run generated certificate checks, and save diagnostics. |
 | `LeanUfo/UFO/DSL/Diagnostic/Widget.lean` | Editor-side Lean widget for displaying finite-model diagnostics in VS Code. |
@@ -31,7 +32,7 @@ For theorem statements and what they guarantee, use
 If a file starts owning a second row of this table, prefer splitting that new
 responsibility into a small module with a narrow import surface.
 
-## Command Pipeline
+## Command pipeline
 
 The user-facing command follows this path:
 
@@ -57,21 +58,21 @@ Frontend/SurfaceSyntax grammar
 ```
 
 `Syntax.lean` is allowed to use metaprogramming because it is the command
-frontend.  The middle of the pipeline should stay pure Lean data transformation
-where possible, so it can be tested and proved about without elaborator state.
+frontend. Keep the middle of the pipeline as pure Lean data transformation when
+possible; this makes it testable and permits proofs that do not depend on
+elaborator state.
 
-## Diagnostics Versus Certification
+## Diagnostics versus certification
 
 Certification is the trusted path: generated Lean declarations are elaborated
 and checked by the kernel.
 
 Diagnostics are explanatory: they reconstruct source-level evidence from the
-compiled finite tables and send JSON props to the editor widget.  Diagnostics
-must not be treated as proof obligations.  If a diagnostic formula mirrors an
-axiom, keep the comment local and descriptive about which user-facing failure it
-explains.
+compiled finite tables and send JSON props to the editor widget. They are not
+proof obligations. A diagnostic formula that mirrors an axiom should carry a
+local comment naming the user-facing failure it explains.
 
-## Checker-Backed Certificates
+## Checker-backed certificates
 
 The certificate generator emits one stored Boolean check theorem and one
 semantic theorem per registered axiom field. The stored check theorem is named
@@ -81,16 +82,16 @@ semantic theorem per registered axiom field. The stored check theorem is named
 checkAxN Model.data = true
 ```
 
-The public semantic theorem is still named `certified_axN`. These public names
+The public semantic theorem is named `certified_axN`. These public names
 are compatibility API and should not be renamed. The semantic theorem calls a
 reusable Boolean checker soundness theorem and evaluates the concrete model
 with `native_decide`.
 
-`Checker/` owns the reflective Boolean checks, their counted executable cores,
-soundness and completeness theorems, and concrete operational bounds for the
-registered checker-backed fields. `Complexity/` composes those bounds and
-separates fixed-registry data complexity from parameterized registry
-complexity. `Certificate/Tactic.lean` still provides
+`Checker/` owns the reflective Boolean checks and their soundness and
+completeness theorems. `Complexity/` owns the counted executable cores,
+concrete operational bounds, and their composition. It also separates
+fixed-registry data complexity from parameterized registry complexity.
+`Certificate/Tactic.lean` provides
 shared simplification support for derived-fact assertions, diagnostic probes,
 and fallback helper fragments. `Certificate/Generation.lean` owns theorem names, widget ordering,
 checker-backed theorem source, manifest source, and final `UFOAxioms4`
@@ -264,8 +265,7 @@ No converse is claimed for the core `ax_a99`: the core axiom
 quantifies over arbitrary tuple arities, while the finite model can only check
 the product-family witnesses it stores.
 
-For this reason the checker exposes an explicit representation-completeness
-contract:
+The checker therefore exposes an explicit representation-completeness contract:
 
 ```lean
 ProductFamilyWitnessTableComplete M
@@ -289,7 +289,7 @@ point to the missing `product_family`, `Characterization`, `AssociatedWith`,
 `MemberOf`, and `TupleProjection` facts needed to make the finite witness
 checkable.
 
-## Hard Checker Case: ax68
+## Hard checker case: ax68
 
 `ax68` is the first checker-backed axiom that cannot be reduced to a fixed
 first-order table scan. The core theory defines `MomentOf` as an inductive
@@ -343,7 +343,7 @@ the general checker-aware negative probe pattern: when `checkAxN data = false`
 and `checkAxN_complete` is available, Lean proves `¬ axN` by contradiction
 using completeness.
 
-Two caveats are worth keeping explicit:
+The proof has two limits:
 
 - The closure checker proves semantic finite-model correctness, not a wall-clock
   runtime bound for Lean, Lake, or compiled native code.
@@ -352,7 +352,7 @@ Two caveats are worth keeping explicit:
   checker-aware negative probe whenever a direct completeness theorem is
   available.
 
-For performance work:
+Use these commands for targeted performance work:
 
 ```bash
 LEANUFO_CERT_PROFILE=1 lake env lean LeanUfo/Test/Certification/Positive/Minimal.lean

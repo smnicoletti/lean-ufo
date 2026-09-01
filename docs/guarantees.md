@@ -1,15 +1,15 @@
-# Formal Guarantees
+# Formal guarantees
 
 [Docs home](README.md) · [Project README](../README.md)
 
-This page is the central map of the theorem-backed guarantees in Lean UFO. It
-separates three things that are easy to conflate:
+This page maps Lean UFO's guarantees to their theorem statements. It keeps
+three boundaries separate:
 
 - what the Lean kernel checks as proof evidence;
 - what the executable DSL compiler and checker compute;
 - what remains trusted frontend or diagnostic presentation code.
 
-The main theorem files are:
+The relevant theorem files are:
 
 ```text
 LeanUfo/UFO/Core/*.lean
@@ -37,7 +37,7 @@ LeanUfo/UFO/DSL/Certification.lean
 - [Decidability and Complexity](#decidability-and-complexity)
 - [Trusted Boundary](#trusted-boundary)
 
-## Core Semantic Layer
+## Core semantic layer
 
 The core formalization defines UFO signatures and axiom packages as ordinary
 Lean propositions over S5 Kripke semantics. These files are not DSL-specific:
@@ -62,17 +62,18 @@ The core also contains derived semantic theorems, especially in
 follows from the chosen S5 semantics and from explicit bridge axioms such as
 kind stability.
 
-Guarantee offered:
+What Lean proves:
 
 - core theorem statements are checked by Lean's kernel;
 - modal and taxonomic results are ordinary propositions over the semantic
   signatures;
 - no DSL parser or checker is involved in these proofs.
 
-## Witness Models and Consistency Checkpoints
+## Witness models and consistency checkpoints
 
-The `FormalAnalysis/Satisfiability/` layer constructs concrete semantic witnesses for implemented UFO
-fragments. These establish joint satisfiability checkpoints, for example:
+The `FormalAnalysis/Satisfiability/` layer constructs concrete semantic
+witnesses for implemented UFO fragments. These establish joint satisfiability
+checkpoints, for example:
 
 ```lean
 consistent_3_1 :
@@ -87,11 +88,11 @@ consistency theorems for a UFO proof calculus; no such proof calculus is
 implemented. The guarantee is that Lean has checked a concrete model satisfying
 the packaged axioms.
 
-Guarantee offered:
+What Lean proves:
 
 - the implemented axiom packages have concrete satisfying interpretations;
 
-## Anti-Vacuity Checkpoints
+## Anti-vacuity checkpoints
 
 `FormalAnalysis/AntiVacuity/` strengthens the model-existence evidence without
 changing the ordinary `ModelX` chain. There is one module per section from
@@ -104,7 +105,7 @@ This establishes that no encoded vocabulary item is forced empty by its
 cumulative section package. It does not assert that one final interpretation
 simultaneously realizes every possible combination of UFO categories.
 
-Guarantee offered:
+What Lean proves:
 
 - every primitive predicate has a nonempty extension in its section's
   cumulative anti-vacuity model;
@@ -113,7 +114,7 @@ Guarantee offered:
   encoding;
 - witness models are independent of the finite DSL command frontend.
 
-## DSL Frontend Boundary
+## DSL frontend boundary
 
 The DSL begins with surface syntax:
 
@@ -153,14 +154,14 @@ Model.certifiedModel      : FiniteModel4.Certified Model.data
 Model.certificateManifest : CertificateManifest
 ```
 
-Guarantee offered:
+What Lean proves:
 
 - the parser/emitter is trusted;
 - the emitted declarations are checked by Lean;
 - proof evidence is the generated Lean theorem, not the diagnostics widget or
   certificate manifest.
 
-## Name Resolution and Scope Expansion
+## Name resolution and scope expansion
 
 After parsing, name and scope handling is ordinary Lean code in the compiler.
 The relevant guarantee namespace is:
@@ -203,13 +204,13 @@ These theorems state that successful name lookups resolve to the returned
 finite index, failed lookups produce explicit compiler errors, and world-scoped
 facts expand through the pure compiler pass rather than ad-hoc frontend logic.
 
-Guarantee offered:
+What Lean proves:
 
 - unknown names are not silently accepted;
 - `everywhere` is preserved as an explicit scope before expansion;
 - scoped facts have theorem-backed expansion behavior.
 
-## Compiler and Table Construction
+## Compiler and table construction
 
 The pure compiler turns resolved facts into finite tables:
 
@@ -257,7 +258,7 @@ main compiler pipeline is assembled. They are local engineering
 guarantees, not a full verified compiler theorem from concrete syntax to
 semantics.
 
-Guarantee offered:
+What Lean proves:
 
 - explicit unary, binary, ternary, and tuple-projection facts become the
   intended table entries;
@@ -265,7 +266,7 @@ Guarantee offered:
 - taxonomy and reflexive-specialization passes are explicit compiler stages;
 - finite model construction is performed by ordinary Lean functions.
 
-## Finite Model Semantic Bridge
+## Finite model semantic bridge
 
 `FiniteModel4` is the executable finite representation. The bridge into the
 ordinary semantic axiom package is:
@@ -318,14 +319,14 @@ compiled signature is exactly the Boolean instantiation table. The frame
 theorems also make explicit that generated DSL models currently use a universal
 S5 accessibility relation.
 
-Guarantee offered:
+What Lean proves:
 
 - finite tables are connected to the Prop-valued UFO signature;
 - `FiniteModel4.Certified` is not a new semantics, but exactly `UFOAxioms4`
   for the compiled signature;
 - current DSL frames are universal S5 frames.
 
-## Reflective Checker Soundness
+## Reflective checker soundness
 
 The checker is an executable Boolean validator over `FiniteModel4`:
 
@@ -370,7 +371,7 @@ and the final generated theorem packages the per-field proofs:
 Model.certified : UFOAxioms4 Model.sig
 ```
 
-Guarantee offered:
+What Lean proves:
 
 - if the checker returns `true`, the corresponding semantic axiom holds;
 - if the aggregate checker returns `true`, the compiled finite model satisfies
@@ -378,7 +379,7 @@ Guarantee offered:
 - successful certification no longer depends on open-ended Lean tactic proof
   search over a large unfolded generated proposition.
 
-## Completeness, Negative Witnesses, and ax99
+## Completeness, negative witnesses, and ax99
 
 For many fields, the checker also proves the converse:
 
@@ -425,18 +426,18 @@ not_ax99_of_checkAx99_false :
   ¬ ax_a99 M.toUFOSignature4.toUFOSignature3_12
 ```
 
-The exact theorem names may be read in `Checker/Soundness.lean`; the important
-distinction is stable: `checkAx99 = false` means "no stored finite witness was
+The exact theorem names are in `Checker/Soundness.lean`. The semantic
+distinction is: `checkAx99 = false` means "no stored finite witness was
 found" unless the explicit representation-completeness condition is available.
 
-Guarantee offered:
+What Lean proves:
 
 - direct-complete fields support confirmed semantic negative witnesses;
 - `ax68` closure is not an approximation of `MomentOf`;
 - `ax99` is sound for positive certification, but negative semantic
   interpretation requires explicit finite-witness completeness.
 
-## Certificate Reuse and Model Extension
+## Certificate reuse and model extension
 
 Certified models emit reusable atoms:
 
@@ -503,14 +504,14 @@ fields. The default validation path requires `--module`; it rebuilds the named
 module, checks that the manifest's final theorem declarations have the expected
 certificate types, and compares regenerated SHA-256 digests and theorem names.
 
-Guarantee offered:
+What Lean proves:
 
 - reused checks are sound only through a Lean-checked equality proof;
 - semantic correctness still comes from checker soundness;
 - `certify_fresh` contributes no reuse source at the planner level;
 - model-extension reuse cannot bypass the Lean kernel.
 
-## Diagnostics Status Guarantees
+## Diagnostics status guarantees
 
 Diagnostics explain success and failure states to the user. They are not proof
 evidence, but the status classifier itself has small pure guarantees.
@@ -542,7 +543,7 @@ diagnostic_status_exhaustive :
   status = "success" ∨ status = "failed" ∨ status = "unchecked"
 ```
 
-Guarantee offered:
+What Lean proves:
 
 - completed fields are displayed as successful;
 - the first recorded failure is displayed as failed;
@@ -552,7 +553,7 @@ Guarantee offered:
 Confirmed counterexamples rely on separate Lean-checked negation probes, not on
 the widget.
 
-## Decidability and Complexity
+## Decidability and complexity
 
 Proved guarantees in this repository have two independent axes. **Semantic DSL
 guarantees** say that compiler/checker stages preserve or decide the intended
@@ -560,8 +561,8 @@ UFO meaning. **Quantitative guarantees** say that the concrete executable stages
 obey a cost bound under an explicit input and machine model. An end-to-end
 result needs both axes.
 
-The [concrete complexity guide](dsl/complexity.md) contains the canonical
-theorem map and implementation status. The results below concern counted
+The [concrete complexity guide](dsl/complexity.md) contains the full theorem
+map and implementation status. The results below concern counted
 production computations.
 
 The source compiler has a distinct operational guarantee:
@@ -570,11 +571,11 @@ duplicate-name, reference-resolution, product-family, projection-validation,
 and successful branches, by `sourceCompilerPolynomial`. This quantitative
 theorem complements rather than replaces the semantic compiler guarantees.
 
-The same separation now begins at the per-axiom checker level. The derived
+The same separation applies at the per-axiom checker level. The derived
 `typeB` and `individualB` predicates are production erasures with proved bounds
 `W * (3*T + 2)` and `W * (3*T + 2) + 1`. Axioms 1–2 and every axiom from 7
 through 17 have production Booleans obtained by erasing counted cores. Axiom 1
-still evaluates and charges both syntactic sides; its semantic tautology is not
+evaluates and charges both syntactic sides; its semantic tautology is not
 used to replace the executable check. Axiom 2 separately charges its nested
 universal-over-existential computation. The pair has its own delayed registry,
 value theorem, and operational bound.
@@ -587,16 +588,15 @@ Their delayed 11-check registry has the proved bound
 `11 * (T * (W * (W * (3*T+2) + 8) + 2) + 2)` and is proved equivalent to the
 conjunction of axioms 7 through 17. Existing semantic
 soundness and completeness theorems separately connect each Boolean to its
-semantic axiom. These slice results are now subsumed operationally by the
-complete 116-check registry theorem, while remaining useful local proof
-structure.
+semantic axiom. The complete 116-check registry theorem subsumes these slice
+results operationally, but they remain useful local proof structure.
 
 Axioms 3–6 also have individual operational erasure and bound theorems. In
-particular, `subDefB` now evaluates its instance-subsumption condition with
+particular, `subDefB` evaluates its instance-subsumption condition with
 counted finite world/thing quantifiers; the old proposition-level `decide (∀…)`
 is retained only in the proved value-correspondence statement. Axiom 6 counts
 its antecedent and its distinct upper- and lower-taxonomy witness searches.
-The ordered `checkAxioms1To17Costed` computation now covers the whole first
+The ordered `checkAxioms1To17Costed` computation covers the whole first
 block, stops at the first failure, erases to its production Boolean, and has the
 explicit summed bound `axioms1To17CostBound`.
 
@@ -694,7 +694,7 @@ over arbitrary witnesses. With `ProductFamilyWitnessTableComplete`, `ax99`
 failure can be interpreted semantically; without it, failure means missing
 finite witness data.
 
-The production checker is now the erasure of one counted computation. Its
+The production checker is the erasure of one counted computation. Its
 fixed registry contains 116 delayed `BoundedCheck` entries, each pairing the
 actual checker with its independently proved operational bound. Lean proves:
 
@@ -746,9 +746,9 @@ This quartic corollary is proved from the concrete multivariate compiler
 formula after every independently sized source component has been included.
 It is not used in place of that more precise operational bound. The checker
 corollary is `2940·checkerInputSize⁸`; compiler and checker compose to
-`3020·(sourceSize+modelSize)⁸`. The canonical complexity guide gives the
+`3020·(sourceSize+modelSize)⁸`. The complexity guide gives the
 metric definitions and the corresponding theorem names.
-## Trusted Boundary
+## Trusted boundary
 
 The current trusted boundary is:
 

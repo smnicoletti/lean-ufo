@@ -1,11 +1,9 @@
-# Current Status
+# Current status
 
 [Docs home](README.md) · [Project README](../README.md)
 
-Compact implementation snapshot.
-
-For the theorem-backed contract behind these features, see
-[Formal guarantees](guarantees.md).
+This page records implemented coverage and known limits. The theorem-level
+contract is in [Formal guarantees](guarantees.md).
 
 | Area | Status |
 | --- | --- |
@@ -46,7 +44,7 @@ For the theorem-backed contract behind these features, see
   `Student ⊑ Person`.
 - Successful DSL models generate Lean certificate theorems through
   `UFOAxioms4`.
-- Successful DSL models now also emit `Model.source`, per-field
+- Successful DSL models also emit `Model.source`, per-field
   `Model.checked_axN` Boolean check theorems, and
   `Model.certificateManifest` provenance metadata. Ordinary `certify` reuses
   parent checks for exact-source extension aliases and for registered
@@ -99,7 +97,7 @@ For the theorem-backed contract behind these features, see
   the finite stored-witness proposition `ax99Finite`, while direct negative
   coverage for the core `ax_a99` remains blocked unless the explicit
   representation-completeness condition `ProductFamilyWitnessTableComplete` is
-  available. Missing product-family data is now reported as an incomplete finite
+  available. Missing product-family data is reported as an incomplete finite
   witness table rather than as a confirmed semantic counterexample.
 - The checker-backed §3.13 and §4 fields cover `ax102`-`ax108`. The §4 fields
   are derived directly in `FiniteModel4.toUFOSignature4`, so their checker
@@ -112,7 +110,7 @@ For the theorem-backed contract behind these features, see
   checker has a `2940·modelSize⁸` corollary, and the composed bound is
   `3020·(sourceSize+modelSize)⁸`; the [complexity guide](dsl/complexity.md)
   defines these metrics and records the theorem inventory.
-  A reproducible `lake exe complexity-benchmarks` target now emits CSV for
+  The reproducible `lake exe complexity-benchmarks` target emits CSV for
   sparse, dense, cyclic, product-family, and projection-heavy generated inputs.
   Native finite relation lookup uses typed dense arrays. Kernel reduction uses
   compact sparse definitions for generated certificates. The cost theorem
@@ -125,7 +123,7 @@ For the theorem-backed contract behind these features, see
 - The test suite covers syntax, certification fixtures, diagnostics rendering,
   and axiom coverage manifest checks.
 
-## Current DSL Caveats
+## Current DSL caveats
 
 - The aggregate anti-vacuity entry point imports checked interpretations for
   every section from §3.1 through §4. Coverage includes all primitive signature
@@ -143,13 +141,13 @@ For the theorem-backed contract behind these features, see
   expansion of parent `given everywhere:` facts.
 - The DSL has one flat `things` namespace and one flat `::` table; level-aware
   higher-order type syntax is postponed.
-- Rich §3.12 quality/product examples still require low-level set,
-  tuple-projection, membership, and distance facts. The membership table is now
+- Rich §3.12 quality/product examples require low-level set, tuple-projection,
+  membership, and distance facts. The membership table is
   executable and backs `SetExtension`; product-family witnesses are supported,
   while higher-level generation of all required quality-domain facts remains
   future work.
 - Some diagnostic extractors remain conservative for product families and
-  higher-arity relations. The `ax73` extractor now reports both directions of
+  higher-arity relations. The `ax73` extractor reports both directions of
   the part characterization and separates constituent, bearer, foundation,
   missing-part, and missing-`QuaIndividualOf` failures.
 - Several §3.10 fields still lack small managed direct negative fixtures:
@@ -159,7 +157,7 @@ For the theorem-backed contract behind these features, see
   foundation checks for `ax73`, `ax78`, and `ax79`; the remaining gap is small
   direct fixtures, not probe support.
 
-## Useful Commands
+## Useful commands
 
 ```bash
 lake build
@@ -171,7 +169,7 @@ LEANUFO_AXIOMS=ax66 lake test
 The stricter `LEANUFO_REQUIRE_DIRECT_WITNESSES=1 lake test` audit is currently
 expected to fail until every registered axiom has a direct negative fixture.
 
-## Documentation Map
+## Documentation map
 
 - [Overview](overview.md)
 - [Theoretical notes](theory.md)

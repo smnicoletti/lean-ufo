@@ -1,7 +1,8 @@
-# Concrete Complexity and Verified-DSL Boundary
+# Concrete complexity and the verified-DSL boundary
 
-This is the canonical guide to Lean UFO's operational complexity results.
-Every complexity claim below refers to a counted production computation.
+This guide states exactly which DSL computations have operational bounds and
+which costs remain outside the formal model. Every complexity claim below
+refers to a counted production computation.
 
 ## Claims
 
@@ -20,7 +21,7 @@ definitions—discarding the recorded cost while keeping the same value—or be
 connected to them by a theorem that proves both implementations return the same
 value.
 
-## Unit-Cost Machine Model
+## Unit-cost machine model
 
 `Costed α` stores a computed `value` and a `Nat` cost. The model charges the
 operations named at their executable definitions: Boolean operations,
@@ -64,7 +65,7 @@ evidence emitted as a parameter, because they run only after failure and
 construct evidence. No theorem in this development bounds certificate
 elaboration or kernel reduction.
 
-## Input Metrics
+## Input metrics
 
 `SourceMetrics` includes worlds, things, source facts, name references, facts
 after scope expansion, facts after deterministic taxonomy expansion, and an
@@ -79,11 +80,12 @@ so construction and space bounds cannot hide them.
 The final scalar polynomial corollary is derived only after proving a
 multivariate bound over all independently sized components.
 
-## Verified-DSL Theorem Map
+## Verified-DSL theorem map
 
-The term “verified DSL” is reserved for the following chain, inspired in part
-by RadixExperiment's executable-interpreter/relational-semantics equivalence and
-per-optimization preservation proofs:
+Here, “verified DSL” refers to the complete chain below. Its proof organization
+draws on RadixExperiment: relate the executable interpreter to its semantics,
+then prove preservation for each transformation. RadixExperiment supplies the
+organizational precedent, not a complexity result for Lean UFO.
 
 | Stage | Required theorem | Status |
 | --- | --- | --- |
@@ -98,10 +100,10 @@ per-optimization preservation proofs:
 | Certification | successful Boolean checks imply `UFOAxioms4` | existing soundness theorem |
 | Diagnostics | evidence is sound and output-sensitive | certification-failure output passes through a counted erasure with a deterministic 128-item budget. The limiter has exact cost `2·emitted+1`, and every witness branch returns a deterministic prefix. Generic quantified assignments stream in lexicographic order and stop when the budget is full. Formula traversal, evaluation, minimization, rendering, and the specialized axiom 68, 71, 73, 78, 79, and 99 analyzers are included in `diagnosticWitnessesInnerCostBound`. The public theorem `diagnosticWitnessesBudgetedCosted_cost_le_inner_add_emitted` bounds the complete production diagnostic by that input-dependent formula plus emitted output. The companion exact-cost and size theorems state the emitted-prefix boundary. Diagnostics remain outside the headline certification bound because they run only after failure and construct user-facing output. |
 
-RadixExperiment is engineering precedent, not a complexity source and not
-evidence that the remaining Lean UFO obligations are already discharged.
+The table records which Lean UFO obligations are proved; similarity to
+RadixExperiment does not discharge any of them.
 
-## Module Layout
+## Module layout
 
 ```text
 LeanUfo/UFO/DSL/Complexity/
@@ -118,16 +120,16 @@ LeanUfo/UFO/DSL/Complexity/
 `LeanUfo/UFO/DSL/Complexity.lean` is the aggregate import. Production entry
 points use the counted core directly.
 
-## Acceptance Evidence
+## Acceptance evidence
 
-The completed verification includes exact hand-checked counts on tiny examples;
+Verification includes exact hand-checked counts on tiny examples;
 monotonicity tests; sparse, dense, cyclic, projection-heavy, and product-family
 generators; semantic regression fixtures; closure correctness and cubic
 scaling; compiler and checker erasure; fixed-registry and parameterized
 theorems; separate output-sensitive diagnostic bounds; and generated scaling
-measurements. The final verification passed `lake build`, the fast and full
-test profiles, certificate export and validation, and the
-generated complexity benchmark.
+measurements. The final gate, `LEANUFO_PERFORMANCE_TESTS=1 lake test`, includes
+the full semantic suite and every user-facing example. Certificate export,
+validation, and the generated complexity benchmark were also checked.
 
 The benchmark checks monotonicity on controlled prefix-growing families. It
 checks compiler cost independently as worlds, things, facts, and witness slots
@@ -167,7 +169,7 @@ last revision before this refactor (`6a21fd5`). These are wall-clock engineering
 measurements, not complexity theorems. Both revisions used separate build
 directories with the same dependency checkout.
 
-| target | base | feature branch | result |
+| target | base | complexity refactor | result |
 | --- | ---: | ---: | --- |
 | `Company` | 6.1 s | 8.3 s | certifies |
 | `WoodenTable` | 7.9 s | 10 s | certifies |
@@ -178,11 +180,11 @@ directories with the same dependency checkout.
 | full semantic test profile | 173.36 s | 170.54 s | passes; effectively unchanged |
 
 The four small examples are 27–43% slower and the smaller set is 36% slower,
-so proof elaboration still has a measurable constant-factor regression. They
+so proof elaboration has a measurable constant-factor regression. They
 remain well below the former heartbeat failure. The Relator probe, which is the
 dominant certification stress case, is substantially faster. Release checks
 must retain both views. The complete suite detects semantic regressions. The
-Examples aggregate now includes Relator and detects proof-performance
+Examples aggregate includes Relator and detects proof-performance
 regressions through the optional performance profile.
 
 ## References
@@ -196,7 +198,7 @@ regressions through the optional performance profile.
 - Tobias Roßkopf and Tobias Nipkow, [For a practical perspective on verified checker representations](https://link.springer.com/chapter/10.1007/978-3-030-79876-5_6).
 - Leonardo de Moura, [RadixExperiment](https://github.com/leodemoura/RadixExperiment), for verified-DSL proof organization: interpreter correspondence and pass-by-pass preservation.
 
-## Current Limitations
+## Current limitations
 
 The theorem uses the unit-cost model defined above. It does not bound string
 characters, allocation, garbage collection, elaboration, kernel checking,
@@ -213,7 +215,7 @@ the sparse definitions.
 The recursive inherence definition remains as a specification; production
 closure and axiom 68 use the proved cubic matrix implementation.
 
-The concrete parser and declaration emitter remain in the documented trusted
+The concrete parser and declaration emitter are inside the documented trusted
 boundary. Lean validates the generated declarations and certificates, but this
 work does not prove the parser itself correct. The benchmark reports runtime
 measurements for comparison with the operational theorem; those measurements
