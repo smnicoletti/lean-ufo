@@ -1,4 +1,4 @@
-# Testing Guide
+# Testing guide
 
 [Docs home](README.md) · [Project README](../README.md)
 
@@ -20,7 +20,7 @@ LeanUfo/Test/
   Coverage/
 ```
 
-## Default Tests
+## Default tests
 
 ```bash
 lake test
@@ -38,7 +38,7 @@ The full semantic witness profile runs when the workflow is started manually.
 The nightly scheduled workflow checks `dev` and runs the full profile only when
 `dev` has received a commit in the previous 24 hours.
 
-## Full Semantic Witness Tests
+## Full semantic witness tests
 
 ```bash
 LEANUFO_FULL_TESTS=1 lake test
@@ -51,7 +51,7 @@ compiler, checker, certificate, or performance-sensitive work, use the
 performance profile below instead of running both profiles: the performance
 profile already includes the full semantic suite.
 
-## Incremental Certificate Tests
+## Incremental certificate tests
 
 The incremental certificate fixtures live under:
 
@@ -114,7 +114,7 @@ version in the runner workspace with:
 scripts/set-artifact-version.sh vX.Y.Z
 ```
 
-## Selected Axiom Tests
+## Selected axiom tests
 
 ```bash
 LEANUFO_AXIOMS=ax13 lake test
@@ -152,7 +152,7 @@ properties directly. Use clean, otherwise equivalent build directories for
 wall-clock comparisons. Incremental runs verify wiring but are not comparable
 benchmarks.
 
-For such changes, this is the single most comprehensive final command. Do not
+For such changes, this is the most complete final command. Do not
 precede it with separate default and full-profile runs unless diagnosing a
 failure; those checks are already included and would only repeat work.
 
@@ -170,14 +170,14 @@ compiled signature satisfies active part-based (a73) and refutes historical
 `ax68` is included in the §3.9 checker-backed selection. It uses the bounded
 finite closure checker for `MomentOf` and `UltimateBearerOf`.
 
-The `ax68` positive test is especially important after checker changes because
-it exercises the Warshall-style finite closure bridge from executable
+After checker changes, the `ax68` positive test exercises the Warshall-style
+finite closure bridge from executable
 reachability to the core inductive `MomentOf` relation. The direct negative
 fixture uses the same checker-aware counterexample pattern as the other
 direct-complete checker fields: prove `¬ axN` from `checkAxN_complete` and a
 computed `checkAxN = false`.
 
-## Direct Negative Witness Audit
+## Direct negative witness audit
 
 ```bash
 LEANUFO_REQUIRE_DIRECT_WITNESSES=1 lake test
@@ -188,7 +188,7 @@ negative witness, including axioms that are currently classified as
 compiler-enforced or blocked in the manifest. The ordinary `lake test` profile
 checks that every registered axiom is classified exactly once.
 
-## Coverage Manifest
+## Coverage manifest
 
 The manifest lives in:
 
@@ -205,7 +205,7 @@ Each registered axiom is classified for negative coverage as one of:
 - `blockedNegativeWitnessAxioms`: the axiom needs missing surface syntax,
   extractor support, or a better negation-proof path.
 
-## Negative Fixture Rule
+## Negative fixture rule
 
 A negative fixture only counts as direct coverage if:
 

@@ -1,10 +1,11 @@
-# Roadmap And Limitations
+# Roadmap and limitations
 
 [Docs home](README.md) · [Project README](../README.md)
 
-This project is active research infrastructure. Current next steps:
+Lean UFO remains research software. The work below is planned but not part of
+the current guarantees.
 
-## DSL Surface
+## DSL surface
 
 - Add level-aware syntax for higher-order type patterns, especially for the
   concept-evolution examples where types can instantiate higher-order types.
@@ -30,7 +31,7 @@ This project is active research infrastructure. Current next steps:
 - Add lightweight documentation checks for stale syntax examples and broken
   local links.
 
-## Formal Guarantees
+## Formal guarantees
 
 - Strengthen the current pipeline theorems into more extensional statements
   where useful, for example exactness properties of taxonomy closure and

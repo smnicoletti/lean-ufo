@@ -1,11 +1,9 @@
 # Documentation
 
-This directory is the canonical documentation home for Lean UFO.
+Use this directory for the project overview, modeling guides, formal guarantees,
+diagnostics, tests, and implementation reference.
 
-Lean UFO's documentation is split by reading task: orientation, modeling,
-diagnostics, tests, and implementation details.
-
-## Guide Map
+## Guide map
 
 | Page | Use It For |
 | --- | --- |
@@ -24,9 +22,9 @@ diagnostics, tests, and implementation details.
 | [Formal guarantees](guarantees.md) | The theorem-backed guarantees for core, DSL, checker, reuse, diagnostics, and complexity |
 | [Roadmap and limitations](roadmap.md) | Known gaps and planned work |
 
-## Reading Paths
+## Reading paths
 
-### First Pass
+### First pass
 
 1. [Project overview](overview.md)
 2. [Theoretical notes](theory.md)
@@ -35,7 +33,7 @@ diagnostics, tests, and implementation details.
 5. [Testing guide](testing.md)
 6. [Current status](status.md)
 
-### Implementation Pass
+### Implementation pass
 
 1. [Project architecture](architecture.md)
 2. [Formal guarantees](guarantees.md)
@@ -47,7 +45,7 @@ diagnostics, tests, and implementation details.
 8. [DSL syntax reference](dsl/syntax.md)
 9. [Roadmap and limitations](roadmap.md)
 
-## Core Commands
+## Core commands
 
 ```bash
 lake build

@@ -1,4 +1,4 @@
-# DSL Quickstart
+# DSL quickstart
 
 [Docs home](../README.md) · [Project README](../../README.md)
 
@@ -32,7 +32,7 @@ If the command succeeds, Lean generated and checked:
 PersonExample.certified : UFOAxioms4 PersonExample.sig
 ```
 
-## Multiple Worlds
+## Multiple worlds
 
 ```lean
 ufo_model RoleExample : UFO where
@@ -59,7 +59,7 @@ ufo_model RoleExample : UFO where
 `given everywhere:` is copied to every declared world by the pure compiler
 pipeline.
 
-## Failure Workflow
+## Failure workflow
 
 Negative examples are expected to fail:
 

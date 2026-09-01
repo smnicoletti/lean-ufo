@@ -1,13 +1,12 @@
-# DSL Architecture
+# DSL architecture
 
 [Docs home](../README.md) · [Developer guide](developer-guide.md) · [Project README](../../README.md)
 
-This page explains the architecture of the finite UFO DSL from the user-facing
-syntax down to Lean-checked certificates and diagnostics. It is meant to give a
-developer enough structure to know where a change belongs and which formal
-guarantees are already proved.
+This guide traces a finite UFO model from surface syntax to Lean-checked
+certificates and diagnostics. It also records module ownership and the formal
+guarantees available at each boundary.
 
-## Directory Map and Ownership
+## Directory map and ownership
 
 The source tree is organized by responsibility, not by theorem size:
 
@@ -54,7 +53,7 @@ Frontend vocabulary -> compiler -> finite model -> checker -> certificates
 Lower layers must not import it. This rule keeps the pure compiler and checker
 usable without invoking command elaboration.
 
-## High-Level Ingredients
+## High-level ingredients
 
 A `ufo_model` command passes through five layers:
 
@@ -108,7 +107,7 @@ When that negation proof succeeds, the failure is a confirmed semantic
 counterexample. When it does not, the diagnostic reports an unconfirmed probe
 failure, not a semantic result.
 
-## What Is Proved Where
+## What is proved where
 
 The pipeline separates trusted metaprogramming from theorem-backed
 pure Lean code.
@@ -125,7 +124,7 @@ pure Lean code.
 | Certificate source generation | `Certificate/Generation.lean` | Trusted code emission, checked afterward by the Lean kernel |
 | Diagnostics | `Diagnostic/Analysis.lean`, `Diagnostic/Widget.lean` | Explanatory layer; confirmed counterexamples rely on Lean-checked negation proofs |
 
-The central guarantee for successful certification is:
+Successful certification rests on:
 
 ```lean
 checkAxioms4_sound :
@@ -133,11 +132,11 @@ checkAxioms4_sound :
   UFOAxioms4 M.toUFOSignature4
 ```
 
-This means that if the generated finite model passes the reflective checker,
-Lean can construct a proof that the corresponding semantic signature satisfies
-the encoded UFO axiom package.
+If the generated finite model passes the reflective checker, Lean constructs a
+proof that the corresponding semantic signature satisfies the encoded UFO axiom
+package.
 
-## Syntax And Parser
+## Syntax and parser
 
 The user writes a compact named model:
 
@@ -208,7 +207,7 @@ The compiler performs:
   binary relations, ternary relations, membership, tuple projection, distance,
   and product-family witnesses.
 
-The main files are:
+Compiler code is divided among:
 
 - `Compiler.lean`;
 - `Compiler/AST.lean`;
@@ -230,7 +229,7 @@ add things, facts, and product-family witnesses, but it may not add worlds. This
 keeps parent `everywhere` facts stable until we explicitly choose an
 added-world scoping semantics.
 
-## Finite Model Representation
+## Finite model representation
 
 `FiniteModel4` is the executable representation checked by the DSL backend. It
 stores finite domains and table-valued interpretations:
@@ -264,7 +263,7 @@ certificates are therefore not checking a separate logic: they check that this
 finite table interpretation satisfies the same `UFOAxioms4` package used by the
 rest of the repository.
 
-## Reflective Checker
+## Reflective checker
 
 The reflective checker is an executable Boolean validator for finite models.
 For each registered axiom field it provides definitions of the form:
@@ -323,7 +322,7 @@ flowchart TD
   G --> H["UFOAxioms4 M.toUFOSignature4"]
 ```
 
-The main checker files are:
+Checker code is divided among:
 
 - `Checker/Basic.lean`: shared finite scans such as all-world and all-thing
   loops;
@@ -363,7 +362,7 @@ ProductFamilyWitnessTableComplete M
 Without that condition, `checkAx99 = false` means that the finite model lacks
 stored witness data, not necessarily that the semantic axiom is false.
 
-## Positive Certificates
+## Positive certificates
 
 Positive certification is the normal success path. The command emits one theorem
 per registered axiom and a final bundled theorem:
@@ -385,7 +384,7 @@ uses `native_decide` to evaluate the concrete generated model:
 exact LeanUfo.UFO.DSL.Checker.checkAxN_sound data (by native_decide)
 ```
 
-The command now also emits a stored Boolean check theorem per field:
+The command also emits a stored Boolean check theorem per field:
 
 ```lean
 Model.checked_axN : checkAxN Model.data = true
@@ -438,7 +437,7 @@ falls back to a fresh `checked_axN` proof for the child. The manifest records
 the actual result after this fallback, so a field is marked `reused` only when a
 Lean-checked reuse theorem was really emitted.
 
-In all cases, reuse is still a Lean proof, not a trusted cache lookup. The
+Reuse is a Lean proof, not a trusted cache lookup. The
 formal proof pattern is recorded in `Guarantees.lean`:
 
 ```lean
@@ -448,7 +447,7 @@ CertificateReuse.reused_aggregate_checker_certified_sound
 CertificateReuse.certificateReuseSource_fresh_none
 ```
 
-These theorems state that a reused child check is sound exactly when Lean has
+These theorems make a reused child check sound only when Lean has
 proved equality with the parent check, and that semantic correctness still
 comes from the same checker soundness theorem used by fresh certification.
 
@@ -486,7 +485,7 @@ The final bundled theorem is assembled from the generated per-axiom proofs. The
 Lean kernel checks all declarations, so a successful `certify` command leaves an
 ordinary Lean theorem in the environment.
 
-## Negative Certificates And Diagnostics
+## Negative certificates and diagnostics
 
 Negative certification is not part of the success path. It is a diagnostic
 probe used after a model fails.
@@ -514,10 +513,10 @@ failed axiom for the generated finite model. This is why diagnostics distinguish
 finite tables. It is explanatory, not foundational. The formal evidence remains
 the Lean-checked certificate or negation theorem.
 
-## Internal Formal Guarantees
+## Internal formal guarantees
 
-The central theorem map is [Formal guarantees](../guarantees.md). The main DSL
-guarantee layers are:
+[Formal guarantees](../guarantees.md) maps these DSL guarantee layers to Lean
+theorems:
 
 - compiler and table-pipeline properties in `Guarantees.lean`;
 - per-axiom checker soundness in `Checker/Soundness.lean`;
@@ -540,9 +539,9 @@ This is the theorem that justifies using the Boolean checker as the normal DSL
 certification backend. For the detailed list of theorem names and what each
 component guarantee means, use the formal-guarantees page.
 
-## Formal Complexity Result
+## Formal complexity result
 
-The canonical [complexity guide](complexity.md) documents the machine model,
+The [complexity guide](complexity.md) documents the machine model,
 literature, exact metrics, and theorem inventory.
 
 The production path is:

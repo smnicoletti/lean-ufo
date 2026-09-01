@@ -1,4 +1,4 @@
-# Diagnostics Internals
+# Diagnostics internals
 
 [Docs home](../README.md) · [Project README](../../README.md)
 
@@ -24,22 +24,21 @@ failed certificate field
   -> Diagnostic/Widget JSON props
 ```
 
-Specialized analyzers are used when the generic formula mirror loses important
-structure, for example ultimate-bearer closure, foundation equality, relator
-foundation, and quality-domain product witnesses.
+The generic formula mirror cannot retain every axiom-specific relation. Separate
+analyzers therefore handle ultimate-bearer closure, foundation equality,
+relator foundation, and quality-domain product witnesses.
 
-## Formula Mirrors
+## Formula mirrors
 
 `Diagnostic/Analysis.lean` defines a small first-order formula language over
 finite things and worlds. These formulas mirror selected axiom shapes closely
 enough to find a concrete counterexample assignment and render it in DSL
 vocabulary.
 
-Do not treat these formulas as replacements for the core axioms. If a diagnostic
-mirror is wrong, the certificate result is still authoritative; only the
-explanation is affected.
+These formulas do not replace the core axioms. An incorrect mirror can damage
+the explanation, but it cannot change the certificate result.
 
-## Failure Minimization
+## Failure minimization
 
 `minimizeFailure` walks a failed formula to find the smallest useful failed
 subformula. It keeps successful context when that context explains why a failed
@@ -52,7 +51,7 @@ show both the missing condition and the evidence that made it relevant.
 ## Evidence
 
 Evidence is reconstructed from user-written facts and deterministic compiler
-closures. It should answer practical modeling questions:
+closures. Each explanation should answer:
 
 - which DSL facts made this obligation apply;
 - which expected DSL fact is missing;

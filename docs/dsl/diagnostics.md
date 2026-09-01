@@ -1,4 +1,4 @@
-# Diagnostics Guide
+# Diagnostics guide
 
 [Docs home](../README.md) · [Project README](../../README.md)
 
@@ -7,7 +7,7 @@ The DSL frontend saves a VS Code diagnostics widget for each
 commands. The widget is saved when the command reaches a terminal success or
 failure path; it is presentation data, not proof evidence.
 
-## What The Widget Shows
+## What the widget shows
 
 - model name;
 - declared worlds and things with generated finite indices;
@@ -39,7 +39,7 @@ directly for the child. On failed models, this section shows the completed
 fields before the first failure. On successful models, it is the same
 fallback-aware status recorded in the certificate manifest.
 
-## Counterexample Confirmation
+## Counterexample confirmation
 
 When a generated certificate fails, the frontend runs a separate negative probe.
 
@@ -53,7 +53,7 @@ proof was found. That branch is not a semantic counterexample. It is classified
 as either a heartbeat/timeout-style counterexample-probe limit when Lean reports
 one, or as an unclassified probe failure when no timeout marker is recognized.
 
-So the reliable reading is:
+Read the three outcomes as follows:
 
 - confirmed counterexample: kernel-checked proof of the axiom's negation;
 - timeout-style probe failure: operational probe limit, not model
@@ -61,10 +61,10 @@ So the reliable reading is:
 - unclassified probe failure: implementation issue to investigate, not model
   evidence.
 
-## Paired Example
+## Paired example
 
-The following model makes `EnrollmentClassifier` a rigid sortal object type but
-does not classify it as a `Kind` or `SubKind`:
+This model makes `EnrollmentClassifier` a rigid sortal object type without
+classifying it as a `Kind` or `SubKind`:
 
 ```lean
 ufo_model FailedEnrollmentClassifier : UFO where
@@ -87,7 +87,7 @@ Certification stops at `ax26` and presents the counterexample as follows:
 
 ![Diagnostic card showing the ax26 counterexample for EnrollmentClassifier](../assets/diagnostic-card.svg)
 
-## Condition Headings
+## Condition headings
 
 Counterexample boxes use headings that describe the shape of the failed
 obligation:
@@ -107,7 +107,7 @@ For a witness obligation, the same information is presented as a diagnostic card
 
 The user needs a witness satisfying all listed requirements.
 
-## Inspectable Failed Examples
+## Inspectable failed examples
 
 The concrete examples directory includes expected-failure files that are useful
 when inspecting diagnostics in VS Code. `LeanUfo.UFO.DSL.Examples` does not
@@ -133,17 +133,17 @@ LeanUfo/UFO/DSL/ConcreteExamples/FailedReuseConstitutionExtension.lean
 The child extension reuses many early checks from its base model, then fails at
 `ax61` after adding symmetric `ConstitutedBy` facts.
 
-## Suggestions And Evidence
+## Suggestions and evidence
 
 Suggestions use layout-neutral wording such as "this counterexample", so the
 same text works in the VS Code widget and terminal output.
 
 Evidence lines show the finite DSL facts that made the obligation apply.
 
-## Checker-Aware Counterexamples
+## Checker-aware counterexamples
 
-Most checker-backed axioms with direct completeness theorems now use a
-checker-aware negative probe.  The probe proves `¬ axN` by contradiction: if
+Checker-backed axioms with direct completeness theorems use a checker-aware
+negative probe. The probe proves `¬ axN` by contradiction: if
 the semantic axiom proposition held, `checkAxN_complete` would force the
 Boolean checker to return `true`; for the failing finite model,
 `native_decide` computes `checkAxN data = false`.
@@ -154,12 +154,12 @@ unique non-moment ultimate bearer through the finite `InheresIn` closure. The
 positive certificate path is proved against the inductive `MomentOf` semantics,
 and the negative path uses `checkAx68_complete`.
 
-For users, the diagnostic text already reports the finite closure reason:
+The diagnostic reports the finite closure failure directly:
 
 - no reachable non-moment ultimate bearer exists for a moment; or
 - more than one reachable non-moment ultimate bearer exists.
 
-This means direct negative fixtures for checker fields can count as managed
+Direct negative fixtures for checker fields can therefore count as managed
 semantic counterexamples when the checker reports failure. The
 prerequisite-dependent §3.10 fields `ax73`, `ax78`, and `ax79` use the same
 pattern with explicit prerequisite checks before applying their

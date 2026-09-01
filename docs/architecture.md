@@ -1,4 +1,4 @@
-# Project Architecture
+# Project architecture
 
 [Docs home](README.md) · [Project README](../README.md)
 
@@ -8,10 +8,11 @@ Lean UFO has two connected layers:
 2. a finite DSL that compiles small named models and certifies them against the
    formalized axiom package.
 
-This page gives the project-level map. For the detailed DSL compiler/checker
-pipeline, see the [DSL architecture](dsl/architecture.md).
+The diagram below shows how the semantic formalization, finite DSL, generated
+proofs, diagnostics, and tests fit together. The [DSL architecture](dsl/architecture.md)
+covers the compiler and checker in detail.
 
-## System Map
+## System map
 
 ```mermaid
 flowchart TD
@@ -50,7 +51,7 @@ separate ontology: it builds finite `UFOSignature4` interpretations and proves
 that they satisfy the same `UFOAxioms4` package used by the rest of the
 repository.
 
-## Core Formalization
+## Core formalization
 
 The core lives under `LeanUfo/UFO/`.
 
@@ -78,7 +79,7 @@ The consistency checkpoints are model-existence theorems. They establish joint
 satisfiability of the packaged semantic axioms relative to Lean's metatheory and
 the chosen S5 semantics. They are not proof-theoretic consistency results.
 
-## Finite DSL Layer
+## Finite DSL layer
 
 The DSL lives under `LeanUfo/UFO/DSL/`.
 
@@ -114,11 +115,11 @@ declarations:
 Example.certified : UFOAxioms4 Example.sig
 ```
 
-So a successful DSL model is not merely accepted by a custom tool. It leaves a
-Lean-checked theorem proving that the generated finite semantic signature
-satisfies the encoded UFO axioms.
+A successful DSL model leaves a Lean-checked theorem that its generated finite
+semantic signature satisfies the encoded UFO axioms. Acceptance by the command
+frontend alone is not the certificate.
 
-## Certificates And Diagnostics
+## Certificates and diagnostics
 
 The DSL has two proof-related paths.
 
@@ -142,10 +143,10 @@ counterexample when Lean checks a proof of the failed axiom's negation for the
 generated finite model. Otherwise the diagnostic reports missing witness data,
 a timeout-style probe limit, or an unclassified probe failure.
 
-## Formal Guarantees
+## Formal guarantees
 
-The central theorem map is [Formal guarantees](guarantees.md). At project level,
-the main guarantee layers are:
+[Formal guarantees](guarantees.md) maps the following guarantee layers to their
+Lean theorems:
 
 - **core semantic theorems** in `Core/Section*.lean` and `Core/S5_Derived.lean`;
 - **ordinary witness-model consistency checkpoints** in `FormalAnalysis/Satisfiability/`;
@@ -164,13 +165,13 @@ checkAxioms4_sound :
   UFOAxioms4 M.toUFOSignature4
 ```
 
-This theorem connects the executable finite checker to the Prop-valued semantic
+The theorem connects the executable finite checker to the Prop-valued semantic
 axiom package. The formal-guarantees page gives the more detailed theorem map
 for name resolution, table compilation, semantic bridging, checker
-soundness/completeness, certificate reuse, diagnostics, and operational cost
-step bounds.
+soundness and completeness, certificate reuse, diagnostics, and operational
+cost bounds.
 
-## Trust Boundary
+## Trust boundary
 
 The trusted boundary is explicit.
 
@@ -184,9 +185,10 @@ The trusted boundary is explicit.
 The [DSL architecture](dsl/architecture.md) gives the more detailed trust
 boundary for each DSL transformation.
 
-## Tests And CI
+## Tests and CI
 
-The test layer (i.e., **test coverage and negative witness coverage** under `LeanUfo/Test/`) checks several different claims:
+The tests under `LeanUfo/Test/` cover both regression behavior and negative
+witnesses:
 
 - positive DSL examples still certify;
 - negative fixtures fail at the intended axiom;
@@ -209,7 +211,7 @@ is expected to fail until every registered axiom has a direct negative fixture.
 See the [testing guide](testing.md) for the current test profiles and CI
 expectations.
 
-## Reading Next
+## Reading next
 
 - [Theoretical notes](theory.md) for modal choices, milestones, S5 consequences,
   and explicit bridge assumptions.
