@@ -4,8 +4,25 @@ import LeanUfo.UFO.DSL.Checker.Axioms
 # Soundness and completeness for checker-backed axioms
 
 These theorems are the reusable proof boundary used by generated DSL
-certificates.  A concrete model only has to evaluate the Boolean checker; the
+certificates. A concrete model only has to evaluate the Boolean checker; the
 semantic axiom proof follows from the corresponding theorem here.
+
+For each axiom, the file normally proves three views of one result:
+
+* **soundness:** if the checker returns `true`, the semantic axiom holds;
+* **completeness:** if the semantic axiom holds, the checker returns `true`;
+* **reflection:** the Boolean equality and semantic proposition are equivalent.
+
+This organization follows the same broad verified-implementation principle as
+de Moura's `RadixExperiment`: keep the executable representation efficient,
+then prove locally that it denotes the intended logical object. We use that
+principle for checker tables and finite quantifiers; the radix-tree algorithms
+themselves are not part of this project.
+
+The operational cost proofs remain in
+`Complexity/`. Semantic equivalence answers “does the program decide the right
+axiom?”, while a cost theorem answers “how much counted work does it perform?”.
+Neither statement substitutes for the other.
 -/
 
 namespace LeanUfo.UFO.DSL
@@ -19,7 +36,9 @@ private theorem finiteMemberOf_iff
 
 private theorem checkAx1_correct (M : FiniteModel4) :
     checkAx1 M = true ↔ ax_a1 M.toUFOSignature4.toUFOSignature3_1 := by
-  unfold checkAx1 ax_a1 typeB iffB allThings allWorlds anyWorlds anyThings
+  rw [checkAx1_eq_legacy]
+  simp only [typeB_eq_legacy]
+  unfold ax_a1 iffB allThings allWorlds anyWorlds anyThings
   simp [FiniteModel4.toUFOSignature4, FiniteModel4.typeSem, FiniteModel4.toS5Frame,
     Frame.Dia]
 
@@ -37,7 +56,9 @@ theorem checkAx1_iff (M : FiniteModel4) :
 
 private theorem checkAx2_correct (M : FiniteModel4) :
     checkAx2 M = true ↔ ax_a2 M.toUFOSignature4.toUFOSignature3_1 := by
-  unfold checkAx2 ax_a2 individualB iffB allThings allWorlds anyWorlds anyThings
+  rw [checkAx2_eq_legacy]
+  simp only [individualB_eq_legacy]
+  unfold ax_a2 iffB allThings allWorlds anyWorlds anyThings
   simp [FiniteModel4.toUFOSignature4, FiniteModel4.individualSem,
     FiniteModel4.toS5Frame, Frame.Box]
   grind
@@ -56,7 +77,9 @@ theorem checkAx2_iff (M : FiniteModel4) :
 
 private theorem checkAx3_correct (M : FiniteModel4) :
     checkAx3 M = true ↔ ax_a3 M.toUFOSignature4.toUFOSignature3_1 := by
-  unfold checkAx3 ax_a3 typeB individualB allThings allWorlds anyWorlds anyThings impliesB
+  rw [checkAx3_eq_legacy]
+  simp only [typeB_eq_legacy, individualB_eq_legacy]
+  unfold ax_a3 allThings allWorlds anyWorlds anyThings impliesB
   simp [FiniteModel4.toUFOSignature4, FiniteModel4.typeSem,
     FiniteModel4.individualSem]
   grind
@@ -75,7 +98,9 @@ theorem checkAx3_iff (M : FiniteModel4) :
 
 private theorem checkAx4_correct (M : FiniteModel4) :
     checkAx4 M = true ↔ ax_a4 M.toUFOSignature4.toUFOSignature3_1 := by
-  unfold checkAx4 ax_a4 typeB allThings allWorlds anyWorlds anyThings
+  rw [checkAx4_eq_legacy]
+  simp only [typeB_eq_legacy]
+  unfold ax_a4 allThings allWorlds anyWorlds anyThings
   simp [FiniteModel4.toUFOSignature4, FiniteModel4.typeSem]
   grind
 
@@ -93,7 +118,10 @@ theorem checkAx4_iff (M : FiniteModel4) :
 
 private theorem checkAx5_correct (M : FiniteModel4) :
     checkAx5 M = true ↔ ax_a5 M.toUFOSignature4.toUFOSignature3_1 := by
-  unfold checkAx5 ax_a5 subDefB typeB iffB allThings allWorlds anyWorlds anyThings
+  rw [checkAx5_eq_legacy]
+  simp only [subDefB_eq_legacy]
+  simp only [typeB_eq_legacy]
+  unfold ax_a5 iffB allThings allWorlds anyWorlds anyThings
   simp [FiniteModel4.toUFOSignature4, FiniteModel4.typeSem, FiniteModel4.toS5Frame,
     Frame.Box]
   grind
@@ -112,7 +140,8 @@ theorem checkAx5_iff (M : FiniteModel4) :
 
 private theorem checkAx6_correct (M : FiniteModel4) :
     checkAx6 M = true ↔ ax_a6 M.toUFOSignature4.toUFOSignature3_1 := by
-  unfold checkAx6 ax_a6 allThings allWorlds anyThings impliesB
+  rw [checkAx6_eq_legacy]
+  unfold ax_a6 allThings allWorlds anyThings impliesB
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -130,7 +159,9 @@ theorem checkAx6_iff (M : FiniteModel4) :
 
 private theorem checkAx7_correct (M : FiniteModel4) :
     checkAx7 M = true ↔ ax_a7 M.toUFOSignature4.toUFOSignature3_1 := by
-  unfold checkAx7 ax_a7 individualB allThings allWorlds anyWorlds anyThings impliesB
+  rw [checkAx7_eq_legacy]
+  simp only [individualB_eq_legacy]
+  unfold ax_a7 allThings allWorlds anyWorlds anyThings impliesB
   simp [FiniteModel4.toUFOSignature4, FiniteModel4.individualSem]
   grind
 
@@ -148,7 +179,9 @@ theorem checkAx7_iff (M : FiniteModel4) :
 
 private theorem checkAx8_correct (M : FiniteModel4) :
     checkAx8 M = true ↔ ax_a8 M.toUFOSignature4.toUFOSignature3_1 := by
-  unfold checkAx8 ax_a8 individualB allThings allWorlds anyWorlds anyThings impliesB
+  rw [checkAx8_eq_legacy]
+  simp only [individualB_eq_legacy]
+  unfold ax_a8 allThings allWorlds anyWorlds anyThings impliesB
   simp [FiniteModel4.toUFOSignature4, FiniteModel4.individualSem]
   grind
 
@@ -166,7 +199,8 @@ theorem checkAx8_iff (M : FiniteModel4) :
 
 private theorem checkAx9_correct (M : FiniteModel4) :
     checkAx9 M = true ↔ ax_a9 M.toUFOSignature4.toUFOSignature3_1 := by
-  unfold checkAx9 ax_a9 allThings allWorlds impliesB
+  rw [checkAx9_eq_legacy]
+  unfold ax_a9 allThings allWorlds impliesB
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -184,7 +218,9 @@ theorem checkAx9_iff (M : FiniteModel4) :
 
 private theorem checkAx10_correct (M : FiniteModel4) :
     checkAx10 M = true ↔ ax_a10 M.toUFOSignature4.toUFOSignature3_1 := by
-  unfold checkAx10 ax_a10 individualB iffB allThings allWorlds anyWorlds anyThings
+  rw [checkAx10_eq_legacy]
+  simp only [individualB_eq_legacy]
+  unfold ax_a10 iffB allThings allWorlds anyWorlds anyThings
   simp [FiniteModel4.toUFOSignature4, FiniteModel4.individualSem]
   grind
 
@@ -202,7 +238,8 @@ theorem checkAx10_iff (M : FiniteModel4) :
 
 private theorem checkAx11_correct (M : FiniteModel4) :
     checkAx11 M = true ↔ ax_a11 M.toUFOSignature4.toUFOSignature3_1 := by
-  unfold checkAx11 ax_a11 allThings allWorlds impliesB
+  rw [checkAx11_eq_legacy]
+  unfold ax_a11 allThings allWorlds impliesB
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -220,7 +257,8 @@ theorem checkAx11_iff (M : FiniteModel4) :
 
 private theorem checkAx12_correct (M : FiniteModel4) :
     checkAx12 M = true ↔ ax_a12 M.toUFOSignature4.toUFOSignature3_1 := by
-  unfold checkAx12 ax_a12 allThings allWorlds impliesB
+  rw [checkAx12_eq_legacy]
+  unfold ax_a12 allThings allWorlds impliesB
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -238,7 +276,8 @@ theorem checkAx12_iff (M : FiniteModel4) :
 
 private theorem checkAx13_correct (M : FiniteModel4) :
     checkAx13 M = true ↔ ax_a13 M.toUFOSignature4.toUFOSignature3_1 := by
-  unfold checkAx13 ax_a13 allThings allWorlds impliesB
+  rw [checkAx13_eq_legacy]
+  unfold ax_a13 allThings allWorlds impliesB
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -256,7 +295,8 @@ theorem checkAx13_iff (M : FiniteModel4) :
 
 private theorem checkAx14_correct (M : FiniteModel4) :
     checkAx14 M = true ↔ ax_a14 M.toUFOSignature4.toUFOSignature3_1 := by
-  unfold checkAx14 ax_a14 iffB allThings allWorlds
+  rw [checkAx14_eq_legacy]
+  unfold ax_a14 iffB allThings allWorlds
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -274,7 +314,9 @@ theorem checkAx14_iff (M : FiniteModel4) :
 
 private theorem checkAx15_correct (M : FiniteModel4) :
     checkAx15 M = true ↔ ax_a15 M.toUFOSignature4.toUFOSignature3_1 := by
-  unfold checkAx15 ax_a15 typeB allThings allWorlds anyWorlds anyThings impliesB
+  rw [checkAx15_eq_legacy]
+  simp only [typeB_eq_legacy]
+  unfold ax_a15 allThings allWorlds anyWorlds anyThings impliesB
   simp [FiniteModel4.toUFOSignature4, FiniteModel4.typeSem]
   grind
 
@@ -292,7 +334,9 @@ theorem checkAx15_iff (M : FiniteModel4) :
 
 private theorem checkAx16_correct (M : FiniteModel4) :
     checkAx16 M = true ↔ ax_a16 M.toUFOSignature4.toUFOSignature3_1 := by
-  unfold checkAx16 ax_a16 typeB allThings allWorlds anyWorlds anyThings impliesB
+  rw [checkAx16_eq_legacy]
+  simp only [typeB_eq_legacy]
+  unfold ax_a16 allThings allWorlds anyWorlds anyThings impliesB
   simp [FiniteModel4.toUFOSignature4, FiniteModel4.typeSem]
   grind
 
@@ -310,7 +354,8 @@ theorem checkAx16_iff (M : FiniteModel4) :
 
 private theorem checkAx17_correct (M : FiniteModel4) :
     checkAx17 M = true ↔ ax_a17 M.toUFOSignature4.toUFOSignature3_1 := by
-  unfold checkAx17 ax_a17 allThings allWorlds impliesB
+  rw [checkAx17_eq_legacy]
+  unfold ax_a17 allThings allWorlds impliesB
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -328,7 +373,8 @@ theorem checkAx17_iff (M : FiniteModel4) :
 
 private theorem checkAx18_correct (M : FiniteModel4) :
     checkAx18 M = true ↔ ax_a18 M.toUFOSignature4.toUFOSignature3_2 := by
-  unfold checkAx18 ax_a18 iffB allThings allWorlds anyWorlds impliesB
+  rw [checkAx18_eq_legacy]
+  unfold ax_a18 iffB allThings allWorlds anyWorlds impliesB
   simp [FiniteModel4.toUFOSignature4, FiniteModel4.toS5Frame, Frame.Dia, Frame.Box]
   grind
 
@@ -346,7 +392,8 @@ theorem checkAx18_iff (M : FiniteModel4) :
 
 private theorem checkAx19_correct (M : FiniteModel4) :
     checkAx19 M = true ↔ ax_a19 M.toUFOSignature4.toUFOSignature3_2 := by
-  unfold checkAx19 ax_a19 iffB allThings allWorlds anyWorlds impliesB
+  rw [checkAx19_eq_legacy]
+  unfold ax_a19 iffB allThings allWorlds anyWorlds impliesB
   simp [FiniteModel4.toUFOSignature4, FiniteModel4.toS5Frame, Frame.Dia]
   grind
 
@@ -364,7 +411,8 @@ theorem checkAx19_iff (M : FiniteModel4) :
 
 private theorem checkAx20_correct (M : FiniteModel4) :
     checkAx20 M = true ↔ ax_a20 M.toUFOSignature4.toUFOSignature3_2 := by
-  unfold checkAx20 ax_a20 iffB allThings allWorlds
+  rw [checkAx20_eq_legacy]
+  unfold ax_a20 iffB allThings allWorlds
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -382,7 +430,8 @@ theorem checkAx20_iff (M : FiniteModel4) :
 
 private theorem checkAx21_correct (M : FiniteModel4) :
     checkAx21 M = true ↔ ax_a21 M.toUFOSignature4.toUFOSignature3_2 := by
-  unfold checkAx21 ax_a21 allThings allWorlds anyThings impliesB
+  rw [checkAx21_eq_legacy]
+  unfold ax_a21 allThings allWorlds anyThings impliesB
   simp [FiniteModel4.toUFOSignature4, FiniteModel4.toS5Frame, Frame.Box]
   grind
 
@@ -400,7 +449,8 @@ theorem checkAx21_iff (M : FiniteModel4) :
 
 private theorem checkAx22_correct (M : FiniteModel4) :
     checkAx22 M = true ↔ ax_a22 M.toUFOSignature4.toUFOSignature3_2 := by
-  unfold checkAx22 ax_a22 allThings allWorlds anyWorlds anyThings impliesB
+  rw [checkAx22_eq_legacy]
+  unfold ax_a22 allThings allWorlds anyWorlds anyThings impliesB
   simp [FiniteModel4.toUFOSignature4, FiniteModel4.toS5Frame, Frame.Dia]
   grind
 
@@ -418,7 +468,8 @@ theorem checkAx22_iff (M : FiniteModel4) :
 
 private theorem checkAx23_correct (M : FiniteModel4) :
     checkAx23 M = true ↔ ax_a23 M.toUFOSignature4.toUFOSignature3_2 := by
-  unfold checkAx23 ax_a23 iffB allThings allWorlds anyThings impliesB
+  rw [checkAx23_eq_legacy]
+  unfold ax_a23 iffB allThings allWorlds anyThings impliesB
   simp [FiniteModel4.toUFOSignature4, FiniteModel4.toS5Frame, Frame.Box]
   grind
 
@@ -436,7 +487,8 @@ theorem checkAx23_iff (M : FiniteModel4) :
 
 private theorem checkAx24_correct (M : FiniteModel4) :
     checkAx24 M = true ↔ ax_a24 M.toUFOSignature4.toUFOSignature3_2 := by
-  unfold checkAx24 ax_a24 iffB allThings allWorlds
+  rw [checkAx24_eq_legacy]
+  unfold ax_a24 iffB allThings allWorlds
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -454,7 +506,8 @@ theorem checkAx24_iff (M : FiniteModel4) :
 
 private theorem checkAx25_correct (M : FiniteModel4) :
     checkAx25 M = true ↔ ax_a25 M.toUFOSignature4.toUFOSignature3_2 := by
-  unfold checkAx25 ax_a25 allThings allWorlds
+  rw [checkAx25_eq_legacy]
+  unfold ax_a25 allThings allWorlds
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -472,7 +525,8 @@ theorem checkAx25_iff (M : FiniteModel4) :
 
 private theorem checkAx26_correct (M : FiniteModel4) :
     checkAx26 M = true ↔ ax_a26 M.toUFOSignature4.toUFOSignature3_2 := by
-  unfold checkAx26 ax_a26 iffB allThings allWorlds
+  rw [checkAx26_eq_legacy]
+  unfold ax_a26 iffB allThings allWorlds
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -490,7 +544,8 @@ theorem checkAx26_iff (M : FiniteModel4) :
 
 private theorem checkAx27_correct (M : FiniteModel4) :
     checkAx27 M = true ↔ ax_a27 M.toUFOSignature4.toUFOSignature3_2 := by
-  unfold checkAx27 ax_a27 allThings allWorlds
+  rw [checkAx27_eq_legacy]
+  unfold ax_a27 allThings allWorlds
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -508,7 +563,8 @@ theorem checkAx27_iff (M : FiniteModel4) :
 
 private theorem checkAx28_correct (M : FiniteModel4) :
     checkAx28 M = true ↔ ax_a28 M.toUFOSignature4.toUFOSignature3_2 := by
-  unfold checkAx28 ax_a28 iffB allThings allWorlds
+  rw [checkAx28_eq_legacy]
+  unfold ax_a28 iffB allThings allWorlds
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -526,7 +582,8 @@ theorem checkAx28_iff (M : FiniteModel4) :
 
 private theorem checkAx29_correct (M : FiniteModel4) :
     checkAx29 M = true ↔ ax_a29 M.toUFOSignature4.toUFOSignature3_2 := by
-  unfold checkAx29 ax_a29 iffB allThings allWorlds
+  rw [checkAx29_eq_legacy]
+  unfold ax_a29 iffB allThings allWorlds
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -544,7 +601,8 @@ theorem checkAx29_iff (M : FiniteModel4) :
 
 private theorem checkAx30_correct (M : FiniteModel4) :
     checkAx30 M = true ↔ ax_a30 M.toUFOSignature4.toUFOSignature3_2 := by
-  unfold checkAx30 ax_a30 iffB allThings allWorlds
+  rw [checkAx30_eq_legacy]
+  unfold ax_a30 iffB allThings allWorlds
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -562,7 +620,8 @@ theorem checkAx30_iff (M : FiniteModel4) :
 
 private theorem checkAx31_correct (M : FiniteModel4) :
     checkAx31 M = true ↔ ax_a31 M.toUFOSignature4.toUFOSignature3_2 := by
-  unfold checkAx31 ax_a31 iffB allThings allWorlds
+  rw [checkAx31_eq_legacy]
+  unfold ax_a31 iffB allThings allWorlds
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -580,7 +639,8 @@ theorem checkAx31_iff (M : FiniteModel4) :
 
 private theorem checkAx32_correct (M : FiniteModel4) :
     checkAx32 M = true ↔ ax_a32 M.toUFOSignature4.toUFOSignature3_2 := by
-  unfold checkAx32 ax_a32 allThings allWorlds
+  rw [checkAx32_eq_legacy]
+  unfold ax_a32 allThings allWorlds
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -598,7 +658,8 @@ theorem checkAx32_iff (M : FiniteModel4) :
 
 private theorem checkAx33_correct (M : FiniteModel4) :
     checkAx33 M = true ↔ ax_a33 M.toUFOSignature4.toUFOSignature3_2 := by
-  unfold checkAx33 ax_a33 iffB allThings allWorlds
+  rw [checkAx33_eq_legacy]
+  unfold ax_a33 iffB allThings allWorlds
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -617,7 +678,8 @@ theorem checkAx33_iff (M : FiniteModel4) :
 private theorem checkAxInstEndurant_correct (M : FiniteModel4) :
     checkAxInstEndurant M = true ↔
       ax_instEndurant_of_EndurantType (Sig := M.toUFOSignature4.toUFOSignature3_2) := by
-  unfold checkAxInstEndurant ax_instEndurant_of_EndurantType allThings allWorlds impliesB
+  rw [checkAxInstEndurant_eq_legacy]
+  unfold ax_instEndurant_of_EndurantType allThings allWorlds impliesB
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -634,7 +696,8 @@ theorem checkAxInstEndurant_complete (M : FiniteModel4) :
 private theorem checkAxSubKindSortal_correct (M : FiniteModel4) :
     checkAxSubKindSortal M = true ↔
       ax_sub_of_kind_is_sortal (Sig := M.toUFOSignature4.toUFOSignature3_2) := by
-  unfold checkAxSubKindSortal ax_sub_of_kind_is_sortal allThings allWorlds impliesB
+  rw [checkAxSubKindSortal_eq_legacy]
+  unfold ax_sub_of_kind_is_sortal allThings allWorlds impliesB
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -651,7 +714,8 @@ theorem checkAxSubKindSortal_complete (M : FiniteModel4) :
 private theorem checkAxNonSortalUp_correct (M : FiniteModel4) :
     checkAxNonSortalUp M = true ↔
       ax_nonSortal_upward (Sig := M.toUFOSignature4.toUFOSignature3_2) := by
-  unfold checkAxNonSortalUp ax_nonSortal_upward allThings allWorlds impliesB
+  rw [checkAxNonSortalUp_eq_legacy]
+  unfold ax_nonSortal_upward allThings allWorlds impliesB
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -667,7 +731,8 @@ theorem checkAxNonSortalUp_complete (M : FiniteModel4) :
 
 private theorem checkAxKindStable_correct (M : FiniteModel4) :
     checkAxKindStable M = true ↔ ax_kindStable M.toUFOSignature4.toUFOSignature3_2 := by
-  unfold checkAxKindStable ax_kindStable allThings allWorlds impliesB
+  rw [checkAxKindStable_eq_legacy]
+  unfold ax_kindStable allThings allWorlds impliesB
   simp [FiniteModel4.toUFOSignature4, FiniteModel4.toS5Frame]
   grind
 
@@ -682,12 +747,14 @@ theorem checkAxKindStable_complete (M : FiniteModel4) :
 private theorem qualityB_eq_true_iff
     (M : FiniteModel4) (x : Fin M.thingCount) (w : Fin M.worldCount) :
     qualityB M x w = true ↔ Quality M.toUFOSignature4.toUFOSignature3_3 x w := by
-  unfold qualityB Quality
+  rw [qualityB_eq_legacy]
+  unfold Quality
   simp [FiniteModel4.toUFOSignature4, ExistsUnique]
 
 private theorem checkAx34_correct (M : FiniteModel4) :
     checkAx34 M = true ↔ ax_a34 M.toUFOSignature4.toUFOSignature3_3 := by
-  unfold checkAx34 ax_a34 iffB allThings allWorlds
+  rw [checkAx34_eq_legacy]
+  unfold ax_a34 iffB allThings allWorlds
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -701,7 +768,8 @@ theorem checkAx34_complete (M : FiniteModel4) :
 
 private theorem checkAx35_correct (M : FiniteModel4) :
     checkAx35 M = true ↔ ax_a35 M.toUFOSignature4.toUFOSignature3_3 := by
-  unfold checkAx35 ax_a35 allThings allWorlds
+  rw [checkAx35_eq_legacy]
+  unfold ax_a35 allThings allWorlds
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -715,7 +783,8 @@ theorem checkAx35_complete (M : FiniteModel4) :
 
 private theorem checkAx36_correct (M : FiniteModel4) :
     checkAx36 M = true ↔ ax_a36 M.toUFOSignature4.toUFOSignature3_3 := by
-  unfold checkAx36 ax_a36 iffB allThings allWorlds
+  rw [checkAx36_eq_legacy]
+  unfold ax_a36 iffB allThings allWorlds
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -729,7 +798,8 @@ theorem checkAx36_complete (M : FiniteModel4) :
 
 private theorem checkAx37_correct (M : FiniteModel4) :
     checkAx37 M = true ↔ ax_a37 M.toUFOSignature4.toUFOSignature3_3 := by
-  unfold checkAx37 ax_a37 allThings allWorlds
+  rw [checkAx37_eq_legacy]
+  unfold ax_a37 allThings allWorlds
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -743,7 +813,8 @@ theorem checkAx37_complete (M : FiniteModel4) :
 
 private theorem checkAx38_correct (M : FiniteModel4) :
     checkAx38 M = true ↔ ax_a38 M.toUFOSignature4.toUFOSignature3_3 := by
-  unfold checkAx38 ax_a38 allThings allWorlds
+  rw [checkAx38_eq_legacy]
+  unfold ax_a38 allThings allWorlds
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -757,7 +828,8 @@ theorem checkAx38_complete (M : FiniteModel4) :
 
 private theorem checkAx39_correct (M : FiniteModel4) :
     checkAx39 M = true ↔ ax_a39 M.toUFOSignature4.toUFOSignature3_3 := by
-  unfold checkAx39 ax_a39 allThings allWorlds
+  rw [checkAx39_eq_legacy]
+  unfold ax_a39 allThings allWorlds
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -771,7 +843,8 @@ theorem checkAx39_complete (M : FiniteModel4) :
 
 private theorem checkAx40_correct (M : FiniteModel4) :
     checkAx40 M = true ↔ ax_a40 M.toUFOSignature4.toUFOSignature3_3 := by
-  unfold checkAx40 ax_a40 iffB allThings allWorlds
+  rw [checkAx40_eq_legacy]
+  unfold ax_a40 iffB allThings allWorlds
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -785,7 +858,8 @@ theorem checkAx40_complete (M : FiniteModel4) :
 
 private theorem checkAx41_correct (M : FiniteModel4) :
     checkAx41 M = true ↔ ax_a41 M.toUFOSignature4.toUFOSignature3_3 := by
-  unfold checkAx41 ax_a41 allThings allWorlds
+  rw [checkAx41_eq_legacy]
+  unfold ax_a41 allThings allWorlds
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -799,7 +873,9 @@ theorem checkAx41_complete (M : FiniteModel4) :
 
 private theorem checkAx42_correct (M : FiniteModel4) :
     checkAx42 M = true ↔ ax_a42 M.toUFOSignature4.toUFOSignature3_3 := by
-  unfold checkAx42 ax_a42 iffB allThings allWorlds qualityB Quality
+  rw [checkAx42_eq_legacy]
+  simp_rw [qualityB_eq_legacy]
+  unfold ax_a42 iffB allThings allWorlds Quality
   simp [FiniteModel4.toUFOSignature4, ExistsUnique]
   grind
 
@@ -813,7 +889,9 @@ theorem checkAx42_complete (M : FiniteModel4) :
 
 private theorem checkAx43_correct (M : FiniteModel4) :
     checkAx43 M = true ↔ ax_a43 M.toUFOSignature4.toUFOSignature3_3 := by
-  unfold checkAx43 ax_a43 allThings allWorlds qualityB Quality
+  rw [checkAx43_eq_legacy]
+  simp_rw [qualityB_eq_legacy]
+  unfold ax_a43 allThings allWorlds Quality
   simp [FiniteModel4.toUFOSignature4, ExistsUnique]
   grind
 
@@ -836,7 +914,9 @@ private theorem typeByInstancesB_correct
               (fun v => ∀ x : Fin M.thingCount,
                 M.toUFOSignature4.Inst x t v → leafPred x v = true)
               w) := by
-  unfold typeByInstancesB typeB iffB allThings allWorlds anyWorlds anyThings impliesB
+  rw [typeByInstancesB_eq_legacy]
+  simp only [typeB_eq_legacy]
+  unfold iffB allThings allWorlds anyWorlds anyThings impliesB
   simp [FiniteModel4.toUFOSignature4, FiniteModel4.typeSem, FiniteModel4.toS5Frame,
     Frame.Box]
   grind
@@ -844,7 +924,10 @@ private theorem typeByInstancesB_correct
 private theorem qualityTypeByInstancesB_correct (M : FiniteModel4) :
     typeByInstancesB M M.qualityType (qualityB M) = true ↔
       ax_a44_qualityType M.toUFOSignature4.toUFOSignature3_4 := by
-  unfold typeByInstancesB ax_a44_qualityType typeB qualityB Quality iffB
+  rw [typeByInstancesB_eq_legacy]
+  simp only [typeB_eq_legacy]
+  simp_rw [qualityB_eq_legacy]
+  unfold ax_a44_qualityType Quality iffB
     allThings allWorlds anyWorlds anyThings impliesB
   simp [FiniteModel4.toUFOSignature4, FiniteModel4.typeSem, FiniteModel4.toS5Frame,
     Frame.Box, ExistsUnique]
@@ -852,7 +935,8 @@ private theorem qualityTypeByInstancesB_correct (M : FiniteModel4) :
 
 private theorem checkAx44_correct (M : FiniteModel4) :
     checkAx44 M = true ↔ ax_a44 M.toUFOSignature4.toUFOSignature3_4 := by
-  unfold checkAx44 ax_a44 ax_a44_endurantType ax_a44_perdurantType
+  rw [checkAx44_eq_legacy]
+  unfold ax_a44 ax_a44_endurantType ax_a44_perdurantType
     ax_a44_substantialType ax_a44_momentType ax_a44_objectType
     ax_a44_collectiveType ax_a44_quantityType ax_a44_relatorType
     ax_a44_modeType
@@ -895,9 +979,11 @@ theorem checkAx44_complete (M : FiniteModel4) :
 
 private theorem checkAx45_correct (M : FiniteModel4) :
     checkAx45 M = true ↔ ax_a45 M.toUFOSignature4.toUFOSignature3_4 := by
-  unfold checkAx45 ax_a45 ax_a45_objectKind ax_a45_collectiveKind
+  rw [checkAx45_eq_legacy]
+  simp_rw [kindByTypeB_eq_legacy]
+  unfold ax_a45 ax_a45_objectKind ax_a45_collectiveKind
     ax_a45_quantityKind ax_a45_relatorKind ax_a45_modeKind ax_a45_qualityKind
-    kindByTypeB iffB allThings allWorlds
+    iffB allThings allWorlds
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -911,7 +997,9 @@ theorem checkAx45_complete (M : FiniteModel4) :
 
 private theorem checkAx46_correct (M : FiniteModel4) :
     checkAx46 M = true ↔ ax_a46 M.toUFOSignature4.toUFOSignature3_4 := by
-  unfold checkAx46 ax_a46 specificEndurantKindB allThings allWorlds anyWorlds anyThings impliesB
+  rw [checkAx46_eq_legacy]
+  simp_rw [specificEndurantKindB_eq_legacy]
+  unfold ax_a46 allThings allWorlds anyWorlds anyThings impliesB
   simp [FiniteModel4.toUFOSignature4, FiniteModel4.toS5Frame, Frame.Dia]
   grind
 
@@ -925,7 +1013,8 @@ theorem checkAx46_complete (M : FiniteModel4) :
 
 private theorem checkAx47_correct (M : FiniteModel4) :
     checkAx47 M = true ↔ ax_a47 M.toUFOSignature4.toUFOSignature3_5 := by
-  unfold checkAx47 ax_a47 allThings allWorlds
+  rw [checkAx47_eq_legacy]
+  unfold ax_a47 allThings allWorlds
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -939,7 +1028,8 @@ theorem checkAx47_complete (M : FiniteModel4) :
 
 private theorem checkAx48_correct (M : FiniteModel4) :
     checkAx48 M = true ↔ ax_a48 M.toUFOSignature4.toUFOSignature3_5 := by
-  unfold checkAx48 ax_a48 allThings allWorlds impliesB
+  rw [checkAx48_eq_legacy]
+  unfold ax_a48 allThings allWorlds impliesB
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -953,7 +1043,8 @@ theorem checkAx48_complete (M : FiniteModel4) :
 
 private theorem checkAx49_correct (M : FiniteModel4) :
     checkAx49 M = true ↔ ax_a49 M.toUFOSignature4.toUFOSignature3_5 := by
-  unfold checkAx49 ax_a49 allThings allWorlds impliesB
+  rw [checkAx49_eq_legacy]
+  unfold ax_a49 allThings allWorlds impliesB
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -967,7 +1058,8 @@ theorem checkAx49_complete (M : FiniteModel4) :
 
 private theorem checkAx50_correct (M : FiniteModel4) :
     checkAx50 M = true ↔ ax_a50 M.toUFOSignature4.toUFOSignature3_5 := by
-  unfold checkAx50 ax_a50 allThings allWorlds anyThings iffB
+  rw [checkAx50_eq_legacy]
+  unfold ax_a50 allThings allWorlds anyThings iffB
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -981,7 +1073,8 @@ theorem checkAx50_complete (M : FiniteModel4) :
 
 private theorem checkAx51_correct (M : FiniteModel4) :
     checkAx51 M = true ↔ ax_a51 M.toUFOSignature4.toUFOSignature3_5 := by
-  unfold checkAx51 ax_a51 allThings allWorlds anyThings impliesB
+  rw [checkAx51_eq_legacy]
+  unfold ax_a51 allThings allWorlds anyThings impliesB
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -995,7 +1088,8 @@ theorem checkAx51_complete (M : FiniteModel4) :
 
 private theorem checkAx52_correct (M : FiniteModel4) :
     checkAx52 M = true ↔ ax_a52 M.toUFOSignature4.toUFOSignature3_5 := by
-  unfold checkAx52 ax_a52 allThings allWorlds iffB
+  rw [checkAx52_eq_legacy]
+  unfold ax_a52 allThings allWorlds iffB
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -1009,20 +1103,20 @@ theorem checkAx52_complete (M : FiniteModel4) :
 
 /--
 Local audit lemma for the Boolean/semantic helper boundary used by axiom 55.
-It is intentionally kept even when the current axiom proof can inline the
+It remains available even when the current axiom proof can inline the
 helper expansion.
 -/
 private theorem genericFunctionalDependenceB_eq_true_iff
     (M : FiniteModel4) (x' y' : Fin M.thingCount) (w : Fin M.worldCount) :
     genericFunctionalDependenceB M x' y' w = true ↔
       M.toUFOSignature4.GenericFunctionalDependence x' y' w := by
-  unfold genericFunctionalDependenceB
+  rw [genericFunctionalDependenceB_eq_legacy]
   simp [FiniteModel4.toUFOSignature4, allThings, anyThings, impliesB]
   grind
 
 /--
 Local audit lemma for the Boolean/semantic helper boundary used by axiom 55.
-It is intentionally kept even when the current axiom proof can inline the
+It remains available even when the current axiom proof can inline the
 helper expansion.
 -/
 private theorem individualFunctionalDependenceB_eq_true_iff
@@ -1030,13 +1124,14 @@ private theorem individualFunctionalDependenceB_eq_true_iff
     (x x' y y' : Fin M.thingCount) (w : Fin M.worldCount) :
     individualFunctionalDependenceB M x x' y y' w = true ↔
       M.toUFOSignature4.IndividualFunctionalDependence x x' y y' w := by
-  unfold individualFunctionalDependenceB
+  rw [individualFunctionalDependenceB_eq_legacy]
   simp [FiniteModel4.toUFOSignature4, genericFunctionalDependenceB_eq_true_iff, impliesB]
   grind
 
 private theorem checkAx53_correct (M : FiniteModel4) :
     checkAx53 M = true ↔ ax_a53 M.toUFOSignature4.toUFOSignature3_6 := by
-  unfold checkAx53 ax_a53 allThings allWorlds iffB
+  rw [checkAx53_eq_legacy]
+  unfold ax_a53 allThings allWorlds iffB
   simp [FiniteModel4.toUFOSignature4]
 
 theorem checkAx53_sound (M : FiniteModel4) :
@@ -1049,7 +1144,8 @@ theorem checkAx53_complete (M : FiniteModel4) :
 
 private theorem checkAx54_correct (M : FiniteModel4) :
     checkAx54 M = true ↔ ax_a54 M.toUFOSignature4.toUFOSignature3_6 := by
-  unfold checkAx54 ax_a54 allThings allWorlds iffB
+  rw [checkAx54_eq_legacy]
+  unfold ax_a54 allThings allWorlds iffB
   simp [FiniteModel4.toUFOSignature4]
 
 theorem checkAx54_sound (M : FiniteModel4) :
@@ -1062,8 +1158,11 @@ theorem checkAx54_complete (M : FiniteModel4) :
 
 private theorem checkAx55_correct (M : FiniteModel4) :
     checkAx55 M = true ↔ ax_a55 M.toUFOSignature4.toUFOSignature3_6 := by
-  unfold checkAx55 ax_a55 allThings allWorlds iffB individualFunctionalDependenceB
-    genericFunctionalDependenceB anyThings impliesB
+  rw [checkAx55_eq_legacy]
+  unfold ax_a55 allThings allWorlds iffB
+  simp_rw [individualFunctionalDependenceB_eq_legacy]
+  simp_rw [genericFunctionalDependenceB_eq_legacy]
+  unfold anyThings impliesB
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -1077,7 +1176,8 @@ theorem checkAx55_complete (M : FiniteModel4) :
 
 private theorem checkAx56_correct (M : FiniteModel4) :
     checkAx56 M = true ↔ ax_a56 M.toUFOSignature4.toUFOSignature3_7 := by
-  unfold checkAx56 ax_a56 allThings allWorlds iffB impliesB
+  rw [checkAx56_eq_legacy]
+  unfold ax_a56 allThings allWorlds iffB impliesB
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -1091,7 +1191,8 @@ theorem checkAx56_complete (M : FiniteModel4) :
 
 private theorem checkAx57_correct (M : FiniteModel4) :
     checkAx57 M = true ↔ ax_a57 M.toUFOSignature4.toUFOSignature3_7 := by
-  unfold checkAx57 ax_a57 allThings allWorlds impliesB
+  rw [checkAx57_eq_legacy]
+  unfold ax_a57 allThings allWorlds impliesB
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -1105,20 +1206,20 @@ theorem checkAx57_complete (M : FiniteModel4) :
 
 /--
 Local audit lemma for the Boolean/semantic helper boundary used by axiom 58.
-It is intentionally kept even when the current axiom proof can inline the
+It remains available even when the current axiom proof can inline the
 helper expansion.
 -/
 private theorem genericConstitutionalDependenceB_eq_true_iff
     (M : FiniteModel4) (x' y' : Fin M.thingCount) (w : Fin M.worldCount) :
     genericConstitutionalDependenceB M x' y' w = true ↔
       M.toUFOSignature4.GenericConstitutionalDependence x' y' w := by
-  unfold genericConstitutionalDependenceB
+  rw [genericConstitutionalDependenceB_eq_legacy]
   simp [FiniteModel4.toUFOSignature4, allThings, anyThings, impliesB]
   grind
 
 /--
 Local audit lemma for the Boolean/semantic helper boundary used by axiom 58.
-It is intentionally kept even when the current axiom proof can inline the
+It remains available even when the current axiom proof can inline the
 helper expansion.
 -/
 private theorem constitutionB_eq_true_iff
@@ -1126,13 +1227,15 @@ private theorem constitutionB_eq_true_iff
     (x x' y y' : Fin M.thingCount) (w : Fin M.worldCount) :
     constitutionB M x x' y y' w = true ↔
       M.toUFOSignature4.Constitution x x' y y' w := by
-  unfold constitutionB genericConstitutionalDependenceB
+  rw [constitutionB_eq_legacy]
+  simp_rw [genericConstitutionalDependenceB_eq_legacy]
   simp [FiniteModel4.toUFOSignature4, allThings, anyThings, impliesB]
   grind
 
 private theorem checkAx58_correct (M : FiniteModel4) :
     checkAx58 M = true ↔ ax_a58 M.toUFOSignature4.toUFOSignature3_7 := by
-  unfold checkAx58 ax_a58 allThings allWorlds iffB
+  rw [checkAx58_eq_legacy]
+  unfold ax_a58 allThings allWorlds iffB
   simp [FiniteModel4.toUFOSignature4]
 
 theorem checkAx58_sound (M : FiniteModel4) :
@@ -1145,7 +1248,8 @@ theorem checkAx58_complete (M : FiniteModel4) :
 
 private theorem checkAx59_correct (M : FiniteModel4) :
     checkAx59 M = true ↔ ax_a59 M.toUFOSignature4.toUFOSignature3_7 := by
-  unfold checkAx59 ax_a59 allThings allWorlds iffB
+  rw [checkAx59_eq_legacy]
+  unfold ax_a59 allThings allWorlds iffB
   simp [FiniteModel4.toUFOSignature4]
 
 theorem checkAx59_sound (M : FiniteModel4) :
@@ -1158,7 +1262,8 @@ theorem checkAx59_complete (M : FiniteModel4) :
 
 private theorem checkAx60_correct (M : FiniteModel4) :
     checkAx60 M = true ↔ ax_a60 M.toUFOSignature4.toUFOSignature3_7 := by
-  unfold checkAx60 ax_a60 allThings allWorlds impliesB
+  rw [checkAx60_eq_legacy]
+  unfold ax_a60 allThings allWorlds impliesB
   simp [FiniteModel4.toUFOSignature4, FiniteModel4.toS5Frame, Frame.Box]
   grind
 
@@ -1172,7 +1277,8 @@ theorem checkAx60_complete (M : FiniteModel4) :
 
 private theorem checkAx61_correct (M : FiniteModel4) :
     checkAx61 M = true ↔ ax_a61 M.toUFOSignature4.toUFOSignature3_7 := by
-  unfold checkAx61 ax_a61 allThings allWorlds impliesB
+  rw [checkAx61_eq_legacy]
+  unfold ax_a61 allThings allWorlds impliesB
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -1190,7 +1296,8 @@ theorem checkAx61_iff (M : FiniteModel4) :
 
 private theorem checkAx62_correct (M : FiniteModel4) :
     checkAx62 M = true ↔ ax_a62 M.toUFOSignature4.toUFOSignature3_8 := by
-  unfold checkAx62 ax_a62 allThings allWorlds
+  rw [checkAx62_eq_legacy]
+  unfold ax_a62 allThings allWorlds
   simp
 
 theorem checkAx62_sound (M : FiniteModel4) :
@@ -1203,7 +1310,8 @@ theorem checkAx62_complete (M : FiniteModel4) :
 
 private theorem checkAx63_correct (M : FiniteModel4) :
     checkAx63 M = true ↔ ax_a63 M.toUFOSignature4.toUFOSignature3_8 := by
-  unfold checkAx63 ax_a63 allThings allWorlds iffB
+  rw [checkAx63_eq_legacy]
+  unfold ax_a63 allThings allWorlds iffB
   simp [FiniteModel4.toUFOSignature4]
 
 theorem checkAx63_sound (M : FiniteModel4) :
@@ -1216,7 +1324,8 @@ theorem checkAx63_complete (M : FiniteModel4) :
 
 private theorem checkAx64_correct (M : FiniteModel4) :
     checkAx64 M = true ↔ ax_a64 M.toUFOSignature4.toUFOSignature3_8 := by
-  unfold checkAx64 ax_a64 allThings allWorlds iffB
+  rw [checkAx64_eq_legacy]
+  unfold ax_a64 allThings allWorlds iffB
   simp [FiniteModel4.toUFOSignature4]
 
 theorem checkAx64_sound (M : FiniteModel4) :
@@ -1231,13 +1340,15 @@ private theorem existentialDependenceB_eq_true_iff
     (M : FiniteModel4) (x y : Fin M.thingCount) (w : Fin M.worldCount) :
     existentialDependenceB M x y w = true ↔
       M.toUFOSignature4.ExistentialDependence x y w := by
-  unfold existentialDependenceB allWorlds impliesB
+  rw [existentialDependenceB_eq_legacy]
+  unfold allWorlds impliesB
   simp [FiniteModel4.toUFOSignature4, FiniteModel4.toS5Frame, Frame.Box]
   grind
 
 private theorem checkAx65_correct (M : FiniteModel4) :
     checkAx65 M = true ↔ ax_a65 M.toUFOSignature4.toUFOSignature3_9 := by
-  unfold checkAx65 ax_a65 allThings allWorlds impliesB
+  rw [checkAx65_eq_legacy]
+  unfold ax_a65 allThings allWorlds impliesB
   simp [FiniteModel4.toUFOSignature4, existentialDependenceB_eq_true_iff]
   grind
 
@@ -1251,7 +1362,9 @@ theorem checkAx65_complete (M : FiniteModel4) :
 
 private theorem checkAx66_correct (M : FiniteModel4) :
     checkAx66 M = true ↔ ax_a66 M.toUFOSignature4.toUFOSignature3_9 := by
-  unfold checkAx66 ax_a66 typeB allThings allWorlds anyWorlds anyThings impliesB
+  rw [checkAx66_eq_legacy]
+  simp only [typeB_eq_legacy]
+  unfold ax_a66 allThings allWorlds anyWorlds anyThings impliesB
   simp [FiniteModel4.toUFOSignature4, FiniteModel4.typeSem]
   grind
 
@@ -1265,7 +1378,8 @@ theorem checkAx66_complete (M : FiniteModel4) :
 
 private theorem checkAx67_correct (M : FiniteModel4) :
     checkAx67 M = true ↔ ax_a67 M.toUFOSignature4.toUFOSignature3_9 := by
-  unfold checkAx67 ax_a67 allThings allWorlds impliesB
+  rw [checkAx67_eq_legacy]
+  unfold ax_a67 allThings allWorlds impliesB
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -1475,6 +1589,22 @@ private theorem reachableInheresInB_complete
         (reachableInheresInB_direct M m y w (by simpa [FiniteModel4.toUFOSignature4] using hInh))
         (reachableInheresInB_complete M hTail)
 
+/--
+Semantic correctness of the production Warshall lookup. `MomentOf` is
+non-reflexive except when supported by a cycle, while the reachability
+specification includes an administrative reflexive base case; the disequality
+hypothesis removes exactly that irrelevant case used by ultimate-bearer checks.
+-/
+theorem reachableInheresInWarshallB_iff_momentOf_of_ne
+    (M : FiniteModel4) (m b : Fin M.thingCount) (w : Fin M.worldCount)
+    (hne : m ≠ b) :
+    reachableInheresInWarshallB M (inherenceMatrices M) m b w = true ↔
+      MomentOf M.toUFOSignature4.toUFOSignature3_9 m b w := by
+  rw [reachableInheresInWarshallB_eq]
+  constructor
+  · exact reachableInheresInB_sound_of_ne M m b w hne
+  · exact reachableInheresInB_complete M
+
 private theorem ultimateBearerOfB_sound
     (M : FiniteModel4) (b m : Fin M.thingCount) (w : Fin M.worldCount) :
     M.moment m w = true →
@@ -1532,7 +1662,8 @@ private theorem existsUniqueUltimateBearerB_eq_true_iff
 theorem checkAx68_sound (M : FiniteModel4) :
     checkAx68 M = true → ax_a68 M.toUFOSignature4.toUFOSignature3_9 := by
   intro h m w hm
-  unfold checkAx68 checkAx68Closure at h
+  rw [checkAx68_eq_warshall, checkAx68Warshall_eq] at h
+  unfold checkAx68Closure at h
   have hmAll := (allThings_eq_true_iff M _).1 h m
   have hw := (allWorlds_eq_true_iff M _).1 hmAll w
   unfold impliesB at hw
@@ -1544,7 +1675,8 @@ theorem checkAx68_sound (M : FiniteModel4) :
 theorem checkAx68_complete (M : FiniteModel4) :
     ax_a68 M.toUFOSignature4.toUFOSignature3_9 → checkAx68 M = true := by
   intro h
-  unfold checkAx68 checkAx68Closure
+  rw [checkAx68_eq_warshall, checkAx68Warshall_eq]
+  unfold checkAx68Closure
   apply (allThings_eq_true_iff M _).2
   intro m
   apply (allWorlds_eq_true_iff M _).2
@@ -1653,6 +1785,7 @@ private theorem sameFoundationB_eq_true_iff_of_unique
 
 private theorem checkAx69_correct (M : FiniteModel4) :
     checkAx69 M = true ↔ ax_a69 M.toUFOSignature4.toUFOSignature3_10 := by
+  rw [checkAx69_eq_legacy]
   constructor
   · intro _ x y w
     simp [FiniteModel4.toUFOSignature4]
@@ -1679,6 +1812,7 @@ theorem checkAx69_iff (M : FiniteModel4) :
 
 private theorem checkAx70_correct (M : FiniteModel4) :
     checkAx70 M = true ↔ ax_a70 M.toUFOSignature4.toUFOSignature3_10 := by
+  rw [checkAx70_eq_legacy]
   constructor
   · intro _ x w
     simp [FiniteModel4.toUFOSignature4]
@@ -1704,6 +1838,7 @@ theorem checkAx70_iff (M : FiniteModel4) :
 theorem checkAx71_sound (M : FiniteModel4) :
     checkAx71 M = true → ax_a71 M.toUFOSignature4.toUFOSignature3_10 := by
   intro h x y w hf
+  rw [checkAx71_eq_legacy] at h
   have hx := (allThings_eq_true_iff M _).1 h x
   have hy := (allThings_eq_true_iff M _).1 hx y
   have hw := (allWorlds_eq_true_iff M _).1 hy w
@@ -1721,6 +1856,7 @@ theorem checkAx71_sound (M : FiniteModel4) :
 theorem checkAx71_complete (M : FiniteModel4) :
     ax_a71 M.toUFOSignature4.toUFOSignature3_10 → checkAx71 M = true := by
   intro h
+  rw [checkAx71_eq_legacy]
   apply (allThings_eq_true_iff M _).2
   intro x
   apply (allThings_eq_true_iff M _).2
@@ -1750,6 +1886,7 @@ theorem checkAx71_iff (M : FiniteModel4) :
 
 private theorem checkAx72_correct (M : FiniteModel4) :
     checkAx72 M = true ↔ ax_a72 M.toUFOSignature4.toUFOSignature3_10 := by
+  rw [checkAx72_eq_legacy]
   constructor
   · intro h x w hEDM
     have hx := (allThings_eq_true_iff M _).1 h x
@@ -1789,6 +1926,7 @@ theorem checkAx73_sound_with_prereqs (M : FiniteModel4) :
     checkAx73 M = true →
     ax_a73 M.toUFOSignature4.toUFOSignature3_10 := by
   intro h47 h72 h75 h x y w
+  rw [checkAx73_eq_legacy] at h
   have hx := (allThings_eq_true_iff M _).1 h x
   have hy := (allThings_eq_true_iff M _).1 hx y
   have hw := (allWorlds_eq_true_iff M _).1 hy w
@@ -1867,6 +2005,7 @@ theorem checkAx73_sound_with_prereqs (M : FiniteModel4) :
 
 private theorem checkAx74_correct (M : FiniteModel4) :
     checkAx74 M = true ↔ ax_a74 M.toUFOSignature4.toUFOSignature3_10 := by
+  rw [checkAx74_eq_legacy]
   constructor
   · intro _ x w
     simp [FiniteModel4.toUFOSignature4]
@@ -1891,6 +2030,7 @@ theorem checkAx74_iff (M : FiniteModel4) :
 
 private theorem checkAx75_correct (M : FiniteModel4) :
     checkAx75 M = true ↔ ax_a75 M.toUFOSignature4.toUFOSignature3_10 := by
+  rw [checkAx75_eq_legacy]
   constructor
   · intro h x w hq
     have hx := (allThings_eq_true_iff M _).1 h x
@@ -1946,7 +2086,7 @@ theorem checkAx73_complete_with_prereqs (M : FiniteModel4) :
     ax_a73 M.toUFOSignature4.toUFOSignature3_10 →
     checkAx73 M = true := by
   intro h47 h72 h75 h73
-  unfold checkAx73
+  rw [checkAx73_eq_legacy]
   apply (allThings_eq_true_iff M _).2
   intro x
   apply (allThings_eq_true_iff M _).2
@@ -2061,7 +2201,8 @@ theorem checkAx73_complete_with_prereqs (M : FiniteModel4) :
 
 private theorem checkAx76_correct (M : FiniteModel4) :
     checkAx76 M = true ↔ ax_a76 M.toUFOSignature4.toUFOSignature3_10 := by
-  unfold checkAx76 ax_a76 allThings allWorlds impliesB
+  rw [checkAx76_eq_legacy]
+  unfold ax_a76 allThings allWorlds impliesB
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -2079,7 +2220,8 @@ theorem checkAx76_iff (M : FiniteModel4) :
 
 private theorem checkAx77_correct (M : FiniteModel4) :
     checkAx77 M = true ↔ ax_a77 M.toUFOSignature4.toUFOSignature3_10 := by
-  unfold checkAx77 ax_a77 existsUniqueFoundedByB allThings allWorlds impliesB
+  rw [checkAx77_eq_legacy]
+  unfold ax_a77 existsUniqueFoundedByB allThings allWorlds impliesB
   simp [FiniteModel4.toUFOSignature4, ExistsUnique]
   grind
 
@@ -2101,6 +2243,7 @@ theorem checkAx79_sound_with_prereqs (M : FiniteModel4) :
     checkAx79 M = true →
     ax_a79 M.toUFOSignature4.toUFOSignature3_10 := by
   intro h72 h75 h x w
+  rw [checkAx79_eq_legacy] at h
   have hx := (allThings_eq_true_iff M _).1 h x
   have hw := (allWorlds_eq_true_iff M _).1 hx w
   have hIff := (iffB_eq_true_iff _ _).1 hw
@@ -2328,7 +2471,7 @@ theorem checkAx79_complete_with_prereqs (M : FiniteModel4) :
     ax_a79 M.toUFOSignature4.toUFOSignature3_10 →
     checkAx79 M = true := by
   intro h72 h75 h79
-  unfold checkAx79
+  rw [checkAx79_eq_legacy]
   apply (allThings_eq_true_iff M _).2
   intro x
   apply (allWorlds_eq_true_iff M _).2
@@ -2532,6 +2675,7 @@ theorem checkAx78_sound_with_prereqs (M : FiniteModel4) :
     checkAx78 M = true →
     ax_a78 M.toUFOSignature4.toUFOSignature3_10 := by
   intro h48 h52 h72 h75 h77 h79 h x y w hRelPart
+  rw [checkAx78_eq_legacy] at h
   rcases hRelPart with ⟨hRel, hPartYX⟩
   have hx := (allThings_eq_true_iff M _).1 h x
   have hy := (allThings_eq_true_iff M _).1 hx y
@@ -2586,7 +2730,7 @@ theorem checkAx78_complete_with_prereqs (M : FiniteModel4) :
     ax_a78 M.toUFOSignature4.toUFOSignature3_10 →
     checkAx78 M = true := by
   intro h48 h52 h72 h75 h77 h79 h78
-  unfold checkAx78
+  rw [checkAx78_eq_legacy]
   apply (allThings_eq_true_iff M _).2
   intro x
   apply (allThings_eq_true_iff M _).2
@@ -2622,7 +2766,8 @@ theorem checkAx78_complete_with_prereqs (M : FiniteModel4) :
 
 private theorem checkAx80_correct (M : FiniteModel4) :
     checkAx80 M = true ↔ ax_a80 M.toUFOSignature4.toUFOSignature3_10 := by
-  unfold checkAx80 ax_a80 iffB allThings allWorlds anyThings
+  rw [checkAx80_eq_legacy]
+  unfold ax_a80 iffB allThings allWorlds anyThings
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -2641,7 +2786,8 @@ theorem checkAx80_iff (M : FiniteModel4) :
 private theorem checkAxQuaIndividualOfEndurant_correct (M : FiniteModel4) :
     checkAxQuaIndividualOfEndurant M = true ↔
       ax_quaIndividualOf_endurant M.toUFOSignature4.toUFOSignature3_10 := by
-  unfold checkAxQuaIndividualOfEndurant ax_quaIndividualOf_endurant allThings allWorlds impliesB
+  rw [checkAxQuaIndividualOfEndurant_eq_legacy]
+  unfold ax_quaIndividualOf_endurant allThings allWorlds impliesB
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -2662,7 +2808,8 @@ theorem checkAxQuaIndividualOfEndurant_iff (M : FiniteModel4) :
 
 private theorem checkAx81_correct (M : FiniteModel4) :
     checkAx81 M = true ↔ ax_a81 M.toUFOSignature4.toUFOSignature3_11 := by
-  unfold checkAx81 ax_a81 allThings allWorlds anyThings impliesB
+  rw [checkAx81_eq_legacy]
+  unfold ax_a81 allThings allWorlds anyThings impliesB
   simp [FiniteModel4.toUFOSignature4, existsUniqueInstInheresB_eq_true_iff]
   grind
 
@@ -2680,7 +2827,8 @@ theorem checkAx81_iff (M : FiniteModel4) :
 
 private theorem checkAx82_correct (M : FiniteModel4) :
     checkAx82 M = true ↔ ax_a82 M.toUFOSignature4.toUFOSignature3_11 := by
-  unfold checkAx82 ax_a82 allThings allWorlds impliesB
+  rw [checkAx82_eq_legacy]
+  unfold ax_a82 allThings allWorlds impliesB
   simp [FiniteModel4.toUFOSignature4, existsUniqueInstInheresB_eq_true_iff]
   grind
 
@@ -2698,7 +2846,8 @@ theorem checkAx82_iff (M : FiniteModel4) :
 
 private theorem checkAx83_correct (M : FiniteModel4) :
     checkAx83 M = true ↔ ax_a83 M.toUFOSignature4.toUFOSignature3_12 := by
-  unfold checkAx83 ax_a83 allThings allWorlds impliesB
+  rw [checkAx83_eq_legacy]
+  unfold ax_a83 allThings allWorlds impliesB
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -2712,7 +2861,8 @@ theorem checkAx83_complete (M : FiniteModel4) :
 
 private theorem checkAx84_correct (M : FiniteModel4) :
     checkAx84 M = true ↔ ax_a84 M.toUFOSignature4.toUFOSignature3_12 := by
-  unfold checkAx84 ax_a84 allThings allWorlds impliesB
+  rw [checkAx84_eq_legacy]
+  unfold ax_a84 allThings allWorlds impliesB
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -2726,7 +2876,8 @@ theorem checkAx84_complete (M : FiniteModel4) :
 
 private theorem checkAx85_correct (M : FiniteModel4) :
     checkAx85 M = true ↔ ax_a85 M.toUFOSignature4.toUFOSignature3_12 := by
-  unfold checkAx85 ax_a85 allThings allWorlds
+  rw [checkAx85_eq_legacy]
+  unfold ax_a85 allThings allWorlds
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -2751,7 +2902,8 @@ private theorem nonEmptySetB_eq_true_iff
 
 private theorem checkAx89_correct (M : FiniteModel4) :
     checkAx89 M = true ↔ ax_a89 M.toUFOSignature4.toUFOSignature3_12 := by
-  unfold checkAx89 ax_a89 allThings allWorlds impliesB
+  rw [checkAx89_eq_legacy]
+  unfold ax_a89 allThings allWorlds impliesB
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -2819,7 +2971,8 @@ private theorem properSubsetB_eq_true_iff
 
 private theorem checkAx90_correct (M : FiniteModel4) :
     checkAx90 M = true ↔ ax_a90 M.toUFOSignature4.toUFOSignature3_12 := by
-  unfold checkAx90 ax_a90 allThings allWorlds impliesB
+  rw [checkAx90_eq_legacy]
+  unfold ax_a90 allThings allWorlds impliesB
   simp [FiniteModel4.toUFOSignature4, ProperSub, properSubsetB_eq_true_iff]
   grind
 
@@ -2869,7 +3022,8 @@ private theorem existsUniqueHasValueB_eq_true_iff
 
 private theorem checkAx91_correct (M : FiniteModel4) :
     checkAx91 M = true ↔ ax_a91 M.toUFOSignature4.toUFOSignature3_12 := by
-  unfold checkAx91 ax_a91 allThings allWorlds iffB
+  rw [checkAx91_eq_legacy]
+  unfold ax_a91 allThings allWorlds iffB
   simp [FiniteModel4.toUFOSignature4, qualityStructureB_eq_true_iff, ExistsUnique]
   grind
 
@@ -2885,7 +3039,7 @@ private theorem checkAx88_correct (M : FiniteModel4) :
     checkAx88 M = true ↔ ax_a88 M.toUFOSignature4.toUFOSignature3_12 := by
   constructor
   · intro h x w
-    unfold checkAx88 at h
+    rw [checkAx88_eq_legacy] at h
     have hx := (allThings_eq_true_iff M _).1 h x
     have hw := (allWorlds_eq_true_iff M _).1 hx w
     have hIff := (iffB_eq_true_iff _ _).1 hw
@@ -2899,7 +3053,7 @@ private theorem checkAx88_correct (M : FiniteModel4) :
         (qualityStructureB_eq_true_iff M x w).1
           (hIff.mpr (by simpa [FiniteModel4.toUFOSignature4] using h))⟩
   · intro h
-    unfold checkAx88
+    rw [checkAx88_eq_legacy]
     apply (allThings_eq_true_iff M _).2
     intro x
     apply (allWorlds_eq_true_iff M _).2
@@ -2930,7 +3084,8 @@ theorem checkAx88_complete (M : FiniteModel4) :
 
 private theorem checkAx92_correct (M : FiniteModel4) :
     checkAx92 M = true ↔ ax_a92 M.toUFOSignature4.toUFOSignature3_12 := by
-  unfold checkAx92 ax_a92 allThings allWorlds impliesB
+  rw [checkAx92_eq_legacy]
+  unfold ax_a92 allThings allWorlds impliesB
   simp [FiniteModel4.toUFOSignature4, qualityB_eq_true_iff]
   grind
 
@@ -2946,7 +3101,7 @@ private theorem checkAx93_correct (M : FiniteModel4) :
     checkAx93 M = true ↔ ax_a93 M.toUFOSignature4.toUFOSignature3_12 := by
   constructor
   · intro h x w hxQual
-    unfold checkAx93 at h
+    rw [checkAx93_eq_legacy] at h
     have hx := (allThings_eq_true_iff M _).1 h x
     have hw := (allWorlds_eq_true_iff M _).1 hx w
     unfold impliesB at hw
@@ -2954,7 +3109,7 @@ private theorem checkAx93_correct (M : FiniteModel4) :
     simp [hxQualB] at hw
     exact (existsUniqueHasValueB_eq_true_iff M x w).1 hw
   · intro h
-    unfold checkAx93
+    rw [checkAx93_eq_legacy]
     apply (allThings_eq_true_iff M _).2
     intro x
     apply (allWorlds_eq_true_iff M _).2
@@ -2982,7 +3137,7 @@ private theorem checkAx86_correct (M : FiniteModel4) :
     checkAx86 M = true ↔ ax_a86 M.toUFOSignature4.toUFOSignature3_12 := by
   constructor
   · intro h x w hxQS
-    unfold checkAx86 at h
+    rw [checkAx86_eq_legacy] at h
     have hx := (allThings_eq_true_iff M _).1 h x
     have hw := (allWorlds_eq_true_iff M _).1 hx w
     have hxQSB := (qualityStructureB_eq_true_iff M x w).2 hxQS
@@ -2990,7 +3145,7 @@ private theorem checkAx86_correct (M : FiniteModel4) :
     simp [hxQSB] at hw
     exact ⟨hw.1, (nonEmptySetB_eq_true_iff M x w).1 hw.2⟩
   · intro h
-    unfold checkAx86
+    rw [checkAx86_eq_legacy]
     apply (allThings_eq_true_iff M _).2
     intro x
     apply (allWorlds_eq_true_iff M _).2
@@ -3019,7 +3174,7 @@ private theorem checkAx87_correct (M : FiniteModel4) :
     checkAx87 M = true ↔ ax_a87 M.toUFOSignature4.toUFOSignature3_12 := by
   constructor
   · intro h x w
-    unfold checkAx87 at h
+    rw [checkAx87_eq_legacy] at h
     have hx := (allThings_eq_true_iff M _).1 h x
     have hw := (allWorlds_eq_true_iff M _).1 hx w
     have hIff := (iffB_eq_true_iff _ _).1 hw
@@ -3029,7 +3184,7 @@ private theorem checkAx87_correct (M : FiniteModel4) :
       fun hxUnique => hIff.mpr
         ((existsUniqueQualityStructureMemberB_eq_true_iff M x w).2 hxUnique)⟩
   · intro h
-    unfold checkAx87
+    rw [checkAx87_eq_legacy]
     apply (allThings_eq_true_iff M _).2
     intro x
     apply (allWorlds_eq_true_iff M _).2
@@ -3053,7 +3208,7 @@ private theorem checkAx94_correct (M : FiniteModel4) :
     checkAx94 M = true ↔ ax_a94 M.toUFOSignature4.toUFOSignature3_12 := by
   constructor
   · intro h x y w hValue
-    unfold checkAx94 at h
+    rw [checkAx94_eq_legacy] at h
     have hx := (allThings_eq_true_iff M _).1 h x
     have hy := (allThings_eq_true_iff M _).1 hx y
     have hw := (allWorlds_eq_true_iff M _).1 hy w
@@ -3072,7 +3227,7 @@ private theorem checkAx94_correct (M : FiniteModel4) :
       by simpa [FiniteModel4.toUFOSignature4] using hs.1.2,
       (finiteMemberOf_iff M y s w).2 hs.2⟩
   · intro h
-    unfold checkAx94
+    rw [checkAx94_eq_legacy]
     apply (allThings_eq_true_iff M _).2
     intro x
     apply (allThings_eq_true_iff M _).2
@@ -3236,7 +3391,7 @@ private theorem checkAx95_correct (M : FiniteModel4) :
     checkAx95 M = true ↔ ax_a95 M.toUFOSignature4.toUFOSignature3_12 := by
   constructor
   · intro h x y w hAssoc
-    unfold checkAx95 at h
+    rw [checkAx95_eq_legacy] at h
     have hx := (allThings_eq_true_iff M _).1 h x
     have hy := (allThings_eq_true_iff M _).1 hx y
     have hw := (allWorlds_eq_true_iff M _).1 hy w
@@ -3252,7 +3407,7 @@ private theorem checkAx95_correct (M : FiniteModel4) :
         have hDimB := hIff.mpr ((simpleQualityTypeB_eq_true_iff M y w).2 hSimpleType)
         simpa [FiniteModel4.toUFOSignature4] using hDimB⟩
   · intro h
-    unfold checkAx95
+    rw [checkAx95_eq_legacy]
     apply (allThings_eq_true_iff M _).2
     intro x
     apply (allThings_eq_true_iff M _).2
@@ -3290,7 +3445,7 @@ private theorem checkAx96_correct (M : FiniteModel4) :
     checkAx96 M = true ↔ ax_a96 M.toUFOSignature4.toUFOSignature3_12 := by
   constructor
   · intro h x y w hAssoc
-    unfold checkAx96 at h
+    rw [checkAx96_eq_legacy] at h
     have hx := (allThings_eq_true_iff M _).1 h x
     have hy := (allThings_eq_true_iff M _).1 hx y
     have hw := (allWorlds_eq_true_iff M _).1 hy w
@@ -3306,7 +3461,7 @@ private theorem checkAx96_correct (M : FiniteModel4) :
         have hDomainB := hIff.mpr ((complexQualityTypeB_eq_true_iff M y w).2 hComplexType)
         simpa [FiniteModel4.toUFOSignature4] using hDomainB⟩
   · intro h
-    unfold checkAx96
+    rw [checkAx96_eq_legacy]
     apply (allThings_eq_true_iff M _).2
     intro x
     apply (allThings_eq_true_iff M _).2
@@ -3344,7 +3499,7 @@ private theorem checkAx97_correct (M : FiniteModel4) :
     checkAx97 M = true ↔ ax_a97 M.toUFOSignature4.toUFOSignature3_12 := by
   constructor
   · intro h x y z Y Z w hprem
-    unfold checkAx97 at h
+    rw [checkAx97_eq_legacy] at h
     have hx := (allThings_eq_true_iff M _).1 h x
     have hy := (allThings_eq_true_iff M _).1 hx y
     have hz := (allThings_eq_true_iff M _).1 hy z
@@ -3365,7 +3520,7 @@ private theorem checkAx97_correct (M : FiniteModel4) :
     simp [hxComplexB, hyInstB, hzInstB, hyInheresB, hzInheresB] at hw
     exact hw.resolve_left (fun h => h rfl)
   · intro h
-    unfold checkAx97
+    rw [checkAx97_eq_legacy]
     apply (allThings_eq_true_iff M _).2
     intro x
     apply (allThings_eq_true_iff M _).2
@@ -3430,7 +3585,7 @@ private theorem checkAx98_correct (M : FiniteModel4) :
     checkAx98 M = true ↔ ax_a98 M.toUFOSignature4.toUFOSignature3_12 := by
   constructor
   · intro h x w hxComplex y hyInheres
-    unfold checkAx98 at h
+    rw [checkAx98_eq_legacy] at h
     have hx := (allThings_eq_true_iff M _).1 h x
     have hw := (allWorlds_eq_true_iff M _).1 hx w
     have hxComplexB := (complexQualityB_eq_true_iff M x w).2 hxComplex
@@ -3442,7 +3597,7 @@ private theorem checkAx98_correct (M : FiniteModel4) :
     simp [hyInheresB] at hy
     exact (simpleQualityB_eq_true_iff M y w).1 hy
   · intro h
-    unfold checkAx98
+    rw [checkAx98_eq_legacy]
     apply (allThings_eq_true_iff M _).2
     intro x
     apply (allWorlds_eq_true_iff M _).2
@@ -3579,7 +3734,7 @@ theorem checkAx99_correct_finite (M : FiniteModel4) :
     checkAx99 M = true ↔ ax99Finite M := by
   constructor
   · intro h x t w hprem
-    unfold checkAx99 at h
+    rw [checkAx99_eq_legacy] at h
     have hx := (allThings_eq_true_iff M _).1 h x
     have ht := (allThings_eq_true_iff M _).1 hx t
     have hw := (allWorlds_eq_true_iff M _).1 ht w
@@ -3588,7 +3743,7 @@ theorem checkAx99_correct_finite (M : FiniteModel4) :
     rcases (anyProductFamilyWitness_eq_true_iff M _).1 hw with ⟨idx, hWitnessB⟩
     exact ⟨idx, (productFamilyWitnessB_correct M (M.productFamilies[idx]) x t w).1 hWitnessB⟩
   · intro h
-    unfold checkAx99
+    rw [checkAx99_eq_legacy]
     apply (allThings_eq_true_iff M _).2
     intro x
     apply (allThings_eq_true_iff M _).2
@@ -3656,7 +3811,7 @@ theorem not_ax99_of_checkAx99_false
 theorem checkAx99_sound (M : FiniteModel4) :
     checkAx99 M = true → ax_a99 M.toUFOSignature4.toUFOSignature3_12 := by
   intro h x t w hprem
-  unfold checkAx99 at h
+  rw [checkAx99_eq_legacy] at h
   have hx := (allThings_eq_true_iff M _).1 h x
   have ht := (allThings_eq_true_iff M _).1 hx t
   have hw := (allWorlds_eq_true_iff M _).1 ht w
@@ -3697,7 +3852,7 @@ theorem checkAx99_complete_of_product_family_witnesses (M : FiniteModel4) :
           productFamilyWitnessB M (M.productFamilies[i]) x t w = true) →
       checkAx99 M = true := by
   intro h
-  unfold checkAx99
+  rw [checkAx99_eq_legacy]
   apply (allThings_eq_true_iff M _).2
   intro x
   apply (allThings_eq_true_iff M _).2
@@ -3722,7 +3877,7 @@ private theorem checkAx100_correct (M : FiniteModel4) :
     checkAx100 M = true ↔ ax_a100 M.toUFOSignature4.toUFOSignature3_12 := by
   constructor
   · intro h x y r w hDistance
-    unfold checkAx100 at h
+    rw [checkAx100_eq_legacy] at h
     have hx := (allThings_eq_true_iff M _).1 h x
     have hy := (allThings_eq_true_iff M _).1 hx y
     have hr := (allThings_eq_true_iff M _).1 hy r
@@ -3743,7 +3898,7 @@ private theorem checkAx100_correct (M : FiniteModel4) :
       (finiteMemberOf_iff M x z w).2 hz.1,
       (finiteMemberOf_iff M y z w).2 hz.2⟩
   · intro h
-    unfold checkAx100
+    rw [checkAx100_eq_legacy]
     apply (allThings_eq_true_iff M _).2
     intro x
     apply (allThings_eq_true_iff M _).2
@@ -3785,7 +3940,7 @@ private theorem checkAx101_correct (M : FiniteModel4) :
     checkAx101 M = true ↔ ax_a101 M.toUFOSignature4.toUFOSignature3_12 := by
   constructor
   · intro h x y w hQuals
-    unfold checkAx101 at h
+    rw [checkAx101_eq_legacy] at h
     have hx := (allThings_eq_true_iff M _).1 h x
     have hy := (allThings_eq_true_iff M _).1 hx y
     have hw := (allWorlds_eq_true_iff M _).1 hy w
@@ -3802,7 +3957,7 @@ private theorem checkAx101_correct (M : FiniteModel4) :
     simpa [FiniteModel4.toUFOSignature4, ExistsUnique] using
       (decide_eq_true_eq.mp hwUnique)
   · intro h
-    unfold checkAx101
+    rw [checkAx101_eq_legacy]
     apply (allThings_eq_true_iff M _).2
     intro x
     apply (allThings_eq_true_iff M _).2
@@ -3842,7 +3997,8 @@ theorem checkAx101_complete (M : FiniteModel4) :
 
 private theorem checkAxDistanceIdentity_correct (M : FiniteModel4) :
     checkAxDistanceIdentity M = true ↔ ax_distance_identity M.toUFOSignature4.toUFOSignature3_12 := by
-  unfold checkAxDistanceIdentity ax_distance_identity allThings allWorlds impliesB
+  rw [checkAxDistanceIdentity_eq_legacy]
+  unfold ax_distance_identity allThings allWorlds impliesB
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -3856,7 +4012,8 @@ theorem checkAxDistanceIdentity_complete (M : FiniteModel4) :
 
 private theorem checkAxDistanceSymmetry_correct (M : FiniteModel4) :
     checkAxDistanceSymmetry M = true ↔ ax_distance_symmetry M.toUFOSignature4.toUFOSignature3_12 := by
-  unfold checkAxDistanceSymmetry ax_distance_symmetry allThings allWorlds impliesB
+  rw [checkAxDistanceSymmetry_eq_legacy]
+  unfold ax_distance_symmetry allThings allWorlds impliesB
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -3870,7 +4027,8 @@ theorem checkAxDistanceSymmetry_complete (M : FiniteModel4) :
 
 private theorem checkAxDistanceTriangle_correct (M : FiniteModel4) :
     checkAxDistanceTriangle M = true ↔ ax_distance_triangle M.toUFOSignature4.toUFOSignature3_12 := by
-  unfold checkAxDistanceTriangle ax_distance_triangle allThings allWorlds impliesB
+  rw [checkAxDistanceTriangle_eq_legacy]
+  unfold ax_distance_triangle allThings allWorlds impliesB
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -3884,7 +4042,8 @@ theorem checkAxDistanceTriangle_complete (M : FiniteModel4) :
 
 private theorem checkAx102_correct (M : FiniteModel4) :
     checkAx102 M = true ↔ ax_a102 M.toUFOSignature4.toUFOSignature3_13 := by
-  unfold checkAx102 ax_a102 allThings allWorlds impliesB
+  rw [checkAx102_eq_legacy]
+  unfold ax_a102 allThings allWorlds impliesB
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -3898,7 +4057,8 @@ theorem checkAx102_complete (M : FiniteModel4) :
 
 private theorem checkAx103_correct (M : FiniteModel4) :
     checkAx103 M = true ↔ ax_a103 M.toUFOSignature4.toUFOSignature3_13 := by
-  unfold checkAx103 ax_a103 allThings allWorlds iffB
+  rw [checkAx103_eq_legacy]
+  unfold ax_a103 allThings allWorlds iffB
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -3912,7 +4072,8 @@ theorem checkAx103_complete (M : FiniteModel4) :
 
 private theorem checkAx104_correct (M : FiniteModel4) :
     checkAx104 M = true ↔ ax_a104 M.toUFOSignature4.toUFOSignature3_13 := by
-  unfold checkAx104 ax_a104 allThings allWorlds impliesB
+  rw [checkAx104_eq_legacy]
+  unfold ax_a104 allThings allWorlds impliesB
   simp [FiniteModel4.toUFOSignature4]
   grind
 
@@ -3926,7 +4087,7 @@ theorem checkAx104_complete (M : FiniteModel4) :
 
 private theorem checkAx105_correct (M : FiniteModel4) :
     checkAx105 M = true ↔ ax_a105 M.toUFOSignature4 := by
-  unfold checkAx105 ax_a105
+  unfold checkAx105 checkAx105Costed ax_a105
   simp [FiniteModel4.toUFOSignature4]
 
 theorem checkAx105_sound (M : FiniteModel4) :
@@ -3939,7 +4100,7 @@ theorem checkAx105_complete (M : FiniteModel4) :
 
 private theorem checkAx106_correct (M : FiniteModel4) :
     checkAx106 M = true ↔ ax_a106 M.toUFOSignature4 := by
-  unfold checkAx106 ax_a106
+  unfold checkAx106 checkAx106Costed ax_a106
   simp [FiniteModel4.toUFOSignature4]
 
 theorem checkAx106_sound (M : FiniteModel4) :
@@ -3952,7 +4113,7 @@ theorem checkAx106_complete (M : FiniteModel4) :
 
 private theorem checkAx107_correct (M : FiniteModel4) :
     checkAx107 M = true ↔ ax_a107 M.toUFOSignature4 := by
-  unfold checkAx107 ax_a107
+  unfold checkAx107 checkAx107Costed ax_a107
   simp [FiniteModel4.toUFOSignature4]
 
 theorem checkAx107_sound (M : FiniteModel4) :
@@ -3965,7 +4126,7 @@ theorem checkAx107_complete (M : FiniteModel4) :
 
 private theorem checkAx108_correct (M : FiniteModel4) :
     checkAx108 M = true ↔ ax_a108 M.toUFOSignature4 := by
-  unfold checkAx108 ax_a108
+  unfold checkAx108 checkAx108Costed ax_a108
   simp [FiniteModel4.toUFOSignature4]
 
 theorem checkAx108_sound (M : FiniteModel4) :
@@ -3979,7 +4140,7 @@ theorem checkAx108_complete (M : FiniteModel4) :
 /-!
 Reverse checker bridges for opt-in semantic-to-Boolean simplification.
 
-These lemmas are intentionally registered only in the `ufo_checker` simp set,
+These lemmas are registered only in the `ufo_checker` simp set,
 not as global `[simp]` rules.  The normal form for this simp set is the
 executable checker obligation `checkAx... M = true`.
 -/
@@ -4568,7 +4729,7 @@ theorem checkAxioms4_sound (M : FiniteModel4) :
       UFOAxioms4 M.toUFOSignature4 := by
   intro h
   have hAll : (checkAxioms4Checks M).all id = true := by
-    simpa [checkAxioms4] using h
+    simpa [checkAxioms4_eq_legacy] using h
   have hmem : ∀ b, b ∈ checkAxioms4Checks M → b = true :=
     fun b hb => all_id_eq_true_of_mem hAll hb
   have h1 : checkAx1 M = true := hmem _ (by simp [checkAxioms4Checks])

@@ -7,9 +7,56 @@ syntax down to Lean-checked certificates and diagnostics. It is meant to give a
 developer enough structure to know where a change belongs and which formal
 guarantees are already proved.
 
+## Directory Map and Ownership
+
+The source tree is organized by responsibility, not by theorem size:
+
+```text
+LeanUfo/UFO/DSL/
+  Frontend/          surface grammar and source-text/name translation
+  Compiler/          typed compiler vocabulary; Compiler.lean runs the passes
+  FiniteModel.lean   executable finite representation and semantic bridge
+  Checker/           Boolean decisions and their semantic correctness proofs
+  Certificate/       proof-term generation, reuse, and elaborator tactics
+  Complexity/        operational cost model and compositional bounds
+  Diagnostic/        failure analysis and editor presentation
+  ConcreteExamples/  user-facing positive and negative models
+  Syntax.lean        command elaborator that connects the layers
+  Guarantees.lean    small, public cross-layer semantic guarantees
+  Examples.lean      aggregate import for the example collection
+  Checker.lean       aggregate import for checker users
+  Complexity.lean    aggregate import for complexity results
+```
+
+An aggregate file contains imports and orientation, not another implementation.
+In particular, `Checker.lean` and `Complexity.lean` do not duplicate their
+subdirectories. `Certification.lean` supplies decidability for packaged finite
+axioms, whereas `Certificate/` emits and reuses concrete theorem declarations;
+the similar names describe different stages.
+
+Three large files remain cohesive on purpose. `Checker/Axioms.lean` keeps the
+ordered axiom registry beside the checks it registers. `Checker/Soundness.lean`
+keeps the matching semantic proofs in the same order. `Diagnostic/Analysis.lean`
+keeps one private diagnostic language and its analyzers together. Splitting any
+of them only by line count would hide that order, expose private types, and add
+cyclic or high-fan-out imports. New code should be extracted only when it has a
+separate responsibility and a narrow public interface.
+
+The intended import direction is:
+
+```text
+Frontend vocabulary -> compiler -> finite model -> checker -> certificates
+                                      |              |
+                                      +-> complexity +-> diagnostics
+```
+
+`Syntax.lean` is the integration point and therefore imports several branches.
+Lower layers must not import it. This rule keeps the pure compiler and checker
+usable without invoking command elaboration.
+
 ## High-Level Ingredients
 
-At a high level, a `ufo_model` command is transformed through five layers:
+A `ufo_model` command passes through five layers:
 
 1. user syntax;
 2. parsing and name resolution;
@@ -63,7 +110,7 @@ failure, not a semantic result.
 
 ## What Is Proved Where
 
-The pipeline deliberately separates trusted metaprogramming from theorem-backed
+The pipeline separates trusted metaprogramming from theorem-backed
 pure Lean code.
 
 | Stage | Main files | Formal status |
@@ -74,7 +121,7 @@ pure Lean code.
 | Semantic bridge | `FiniteModel4.toUFOSignature4` in `FiniteModel.lean` | Defines the semantic interpretation checked by the core axioms |
 | Positive checker | `Checker/Axioms.lean`, `Checker/Soundness.lean` | Soundness proves `checkAxN = true -> ax_aN`; most fields also have completeness |
 | Aggregate checker | `Checker/Axioms.lean`, `Checker/Soundness.lean` | `checkAxioms4_sound` proves `checkAxioms4 = true -> UFOAxioms4` |
-| Step bounds | `Checker/Steps.lean`, `Checker/Complexity.lean` | Formal polynomial bounds for abstract checker steps |
+| Operational costs | `Complexity/CostModel.lean`, `Complexity/Theorems.lean` | Concrete counted execution and fixed/parameterized bounds |
 | Certificate source generation | `Certificate/Generation.lean` | Trusted code emission, checked afterward by the Lean kernel |
 | Diagnostics | `Diagnostic/Analysis.lean`, `Diagnostic/Widget.lean` | Explanatory layer; confirmed counterexamples rely on Lean-checked negation proofs |
 
@@ -124,7 +171,7 @@ The relevant files are:
 - `Syntax.lean`: command elaboration, declaration emission, certificate checks,
   and diagnostic storage.
 
-This layer is intentionally thin, but it is trusted metaprogramming: Lean checks
+This layer has a narrow role, but it is trusted metaprogramming: Lean checks
 the declarations it emits, but the parser/emitter itself is not proved correct
 as a compiler.
 
@@ -148,7 +195,7 @@ flowchart TD
   K --> L["FiniteModel4"]
 ```
 
-The important compiler ingredients are:
+The compiler performs:
 
 - **name resolution**: rejects duplicate names and unknown names;
 - **scope expansion**: expands `given everywhere:` into one fact per declared
@@ -178,7 +225,7 @@ ufo_model Child : UFO extends Parent : UFO where
   ...
 ```
 
-The current extension semantics is intentionally conservative: a child model may
+The current extension semantics is conservative: a child model may
 add things, facts, and product-family witnesses, but it may not add worlds. This
 keeps parent `everywhere` facts stable until we explicitly choose an
 added-world scoping semantics.
@@ -201,6 +248,16 @@ The semantic bridge is:
 FiniteModel4.toUFOSignature4 : UFOSignature4
 ```
 
+The compiler exposes each relation through two internal representations.
+Compact sparse definitions keep generated certificate terms small for kernel
+reduction. Dense typed arrays provide direct indexed lookup during native
+execution. These representations do not perform the same operations.
+
+`ExplicitTableCorrespondence` proves that both representations return equal
+values for unary, binary, ternary, and tuple-projection queries on a
+well-bounded finite AST. The operational complexity theorem counts dense-array
+construction and lookup. It does not count sparse certificate reduction.
+
 This bridge turns finite Boolean tables into the ordinary Prop-valued UFO
 signature used by the core formalization. The checker and the generated
 certificates are therefore not checking a separate logic: they check that this
@@ -214,32 +271,16 @@ For each registered axiom field it provides definitions of the form:
 
 ```lean
 checkAxN   : FiniteModel4 -> Bool
-checkAxN_S : FiniteModel4 -> Stepped Bool
+checkAxNCosted : FiniteModel4 -> Costed Bool
 ```
 
-The plain checker returns the Boolean result. The stepped checker returns the
-same Boolean result together with an abstract step envelope. The envelope is a
-syntactic upper bound used for formal polynomial statements; it is not an exact
-operation counter.
+The production checker is the `value` projection of the counted checker. Each
+counted definition follows Lean's actual short-circuit order and has separate
+value-correspondence and operational-bound theorems. The fixed aggregate is an
+ordered registry of 116 delayed counted computations, rather than a parallel
+syntactic envelope.
 
-The key change is that semantic certification is now driven by explicit finite
-computation rather than by asking Lean tactics to rediscover a proof for each
-generated model. The old shape was:
-
-```text
-finite model
-  -> large unfolded Prop goal
-  -> broad automation (`simp`, `omega`, `grind`, `decide`)
-  -> proof found, timeout, or unclassified tactic failure
-```
-
-That approach was correct when it succeeded, because Lean still checked the
-generated theorem. But the work was delegated to open-ended proof search over a
-large generated proposition. A failure could mean that the model was invalid, or
-that automation got stuck, or that a heartbeat/typeclass/decidability limit was
-hit.
-
-The checker-backed shape is:
+Semantic certification follows one explicit computation path:
 
 ```text
 finite model
@@ -247,6 +288,10 @@ finite model
   -> `native_decide` evaluates the concrete Boolean result
   -> reusable soundness theorem turns `true` into the semantic axiom proof
 ```
+
+This structure separates model failure from proof-search failure. The Boolean
+checker decides each finite condition. Lean then applies a reusable soundness
+theorem instead of searching a large unfolded proposition for each model.
 
 For example, a generated certificate field has the form:
 
@@ -261,8 +306,8 @@ relations, membership, tuple projections, distances, and product-family
 witnesses. The reusable theorem `checkAxN_sound` is proved once in
 `Checker/Soundness.lean`; each concrete model only has to evaluate the Boolean
 checker. This makes the semantic certification algorithm explicit and
-predictable, and it is what enables the formal step bounds in
-`Checker/Complexity.lean`.
+predictable, and it is what enables the operational bounds in
+`Complexity/Theorems.lean`.
 
 ```mermaid
 flowchart TD
@@ -284,8 +329,8 @@ The main checker files are:
   loops;
 - `Checker/Axioms.lean`: executable axiom checkers;
 - `Checker/Soundness.lean`: soundness and completeness theorems;
-- `Checker/Steps.lean`: abstract step-envelope definitions;
-- `Checker/Complexity.lean`: formal step bounds.
+- `Complexity/CostModel.lean`: counted operational semantics;
+- `Complexity/Theorems.lean`: compiler, checker, closure, and diagnostic bounds.
 
 The standard per-axiom theorem pattern is:
 
@@ -307,7 +352,7 @@ checkAxN_correct :
   checkAxN M = true <-> ax_aN M.toUFOSignature4...
 ```
 
-`ax99` is the important exception. The checker is sound for the core axiom, but
+`ax99` is the exception. The checker is sound for the core axiom, but
 full negative interpretation of `checkAx99 = false` requires explicit product
 family witness completeness:
 
@@ -379,7 +424,7 @@ tables, tuple projections, and product-family witnesses. Representative fields:
 - `ax68`: unchanged `Moment` and `InheresIn` footprint;
 - `ax101`: unchanged `Quale` and `Distance` footprint.
 
-The registry is intentionally explicit. A row is only a reuse plan, not proof
+The registry is explicit. A row is a reuse plan, not proof
 evidence. The command generator first asks the registry whether reuse looks
 possible, then emits a child `checked_axN` theorem that proves by computation:
 
@@ -479,8 +524,8 @@ guarantee layers are:
 - per-axiom completeness/correctness where available in
   `Checker/Soundness.lean`;
 - aggregate checker soundness in `Checker/Soundness.lean`;
-- checker value/step coherence and polynomial step bounds in
-  `Checker/Complexity.lean`;
+- checker erasure, concrete operational bounds, and fixed/parameterized
+  registry results in `Complexity/Theorems.lean`;
 - finite-model certified packaging in `Certification.lean`.
 
 The most important aggregate theorem is:
@@ -497,80 +542,30 @@ component guarantee means, use the formal-guarantees page.
 
 ## Formal Complexity Result
 
-The formal complexity statements are also summarized in
-[Formal guarantees](../guarantees.md). The checker has an abstract step-envelope
-model:
+The canonical [complexity guide](complexity.md) documents the machine model,
+literature, exact metrics, and theorem inventory.
 
-```lean
-structure Stepped (alpha : Type) where
-  value : alpha
-  steps : Nat
+The production path is:
+
+```text
+checkAxioms4
+  = value (checkAxioms4Costed M)
+  = value (checkBoundedRegistryCosted (checkAxioms4BoundedRegistry M))
 ```
 
-The theorem
+The registry has exactly 116 delayed entries. Each entry contains its actual
+counted checker, a concrete polynomial bound inferred from that checker's
+proof, and the proof itself. The aggregate operational bound is their
+heterogeneous sum plus actual short-circuit traversal charges. The erasure
+theorem connects this production evaluator to the historical Boolean-list
+checker, while `checkAxioms4_sound` separately connects a successful result to
+`UFOAxioms4`.
 
-```lean
-checkAxioms4_S_value :
-  (checkAxioms4_S M).value = checkAxioms4 M
-```
+This yields two distinct proved guarantees:
 
-states that the stepped checker computes the same Boolean result as the plain
-checker.
+- semantic correctness of a successful finite check;
+- operational cost of the concrete compiler/checker computation.
 
-The raw envelope constructor is:
-
-```lean
-Stepped.stepEnvelope M thingPow worldPow =
-  (M.thingCount + 1)^thingPow * (M.worldCount + 1)^worldPow
-```
-
-Individual stepped axiom wrappers use `Stepped.axiomStepEnvelope` only where the
-visible finite scans justify local exponents. Otherwise they use
-`Stepped.axiomEnvelope`, the default wrapper backed by the global envelope.
-
-The aggregate step-envelope bound is:
-
-```lean
-checkAxioms4_steps_bound :
-  (checkAxioms4_S M).steps <=
-    116 * Stepped.globalStepEnvelope M + 115
-```
-
-Here `globalStepEnvelope` is the conservative fallback envelope for checker
-steps:
-
-```lean
-Stepped.globalStepEnvelope M =
-  (M.thingCount + 1)^8 * (M.worldCount + 1)^4
-```
-
-There is also a one-variable input-size theorem. The thing/world component is:
-
-```lean
-modelSize M = (M.thingCount + 1) * (M.worldCount + 1)
-```
-
-The final size measure adds product-family witness arrays:
-
-```lean
-checkerInputSize M = modelSize M + productFamilyFootprint M + 1
-```
-
-These are abstract checker input measures. They are not byte-size measurements,
-CPU-instruction counts, Lean kernel checking time, or Lake build time.
-
-The corresponding theorem is:
-
-```lean
-checkAxioms4_steps_polynomial_in_checkerInputSize :
-  exists C d k,
-    forall M : FiniteModel4,
-      (checkAxioms4_S M).steps <= C * (checkerInputSize M)^d + k
-```
-
-This proves that, under the abstract `Stepped` envelope model, semantic
-finite-model checking is polynomial in the abstract checker input size. It does
-not prove that every build is fast in wall-clock time: Lean still has to
-elaborate generated declarations, run `native_decide`, compile modules, and
-possibly run diagnostic negation probes. The value of the theorem is narrower
-and stronger: the semantic checker itself is no longer open-ended tactic search.
+The fixed 116-entry theorem is data complexity. Generic registry theorems make
+registry size and per-formula costs explicit for combined complexity.
+Diagnostics retain their separate output-sensitive result.

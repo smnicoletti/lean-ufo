@@ -87,7 +87,7 @@ The intended reading is joint satisfiability relative to:
 - the chosen constant-domain S5 semantics;
 - the additional structural assumptions listed below.
 
-It is deliberately not a proof-theoretic claim about derivability from a
+It is not a proof-theoretic claim about derivability from a
 syntactic UFO calculus.
 
 These checkpoints establish ordinary joint satisfiability. They do not require
@@ -901,7 +901,7 @@ The development follows a repeated pattern:
 4. Prove a model-existence checkpoint.
 5. Record any extra bridge principle needed for the paper's theorem statements.
 
-The small witness models are intentionally sparse. Empty interpretations are
+The small witness models are sparse. Empty interpretations are
 permitted in ordinary model-existence checkpoints and show joint satisfiability
 without asserting ontological richness. The separate anti-vacuity modules add
 section-by-section simultaneous-nonemptiness checks for the complete primitive

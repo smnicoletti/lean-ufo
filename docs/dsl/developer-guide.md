@@ -6,7 +6,7 @@ This page is for contributors who need to change the finite UFO DSL internals.
 For the conceptual pipeline, first read the [DSL architecture](architecture.md).
 For theorem statements and what they guarantee, use
 [Formal guarantees](../guarantees.md). Examples live under
-`LeanUfo/UFO/DSL/ConcreteExamples` and are intentionally not covered here.
+`LeanUfo/UFO/DSL/ConcreteExamples` and are outside this guide's scope.
 
 ## File Map
 
@@ -86,9 +86,11 @@ are compatibility API and should not be renamed. The semantic theorem calls a
 reusable Boolean checker soundness theorem and evaluates the concrete model
 with `native_decide`.
 
-`Checker/` owns the reflective Boolean checks, `Stepped` step model, soundness
-and completeness theorems, and conservative polynomial step bounds for the
-registered checker-backed fields. `Certificate/Tactic.lean` still provides
+`Checker/` owns the reflective Boolean checks, their counted executable cores,
+soundness and completeness theorems, and concrete operational bounds for the
+registered checker-backed fields. `Complexity/` composes those bounds and
+separates fixed-registry data complexity from parameterized registry
+complexity. `Certificate/Tactic.lean` still provides
 shared simplification support for derived-fact assertions, diagnostic probes,
 and fallback helper fragments. `Certificate/Generation.lean` owns theorem names, widget ordering,
 checker-backed theorem source, manifest source, and final `UFOAxioms4`
@@ -127,7 +129,7 @@ CertificateReuse.reused_aggregate_checker_certified_sound
 CertificateReuse.certificateReuseSource_fresh_none
 ```
 
-The important point is that footprints are planning metadata. They do not prove
+Footprints are planning metadata. They do not prove
 an axiom and they are not trusted as cache hits. Reuse remains correct because
 Lean checks the concrete Boolean equality needed to transport a parent
 `checked_axN` theorem to the child.
@@ -218,8 +220,8 @@ completeness lemmas after first checking the required earlier fields with
 `native_decide`.
 
 When adding a checker-backed axiom, keep the public `certified_axN` theorem name
-stable and add the Boolean checker, stepped checker envelope annotation,
-soundness proof, and targeted `LEANUFO_AXIOMS=axN lake test` run. Add
+stable and add the counted Boolean checker, its operational bound, the
+soundness proof, and a targeted `LEANUFO_AXIOMS=axN lake test` run. Add
 completeness and direct negative-probe routing when the checker is equivalent to
 the core axiom without extra representation assumptions.
 
@@ -258,7 +260,7 @@ The core certificate remains unchanged:
 checkAx99 M = true → ax_a99 M.toUFOSignature4.toUFOSignature3_12
 ```
 
-The converse for the core `ax_a99` is intentionally not claimed: the core axiom
+No converse is claimed for the core `ax_a99`: the core axiom
 quantifies over arbitrary tuple arities, while the finite model can only check
 the product-family witnesses it stores.
 
@@ -312,7 +314,7 @@ checkAx68 M
 `reachableInheresInVia` is Warshall-style rather than depth-first search. It
 folds over the finite list of possible intermediate things. At each pivot it
 keeps the previously known reachability relation and adds all paths that go
-through that pivot. This form is deliberately chosen because the proof follows
+through that pivot. This form lets the proof follow
 the algorithm:
 
 - the base relation contains the finite `InheresIn` table;
@@ -365,9 +367,10 @@ preflight is only a quick check; theorem commands are the authoritative
 generated declarations.
 
 `ConcreteExamples/RelatorProbe.lean` is the direct end-to-end `ax73` witness.
-It is excluded from the examples aggregate and positive seed because a measured
-fresh certification of the complete package over three worlds and ten things
-took about 22 minutes. `LEANUFO_AXIOMS=ax73 lake test` selects it explicitly.
+It belongs to the examples aggregate and certifies the complete package over
+three worlds and ten things. `LEANUFO_AXIOMS=ax73 lake test` also checks its
+specific semantic witness properties. Use `LEANUFO_PERFORMANCE_TESTS=1 lake
+test` for the complete performance-sensitive profile.
 
 
 [Docs home](../README.md) · [Project README](../../README.md)

@@ -8,7 +8,7 @@ extension.  `ValidVehicleBaseExample` certifies.  The child extension adds
 `Perdurant(Car)`, which conflicts with the inherited `Object(Car)` taxonomy:
 objects are endurants, and ax13 disallows endurant/perdurant overlap.
 
-This file is intentionally not imported by `LeanUfo.UFO.DSL.Examples`, because
+`LeanUfo.UFO.DSL.Examples` does not import this file because
 it is expected to fail.  Open it directly in VS Code to inspect the failed
 extension diagnostics.
 -/

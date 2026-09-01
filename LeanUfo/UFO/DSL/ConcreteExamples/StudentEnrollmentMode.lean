@@ -1,6 +1,6 @@
 import LeanUfo.UFO.DSL.Syntax
 
-/-
+/-!
 Student-enrollment mode example.
 
 This single-world example treats Bob's enrollment as a mode inhering in Bob.

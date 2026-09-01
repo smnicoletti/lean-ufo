@@ -5,7 +5,7 @@ import LeanUfo.UFO.DSL.Certification
 
 This file is the semantic middle layer for the finite DSL.
 
-The important separation is:
+The representation has two layers:
 
 * **DSL syntax** is only a user interface.  It names worlds and things and lists
   facts such as `Mark : ConcreteIndividual`, `Mark :: Person`, and
@@ -30,7 +30,7 @@ namespace LeanUfo.UFO.DSL
 /--
 Finite witness for the product-family existential in axiom (a99).
 
-The witness is intentionally separate from primitive facts: it records the
+The witness is separate from primitive facts: it records the
 finite family that should instantiate the `∃ n, ∃ ys zs : Fin n → Thing, ...`
 part of the core axiom.  Existing models use an empty witness list.
 -/
@@ -195,7 +195,7 @@ def holds {α : Sort u} (p : α → Bool) (x : α) : Prop := p x = true
 /--
 Every generated model receives a universal S5 frame.
 
-The accessibility relation is intentionally not part of the first user syntax:
+The first user syntax does not expose the accessibility relation:
 for the current single-world and small finite examples, all worlds seeing all
 worlds is enough.  The modal operators are still interpreted by the existing
 S5 semantics; this is only a frontend default.
@@ -436,7 +436,7 @@ def toUFOSignature4 (M : FiniteModel4) : UFOSignature4 :=
 /--
 User-facing certification predicate for a finite model.
 
-This is intentionally just the original axiom package applied to the compiled
+This is the original axiom package applied to the compiled
 signature.  Keeping the type this direct makes generated certificates useful in
 ordinary downstream Lean proofs.
 -/

@@ -107,7 +107,7 @@ The DSL architecture has its own detailed page:
   maintenance rules;
 - [DSL syntax reference](dsl/syntax.md): user-facing grammar and fact forms.
 
-At the project level, the important point is that `certify` emits ordinary Lean
+At the project level, `certify` emits ordinary Lean
 declarations:
 
 ```lean
@@ -153,7 +153,8 @@ the main guarantee layers are:
 - **DSL compiler and packaging guarantees** in `DSL/Guarantees.lean` and
   `DSL/Certification.lean`;
 - **checker soundness/completeness theorems** in `DSL/Checker/Soundness.lean`;
-- **checker step bounds** in `DSL/Checker/Complexity.lean`.
+- **operational compiler/checker complexity guarantees** under
+  `DSL/Complexity/`, including the fixed 116-check heterogeneous bound.
 
 The central DSL checker theorem is:
 
@@ -166,12 +167,12 @@ checkAxioms4_sound :
 This theorem connects the executable finite checker to the Prop-valued semantic
 axiom package. The formal-guarantees page gives the more detailed theorem map
 for name resolution, table compilation, semantic bridging, checker
-soundness/completeness, certificate reuse, diagnostics, and polynomial checker
+soundness/completeness, certificate reuse, diagnostics, and operational cost
 step bounds.
 
 ## Trust Boundary
 
-The trusted boundary is intentionally explicit.
+The trusted boundary is explicit.
 
 - The core formalization is ordinary Lean code checked by the kernel.
 - The concrete DSL parser and declaration emitter are trusted

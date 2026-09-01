@@ -12,7 +12,7 @@ adds symmetric `ConstitutedBy` facts.  This violates the constitution
 asymmetry/non-reflexivity constraints while leaving many earlier taxonomy and
 classification checks reusable from the parent.
 
-This file is intentionally not imported by `LeanUfo.UFO.DSL.Examples`, because
+`LeanUfo.UFO.DSL.Examples` does not import this file because
 it is expected to fail.  Open it directly in VS Code to inspect both the reuse
 summary and the later failed certificate field.
 -/

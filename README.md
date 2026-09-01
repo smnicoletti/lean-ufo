@@ -36,6 +36,7 @@ certificate, and each confirmed failure is traced back to the finite model data.
 | Check theorem-backed guarantees | [Formal guarantees](docs/guarantees.md) |
 | Understand the implementation | [Project architecture](docs/architecture.md) |
 | Work on DSL internals | [DSL architecture](docs/dsl/architecture.md) and [DSL developer guide](docs/dsl/developer-guide.md) |
+| Inspect operational bounds | [Concrete compiler, checker, and diagnostic complexity](docs/dsl/complexity.md) |
 
 ## Contribution Highlights
 
@@ -288,7 +289,7 @@ LEANUFO_AXIOMS=ax65,ax66,ax67,ax68 lake test
 LEANUFO_AXIOMS=ax69,ax70,ax71,ax72,ax73,ax74,ax75,ax76,ax77,ax78,ax79,ax80,axQuaIndividualOfEndurant lake test
 ```
 
-The stricter direct-negative audit is intentionally not part of the green fast
+The stricter direct-negative audit is not part of the green fast
 profile yet:
 
 ```bash
@@ -309,6 +310,7 @@ axioms currently classified as compiler-enforced or blocked.
 | [DSL quickstart](docs/dsl/quickstart.md) | First certified model |
 | [DSL syntax](docs/dsl/syntax.md) | Accepted surface syntax |
 | [DSL architecture](docs/dsl/architecture.md) | Syntax-to-certificate pipeline, checker, diagnostics, and complexity |
+| [Concrete complexity](docs/dsl/complexity.md) | Operational costs, explicit input model, verified-DSL theorem map, and literature |
 | [Diagnostics](docs/dsl/diagnostics.md) | Failure analysis and counterexamples |
 | [DSL developer guide](docs/dsl/developer-guide.md) | Internal DSL module map and generated-certificate workflow |
 | [Diagnostics internals](docs/dsl/diagnostics-internals.md) | How failed generated checks become source-level explanations |

@@ -110,8 +110,8 @@ The user needs a witness satisfying all listed requirements.
 ## Inspectable Failed Examples
 
 The concrete examples directory includes expected-failure files that are useful
-when inspecting diagnostics in VS Code. They are intentionally not imported by
-`LeanUfo.UFO.DSL.Examples`, because they fail by design.
+when inspecting diagnostics in VS Code. `LeanUfo.UFO.DSL.Examples` does not
+import them because they fail by design.
 
 For model extension, open:
 

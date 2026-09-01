@@ -5,7 +5,7 @@ import Lean.Widget
 # UFO diagnostics widget
 
 This module contains the JavaScript/React panel used by the DSL command to show
-model diagnostics in Lean-enabled editors. It deliberately contains no parsing,
+model diagnostics in Lean-enabled editors. It contains no parsing,
 compilation, or proof-generation logic. The command elaborator only imports the
 widget module to get the widget hash needed by `Widget.savePanelWidgetInfo`.
 -/

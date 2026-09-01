@@ -1,6 +1,6 @@
 import LeanUfo.UFO.DSL.Syntax
 
-/-
+/-!
 Company/person/organization DSL model
 
 This single-world example has two concrete individuals, Mark and Acme,

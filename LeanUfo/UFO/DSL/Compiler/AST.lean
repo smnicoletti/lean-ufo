@@ -21,6 +21,10 @@ inductive CompiledFact where
   | derived (prop : String)
   deriving Repr, Inhabited
 
+@[simp] def CompiledFact.projectionArity : CompiledFact → Nat
+  | .tupleProjection _ index _ _ => index + 1
+  | _ => 0
+
 /-- Scope attached to a resolved fact before world expansion. -/
 inductive FactScope where
   | at (world : Nat)
@@ -39,6 +43,10 @@ inductive ScopedCompiledFact where
   | ternary (field : TernaryField) (first second third : Nat) (scope : FactScope)
   | tupleProjection (tuple index result : Nat) (scope : FactScope)
   | derived (propAtWorld : Nat → String) (scope : FactScope)
+
+@[simp] def ScopedCompiledFact.projectionArity : ScopedCompiledFact → Nat
+  | .tupleProjection _ index _ _ => index + 1
+  | _ => 0
 
 /-- Scope attached to a named fact before world-name resolution. -/
 inductive NamedFactScope where
@@ -62,6 +70,10 @@ inductive NamedScopedFact where
   | tupleProjection (tuple : String) (index : Nat) (result : String) (scope : NamedFactScope)
   | derived (fact : NamedDerivedFact) (scope : NamedFactScope)
   deriving Repr, Inhabited, DecidableEq
+
+@[simp] def NamedScopedFact.projectionArity : NamedScopedFact → Nat
+  | .tupleProjection _ index _ _ => index + 1
+  | _ => 0
 
 /-- Named product-family witness for the existential content of ax99. -/
 structure NamedProductFamily where
@@ -105,6 +117,8 @@ inductive ResolveError where
   | extensionDisablesDerivations
   | productFamilyArityMismatch
       (domain qualityType : String) (dimensionCount typeCount : Nat)
+  | conflictingTupleProjection
+      (tuple index world firstResult secondResult : Nat)
   deriving Repr, Inhabited, DecidableEq
 
 /-- Whether a generated per-axiom check was evaluated fresh or reused. -/

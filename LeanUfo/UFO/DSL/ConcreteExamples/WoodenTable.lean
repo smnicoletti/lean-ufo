@@ -1,6 +1,6 @@
 import LeanUfo.UFO.DSL.Syntax
 
-/-
+/-!
 Paper example: minimal wooden-table constitution witness
 
 This file captures the smallest certifiable core of the paper's wooden-table

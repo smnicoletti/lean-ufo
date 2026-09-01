@@ -714,6 +714,13 @@ private def certTactic (field : CertField) : String :=
   | none =>
       "ufo_cert_tac"
 
+/-
+The fallback simplifier serves models and axioms with different reducible
+definitions. Some entries are therefore unused in any one generated proof.
+Only fallback proofs disable `unusedSimpArgs`; checker-backed proofs keep the
+linter active.
+-/
+
 /--
 Some axioms must be probed by elaborating the generated theorem command, not by
 first elaborating a standalone proof term.
@@ -742,20 +749,20 @@ def certAxiomTheorem
     (_worldCount _thingCount : Nat) (_tables : FactTables) (field : CertField) : String :=
   match checkerCertificateProof? field with
   | some proof =>
-      s!"set_option maxHeartbeats 1000000 in set_option linter.unusedSimpArgs false in theorem {certTheoremName field.field} : {field.prop} := by
+      s!"set_option maxHeartbeats 1000000 in set_option maxRecDepth 20000 in theorem {certTheoremName field.field} : {field.prop} := by
   {proof}"
   | none =>
-      s!"set_option maxHeartbeats 1000000 in set_option linter.unusedSimpArgs false in theorem {certTheoremName field.field} : {field.prop} := by
+      s!"set_option maxHeartbeats 1000000 in set_option maxRecDepth 20000 in set_option linter.unusedSimpArgs false in theorem {certTheoremName field.field} : {field.prop} := by
 {indentLines "  " (certTactic field)}"
 
 def checkedAxiomTheorem (field : CertField) (reuseFrom? : Option Name := none) : String :=
   let checkFn := s!"LeanUfo.UFO.DSL.Checker.{checkerFunctionName field.field}"
   match reuseFrom? with
   | none =>
-      s!"set_option maxHeartbeats 1000000 in theorem {checkedTheoremName field.field} : {checkFn} data = true := by
+      s!"set_option maxHeartbeats 1000000 in set_option maxRecDepth 20000 in theorem {checkedTheoremName field.field} : {checkFn} data = true := by
   native_decide"
   | some parent =>
-      s!"set_option maxHeartbeats 1000000 in theorem {checkedTheoremName field.field} : {checkFn} data = true := by
+      s!"set_option maxHeartbeats 1000000 in set_option maxRecDepth 20000 in theorem {checkedTheoremName field.field} : {checkFn} data = true := by
   have hEq : {checkFn} data = {checkFn} {parent}.data := by
     native_decide
   simpa [hEq] using {parent}.{checkedTheoremName field.field}"
@@ -850,7 +857,6 @@ def certAxiomCounterexampleCheck (field : CertField) : String :=
     s!"show ¬ ({field.prop}) from by
   set_option maxHeartbeats 1000000 in
   set_option maxRecDepth 20000 in
-  set_option linter.unusedSimpArgs false in
   intro h
   have h47 : LeanUfo.UFO.DSL.Checker.checkAx47 data = true := by native_decide
   have h72 : LeanUfo.UFO.DSL.Checker.checkAx72 data = true := by native_decide
@@ -868,7 +874,6 @@ def certAxiomCounterexampleCheck (field : CertField) : String :=
   else if field.field == "ax78" then
     s!"show ¬ ({field.prop}) from by
   set_option maxHeartbeats 1000000 in
-  set_option linter.unusedSimpArgs false in
   intro h
   have h48 : LeanUfo.UFO.DSL.Checker.checkAx48 data = true := by native_decide
   have h52 : LeanUfo.UFO.DSL.Checker.checkAx52 data = true := by native_decide
@@ -895,7 +900,6 @@ def certAxiomCounterexampleCheck (field : CertField) : String :=
   else if field.field == "ax79" then
     s!"show ¬ ({field.prop}) from by
   set_option maxHeartbeats 1000000 in
-  set_option linter.unusedSimpArgs false in
   intro h
   have h72 : LeanUfo.UFO.DSL.Checker.checkAx72 data = true := by native_decide
   have h75 : LeanUfo.UFO.DSL.Checker.checkAx75 data = true := by native_decide
@@ -912,7 +916,6 @@ def certAxiomCounterexampleCheck (field : CertField) : String :=
   | some backend =>
     s!"show ¬ ({field.prop}) from by
   set_option maxHeartbeats 1000000 in
-  set_option linter.unusedSimpArgs false in
   intro h
   have hcheck : LeanUfo.UFO.DSL.Checker.{backend.checkFn} data = true :=
     LeanUfo.UFO.DSL.Checker.{backend.completeTheorem} data h
@@ -932,7 +935,6 @@ def certAxiomProofCheck
   | some proof =>
       s!"show {field.prop} from by
   set_option maxHeartbeats 1000000 in
-  set_option linter.unusedSimpArgs false in
   {proof}"
   | none =>
       s!"show {field.prop} from by

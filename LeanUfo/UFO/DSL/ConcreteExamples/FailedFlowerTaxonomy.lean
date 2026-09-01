@@ -1,13 +1,13 @@
 import LeanUfo.UFO.DSL.Syntax
 
-/-
+/-!
 Negative diagnostic example: an anti-rigid phase is also asserted as rigid.
 
 This is a small variation of `FlowerPropertyChange.lean`.  The passing example
 uses `RedFlower` and `BrownFlower` only as phases.  Here `RedFlower` is also
 declared as an `ObjectKind`, which makes it both phase-like and kind-like.
 
-The model is intentionally not certifiable.  Open this file in VS Code to see
+The model must fail certification. Open this file in VS Code to see
 the UFO diagnostics widget stop at `certified_ax18`.
 -/
 

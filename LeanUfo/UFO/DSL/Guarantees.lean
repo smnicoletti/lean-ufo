@@ -1,4 +1,5 @@
 import LeanUfo.UFO.DSL.Syntax
+import LeanUfo.UFO.DSL.Complexity.Tables
 
 /-!
 # Formal guarantees for the finite DSL backend
@@ -6,8 +7,8 @@ import LeanUfo.UFO.DSL.Syntax
 This module records the object-level guarantees that are already available for
 the finite DSL pipeline.
 
-The statements are intentionally modest. They document and prove the key
-semantic facts that make the generated artifacts useful:
+The statements cover the specific semantic properties proved for the current
+pipeline:
 
 * named fact resolution is a pure function with explicit duplicate-name and
   unknown-name errors;
@@ -45,7 +46,7 @@ namespace LeanUfo.UFO.DSL
 /-!
 ## Diagnostics guarantees
 
-The widget is intentionally not a proof oracle. The command elaborator obtains
+The widget is not a proof oracle. The command elaborator obtains
 its state by asking Lean to elaborate each generated certificate proof term in
 order. The guarantees below cover the pure boundary between that checked state
 and the diagnostic label rendered in the widget.
@@ -321,14 +322,11 @@ theorem tupleProjection_at_expands_to_singleton
       #[CompiledFact.tupleProjection tuple index result w] :=
   rfl
 
-/--
-Expansion of all scoped facts is ordinary folding over the pure scoped fact
-expander. This is where the `given everywhere` semantics now lives.
--/
+/-- Batch expansion is the erasure of the accumulator-based counted pass. -/
 theorem scoped_expansion_pipeline
     (worldCount : Nat) (facts : Array ScopedCompiledFact) :
     expandScopedFacts worldCount facts =
-      facts.foldl (fun out fact => out ++ expandScopedFact worldCount fact) #[] :=
+      (expandScopedFactsCosted worldCount facts).value :=
   rfl
 
 end ScopedCompiledFact
@@ -421,13 +419,14 @@ namespace ModelAST
 /-- Generated models make deterministic taxonomy sugar explicit before table compilation. -/
 theorem taxonomy_expansion_pipeline (facts : Array CompiledFact) :
     addTaxonomyFacts facts =
-      facts.foldl
-        (fun acc fact =>
-          match fact with
-          | .unary field x w => acc ++ expandUnaryTaxonomyFact field x w
-          | _ => acc.push fact)
-        #[] :=
+      (addTaxonomyFactsCosted facts).value :=
   rfl
+
+/-- Taxonomy materialization charges each input and emitted fact exactly. -/
+theorem taxonomy_expansion_cost (facts : Array CompiledFact) :
+    (addTaxonomyFactsCosted facts).cost =
+      facts.size + (addTaxonomyFacts facts).size :=
+  addTaxonomyFactsCosted_cost facts
 
 /--
 Generated models make reflexive specialization sugar explicit before table
@@ -436,44 +435,48 @@ compilation.
 theorem reflexive_specialization_expansion_pipeline
     (worldCount : Nat) (facts : Array CompiledFact) :
     addReflexiveSpecializationFacts worldCount facts =
-      let typeTargets :=
-        facts.foldl
-          (fun (seen : Std.HashSet Nat) fact =>
-            match fact with
-            | .binary .inst _ t _ => seen.insert t
-            | _ => seen)
-          {}
-      typeTargets.toArray.foldl
-        (fun facts t =>
-          Id.run do
-            let mut facts := facts
-            for w in [:worldCount] do
-              facts := facts.push (.binary .sub t t w)
-            pure facts)
-        facts :=
+      (addReflexiveSpecializationFactsCosted worldCount facts).value :=
   rfl
+
+/-- The executable specialization pass has a source-size polynomial charge. -/
+theorem reflexive_specialization_expansion_cost_le
+    (worldCount : Nat) (facts : Array CompiledFact) :
+    (addReflexiveSpecializationFactsCosted worldCount facts).cost ≤
+      facts.size * (worldCount + 2) :=
+  addReflexiveSpecializationFactsCosted_cost_le worldCount facts
 
 /--
 Resolved model compilation is exactly:
 
-1. fold resolved facts into finite tables;
-2. close specialization reflexively for instantiated types.
+1. fold resolved facts into inspectable sparse tables;
+2. close specialization reflexively for instantiated types;
+3. materialize typed dense tables and inherence closure matrices.
 -/
 theorem compilation_pipeline (ast : ModelAST) :
     compileModelAST ast =
-      ast.productFamilies.foldl addProductFamily
-        (closeReflexiveSpecialization ast.worldCount (compileFacts ast.facts)) :=
+      let sparse := closeReflexiveSpecialization ast.worldCount (compileFacts ast.facts)
+      let tables := ast.productFamilies.foldl addProductFamily sparse
+      tables.withDenseFacts ast.worldCount ast.thingCount tables.sparseFacts :=
   compileModelAST_eq ast
 
-/--
-Compilation of an already-expanded AST is exactly a fold of explicit facts.
-This is the path used by generated model declarations after `Syntax.lean`
-materializes taxonomy and reflexive-specialization sugar in the emitted AST.
--/
+/-- Explicit AST compilation corresponds to the counted production pass. -/
 theorem explicit_compilation_pipeline (ast : ModelAST) :
     compileExplicitModelAST ast =
-      ast.productFamilies.foldl addProductFamily (ast.facts.foldl compileExplicitFact {}) :=
-  rfl
+      (compileExplicitModelASTCosted ast).value :=
+  (compileExplicitModelASTCosted_value ast).symm
+
+/--
+For a finite AST whose resolved coordinates are in range, the counted compiler
+erases to production compilation and the compact kernel-facing lookups agree
+with all four dense native lookup implementations. Runtime costs belong to the
+dense counted path; this theorem asserts equality of returned values, not
+equality of execution steps.
+-/
+theorem explicit_compilation_implementation_guarantee
+    (ast : ModelAST)
+    (hBounded : Complexity.Production.explicitModelWellBounded ast) :
+    Complexity.Production.ExplicitCompilationGuarantee ast :=
+  Complexity.Production.explicitCompilationGuarantee ast hBounded
 
 /--
 The generated model construction path is ordinary compilation from explicit AST
@@ -495,7 +498,7 @@ theorem toFiniteModel4_inst_eq
     (tables : FactTables) (wc tc : Nat) (hw : 0 < wc) (ht : 0 < tc)
     (x y : Fin tc) (w : Fin wc) :
     (tables.toFiniteModel4 wc tc hw ht).inst x y w =
-      tables.binaryTable "inst" x y w :=
+      tables.binaryTypedTable .inst x y w :=
   rfl
 
 /-- `toFiniteModel4` reads specialization from the compiled binary table. -/
@@ -503,7 +506,7 @@ theorem toFiniteModel4_sub_eq
     (tables : FactTables) (wc tc : Nat) (hw : 0 < wc) (ht : 0 < tc)
     (x y : Fin tc) (w : Fin wc) :
     (tables.toFiniteModel4 wc tc hw ht).sub x y w =
-      tables.binaryTable "sub" x y w :=
+      tables.binaryTypedTable .sub x y w :=
   rfl
 
 /-- `toFiniteModel4` gives identity by default for parthood. -/
@@ -511,7 +514,7 @@ theorem toFiniteModel4_part_eq
     (tables : FactTables) (wc tc : Nat) (hw : 0 < wc) (ht : 0 < tc)
     (x y : Fin tc) (w : Fin wc) :
     (tables.toFiniteModel4 wc tc hw ht).part x y w =
-      tables.identityBinaryTable "part" x y w :=
+      (x == y || tables.binaryTypedTable .part x y w) :=
   rfl
 
 /-- `toFiniteModel4` reads set membership from the compiled `MemberOf` table. -/
@@ -519,7 +522,7 @@ theorem toFiniteModel4_memberOf_eq
     (tables : FactTables) (wc tc : Nat) (hw : 0 < wc) (ht : 0 < tc)
     (x s : Fin tc) (w : Fin wc) :
     (tables.toFiniteModel4 wc tc hw ht).memberOf x s w =
-      tables.binaryTable "memberOf" x s w :=
+      tables.binaryTypedTable .memberOf x s w :=
   rfl
 
 /-- `toFiniteModel4` defines set extensions from the compiled `MemberOf` table. -/
@@ -527,7 +530,7 @@ theorem toFiniteModel4_setExtension_iff_memberOf
     (tables : FactTables) (wc tc : Nat) (hw : 0 < wc) (ht : 0 < tc)
     (x s : Fin tc) (w : Fin wc) :
     x ∈ (tables.toFiniteModel4 wc tc hw ht).setExtension s w ↔
-      tables.binaryTable "memberOf" x s w = true :=
+      tables.binaryTypedTable .memberOf x s w = true :=
   Iff.rfl
 
 /-- `toFiniteModel4` reads tuple projection from the compiled projection table. -/
@@ -535,7 +538,7 @@ theorem toFiniteModel4_tupleProjection_eq
     (tables : FactTables) (wc tc n : Nat) (hw : 0 < wc) (ht : 0 < tc)
     (p : Fin tc) (i : Fin n) (w : Fin wc) :
     (tables.toFiniteModel4 wc tc hw ht).tupleProjection p i w =
-      tables.tupleProjectionTable p i.val w :=
+      tables.tupleProjectionTypedTable p i.val w :=
   rfl
 
 /-- `toFiniteModel4` reads distance from the compiled ternary table. -/
@@ -543,7 +546,7 @@ theorem toFiniteModel4_distance_eq
     (tables : FactTables) (wc tc : Nat) (hw : 0 < wc) (ht : 0 < tc)
     (x y r : Fin tc) (w : Fin wc) :
     (tables.toFiniteModel4 wc tc hw ht).distance x y r w =
-      tables.ternaryTable "distance" x y r w :=
+      tables.ternaryTypedTable .distance x y r w :=
   rfl
 
 /-- `toFiniteModel4` reads zero-distance values from the compiled unary table. -/
@@ -551,7 +554,7 @@ theorem toFiniteModel4_distanceZero_eq
     (tables : FactTables) (wc tc : Nat) (hw : 0 < wc) (ht : 0 < tc)
     (r : Fin tc) (w : Fin wc) :
     (tables.toFiniteModel4 wc tc hw ht).distanceZero r w =
-      tables.unaryTable "distanceZero" r w :=
+      tables.unaryTypedTable .distanceZero r w :=
   rfl
 
 /-- `toFiniteModel4` reads distance sums from the compiled ternary table. -/
@@ -559,7 +562,7 @@ theorem toFiniteModel4_distanceSum_eq
     (tables : FactTables) (wc tc : Nat) (hw : 0 < wc) (ht : 0 < tc)
     (r0 r1 s : Fin tc) (w : Fin wc) :
     (tables.toFiniteModel4 wc tc hw ht).distanceSum r0 r1 s w =
-      tables.ternaryTable "distanceSum" r0 r1 s w :=
+      tables.ternaryTypedTable .distanceSum r0 r1 s w :=
   rfl
 
 /-- `toFiniteModel4` reads distance ordering from the compiled binary table. -/
@@ -567,7 +570,7 @@ theorem toFiniteModel4_distanceGreaterEq_eq
     (tables : FactTables) (wc tc : Nat) (hw : 0 < wc) (ht : 0 < tc)
     (s r : Fin tc) (w : Fin wc) :
     (tables.toFiniteModel4 wc tc hw ht).distanceGreaterEq s r w =
-      tables.binaryTable "distanceGreaterEq" s r w :=
+      tables.binaryTypedTable .distanceGreaterEq s r w :=
   rfl
 
 end FactTables
@@ -575,7 +578,7 @@ end FactTables
 /-!
 ## Certificate reuse guarantees
 
-Certificate reuse is deliberately a theorem-generation shortcut, not a new
+Certificate reuse is a theorem-generation shortcut, not a new
 trusted cache.  The planner in `Certificate.Reuse` may suggest that a child
 model can reuse a parent `checked_axN` theorem, but the generated child theorem
 still proves that the child checker result is equal to the parent checker
@@ -583,7 +586,7 @@ result before using the parent theorem.  If Lean cannot check that equality,
 the command generator falls back to a fresh checker proof.
 
 The small lemmas below capture the proof pattern used by generated reuse
-theorems.  They are intentionally stated for an arbitrary Boolean checker, so
+theorems. They apply to an arbitrary Boolean checker, so
 they apply uniformly to every checker-backed axiom field.
 -/
 

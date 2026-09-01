@@ -11,7 +11,7 @@ domain.
 The first model keeps the color-space names inert, so it is a compact syntax
 example.  The second model adds the finite tuple facts that such a witness uses:
 a color-space member, a hue-space member, and a tuple projection from the color
-value to its hue coordinate.  It deliberately avoids `QualityDomain`,
+value to its hue coordinate. It omits `QualityDomain`,
 `QualityDimension`, and `Characterization`; those facts activate the full §3.12
 quality-type obligations and belong in a dedicated semantic stress test.
 -/

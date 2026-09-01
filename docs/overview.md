@@ -51,7 +51,7 @@ PersonExample.certified
 PersonExample.certifiedModel
 ```
 
-The important result is:
+The resulting theorem is:
 
 ```lean
 PersonExample.certified : UFOAxioms4 PersonExample.sig

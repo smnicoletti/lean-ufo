@@ -5,7 +5,7 @@ import LeanUfo.UFO.DSL.Compiler
 # Certificate reuse footprints
 
 This module owns the conservative field-level reuse registry used by the DSL
-command frontend.  Reuse here is intentionally syntactic and table-based: a
+command frontend. Reuse here is syntactic and table-based: a
 field is reusable only when the finite tables read by its Boolean checker are
 unchanged between parent and child models.
 
