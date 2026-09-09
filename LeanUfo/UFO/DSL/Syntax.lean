@@ -3,6 +3,7 @@ import LeanUfo.UFO.DSL.Certificate.Generation
 import LeanUfo.UFO.DSL.Certificate.Reuse
 import LeanUfo.UFO.DSL.Certificate.Tactic
 import LeanUfo.UFO.DSL.Compiler
+import LeanUfo.UFO.DSL.Compiler.VerifiedModel
 import LeanUfo.UFO.DSL.Complexity.Diagnostics
 import LeanUfo.UFO.DSL.Diagnostic.Analysis
 import LeanUfo.UFO.DSL.Diagnostic.Widget
@@ -557,7 +558,10 @@ private def emitModel
   elabCommandString (modelSourceDecl source)
   elabCommandString (modelASTSource worldNames.size thingNames.size facts productFamilies)
   elabCommandString "def tables : FactTables := compileExplicitModelAST ast"
-  elabCommandString "def data : FiniteModel4 := tables.toFiniteModel4 ast.worldCount ast.thingCount (by decide) (by decide)"
+  -- This finite coordinate proof uses the same local reduction limits as the
+  -- generated checker proofs. It does not evaluate table correspondence.
+  elabCommandString "set_option maxRecDepth 20000 in set_option maxHeartbeats 1000000 in theorem astWellBounded : Complexity.Production.explicitModelWellBounded ast := by decide"
+  elabCommandString "def data : FiniteModel4 := tables.toFiniteModel4Verified ast.worldCount ast.thingCount (by decide) (by decide) (compiledLookups_agree ast astWellBounded)"
   elabCommandString "abbrev sig : UFOSignature4 := FiniteModel4.toUFOSignature4 data"
   let derivedFailure? := derivedAssertionFailure? worldNames thingNames namedFacts scopedFacts tables
   let derivedFailed ←

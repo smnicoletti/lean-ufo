@@ -1273,8 +1273,8 @@ structure ExplicitTableCorrespondence
     tables.tupleProjectionTypedTable p slot w =
       tables.tupleProjectionTypedTableDense p slot w
 
-/-- Every bounded explicit model has the complete compact-to-dense table
-correspondence required by the `implemented_by` production lookups. -/
+/-- Every bounded explicit model has the compact-to-dense correspondence used
+by the proof-carrying native model constructor. -/
 theorem explicitFacts_typedTableCorrespondence
     (worldCount thingCount : Nat) (facts : Array CompiledFact)
     (hFacts : ∀ fact ∈ facts, factWellBounded worldCount thingCount fact) :

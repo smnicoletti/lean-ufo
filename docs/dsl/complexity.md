@@ -1,8 +1,10 @@
 # Concrete complexity and the verified-DSL boundary
 
-This guide states exactly which DSL computations have operational bounds and
-which costs remain outside the formal model. Every complexity claim below
-refers to a counted production computation.
+This guide maps the DSL's counted computations to their bounds and intended
+execution model. The [behavior contract](behavior-contract.md) tracks open
+repairs to operational accounting and source-to-model composition. Until those
+repairs pass verification, the counter bounds below do not establish a complete
+end-to-end bound for executed compilation, checking, and diagnostics.
 
 ## Claims
 
@@ -53,6 +55,14 @@ certificates. The sparse and dense implementations perform different
 operations. The correspondence theorems prove that they return the same value.
 They do not claim that both implementations take the same number of steps.
 
+`toFiniteModel4Verified` requires a table-equality proof alongside the compiled
+tables. Lean checks the function equality used by compiler simplification
+(`csimp`) to select dense lookup. Raw `FactTables` lookup has no native override,
+so absent or stale dense storage cannot change its meaning. The public raw
+constructor `toFiniteModel4` keeps sparse lookup; generated DSL models use the
+proof-carrying constructor. See [the repair contract](behavior-contract.md) for
+the remaining operational-accounting obligations.
+
 `ExplicitTableCorrespondence` packages the unary, binary, ternary, and tuple
 projection results. `explicitCompilationGuarantee` combines that package with
 `compileExplicitModelASTCosted_value`, which proves that counted compilation
@@ -92,7 +102,7 @@ organizational precedent, not a complexity result for Lean UFO.
 | Parser/emitter | documented trust boundary and generated-source validation | existing boundary; not kernel-verified parsing |
 | Name resolution | success corresponds to the declared name environment | the production batch compiler builds world/thing indices once and reuses them for facts and product families; structural index construction is the counted executable and has the proved early-exit bound `mapOps ≤ 2·names`; lookup exposes one abstract `mapOp`; successful resolution preserves scope, taxonomy, and projection-arity metrics |
 | Scope/taxonomy/specialization passes | each pass preserves its stated source semantics | scope expansion has exact charge `Σ(scopeMultiplicity+1)`; taxonomy uses an accumulator with exact charge `inputFacts+emittedFacts`; specialization is a single accumulator pass; their concrete sizes, costs, and projection-arity preservation are connected to `SourceMetrics` |
-| Flat tables | compact and dense lookups return equal values; projection conflicts are rejected | Compact definitions support kernel reduction. `implemented_by` selects typed dense arrays for native execution, and counted lookups erase to those dense functions. Theorems cover each fact write and the complete fact fold. `ExplicitTableCorrespondence` packages unary, binary, ternary, and projection lookup equality. Projection uses deterministic last-write semantics. Validation rejects different results for one projection coordinate and accepts identical duplicates. The cost theorem covers only the dense path. |
+| Flat tables | compact and dense lookups return equal values; projection conflicts are rejected | Compact definitions support kernel reduction. `toFiniteModel4Verified` requires the equality proof used by the `csimp` native replacement. Raw lookup has no override. Theorems cover each fact write and the complete fact fold. `ExplicitTableCorrespondence` packages unary, binary, ternary, and projection lookup equality. Projection uses deterministic last-write semantics. Validation rejects different results for one projection coordinate and accepts identical duplicates. The cost theorem covers only the dense path. |
 | Inherence closure | Warshall matrix corresponds to `MomentOf` | compiler storage and production axiom 68 derive from the same verified sized-matrix recurrence; the compiler additionally carries deterministic first-hop evidence, with row-major lookup, hop-implies-reachability, exact `W·(13T³+9T²+1)` evidence-carrying construction cost, and `MomentOf` correspondence proved |
 | Finite-model interpretation | compiled Boolean fields denote the corresponding `UFOSignature4` relations | core bridge theorems exist |
 | Compiler | counted value equals compact production compilation | proved: source compilation uses a counted core, and `compileExplicitModelASTCosted_value` connects explicit-AST cost accounting to the compact proof-facing compiler. `compilerOperationalCost_le` covers every success and early-error branch with the explicit multivariate `sourceCompilerPolynomial`. Only afterwards, `source_compiler_scalar_polynomial_bound` derives the one-variable bound `80·inputSize⁴`, where `inputSize` contains every independently sized source component. |

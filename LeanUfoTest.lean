@@ -1,5 +1,6 @@
 import LeanUfo.Test.Coverage.RegistryCheck
 import LeanUfo.Test.Diagnostics.Rendering
+import LeanUfo.Test.Syntax.TableCorrespondence
 import LeanUfo.CertificateCli
 
 /-!

@@ -9,6 +9,11 @@ three boundaries separate:
 - what the executable DSL compiler and checker compute;
 - what remains trusted frontend or diagnostic presentation code.
 
+The [DSL behavior contract](dsl/behavior-contract.md) records open repair
+obligations. In particular, the complexity results need further operational
+accounting and source-to-model correspondence before they establish the claimed
+end-to-end execution bound.
+
 The relevant theorem files are:
 
 ```text
@@ -723,6 +728,13 @@ lookups erase to the named dense functions used by native execution.
 ternary, and projection tables. `explicitCompilationGuarantee` combines these
 results with counted-to-production compiler erasure. The correspondence needs
 a well-bounded finite AST.
+
+Generated models pass their compiled tables to `toFiniteModel4Verified`.
+Its native replacement requires
+the sparse/dense equality for the actual tables and coordinate dimensions.
+Lean checks the function equality used by compiler simplification (`csimp`).
+Raw `FactTables` lookup has no unproved native override. The constructor and
+its correspondence proof are in `Compiler/VerifiedModel.lean`.
 
 Kernel reduction uses compact sparse definitions so certificate proofs remain
 small. Sparse and dense lookup perform different operations. The formal cost

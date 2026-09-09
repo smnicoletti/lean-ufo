@@ -964,8 +964,9 @@ structure ModelAST where
 Accumulated finite table data before construction of a `FiniteModel4`.
 
 The maps support diagnostics. The lookup closures give kernel reduction a
-compact view for generated certificate proofs. Native `FiniteModel4` execution
-uses the typed dense arrays below and does not traverse closure chains.
+compact view for generated certificate proofs. Verified model construction
+uses the typed dense arrays in native execution. Raw table interpretation
+keeps the sparse meaning unless the caller supplies a correspondence proof.
 -/
 structure FactTables where
   unary : Std.HashMap String (Array (Nat × Nat)) := {}
@@ -2254,11 +2255,10 @@ theorem unaryTypedTableCosted_value_dense (tables : FactTables) (field : UnaryFi
       tables.unaryTypedTableDense field x w := rfl
 
 /--
-Proof-facing unary lookup over the inspectable fact stream. Native execution
-uses the corresponding constant-time dense lookup. Table-correctness theorems
-justify this replacement for compiled tables.
+Raw unary lookup over the inspectable fact stream. Both kernel reduction and
+native execution use this definition. Dense replacement requires the equality
+proof carried by `verifiedLookups` below.
 -/
-@[implemented_by unaryTypedTableDense]
 def unaryTypedTable (tables : FactTables) (field : UnaryField)
     {thingCount worldCount : Nat}
     (x : Fin thingCount) (w : Fin worldCount) : Bool :=
@@ -2288,7 +2288,6 @@ theorem binaryTypedTableCosted_value_dense (tables : FactTables) (field : Binary
     (tables.binaryTypedTableCosted field x y w).value =
       tables.binaryTypedTableDense field x y w := rfl
 
-@[implemented_by binaryTypedTableDense]
 def binaryTypedTable (tables : FactTables) (field : BinaryField)
     {thingCount worldCount : Nat}
     (x y : Fin thingCount) (w : Fin worldCount) : Bool :=
@@ -2318,7 +2317,6 @@ theorem ternaryTypedTableCosted_value_dense (tables : FactTables) (field : Terna
     (tables.ternaryTypedTableCosted field x y z w).value =
       tables.ternaryTypedTableDense field x y z w := rfl
 
-@[implemented_by ternaryTypedTableDense]
 def ternaryTypedTable (tables : FactTables) (field : TernaryField)
     {thingCount worldCount : Nat}
     (x y z : Fin thingCount) (w : Fin worldCount) : Bool :=
@@ -2355,7 +2353,6 @@ theorem tupleProjectionTypedTableCosted_value_dense (tables : FactTables)
     (tables.tupleProjectionTypedTableCosted p i w).value =
       tables.tupleProjectionTypedTableDense p i w := rfl
 
-@[implemented_by tupleProjectionTypedTableDense]
 def tupleProjectionTypedTable (tables : FactTables)
     {thingCount worldCount : Nat}
     (p : Fin thingCount) (i : Nat) (w : Fin worldCount) : Fin thingCount :=
@@ -2598,6 +2595,54 @@ private def productFamilyWitnesses
         | _, _, _, _, _ => pure ()
     pure out
 
+/-- Four primitive lookup families with fixed finite coordinate domains. -/
+structure TableLookups (worldCount thingCount : Nat) where
+  unary : UnaryField → Fin thingCount → Fin worldCount → Bool
+  binary : BinaryField → Fin thingCount → Fin thingCount → Fin worldCount → Bool
+  ternary : TernaryField → Fin thingCount → Fin thingCount → Fin thingCount →
+    Fin worldCount → Bool
+  projection : Fin thingCount → Nat → Fin worldCount → Fin thingCount
+
+def sparseLookups (worldCount thingCount : Nat) (tables : FactTables) :
+    TableLookups worldCount thingCount :=
+  ⟨fun field => tables.unaryTypedTable field,
+    fun field => tables.binaryTypedTable field, fun field => tables.ternaryTypedTable field,
+    tables.tupleProjectionTypedTable⟩
+
+def denseLookups (worldCount thingCount : Nat) (tables : FactTables) :
+    TableLookups worldCount thingCount :=
+  ⟨fun field => tables.unaryTypedTableDense field,
+    fun field => tables.binaryTypedTableDense field,
+    fun field => tables.ternaryTypedTableDense field, tables.tupleProjectionTypedTableDense⟩
+
+/--
+The proof argument makes sparse/dense agreement a precondition of native
+replacement. Raw intermediate tables need not satisfy it. The coordinate
+dimensions occur in the equality, so a caller cannot reuse a proof for a
+different finite domain.
+
+This follows the verified-representation principle illustrated by de Moura's
+RadixExperiment: the executable replacement has a theorem at its API boundary.
+It establishes equal values, not equal costs between the two representations.
+-/
+def verifiedLookups (worldCount thingCount : Nat) (tables : FactTables)
+    (_agreement : sparseLookups worldCount thingCount tables =
+      denseLookups worldCount thingCount tables) : TableLookups worldCount thingCount :=
+  sparseLookups worldCount thingCount tables
+
+def verifiedLookupsDense (worldCount thingCount : Nat) (tables : FactTables)
+    (_agreement : sparseLookups worldCount thingCount tables =
+      denseLookups worldCount thingCount tables) : TableLookups worldCount thingCount :=
+  denseLookups worldCount thingCount tables
+
+/-- Compiler simplification uses a checked function equality. There is no
+unproved `implemented_by` override, including for malformed raw tables. -/
+@[csimp] theorem verifiedLookups_eq_dense :
+    verifiedLookups = verifiedLookupsDense := by
+  funext worldCount thingCount tables agreement
+  exact agreement
+
+
 /--
 Compile finite tables into a `FiniteModel4`.
 
@@ -2606,111 +2651,137 @@ DSL models. Primitive distance, set-membership, and tuple-projection tables are
 read from the DSL facts; higher-arity definition-like relations that are not
 primitive surface syntax remain derived in `FiniteModel4.toUFOSignature4`.
 -/
-def toFiniteModel4
+def toFiniteModel4WithLookups
     (worldCount thingCount : Nat)
     (worldPositive : 0 < worldCount)
     (thingPositive : 0 < thingCount)
-    (tables : FactTables) : FiniteModel4 :=
+    (tables : FactTables) (lookups : TableLookups worldCount thingCount) : FiniteModel4 :=
 { worldCount := worldCount
   thingCount := thingCount
   worldPositive := worldPositive
   thingPositive := thingPositive
 
-  inst := tables.binaryTypedTable .inst
-  sub := tables.binaryTypedTable .sub
+  inst := lookups.binary .inst
+  sub := lookups.binary .sub
 
-  concreteIndividual := tables.unaryTypedTable .concreteIndividual
-  abstractIndividual := tables.unaryTypedTable .abstractIndividual
-  endurant := tables.unaryTypedTable .endurant
-  perdurant := tables.unaryTypedTable .perdurant
-  endurantType := tables.unaryTypedTable .endurantType
-  perdurantType := tables.unaryTypedTable .perdurantType
-  rigid := tables.unaryTypedTable .rigid
-  antiRigid := tables.unaryTypedTable .antiRigid
-  semiRigid := tables.unaryTypedTable .semiRigid
-  kind := tables.unaryTypedTable .kind
-  sortal := tables.unaryTypedTable .sortal
-  nonSortal := tables.unaryTypedTable .nonSortal
-  subKind := tables.unaryTypedTable .subKind
-  phase := tables.unaryTypedTable .phase
-  role := tables.unaryTypedTable .role
-  semiRigidSortal := tables.unaryTypedTable .semiRigidSortal
-  category := tables.unaryTypedTable .category
-  mixin := tables.unaryTypedTable .mixin
-  phaseMixin := tables.unaryTypedTable .phaseMixin
-  roleMixin := tables.unaryTypedTable .roleMixin
+  concreteIndividual := lookups.unary .concreteIndividual
+  abstractIndividual := lookups.unary .abstractIndividual
+  endurant := lookups.unary .endurant
+  perdurant := lookups.unary .perdurant
+  endurantType := lookups.unary .endurantType
+  perdurantType := lookups.unary .perdurantType
+  rigid := lookups.unary .rigid
+  antiRigid := lookups.unary .antiRigid
+  semiRigid := lookups.unary .semiRigid
+  kind := lookups.unary .kind
+  sortal := lookups.unary .sortal
+  nonSortal := lookups.unary .nonSortal
+  subKind := lookups.unary .subKind
+  phase := lookups.unary .phase
+  role := lookups.unary .role
+  semiRigidSortal := lookups.unary .semiRigidSortal
+  category := lookups.unary .category
+  mixin := lookups.unary .mixin
+  phaseMixin := lookups.unary .phaseMixin
+  roleMixin := lookups.unary .roleMixin
 
-  substantial := tables.unaryTypedTable .substantial
-  moment := tables.unaryTypedTable .moment
-  object := tables.unaryTypedTable .object
-  collective := tables.unaryTypedTable .collective
-  quantity := tables.unaryTypedTable .quantity
-  relator := tables.unaryTypedTable .relator
-  intrinsicMoment := tables.unaryTypedTable .intrinsicMoment
-  mode := tables.unaryTypedTable .mode
-  qualityKind := tables.unaryTypedTable .qualityKind
+  substantial := lookups.unary .substantial
+  moment := lookups.unary .moment
+  object := lookups.unary .object
+  collective := lookups.unary .collective
+  quantity := lookups.unary .quantity
+  relator := lookups.unary .relator
+  intrinsicMoment := lookups.unary .intrinsicMoment
+  mode := lookups.unary .mode
+  qualityKind := lookups.unary .qualityKind
 
-  substantialType := tables.unaryTypedTable .substantialType
-  momentType := tables.unaryTypedTable .momentType
-  objectType := tables.unaryTypedTable .objectType
-  collectiveType := tables.unaryTypedTable .collectiveType
-  quantityType := tables.unaryTypedTable .quantityType
-  relatorType := tables.unaryTypedTable .relatorType
-  modeType := tables.unaryTypedTable .modeType
-  qualityType := tables.unaryTypedTable .qualityType
-  objectKind := tables.unaryTypedTable .objectKind
-  collectiveKind := tables.unaryTypedTable .collectiveKind
-  quantityKind := tables.unaryTypedTable .quantityKind
-  relatorKind := tables.unaryTypedTable .relatorKind
-  modeKind := tables.unaryTypedTable .modeKind
+  substantialType := lookups.unary .substantialType
+  momentType := lookups.unary .momentType
+  objectType := lookups.unary .objectType
+  collectiveType := lookups.unary .collectiveType
+  quantityType := lookups.unary .quantityType
+  relatorType := lookups.unary .relatorType
+  modeType := lookups.unary .modeType
+  qualityType := lookups.unary .qualityType
+  objectKind := lookups.unary .objectKind
+  collectiveKind := lookups.unary .collectiveKind
+  quantityKind := lookups.unary .quantityKind
+  relatorKind := lookups.unary .relatorKind
+  modeKind := lookups.unary .modeKind
 
-  part := fun x y w => x == y || tables.binaryTypedTable .part x y w
-  overlap := fun x y w => x == y || tables.binaryTypedTable .overlap x y w
-  properPart := tables.binaryTypedTable .properPart
+  part := fun x y w => x == y || lookups.binary .part x y w
+  overlap := fun x y w => x == y || lookups.binary .overlap x y w
+  properPart := lookups.binary .properPart
 
-  functionsAs := tables.binaryTypedTable .functionsAs
+  functionsAs := lookups.binary .functionsAs
   genericFunctionalDependence := tables.binaryTable "genericFunctionalDependence"
   individualFunctionalDependence := fun _ _ _ _ _ => false
   componentOf := fun _ _ _ _ _ => false
 
-  ex := tables.unaryTypedTable .ex
-  constitutedBy := tables.binaryTypedTable .constitutedBy
+  ex := lookups.unary .ex
+  constitutedBy := lookups.binary .constitutedBy
   genericConstitutionalDependence := tables.binaryTable "genericConstitutionalDependence"
   constitution := fun _ _ _ _ _ => false
 
   existentialDependence := tables.binaryTable "existentialDependence"
   existentialIndependence := tables.binaryTable "existentialIndependence"
-  inheresIn := tables.binaryTypedTable .inheresIn
+  inheresIn := lookups.binary .inheresIn
 
   externallyDependent := tables.binaryTable "externallyDependent"
   externallyDependentMode := tables.unaryTable "externallyDependentMode"
-  foundedBy := tables.binaryTypedTable .foundedBy
-  quaIndividualOf := tables.binaryTypedTable .quaIndividualOf
+  foundedBy := lookups.binary .foundedBy
+  quaIndividualOf := lookups.binary .quaIndividualOf
   quaIndividual := tables.unaryTable "quaIndividual"
-  mediates := tables.binaryTypedTable .mediates
+  mediates := lookups.binary .mediates
 
-  characterization := tables.binaryTypedTable .characterization
+  characterization := lookups.binary .characterization
 
-  quale := tables.unaryTypedTable .quale
-  set_ := tables.unaryTypedTable .set_
-  memberOf := tables.binaryTypedTable .memberOf
-  setExtension := fun s w => {x | tables.binaryTypedTable .memberOf x s w = true}
-  qualityDomain := tables.unaryTypedTable .qualityDomain
-  qualityDimension := tables.unaryTypedTable .qualityDimension
-  associatedWith := tables.binaryTypedTable .associatedWith
-  intrinsicMomentType := tables.unaryTypedTable .intrinsicMomentType
-  hasValue := tables.binaryTypedTable .hasValue
-  tupleProjection := fun {_n} p i w => tables.tupleProjectionTypedTable p i.val w
+  quale := lookups.unary .quale
+  set_ := lookups.unary .set_
+  memberOf := lookups.binary .memberOf
+  setExtension := fun s w => {x | lookups.binary .memberOf x s w = true}
+  qualityDomain := lookups.unary .qualityDomain
+  qualityDimension := lookups.unary .qualityDimension
+  associatedWith := lookups.binary .associatedWith
+  intrinsicMomentType := lookups.unary .intrinsicMomentType
+  hasValue := lookups.binary .hasValue
+  tupleProjection := fun {_n} p i w => lookups.projection p i.val w
   productFamilies := productFamilyWitnesses worldCount thingCount tables.productFamilies
-  distance := tables.ternaryTypedTable .distance
-  distanceZero := tables.unaryTypedTable .distanceZero
-  distanceSum := tables.ternaryTypedTable .distanceSum
-  distanceGreaterEq := tables.binaryTypedTable .distanceGreaterEq
+  distance := lookups.ternary .distance
+  distanceZero := lookups.unary .distanceZero
+  distanceSum := lookups.ternary .distanceSum
+  distanceGreaterEq := lookups.binary .distanceGreaterEq
 
-  manifests := tables.binaryTypedTable .manifests
-  lifeOf := tables.binaryTypedTable .lifeOf
-  meet := tables.binaryTypedTable .meet }
+  manifests := lookups.binary .manifests
+  lifeOf := lookups.binary .lifeOf
+  meet := lookups.binary .meet }
 
+/-- Interpret raw tables without assuming sparse/dense agreement. -/
+def toFiniteModel4
+    (worldCount thingCount : Nat)
+    (worldPositive : 0 < worldCount) (thingPositive : 0 < thingCount)
+    (tables : FactTables) : FiniteModel4 :=
+  toFiniteModel4WithLookups worldCount thingCount worldPositive thingPositive
+    tables (sparseLookups worldCount thingCount tables)
+
+/-- Interpret compiled tables using dense native lookup only when its agreement
+with the proof-facing lookup is proved for these exact tables and dimensions. -/
+def toFiniteModel4Verified
+    (worldCount thingCount : Nat)
+    (worldPositive : 0 < worldCount) (thingPositive : 0 < thingCount)
+    (tables : FactTables)
+    (agreement : sparseLookups worldCount thingCount tables =
+      denseLookups worldCount thingCount tables) : FiniteModel4 :=
+  toFiniteModel4WithLookups worldCount thingCount worldPositive thingPositive
+    tables (verifiedLookups worldCount thingCount tables agreement)
+
+theorem toFiniteModel4Verified_eq
+    (worldCount thingCount : Nat)
+    (worldPositive : 0 < worldCount) (thingPositive : 0 < thingCount)
+    (tables : FactTables) (agreement) :
+    toFiniteModel4Verified worldCount thingCount worldPositive thingPositive
+      tables agreement =
+    toFiniteModel4 worldCount thingCount worldPositive thingPositive tables := rfl
 end FactTables
 
 /-- Compile a resolved AST all the way to a finite UFO model. -/

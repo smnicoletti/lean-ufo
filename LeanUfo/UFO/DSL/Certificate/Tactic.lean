@@ -19,6 +19,8 @@ def certificateModelSimpDefs : String :=
   "sig, data, tables, ast, compileModel, compileModelAST, compileFacts, compileFact,
     compileExplicitModel, compileExplicitModelAST, compileExplicitFact,
     FactTables.withDenseFacts, FactTables.initializeDense, FactTables.writeDenseFact,
+    compileVerifiedModel, FactTables.toFiniteModel4Verified, FactTables.verifiedLookups,
+    FactTables.sparseLookups, FactTables.toFiniteModel4WithLookups,
     FactTables.toFiniteModel4, FactTables.unaryTable, FactTables.binaryTable, FactTables.ternaryTable,
     FactTables.unaryTypedTable, FactTables.binaryTypedTable, FactTables.ternaryTypedTable,
     FactTables.tupleProjectionTypedTable, FactTables.identityBinaryTable, addUnary, addUnaryWithTaxonomy,

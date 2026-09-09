@@ -13,6 +13,7 @@ diagnostics, tests, and implementation reference.
 | [DSL syntax reference](dsl/syntax.md) | Facts, scopes, derived assertions, and quality/distance primitives |
 | [DSL architecture](dsl/architecture.md) | DSL directory ownership, import direction, syntax-to-certificate pipeline, checker, and diagnostics |
 | [Concrete complexity](dsl/complexity.md) | Operational cost model, explicit encoding, verified-DSL theorem map, and literature |
+| [DSL behavior contract](dsl/behavior-contract.md) | Required behavior and verification criteria for the compiler, checker, diagnostics, and certificate tools |
 | [Diagnostics guide](dsl/diagnostics.md) | Reading failure boxes, evidence, suggestions, and probe status |
 | [Diagnostics internals](dsl/diagnostics-internals.md) | How failed certificates are turned into source-level explanations |
 | [DSL developer guide](dsl/developer-guide.md) | File responsibilities, command pipeline, diagnostics, and generated certificates |

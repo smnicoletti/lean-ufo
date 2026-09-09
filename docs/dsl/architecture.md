@@ -13,7 +13,7 @@ The source tree is organized by responsibility, not by theorem size:
 ```text
 LeanUfo/UFO/DSL/
   Frontend/          surface grammar and source-text/name translation
-  Compiler/          typed compiler vocabulary; Compiler.lean runs the passes
+  Compiler/          typed vocabulary, AST, and verified native model boundary
   FiniteModel.lean   executable finite representation and semantic bridge
   Checker/           Boolean decisions and their semantic correctness proofs
   Certificate/       proof-term generation, reuse, and elaborator tactics
@@ -211,7 +211,9 @@ Compiler code is divided among:
 
 - `Compiler.lean`;
 - `Compiler/AST.lean`;
-- `Compiler/Fields.lean`.
+- `Compiler/Fields.lean`;
+- `Compiler/VerifiedModel.lean`, which supplies the equality proof required to
+  select dense native lookup for compiled facts.
 
 Generic compiler guarantees are collected in `Guarantees.lean`. These prove
 properties of the pipeline as pure Lean transformations, for example that

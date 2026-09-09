@@ -331,7 +331,7 @@ LeanUfo/
       Satisfiability/  -- ordinary ModelX and positive-relator model chains
     DSL/               -- finite DSL public entry point, backend, and examples
       Frontend/        -- surface grammar and text rendering
-      Compiler/        -- compiler vocabulary and AST support
+      Compiler/        -- vocabulary, AST, and verified native model boundary
       Checker/         -- reflective Boolean checks and formal step bounds
       Certificate/     -- generated certificate source and probe support
       Diagnostic/      -- source-level failure analysis and editor widget
