@@ -26,6 +26,14 @@ inductive UnaryField where
   | distanceZero
   deriving Repr, Inhabited, DecidableEq, BEq
 
+/-- Boolean field equality agrees with constructor equality. This instance
+lets finite-table membership checks participate in correctness proofs. -/
+instance : LawfulBEq UnaryField where
+  eq_of_beq := by
+    intro left right h
+    cases left <;> cases right <;> first | rfl | cases h
+  rfl := by intro field; cases field <;> rfl
+
 /-- Stable dense-table order for unary fields. -/
 def UnaryField.all : Array UnaryField := #[
   .concreteIndividual, .abstractIndividual, .endurant, .perdurant,

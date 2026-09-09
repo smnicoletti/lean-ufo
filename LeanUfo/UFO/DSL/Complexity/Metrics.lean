@@ -118,15 +118,16 @@ def SourceMetrics.inputSize (m : SourceMetrics) : Nat :=
     m.productFamilySlots + m.tupleProjections + m.maxProjectionArity +
     m.relationCells + m.projectionCells + 1
 
-/-- Sum of charged stages after successful name/reference resolution. -/
+/-- Sum of stages after successful name/reference resolution. The final two
+units test the materialization and projection-validation results. -/
 def SourceMetrics.resolvedCompilerCostBound (m : SourceMetrics) : Nat :=
-  (m.expandedFacts + m.facts) +
-    (m.expandedFacts + m.taxonomyFacts) +
-    m.taxonomyFacts * (m.worlds + 2) +
-    (m.projectionCells + m.specializationFactsUpper) +
-    (4 * m.specializationFactsUpper + m.productFamilies +
-      m.relationCells + m.projectionCells +
-      m.worlds * (13 * m.things ^ 3 + 9 * m.things ^ 2 + 1))
+  (3 * m.expandedFacts + 4 * m.facts) +
+    229 * m.expandedFacts +
+    m.taxonomyFacts * (3 * m.worlds + 8) +
+    (2 * m.projectionCells + 18 * m.specializationFactsUpper) +
+    (28 * m.specializationFactsUpper + 3 * m.productFamilies +
+      2 * m.relationCells + 2 * m.projectionCells +
+      m.worlds * (23 * m.things ^ 3 + 28 * m.things ^ 2 + 5 * m.things + 3) + 11) + 2
 
 /-!
 The scalar corollary comes after the multivariate formula: it is obtained by
@@ -139,7 +140,7 @@ multivariate expression above remains substantially more informative.
 in the complete explicit source size. -/
 theorem SourceMetrics.resolvedCompilerCostBound_le_inputSize_pow4
     (m : SourceMetrics) :
-    m.resolvedCompilerCostBound ≤ 64 * m.inputSize ^ 4 := by
+    m.resolvedCompilerCostBound ≤ 399 * m.inputSize ^ 4 := by
   let n := m.inputSize
   have hn : 1 ≤ n := by
     simp only [n, SourceMetrics.inputSize]
@@ -172,19 +173,21 @@ theorem SourceMetrics.resolvedCompilerCostBound_le_inputSize_pow4
     simp only [n, SourceMetrics.inputSize]
     omega
   have hTaxonomyProduct :
-      m.taxonomyFacts * (m.worlds + 2) ≤ n * (n + 2) := by
-    exact Nat.mul_le_mul htaxonomy (Nat.add_le_add_right hworlds 2)
+      m.taxonomyFacts * (3 * m.worlds + 8) ≤ n * (3 * n + 8) := by
+    exact Nat.mul_le_mul htaxonomy (Nat.add_le_add_right (Nat.mul_le_mul_left 3 hworlds) 8)
   have hClosure :
-      m.worlds * (13 * m.things ^ 3 + 9 * m.things ^ 2 + 1) ≤
-        n * (13 * n ^ 3 + 9 * n ^ 2 + 1) := by
+      m.worlds * (23 * m.things ^ 3 + 28 * m.things ^ 2 + 5 * m.things + 3) ≤
+        n * (23 * n ^ 3 + 28 * n ^ 2 + 5 * n + 3) := by
     apply Nat.mul_le_mul hworlds
     apply Nat.add_le_add
     · apply Nat.add_le_add
-      · exact Nat.mul_le_mul_left 13 (Nat.pow_le_pow_left hthings 3)
-      · exact Nat.mul_le_mul_left 9 (Nat.pow_le_pow_left hthings 2)
+      · apply Nat.add_le_add
+        · exact Nat.mul_le_mul_left 23 (Nat.pow_le_pow_left hthings 3)
+        · exact Nat.mul_le_mul_left 28 (Nat.pow_le_pow_left hthings 2)
+      · exact Nat.mul_le_mul_left 5 hthings
     · rfl
   unfold SourceMetrics.resolvedCompilerCostBound
-  change _ ≤ 64 * n ^ 4
+  change _ ≤ 399 * n ^ 4
   have hn2 : n ≤ n ^ 2 := by
     calc
       n = n * 1 := by omega
@@ -202,21 +205,21 @@ theorem SourceMetrics.resolvedCompilerCostBound_le_inputSize_pow4
       _ = n ^ 4 := by simp [Nat.pow_succ, Nat.mul_comm]
   have hnPow4 : n ≤ n ^ 4 := hn2.trans (hn3.trans hn4)
   have hn2Pow4 : n ^ 2 ≤ n ^ 4 := hn3.trans hn4
-  have hTaxonomyExpansion : n * (n + 2) = n ^ 2 + 2 * n := by
-    simp [Nat.mul_add, Nat.pow_succ, Nat.mul_comm]
+  have hTaxonomyExpansion : n * (3 * n + 8) = 3 * n ^ 2 + 8 * n := by
+    simp [Nat.mul_add, Nat.pow_succ, Nat.mul_comm, Nat.mul_left_comm]
   have hTaxonomyScalar :
-      m.taxonomyFacts * (m.worlds + 2) ≤ 3 * n ^ 2 := by
+      m.taxonomyFacts * (3 * m.worlds + 8) ≤ 11 * n ^ 2 := by
     apply hTaxonomyProduct.trans
     rw [hTaxonomyExpansion]
     omega
   have hClosureExpansion :
-      n * (13 * n ^ 3 + 9 * n ^ 2 + 1) =
-        13 * n ^ 4 + 9 * n ^ 3 + n := by
+      n * (23 * n ^ 3 + 28 * n ^ 2 + 5 * n + 3) =
+        23 * n ^ 4 + 28 * n ^ 3 + 5 * n ^ 2 + 3 * n := by
     simp [Nat.mul_add, Nat.pow_succ, Nat.mul_comm,
       Nat.mul_left_comm]
   have hClosureScalar :
-      m.worlds * (13 * m.things ^ 3 + 9 * m.things ^ 2 + 1) ≤
-        23 * n ^ 4 := by
+      m.worlds * (23 * m.things ^ 3 + 28 * m.things ^ 2 + 5 * m.things + 3) ≤
+        59 * n ^ 4 := by
     apply hClosure.trans
     rw [hClosureExpansion]
     omega
@@ -319,7 +322,7 @@ theorem productFamilyResolutionCost_le_sourceMetrics
     (mapArrayExceptCosted source.productFamilies
       (resolveNamedProductFamilyIndexedCosted things)).cost ≤
       (sourceMetrics source).productFamilies *
-        (2 * (sourceMetrics source).productFamilySlots + 4) := by
+        (6 * (sourceMetrics source).productFamilySlots + 14) := by
   simpa [sourceMetrics] using
     resolveNamedProductFamiliesIndexedCosted_cost_le things source.productFamilies
 
@@ -369,30 +372,14 @@ theorem resolved_expansion_cost_eq_sourceMetrics
     (h : (mapArrayExceptCosted source.facts
       (resolveNamedFactIndexedCosted worlds things)).value = .ok resolved) :
     (expandScopedFactsCosted source.worlds.size resolved).cost =
-      (sourceMetrics source).expandedFacts + (sourceMetrics source).facts := by
+      3 * (sourceMetrics source).expandedFacts + 4 * (sourceMetrics source).facts := by
   rw [expandScopedFactsCosted_cost]
-  have charges : ∀ xs : List ScopedCompiledFact,
-      (xs.map (ScopedCompiledFact.expansionCharge source.worlds.size)).sum =
-        (xs.map (ScopedCompiledFact.expansionWeight source.worlds.size)).sum +
-          xs.length := by
-    intro xs
-    induction xs with
-    | nil => simp
-    | cons fact facts ih =>
-        simp only [List.map_cons, List.sum_cons, List.length_cons]
-        rw [ih]
-        cases fact <;>
-          simp [ScopedCompiledFact.expansionCharge,
-            ScopedCompiledFact.expansionWeight, ScopedCompiledFact.scope]
-        all_goals omega
-  rw [charges]
   have weights := resolveNamedFactsIndexed_preserves_weights
     source.worlds.size worlds things source.facts resolved h
-  have sizeEq : resolved.size = source.facts.size := by
-    exact mapArrayExceptCosted_ok_size source.facts
-      (resolveNamedFactIndexedCosted worlds things) resolved h
-  rw [weights.1]
-  simpa [sourceMetrics] using sizeEq
+  have sizeEq := mapArrayExceptCosted_ok_size source.facts
+    (resolveNamedFactIndexedCosted worlds things) resolved h
+  rw [weights.1, sizeEq]
+  rfl
 
 /--
 On successful resolution, the source taxonomy metric is exactly the number of
@@ -414,22 +401,18 @@ theorem resolved_taxonomy_size_eq_sourceMetrics
     source.worlds.size worlds things source.facts resolved h
   simpa [sourceMetrics] using weights.2
 
-/-- Exact operational taxonomy charge in source metrics. -/
-theorem resolved_taxonomy_cost_eq_sourceMetrics
+/-- The executed taxonomy traversal is bounded using the fixed parent graph. -/
+theorem resolved_taxonomy_cost_le_sourceMetrics
     (source : ModelSource) (worlds things : NameIndex)
     (resolved : Array ScopedCompiledFact)
     (h : (mapArrayExceptCosted source.facts
       (resolveNamedFactIndexedCosted worlds things)).value = .ok resolved) :
     (addTaxonomyFactsCosted
-      (expandScopedFactsCosted source.worlds.size resolved).value).cost =
-      (sourceMetrics source).expandedFacts +
-        (sourceMetrics source).taxonomyFacts := by
-  rw [addTaxonomyFactsCosted_cost]
-  rw [resolved_expansion_size_eq_sourceMetrics source worlds things resolved h]
-  change (sourceMetrics source).expandedFacts +
-    (addTaxonomyFactsCosted
-      (expandScopedFactsCosted source.worlds.size resolved).value).value.size = _
-  rw [resolved_taxonomy_size_eq_sourceMetrics source worlds things resolved h]
+      (expandScopedFactsCosted source.worlds.size resolved).value).cost ≤
+      229 * (sourceMetrics source).expandedFacts := by
+  have bound := addTaxonomyFactsCosted_cost_le
+    (expandScopedFactsCosted source.worlds.size resolved).value
+  rwa [resolved_expansion_size_eq_sourceMetrics source worlds things resolved h] at bound
 
 /--
 Reflexive specialization is charged after taxonomy materialization, using the
@@ -444,7 +427,7 @@ theorem resolved_specialization_cost_le_sourceMetrics
       (expandScopedFactsCosted source.worlds.size resolved).value).value
     (addReflexiveSpecializationFactsCosted source.worlds.size taxonomyFacts).cost ≤
       (sourceMetrics source).taxonomyFacts *
-        ((sourceMetrics source).worlds + 2) := by
+        (3 * (sourceMetrics source).worlds + 8) := by
   dsimp
   have bound := addReflexiveSpecializationFactsCosted_cost_le
     source.worlds.size
@@ -509,9 +492,10 @@ theorem resolved_projectionValidationCost_le_sourceMetrics
       (addReflexiveSpecializationFactsCosted source.worlds.size taxonomy).value
     (validateTupleProjectionsCosted source.worlds.size source.things.size
       specialized).cost ≤
-      (sourceMetrics source).projectionCells +
-        (sourceMetrics source).specializationFactsUpper := by
+      2 * (sourceMetrics source).projectionCells +
+        18 * (sourceMetrics source).specializationFactsUpper := by
   dsimp
+  apply (validateTupleProjectionsCosted_cost_le _ _ _).trans
   have arity := resolved_specialization_projectionArity_le_sourceMetrics
     source worlds things resolved h
   have size := resolved_specialization_size_le_sourceMetrics
@@ -520,18 +504,18 @@ theorem resolved_projectionValidationCost_le_sourceMetrics
   have cells := Nat.mul_le_mul_right source.worlds.size
     (Nat.mul_le_mul_left source.things.size arity)
   calc
-    source.things.size * projectionArityOfFacts
+    2 * (source.things.size * projectionArityOfFacts
           (addReflexiveSpecializationFacts source.worlds.size
             (addTaxonomyFacts (expandScopedFacts source.worlds.size resolved))) *
-        source.worlds.size +
-        (addReflexiveSpecializationFacts source.worlds.size
+        source.worlds.size) +
+        18 * (addReflexiveSpecializationFacts source.worlds.size
           (addTaxonomyFacts (expandScopedFacts source.worlds.size resolved))).size ≤
-      source.things.size * (sourceMetrics source).maxProjectionArity *
-          source.worlds.size +
-        (sourceMetrics source).specializationFactsUpper :=
-      Nat.add_le_add cells size
-    _ = (sourceMetrics source).projectionCells +
-        (sourceMetrics source).specializationFactsUpper := by
+      2 * (source.things.size * (sourceMetrics source).maxProjectionArity *
+          source.worlds.size) +
+        18 * (sourceMetrics source).specializationFactsUpper :=
+      Nat.add_le_add (Nat.mul_le_mul_left 2 cells) (Nat.mul_le_mul_left 18 size)
+    _ = 2 * (sourceMetrics source).projectionCells +
+        18 * (sourceMetrics source).specializationFactsUpper := by
       simp [sourceMetrics]
 
 theorem resolved_explicitCompilationCost_le_sourceMetrics
@@ -553,14 +537,14 @@ theorem resolved_explicitCompilationCost_le_sourceMetrics
         facts := specialized
         productFamilies := productFamilies }
     (compileExplicitModelASTCosted ast).cost ≤
-      4 * (sourceMetrics source).specializationFactsUpper +
-        (sourceMetrics source).productFamilies +
-        (sourceMetrics source).relationCells +
-        (sourceMetrics source).projectionCells +
+      28 * (sourceMetrics source).specializationFactsUpper +
+        3 * (sourceMetrics source).productFamilies +
+        2 * (sourceMetrics source).relationCells +
+        2 * (sourceMetrics source).projectionCells +
         source.worlds.size *
-          (13 * source.things.size ^ 3 + 9 * source.things.size ^ 2 + 1) := by
+          (23 * source.things.size ^ 3 + 28 * source.things.size ^ 2 + 5 * source.things.size + 3) + 11 := by
   dsimp
-  rw [compileExplicitModelASTCosted_cost_polynomial]
+  apply (compileExplicitModelASTCosted_cost_polynomial _).trans
   have size := resolved_specialization_size_le_sourceMetrics
     source worlds things resolved hFacts
   have arity := resolved_specialization_projectionArity_le_sourceMetrics
@@ -568,15 +552,15 @@ theorem resolved_explicitCompilationCost_le_sourceMetrics
   dsimp at size arity
   have familySize := mapArrayExceptCosted_ok_size source.productFamilies
     (resolveNamedProductFamilyIndexedCosted things) productFamilies hFamilies
-  have fourSize := Nat.mul_le_mul_left 4 size
+  have factSize := Nat.mul_le_mul_left 28 size
   have projectionCells := Nat.mul_le_mul_right source.worlds.size
     (Nat.mul_le_mul_left source.things.size arity)
   calc
-    4 *
+    28 *
           (addReflexiveSpecializationFacts source.worlds.size
             (addTaxonomyFacts (expandScopedFacts source.worlds.size resolved))).size +
-        productFamilies.size +
-        UnaryField.count * source.things.size * source.worlds.size +
+        3 * productFamilies.size +
+        2 * (UnaryField.count * source.things.size * source.worlds.size +
         BinaryField.count * source.things.size * source.things.size * source.worlds.size +
         TernaryField.count * source.things.size * source.things.size *
           source.things.size * source.worlds.size +
@@ -584,40 +568,40 @@ theorem resolved_explicitCompilationCost_le_sourceMetrics
           projectionArityOfFacts
             (addReflexiveSpecializationFacts source.worlds.size
               (addTaxonomyFacts (expandScopedFacts source.worlds.size resolved))) *
-          source.worlds.size +
+          source.worlds.size) +
         source.worlds.size *
-          (13 * source.things.size ^ 3 + 9 * source.things.size ^ 2 + 1) ≤
-      4 * (sourceMetrics source).specializationFactsUpper +
-        source.productFamilies.size +
-        UnaryField.count * source.things.size * source.worlds.size +
+          (23 * source.things.size ^ 3 + 28 * source.things.size ^ 2 + 5 * source.things.size + 3) + 11 ≤
+      28 * (sourceMetrics source).specializationFactsUpper +
+        3 * source.productFamilies.size +
+        2 * (UnaryField.count * source.things.size * source.worlds.size +
         BinaryField.count * source.things.size * source.things.size * source.worlds.size +
         TernaryField.count * source.things.size * source.things.size *
           source.things.size * source.worlds.size +
         source.things.size * (sourceMetrics source).maxProjectionArity *
-          source.worlds.size +
+          source.worlds.size) +
         source.worlds.size *
-          (13 * source.things.size ^ 3 + 9 * source.things.size ^ 2 + 1) := by
+          (23 * source.things.size ^ 3 + 28 * source.things.size ^ 2 + 5 * source.things.size + 3) + 11 := by
       omega
-    _ = 4 * (sourceMetrics source).specializationFactsUpper +
-        (sourceMetrics source).productFamilies +
-        (sourceMetrics source).relationCells +
-        (sourceMetrics source).projectionCells +
+    _ = 28 * (sourceMetrics source).specializationFactsUpper +
+        3 * (sourceMetrics source).productFamilies +
+        2 * (sourceMetrics source).relationCells +
+        2 * (sourceMetrics source).projectionCells +
         source.worlds.size *
-          (13 * source.things.size ^ 3 + 9 * source.things.size ^ 2 + 1) := by
-      simp [sourceMetrics, Nat.pow_succ, Nat.mul_assoc, Nat.add_assoc]
+          (23 * source.things.size ^ 3 + 28 * source.things.size ^ 2 + 5 * source.things.size + 3) + 11 := by
+      simp [sourceMetrics, Nat.pow_succ, Nat.mul_assoc, Nat.add_assoc, Nat.mul_add]
 
 theorem materializeResolvedFactsCosted_cost_le_sourceMetrics
     (source : ModelSource) (worlds things : NameIndex)
     (resolved : Array ScopedCompiledFact)
     (hFacts : (resolveSourceFactsCosted source worlds things).value = .ok resolved)
     : (materializeResolvedFactsCosted source resolved).cost ≤
-      (sourceMetrics source).expandedFacts + (sourceMetrics source).facts +
-      ((sourceMetrics source).expandedFacts + (sourceMetrics source).taxonomyFacts) +
-      (sourceMetrics source).taxonomyFacts * ((sourceMetrics source).worlds + 2) := by
+      3 * (sourceMetrics source).expandedFacts + 4 * (sourceMetrics source).facts +
+      229 * (sourceMetrics source).expandedFacts +
+      (sourceMetrics source).taxonomyFacts * (3 * (sourceMetrics source).worlds + 8) := by
   rw [materializeResolvedFactsCosted_cost]
   have scopeCost := resolved_expansion_cost_eq_sourceMetrics
     source worlds things resolved hFacts
-  have taxonomyCost := resolved_taxonomy_cost_eq_sourceMetrics
+  have taxonomyCost := resolved_taxonomy_cost_le_sourceMetrics
     source worlds things resolved hFacts
   have specializationCost := resolved_specialization_cost_le_sourceMetrics
     source worlds things resolved hFacts
@@ -678,10 +662,11 @@ theorem compileResolvedSourceCosted_cost_le_sourceMetrics
       dsimp [materializeResolvedFactsCosted] at validationCost
       dsimp [materializeResolvedFactsCosted] at explicitCost
       have closureEq : source.worlds.size *
-            (13 * source.things.size ^ 3 + 9 * source.things.size ^ 2 + 1) =
+            (23 * source.things.size ^ 3 + 28 * source.things.size ^ 2 + 5 * source.things.size + 3) =
           (sourceMetrics source).worlds *
-            (13 * (sourceMetrics source).things ^ 3 +
-              9 * (sourceMetrics source).things ^ 2 + 1) := by
+            (23 * (sourceMetrics source).things ^ 3 +
+              28 * (sourceMetrics source).things ^ 2 +
+              5 * (sourceMetrics source).things + 3) := by
         simp [sourceMetrics]
       rw [closureEq] at explicitCost
       unfold SourceMetrics.resolvedCompilerCostBound

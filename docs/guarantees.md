@@ -716,14 +716,15 @@ By definition, `checkAxioms4 M` is the value returned by
 value equals the conjunction of `checkAxioms4Checks M`.
 
 `checkAxioms4OperationalBound` definitionally unfolds to the heterogeneous
-sum of the 116 concrete per-check formulas plus two units of registry
-traversal and short-circuit bookkeeping per visited entry.
+sum of the 116 concrete per-check formulas plus three units per visited
+registry entry: one iteration, one array read, and one Boolean test.
 
-The fixed theorem is a data-complexity result: the UFO registry is fixed and
-the explicit finite model is input. Generic uniform and heterogeneous registry
-theorems state combined complexity when registry/formula costs are inputs.
-Table access is unit cost in the documented abstract machine. The counted
-lookups erase to the named dense functions used by native execution.
+The fixed-registry theorem gives a data-complexity counter bound under the
+checker's atomic-query interface. Generic registry theorems compose supplied
+per-check bounds; they do not derive a bound from arbitrary formula size.
+Concrete dense-query bounds are proved separately, including index arithmetic
+and visited branches. Connecting those costs to the checker remains open.
+The counted lookups erase to the named dense functions used by native execution.
 `ExplicitTableCorrespondence` proves equal lookup values for unary, binary,
 ternary, and projection tables. `explicitCompilationGuarantee` combines these
 results with counted-to-production compiler erasure. The correspondence needs
@@ -737,29 +738,32 @@ Raw `FactTables` lookup has no unproved native override. The constructor and
 its correspondence proof are in `Compiler/VerifiedModel.lean`.
 
 Kernel reduction uses compact sparse definitions so certificate proofs remain
-small. Sparse and dense lookup perform different operations. The formal cost
-bound applies to the dense native path, not the sparse kernel-facing path.
-Strings, allocation, elaboration, kernel checking, native instructions,
-diagnostics, and wall-clock runtime remain outside this theorem.
+small. Sparse and dense lookup perform different operations. Concrete query
+bounds concern the dense native path. The checker counter bound still uses
+the atomic-query interface described above. String-character work, allocation,
+elaboration, kernel checking, native instructions, diagnostics, and wall-clock
+runtime remain outside that bound.
 
-Diagnostics have a separate output-sensitive theorem. The theorem includes
-the evidence budget and emitted items because diagnostics construct output
-only after a checker failure.
+Diagnostics have separate counter and output-size theorems, parameterized by
+the evidence budget and emitted items. Sparse-query and formula-size accounting
+remain open repairs; the current counter bound does not establish the complete
+execution-cost claim. Diagnostics construct output only after a checker failure.
 
 Source compilation additionally has a derived scalar result:
 
 ```lean
 source_compiler_scalar_polynomial_bound :
   compilerOperationalCost source ≤
-    80 * (sourceMetrics source).inputSize ^ 4
+    463 * (sourceMetrics source).inputSize ^ 4
 ```
 
 This quartic corollary is proved from the concrete multivariate compiler
 formula after every independently sized source component has been included.
 It is not used in place of that more precise operational bound. The checker
-corollary is `2940·checkerInputSize⁸`; compiler and checker compose to
-`3020·(sourceSize+modelSize)⁸`. The complexity guide gives the
-metric definitions and the corresponding theorem names.
+corollary is `3072·checkerInputSize⁸`. The sum of compiler and checker counters
+is bounded by `3535·(sourceSize+modelSize)⁸`. Connecting the model in that sum
+to successful source compilation remains an open repair. The complexity guide
+gives the metric definitions, theorem names, and accounting limitations.
 ## Trusted boundary
 
 The current trusted boundary is:

@@ -422,11 +422,11 @@ theorem taxonomy_expansion_pipeline (facts : Array CompiledFact) :
       (addTaxonomyFactsCosted facts).value :=
   rfl
 
-/-- Taxonomy materialization charges each input and emitted fact exactly. -/
-theorem taxonomy_expansion_cost (facts : Array CompiledFact) :
-    (addTaxonomyFactsCosted facts).cost =
-      facts.size + (addTaxonomyFacts facts).size :=
-  addTaxonomyFactsCosted_cost facts
+/-- The fixed taxonomy search and its output writes cost at most 229
+operations per input fact. This bound includes visited-field comparisons. -/
+theorem taxonomy_expansion_cost_le (facts : Array CompiledFact) :
+    (addTaxonomyFactsCosted facts).cost ≤ 229 * facts.size :=
+  addTaxonomyFactsCosted_cost_le facts
 
 /--
 Generated models make reflexive specialization sugar explicit before table
@@ -442,7 +442,7 @@ theorem reflexive_specialization_expansion_pipeline
 theorem reflexive_specialization_expansion_cost_le
     (worldCount : Nat) (facts : Array CompiledFact) :
     (addReflexiveSpecializationFactsCosted worldCount facts).cost ≤
-      facts.size * (worldCount + 2) :=
+      facts.size * (3 * worldCount + 8) :=
   addReflexiveSpecializationFactsCosted_cost_le worldCount facts
 
 /--

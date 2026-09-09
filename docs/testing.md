@@ -12,6 +12,8 @@ The test tree is:
 
 ```text
 LeanUfo/Test/
+  Certificates/
+  Complexity/
   Syntax/
   Certification/
     Positive/
@@ -27,7 +29,31 @@ lake test
 ```
 
 The default profile checks syntax smoke fixtures, diagnostic rendering checks,
-and registry/manifest consistency.
+registry/manifest consistency, and counted traversal regressions.
+`Complexity/Traversal.lean` checks million-entry initialization, folds, and
+compiler array mapping and scope expansion. Name-index tests also cover
+100,000 distinct names. The standalone linear name scan has million-entry
+early-success and full-failure cases. Small cases check empty input, exact error-prefix
+costs, first-error order, and fact/world ordering. These tests guard against
+cost accumulation causing stack-depth failures; they are not wall-clock benchmarks.
+`Complexity/Resolution.lean` checks exact source-resolution costs and which
+error wins when several references are invalid. It covers scope selection,
+product-family lengths and witness slots, duplicate world/thing names, and
+empty source compilation.
+`Complexity/Taxonomy.lean` records ancestor membership and order across the
+entire unary-field registry, including shared ancestors. It checks exact search
+and batch counts, raw string names, repeated facts, and 10,000 inputs that each
+exercise the largest taxonomy expansion.
+`Complexity/Specialization.lean` checks original-prefix and witness ordering,
+repeated targets, zero worlds, all fact constructors, exact counts, and a
+million emitted specialization witnesses.
+`Complexity/Tables.lean` checks exact dense-insertion counts, row-major
+coordinates, field isolation, and duplicate writes. It also checks sparse-store
+records and queries, raw projection-conflict behavior, family registration,
+and exact empty and derived-only explicit-AST compilation counts.
+Dense-query regressions check arithmetic counts, field isolation, invalid
+projection slots/results, and missing world matrices or cells. These cases
+also protect the raw-table fallbacks used by the value-correspondence proofs.
 
 ## CI
 

@@ -4,51 +4,65 @@ import LeanUfo.UFO.DSL.Complexity.Metrics
 # Counted compiler stages
 
 The source compiler exported here is the production counted computation from
-`DSL.Compiler`; ordinary compilation is its `value` projection. Costs therefore
-short-circuit with duplicate names, unresolved references, arity failures, and
-projection conflicts instead of being assigned after an unrelated evaluation.
-This guards against the implementation-correspondence gap discussed by Forster
-et al. (ITP 2021).
+`DSL.Compiler`. Ordinary compilation is its `value` projection. Duplicate
+names, unresolved references, arity failures, and projection conflicts stop
+later stages and their charges. This connects the measured computation to its
+returned result, following Forster et al.'s concrete-machine discipline
+(ITP 2021). Name-map, edge-query, and derived-string operations retain the
+interfaces stated in `docs/dsl/complexity.md`.
 
-The planned proof layout also takes practical inspiration from de Moura's
-RadixExperiment: each executable compiler pass gets its own preservation proof,
-and the final pipeline theorem is their composition.  RadixExperiment is used
-as engineering precedent, not as authority for an asymptotic claim.
+The proof layout takes practical inspiration from de Moura's RadixExperiment:
+each executable compiler pass has a preservation proof. Their source-to-model
+composition remains a separate obligation. RadixExperiment supplies an
+engineering precedent, not an asymptotic theorem about this DSL.
 -/
 
 namespace LeanUfo.UFO.DSL.Complexity
-
-/-- Exact charged work for building all per-world inherence matrices. -/
-def inherenceClosureBuildCost (worlds things : Nat) : Nat :=
-  worlds * (13 * things ^ 3 + 9 * things ^ 2 + 1)
-
-theorem inherenceClosureBuildCost_eq (worlds things : Nat) :
-    inherenceClosureBuildCost worlds things =
-      worlds * (13 * things ^ 3 + 9 * things ^ 2 + 1) := by
-  rfl
 
 /--
 The multivariate compiler polynomial obtained by adding the charged production
 stages.  Its terms respectively cover name indexing, fact and product-family
 resolution, scope expansion, taxonomy materialization, reflexive
 specialization, projection validation, explicit fact insertion, deterministic
-dense-table initialization, and Warshall closure construction.
+dense-table initialization, and Warshall closure construction. The final eight
+units cover four stage-result tests and two final tests in each name index.
 
-This definition is not itself a proof: `compilerOperationalCost_le` is exported
-only after each intermediate-size correspondence has been established.  That
-separation prevents a named polynomial from becoming another unconnected
-envelope.
+`compilerOperationalCost_le` proves this bound using the cost of each stage
+and the correspondence between its intermediate arrays and `SourceMetrics`.
 -/
 def sourceCompilerPolynomial (m : SourceMetrics) : Nat :=
-  2 * m.worlds + 2 * m.things + 6 * m.facts +
-    m.productFamilies * (2 * m.productFamilySlots + 4) +
-    m.resolvedCompilerCostBound
+  6 * m.worlds + 6 * m.things + 24 * m.facts +
+    m.productFamilies * (6 * m.productFamilySlots + 14) +
+    m.resolvedCompilerCostBound + 8
+
+/-- Increasing any size used by the compiler bound cannot lower that bound.
+This concerns the upper bound, not the observed count: additional facts can
+make a short-circuiting computation stop earlier. The other source metrics
+only enlarge the scalar input size and do not occur in this formula. -/
+theorem sourceCompilerPolynomial_mono {small large : SourceMetrics}
+    (hWorlds : small.worlds ≤ large.worlds)
+    (hThings : small.things ≤ large.things)
+    (hFacts : small.facts ≤ large.facts)
+    (hExpanded : small.expandedFacts ≤ large.expandedFacts)
+    (hTaxonomy : small.taxonomyFacts ≤ large.taxonomyFacts)
+    (hSpecialization : small.specializationFactsUpper ≤ large.specializationFactsUpper)
+    (hFamilies : small.productFamilies ≤ large.productFamilies)
+    (hSlots : small.productFamilySlots ≤ large.productFamilySlots)
+    (hRelations : small.relationCells ≤ large.relationCells)
+    (hProjections : small.projectionCells ≤ large.projectionCells) :
+    sourceCompilerPolynomial small ≤ sourceCompilerPolynomial large := by
+  unfold sourceCompilerPolynomial SourceMetrics.resolvedCompilerCostBound
+  repeat' first
+    | assumption
+    | exact Nat.le_refl _
+    | apply Nat.add_le_add
+    | apply Nat.mul_le_mul
 
 /-- Scalar corollary for the complete source-compiler formula. Every factor is
-an explicit component of `inputSize`; the quartic degree comes from concrete
-Warshall construction rather than an externally assigned envelope. -/
+an explicit component of `inputSize`; Warshall construction contributes the
+quartic term when both world and thing counts grow. -/
 theorem sourceCompilerPolynomial_le_inputSize_pow4 (m : SourceMetrics) :
-    sourceCompilerPolynomial m ≤ 80 * m.inputSize ^ 4 := by
+    sourceCompilerPolynomial m ≤ 463 * m.inputSize ^ 4 := by
   let n := m.inputSize
   have hn : 1 ≤ n := by
     simp only [n, SourceMetrics.inputSize]
@@ -86,14 +100,14 @@ theorem sourceCompilerPolynomial_le_inputSize_pow4 (m : SourceMetrics) :
   have hnPow4 : n ≤ n ^ 4 := hn2.trans (hn3.trans hn4)
   have hn2Pow4 : n ^ 2 ≤ n ^ 4 := hn3.trans hn4
   have hFamilyProduct :
-      m.productFamilies * (2 * m.productFamilySlots + 4) ≤
-        2 * n ^ 2 + 4 * n := by
+      m.productFamilies * (6 * m.productFamilySlots + 14) ≤
+        6 * n ^ 2 + 14 * n := by
     calc
-      m.productFamilies * (2 * m.productFamilySlots + 4) ≤
-          n * (2 * n + 4) := by
+      m.productFamilies * (6 * m.productFamilySlots + 14) ≤
+          n * (6 * n + 14) := by
         exact Nat.mul_le_mul hfamilies
-          (Nat.add_le_add (Nat.mul_le_mul_left 2 hslots) (le_refl 4))
-      _ = 2 * n ^ 2 + 4 * n := by
+          (Nat.add_le_add (Nat.mul_le_mul_left 6 hslots) (le_refl 14))
+      _ = 6 * n ^ 2 + 14 * n := by
         simp [Nat.mul_add, Nat.pow_succ, Nat.mul_comm, Nat.mul_left_comm]
   have hResolved := m.resolvedCompilerCostBound_le_inputSize_pow4
   unfold sourceCompilerPolynomial
@@ -122,25 +136,29 @@ def compilerOperationalCost (source : ModelSource) : Nat :=
 @[simp] theorem compilerOperationalCost_eq (source : ModelSource) :
     compilerOperationalCost source = (compileModelSourceCosted source).cost := rfl
 
-/-- Duplicate-aware world indexing never exceeds two charged operations/name. -/
+/-- World indexing costs at most six units per name plus two result tests. -/
 theorem worldNameIndexCost_le (source : ModelSource) :
     (buildWorldNameIndexCosted source).cost ≤
-      2 * (sourceMetrics source).worlds := by
-  simpa [buildWorldNameIndexCosted, sourceMetrics] using
-    buildNameIndexCosted_cost_le source.worlds
+      6 * (sourceMetrics source).worlds + 2 := by
+  have bound := buildNameIndexCosted_cost_le source.worlds
+  simp only [buildWorldNameIndexCosted, Costed.charge_cost, Costed.map_cost,
+    sourceMetrics]
+  omega
 
-/-- Duplicate-aware thing indexing never exceeds two charged operations/name. -/
+/-- Thing indexing costs at most six units per name plus two result tests. -/
 theorem thingNameIndexCost_le (source : ModelSource) :
     (buildThingNameIndexCosted source).cost ≤
-      2 * (sourceMetrics source).things := by
-  simpa [buildThingNameIndexCosted, sourceMetrics] using
-    buildNameIndexCosted_cost_le source.things
+      6 * (sourceMetrics source).things + 2 := by
+  have bound := buildNameIndexCosted_cost_le source.things
+  simp only [buildThingNameIndexCosted, Costed.charge_cost, Costed.map_cost,
+    sourceMetrics]
+  omega
 
-/-- Indexed fact resolution charges at most six operations per source fact. -/
+/-- Indexed fact resolution charges at most 24 operations per source fact. -/
 theorem factResolutionCost_le (source : ModelSource)
     (worlds things : NameIndex) :
     (resolveSourceFactsCosted source worlds things).cost ≤
-      6 * (sourceMetrics source).facts := by
+      24 * (sourceMetrics source).facts := by
   simpa [resolveSourceFactsCosted, sourceMetrics] using
     resolveNamedFactsIndexedCosted_cost_le worlds things source.facts
 
@@ -149,7 +167,7 @@ theorem productFamilyResolutionCost_le (source : ModelSource)
     (things : NameIndex) :
     (resolveSourceProductFamiliesCosted source things).cost ≤
       (sourceMetrics source).productFamilies *
-        (2 * (sourceMetrics source).productFamilySlots + 4) :=
+        (6 * (sourceMetrics source).productFamilySlots + 14) :=
   productFamilyResolutionCost_le_sourceMetrics source things
 
 /-- Total operational compiler bound, including all short-circuiting errors. -/
@@ -219,7 +237,7 @@ theorem compilerOperationalCost_le (source : ModelSource) :
 /-- One-variable polynomial corollary for production source compilation. -/
 theorem compilerOperationalCost_le_inputSize_pow4 (source : ModelSource) :
     compilerOperationalCost source ≤
-      80 * (sourceMetrics source).inputSize ^ 4 :=
+      463 * (sourceMetrics source).inputSize ^ 4 :=
   (compilerOperationalCost_le source).trans
     (sourceCompilerPolynomial_le_inputSize_pow4 (sourceMetrics source))
 

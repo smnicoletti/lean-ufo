@@ -18,8 +18,9 @@ Madelaine--Martin.
 namespace LeanUfo.UFO.DSL.Complexity
 
 theorem closure_cost_cubic (n : Nat) (edge : Nat → Nat → Bool) :
-    (warshallMatrixCosted n (fun i j => edge i.val j.val)).cost =
-      7 * n ^ 3 + 5 * n ^ 2 := by rfl
+    (warshallMatrixCosted n (fun i j => edge i.val j.val)).cost ≤
+      10 * n ^ 3 + 7 * n ^ 2 + 3 * n :=
+  warshallMatrixCosted_cost_le n _
 
 theorem diagnostic_output_bound (budget : Nat) (items : Array α) :
     (boundedEvidenceCosted budget items).value.items.size ≤ budget := by
@@ -35,7 +36,7 @@ theorem source_compiler_operational_bound (source : ModelSource) :
 metrics only after all independently sized source components are included. -/
 theorem source_compiler_scalar_polynomial_bound (source : ModelSource) :
     compilerOperationalCost source ≤
-      80 * (sourceMetrics source).inputSize ^ 4 :=
+      463 * (sourceMetrics source).inputSize ^ 4 :=
   compilerOperationalCost_le_inputSize_pow4 source
 
 /-- Representative per-axiom operational bound. The complete fixed-registry
@@ -49,7 +50,7 @@ theorem axioms1_to_2_registry_operational_bound (M : FiniteModel4) :
     (Checker.checkAxioms1To2Costed M).cost ≤ 2 *
       (M.thingCount * (M.worldCount *
         (M.worldCount * (M.thingCount * 3 + 2) +
-          M.worldCount * (M.thingCount * 3 + 3) + 5) + 2) + 2) :=
+          M.worldCount * (M.thingCount * 3 + 3) + 5) + 2) + 3) :=
   Checker.checkAxioms1To2Costed_cost_le M
 
 theorem axiom3_operational_bound (M : FiniteModel4) :
@@ -86,7 +87,7 @@ theorem axioms1_to_17_operational_bound (M : FiniteModel4) :
 theorem axioms7_to_17_registry_operational_bound (M : FiniteModel4) :
     (Checker.checkAxioms7To17Costed M).cost ≤
       11 * (M.thingCount *
-        (M.worldCount * (M.worldCount * (M.thingCount * 3 + 2) + 8) + 2) + 2) :=
+        (M.worldCount * (M.worldCount * (M.thingCount * 3 + 2) + 8) + 2) + 3) :=
   Checker.checkAxioms7To17Costed_cost_le M
 
 /--
@@ -159,7 +160,7 @@ and short-circuit bookkeeping from `checkRegistryCosted`.
 -/
 theorem axioms18_to_33_registry_operational_bound (M : FiniteModel4) :
     (Checker.checkAxioms18To33Costed M).cost ≤
-      16 * (Checker.axioms18To33PerCheckBound M + 2) :=
+      16 * (Checker.axioms18To33PerCheckBound M + 3) :=
   Checker.checkAxioms18To33Costed_cost_le M
 
 /-- Shared operational bound for the three post-33 two-thing bridge checks. -/
@@ -213,7 +214,7 @@ theorem axiom44_operational_bound (M : FiniteModel4) :
 /-- Six delayed, equal-cost kind/type correspondence checks in axiom 45. -/
 theorem axiom45_operational_bound (M : FiniteModel4) :
     (Checker.checkAx45Costed M).cost ≤
-      6 * (M.thingCount * (M.worldCount * 8 + 2) + 2) :=
+      6 * (M.thingCount * (M.worldCount * 8 + 2) + 3) :=
   Checker.checkAx45Costed_cost_le M
 
 /-- Concrete nested witness-search bound for axiom 46. -/
@@ -798,9 +799,9 @@ theorem fixed_registry_erases_to_legacy (M : FiniteModel4) :
     Checker.checkAxioms4 M = (Checker.checkAxioms4Checks M).all id :=
   Checker.checkAxioms4_eq_legacy M
 
-/-- Fixed-formula data-complexity theorem. The right side definitionally
-expands to the heterogeneous sum of all 116 concrete per-check polynomials and
-the registry traversal charges; it is not a separately postulated envelope. -/
+/-- Fixed-formula data-complexity theorem. The right side expands to the sum
+of the 116 per-check bounds and the registry traversal charges. Atomic queries
+use the checker interface documented in the complexity guide. -/
 theorem fixed_registry_data_complexity_bound (M : FiniteModel4) :
     (Checker.checkAxioms4Costed M).cost ≤
       Checker.checkAxioms4OperationalBound M :=
@@ -821,11 +822,11 @@ private theorem thing_world_monomial_le
 
 /-- The exact heterogeneous 116-entry production bound is at most a degree-eight
 polynomial in the complete explicit checker encoding. Unfolding the registry
-gives ordinary monomial coefficient sum 2898; axiom 99 contributes at most 42
+gives ordinary monomial coefficient sum 3030; axiom 99 contributes at most 42
 more after its separately proved witness-search bound. -/
 theorem fixed_registry_operational_bound_le_checkerInputSize_pow8
     (M : FiniteModel4) :
-    Checker.checkAxioms4OperationalBound M ≤ 2940 * checkerInputSize M ^ 8 := by
+    Checker.checkAxioms4OperationalBound M ≤ 3072 * checkerInputSize M ^ 8 := by
   let n := checkerInputSize M
   have hn : 0 < n := by simpa [n] using checkerInputSize_pos M
   have ht : M.thingCount ≤ n := by
@@ -906,12 +907,12 @@ theorem fixed_registry_operational_bound_le_checkerInputSize_pow8
     Checker.existsUniqueDistanceBound]
   ring_nf at hone h01 h10 h11 h12 h20 h21 h22 h30 h31 h32 h40 h41 h42 h50 h51 h52 h60 h61 h70 h71 hproduct
   ring_nf
-  change _ ≤ n ^ 8 * 2940
+  change _ ≤ n ^ 8 * 3072
   omega
 
 /-- Headline one-variable data-complexity corollary for the production checker. -/
 theorem fixed_registry_scalar_data_complexity_bound (M : FiniteModel4) :
-    (Checker.checkAxioms4Costed M).cost ≤ 2940 * checkerInputSize M ^ 8 :=
+    (Checker.checkAxioms4Costed M).cost ≤ 3072 * checkerInputSize M ^ 8 :=
   (fixed_registry_data_complexity_bound M).trans
     (fixed_registry_operational_bound_le_checkerInputSize_pow8 M)
 
@@ -928,7 +929,7 @@ witnesses. No succinct output representation is assumed. -/
 theorem combined_source_to_certification_scalar_bound
     (source : ModelSource) (M : FiniteModel4) :
     sourceToCertificationCost source M ≤
-      3020 * ((sourceMetrics source).inputSize + checkerInputSize M) ^ 8 := by
+      3535 * ((sourceMetrics source).inputSize + checkerInputSize M) ^ 8 := by
   let sourceSize := (sourceMetrics source).inputSize
   let modelSize := checkerInputSize M
   let totalSize := sourceSize + modelSize
@@ -943,36 +944,38 @@ theorem combined_source_to_certification_scalar_bound
     simp only [totalSize]
     omega
   have hcompiler := source_compiler_scalar_polynomial_bound source
-  change compilerOperationalCost source ≤ 80 * sourceSize ^ 4 at hcompiler
+  change compilerOperationalCost source ≤ 463 * sourceSize ^ 4 at hcompiler
   have hsourcePow : sourceSize ^ 4 ≤ totalSize ^ 4 :=
     Nat.pow_le_pow_left hsource 4
   have hpow4to8 : totalSize ^ 4 ≤ totalSize ^ 8 :=
     Nat.pow_le_pow_right htotal (by omega)
-  have hcompilerTotal : compilerOperationalCost source ≤ 80 * totalSize ^ 8 :=
-    hcompiler.trans <| (Nat.mul_le_mul_left 80 <| hsourcePow.trans hpow4to8)
+  have hcompilerTotal : compilerOperationalCost source ≤ 463 * totalSize ^ 8 :=
+    hcompiler.trans <| (Nat.mul_le_mul_left 463 <| hsourcePow.trans hpow4to8)
   have hchecker := fixed_registry_scalar_data_complexity_bound M
-  change (Checker.checkAxioms4Costed M).cost ≤ 2940 * modelSize ^ 8 at hchecker
+  change (Checker.checkAxioms4Costed M).cost ≤ 3072 * modelSize ^ 8 at hchecker
   have hmodelPow : modelSize ^ 8 ≤ totalSize ^ 8 :=
     Nat.pow_le_pow_left hmodel 8
   have hcheckerTotal : (Checker.checkAxioms4Costed M).cost ≤
-      2940 * totalSize ^ 8 :=
-    hchecker.trans (Nat.mul_le_mul_left 2940 hmodelPow)
+      3072 * totalSize ^ 8 :=
+    hchecker.trans (Nat.mul_le_mul_left 3072 hmodelPow)
   unfold sourceToCertificationCost
-  change _ ≤ 3020 * totalSize ^ 8
+  change _ ≤ 3535 * totalSize ^ 8
   omega
 
-/-- Heterogeneous combined-complexity form: both registry length and each
-registered formula's proved operational bound remain explicit inputs. -/
+/-- Compose the supplied cost proof for each executable check. These checks
+can have different bounds. This theorem does not infer a bound from formula
+syntax; that is an obligation of the check or formula interpreter. -/
 theorem heterogeneous_registry_operational_bound
     (checks : Array BoundedCheck) :
     (checkBoundedRegistryCosted checks).cost ≤ boundedRegistryCostBound checks :=
   checkBoundedRegistryCosted_cost_le checks
 
-/-- Combined-complexity theorem for an arbitrary delayed registry. Registry
-size remains an input and no fixed-formula assumption is hidden. -/
+/-- A variable-size registry bound assuming a uniform bound on each check.
+Following Vardi's data/combined-complexity distinction, registry length alone
+does not bound arbitrary formula evaluation: `hCheck` must be supplied. -/
 theorem parameterized_registry_operational_bound (checks : Array CheckThunk)
     (perCheck : Nat) (hCheck : ∀ check ∈ checks, (check ()).cost ≤ perCheck) :
-    (checkRegistryCosted checks).cost ≤ checks.size * (perCheck + 2) :=
+    (checkRegistryCosted checks).cost ≤ checks.size * (perCheck + 3) :=
   checkRegistryCosted_cost_le checks perCheck hCheck
 
 end LeanUfo.UFO.DSL.Complexity

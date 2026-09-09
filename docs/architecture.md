@@ -156,6 +156,10 @@ Lean theorems:
 - **checker soundness/completeness theorems** in `DSL/Checker/Soundness.lean`;
 - **operational compiler/checker complexity guarantees** under
   `DSL/Complexity/`, including the fixed 116-check heterogeneous bound.
+  `Complexity/Taxonomy.lean` owns the fixed unary parent graph and its counted,
+  duplicate-free ancestor traversal. Model-dependent inherence reachability
+  belongs to `Complexity/Closure.lean`. The [complexity guide](dsl/complexity.md)
+  states the remaining operational-accounting and pipeline obligations.
 
 The central DSL checker theorem is:
 

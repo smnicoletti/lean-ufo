@@ -2,6 +2,11 @@ import LeanUfo.Test.Coverage.RegistryCheck
 import LeanUfo.Test.Diagnostics.Rendering
 import LeanUfo.Test.Syntax.TableCorrespondence
 import LeanUfo.Test.Certificates.InputSafety
+import LeanUfo.Test.Complexity.Traversal
+import LeanUfo.Test.Complexity.Resolution
+import LeanUfo.Test.Complexity.Taxonomy
+import LeanUfo.Test.Complexity.Specialization
+import LeanUfo.Test.Complexity.Tables
 import LeanUfo.CertificateCli
 
 /-!

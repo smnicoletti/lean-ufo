@@ -669,7 +669,8 @@ def checkAxioms1To2 (M : FiniteModel4) : Bool :=
 theorem checkAxioms1To2_eq_true_iff (M : FiniteModel4) :
     checkAxioms1To2 M = true ↔ checkAx1 M = true ∧ checkAx2 M = true := by
   unfold checkAxioms1To2 checkAxioms1To2Costed
-    Complexity.checkRegistryCosted Complexity.allArrayCosted
+    Complexity.checkRegistryCosted
+  rw [Complexity.allArrayCosted_eq_list]
   rw [Complexity.allListCosted_eq_true_iff]
   simp [axiom1To2RegistryCosted, checkAx1, checkAx2]
 
@@ -677,7 +678,7 @@ theorem checkAxioms1To2Costed_cost_le (M : FiniteModel4) :
     (checkAxioms1To2Costed M).cost ≤ 2 *
       (M.thingCount * (M.worldCount *
         (M.worldCount * (M.thingCount * 3 + 2) +
-          M.worldCount * (M.thingCount * 3 + 3) + 5) + 2) + 2) := by
+          M.worldCount * (M.thingCount * 3 + 3) + 5) + 2) + 3) := by
   let q := M.worldCount * (M.thingCount * 3 + 2)
   let r := M.worldCount * (M.thingCount * 3 + 3)
   let bound := M.thingCount * (M.worldCount * (q + r + 5) + 2)
@@ -690,7 +691,7 @@ theorem checkAxioms1To2Costed_cost_le (M : FiniteModel4) :
     omega
   unfold checkAxioms1To2Costed
   change (Complexity.checkRegistryCosted (axiom1To2RegistryCosted M)).cost ≤
-    2 * (bound + 2)
+    2 * (bound + 3)
   apply Complexity.checkRegistryCosted_cost_le _ bound
   intro check hcheck
   simp [axiom1To2RegistryCosted] at hcheck
@@ -1373,7 +1374,8 @@ theorem checkAxioms7To17_eq_true_iff (M : FiniteModel4) :
         checkAx13 M = true ∧ checkAx14 M = true ∧ checkAx15 M = true ∧
           checkAx16 M = true ∧ checkAx17 M = true := by
   unfold checkAxioms7To17 checkAxioms7To17Costed
-    Complexity.checkRegistryCosted Complexity.allArrayCosted
+    Complexity.checkRegistryCosted
+  rw [Complexity.allArrayCosted_eq_list]
   rw [Complexity.allListCosted_eq_true_iff]
   simp [axiom7To17RegistryCosted, checkAx7, checkAx8, checkAx10,
     checkAx11, checkAx12, checkAx13, checkAx14, checkAx15, checkAx16, checkAx17]
@@ -1381,7 +1383,7 @@ theorem checkAxioms7To17_eq_true_iff (M : FiniteModel4) :
 theorem checkAxioms7To17Costed_cost_le (M : FiniteModel4) :
     (checkAxioms7To17Costed M).cost ≤
       11 * (M.thingCount *
-        (M.worldCount * (M.worldCount * (M.thingCount * 3 + 2) + 8) + 2) + 2) := by
+        (M.worldCount * (M.worldCount * (M.thingCount * 3 + 2) + 8) + 2) + 3) := by
   let q := M.worldCount * (M.thingCount * 3 + 2)
   let bound := M.thingCount * (M.worldCount * (q + 8) + 2)
   have hDirect : M.thingCount * (M.worldCount * 8 + 2) ≤ bound := by
@@ -1397,7 +1399,7 @@ theorem checkAxioms7To17Costed_cost_le (M : FiniteModel4) :
         (Nat.add_le_add_left (show 6 ≤ 8 by omega) q)) 2)
   unfold checkAxioms7To17Costed
   change (Complexity.checkRegistryCosted (axiom7To17RegistryCosted M)).cost ≤
-    11 * (bound + 2)
+    11 * (bound + 3)
   apply Complexity.checkRegistryCosted_cost_le _ bound
   intro check hcheck
   simp [axiom7To17RegistryCosted] at hcheck
@@ -1422,7 +1424,7 @@ theorem checkAxioms7To17Costed_cost_le (M : FiniteModel4) :
 def axioms1To17CostBound (M : FiniteModel4) : Nat :=
   2 * (M.thingCount * (M.worldCount *
       (M.worldCount * (M.thingCount * 3 + 2) +
-        M.worldCount * (M.thingCount * 3 + 3) + 5) + 2) + 2) +
+        M.worldCount * (M.thingCount * 3 + 3) + 5) + 2) + 3) +
   M.thingCount * (M.thingCount *
       (M.worldCount * (2 * (M.worldCount * (M.thingCount * 3 + 2)) + 7) + 2) + 2) +
   M.worldCount * (M.thingCount * (M.thingCount *
@@ -1433,7 +1435,7 @@ def axioms1To17CostBound (M : FiniteModel4) : Nat :=
   M.thingCount * (M.thingCount * (M.thingCount *
       (M.worldCount * (14 * M.thingCount + 14) + 2) + 2) + 2) +
   11 * (M.thingCount *
-      (M.worldCount * (M.worldCount * (M.thingCount * 3 + 2) + 8) + 2) + 2) +
+      (M.worldCount * (M.worldCount * (M.thingCount * 3 + 2) + 8) + 2) + 3) +
   5
 
 /-- Ordered short-circuit composition of every counted checker from 1 to 17. -/
@@ -2341,7 +2343,8 @@ theorem checkAxioms18To33_eq_true_iff (M : FiniteModel4) :
       checkAx30 M = true ∧ checkAx31 M = true ∧ checkAx32 M = true ∧
       checkAx33 M = true := by
   unfold checkAxioms18To33 checkAxioms18To33Costed
-    Complexity.checkRegistryCosted Complexity.allArrayCosted
+    Complexity.checkRegistryCosted
+  rw [Complexity.allArrayCosted_eq_list]
   rw [Complexity.allListCosted_eq_true_iff]
   simp [axiom18To33RegistryCosted, checkAx18, checkAx19, checkAx20, checkAx21,
     checkAx22, checkAx23, checkAx24, checkAx25, checkAx26, checkAx27, checkAx28,
@@ -2363,7 +2366,7 @@ def axioms18To33PerCheckBound (M : FiniteModel4) : Nat :=
 
 theorem checkAxioms18To33Costed_cost_le (M : FiniteModel4) :
     (checkAxioms18To33Costed M).cost ≤
-      16 * (axioms18To33PerCheckBound M + 2) := by
+      16 * (axioms18To33PerCheckBound M + 3) := by
   unfold checkAxioms18To33Costed
   apply Complexity.checkRegistryCosted_cost_le _ (axioms18To33PerCheckBound M)
   intro check hcheck
@@ -3035,13 +3038,13 @@ theorem checkAx44_eq_legacy (M : FiniteModel4) :
        typeByInstancesB M M.qualityType (qualityB M)) := by
   apply Bool.eq_iff_iff.mpr
   unfold checkAx44 checkAx44Costed Complexity.checkRegistryCosted
-    Complexity.allArrayCosted
+  rw [Complexity.allArrayCosted_eq_list]
   rw [Complexity.allListCosted_eq_true_iff]
   simp [axiom44RegistryCosted, typeByInstancesB, checkAx44QualityCosted_value]
   grind
 
 def ax44CostBound (M : FiniteModel4) : Nat :=
-  9 * (ax44DirectFamilyBound M + 2) + ax44QualityFamilyBound M + 2
+  9 * (ax44DirectFamilyBound M + 3) + ax44QualityFamilyBound M + 3
 
 theorem checkAx44Costed_cost_le (M : FiniteModel4) :
     (checkAx44Costed M).cost ≤ ax44CostBound M := by
@@ -3055,7 +3058,8 @@ theorem checkAx44Costed_cost_le (M : FiniteModel4) :
   have hd8 := typeByInstancesCosted_cost_le M M.relatorType M.relator
   have hd9 := typeByInstancesCosted_cost_le M M.modeType M.mode
   have hq := checkAx44QualityCosted_cost_le M
-  unfold checkAx44Costed Complexity.checkRegistryCosted Complexity.allArrayCosted
+  unfold checkAx44Costed Complexity.checkRegistryCosted
+  rw [Complexity.allArrayCosted_eq_list]
   simp only [axiom44RegistryCosted]
   simp only [Complexity.allListCosted]
   cases h1 : (typeByInstancesCosted M M.endurantType M.endurant).value
@@ -3160,14 +3164,14 @@ theorem checkAx45_eq_legacy (M : FiniteModel4) :
        kindByTypeB M M.qualityKind M.qualityType) := by
   apply Bool.eq_iff_iff.mpr
   unfold checkAx45 checkAx45Costed Complexity.checkRegistryCosted
-    Complexity.allArrayCosted
+  rw [Complexity.allArrayCosted_eq_list]
   rw [Complexity.allListCosted_eq_true_iff]
   simp [axiom45RegistryCosted, kindByTypeB]
   grind
 
 theorem checkAx45Costed_cost_le (M : FiniteModel4) :
     (checkAx45Costed M).cost ≤
-      6 * (M.thingCount * (M.worldCount * 8 + 2) + 2) := by
+      6 * (M.thingCount * (M.worldCount * 8 + 2) + 3) := by
   unfold checkAx45Costed
   apply Complexity.checkRegistryCosted_cost_le _
     (M.thingCount * (M.worldCount * 8 + 2))

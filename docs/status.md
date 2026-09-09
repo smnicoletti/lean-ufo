@@ -106,10 +106,11 @@ contract is in [Formal guarantees](guarantees.md).
 - The production checker is the erasure of a counted 116-entry registry. Each
   entry carries its own proved operational formula, and the aggregate theorem
   sums those heterogeneous bounds plus actual short-circuit traversal charges.
-  The counted source compiler also has a derived `80·inputSize⁴` scalar corollary. The
-  checker has a `2940·modelSize⁸` corollary, and the composed bound is
-  `3020·(sourceSize+modelSize)⁸`; the [complexity guide](dsl/complexity.md)
-  defines these metrics and records the theorem inventory.
+  The counted source compiler also has a derived `463·inputSize⁴` scalar corollary. The
+  checker has a `3072·modelSize⁸` corollary, and the counter-sum bound is
+  `3535·(sourceSize+modelSize)⁸`; the [complexity guide](dsl/complexity.md)
+  defines these metrics and records the theorem inventory. The counter-sum
+  theorem does not yet connect its model to successful source compilation.
   The reproducible `lake exe complexity-benchmarks` target emits CSV for
   sparse, dense, cyclic, product-family, and projection-heavy generated inputs.
   Native finite relation lookup uses typed dense arrays. Kernel reduction uses
