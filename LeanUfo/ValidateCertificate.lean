@@ -89,9 +89,6 @@ unsafe def recheckWithModule (json : Json) (moduleString : String) : IO (Except 
     match getString json "model" with
     | .ok value => pure value
     | .error err => return .error err
-  let build ← IO.Process.output { cmd := "lake", args := #["build", moduleString] }
-  if build.exitCode != 0 then
-    return .error s!"lake build {moduleString} failed:\n{build.stderr}"
   let finals ←
     match json.getObjVal? "finalTheorems" with
     | .ok value => pure value
@@ -104,6 +101,19 @@ unsafe def recheckWithModule (json : Json) (moduleString : String) : IO (Except 
     match requireString finals "certifiedModel" with
     | .ok value => pure value
     | .error err => return .error err
+  -- Parse and render every executable name before any build or Lean subprocess.
+  -- The original theorem strings remain data for exact manifest comparisons.
+  let sources ← try
+      pure <| Except.ok (← identifierSource moduleString, ← identifierSource modelName,
+        ← identifierSource certifiedName, ← identifierSource certifiedModelName)
+    catch e => pure <| Except.error s!"invalid certificate declaration name: {e.toString}"
+  let (moduleSource, modelSource, certifiedSource, certifiedModelSource) ←
+    match sources with
+    | .ok names => pure names
+    | .error err => return .error err
+  let build ← IO.Process.output { cmd := "lake", args := #["build", moduleString] }
+  if build.exitCode != 0 then
+    return .error s!"lake build {moduleString} failed:\n{build.stderr}"
   let sourceHash ←
     match getString json "sourceHash" with
     | .ok value => pure value
@@ -140,18 +150,16 @@ unsafe def recheckWithModule (json : Json) (moduleString : String) : IO (Except 
   match compareField "finiteModelDigest" finiteModelDigest rebuiltFiniteModelDigest with
   | .ok _ => pure ()
   | .error err => return .error err
-  let tmp ← tempFilePath s!"recheck-{moduleString}-{modelName}" "lean"
   let script :=
-    s!"import {moduleString}\n" ++
-    s!"#check ({certifiedName} : UFOAxioms4 {modelName}.sig)\n" ++
-    s!"#check ({certifiedModelName} : LeanUfo.UFO.DSL.FiniteModel4.Certified {modelName}.data)\n" ++
-    s!"example : {modelName}.certificateManifest.sourceHash = {reprStr sourceHash} := by native_decide\n" ++
-    s!"example : {modelName}.certificateManifest.finiteModelHash = {reprStr finiteModelHash} := by native_decide\n" ++
-    s!"example : {modelName}.certificateManifest.certifiedTheorem = {reprStr certifiedName} := by native_decide\n" ++
-    s!"example : {modelName}.certificateManifest.certifiedModelTheorem = {reprStr certifiedModelName} := by native_decide\n" ++
-    s!"example : {modelName}.certificateManifest.axiomPackage = {reprStr axiomPackage} := by native_decide\n"
-  IO.FS.writeFile tmp script
-  let out ← IO.Process.output { cmd := "lake", args := #["env", "lean", tmp.toString] }
+    s!"import {moduleSource}\n" ++
+    s!"#check ({certifiedSource} : UFOAxioms4 {modelSource}.sig)\n" ++
+    s!"#check ({certifiedModelSource} : LeanUfo.UFO.DSL.FiniteModel4.Certified {modelSource}.data)\n" ++
+    s!"example : {modelSource}.certificateManifest.sourceHash = {reprStr sourceHash} := by native_decide\n" ++
+    s!"example : {modelSource}.certificateManifest.finiteModelHash = {reprStr finiteModelHash} := by native_decide\n" ++
+    s!"example : {modelSource}.certificateManifest.certifiedTheorem = {reprStr certifiedName} := by native_decide\n" ++
+    s!"example : {modelSource}.certificateManifest.certifiedModelTheorem = {reprStr certifiedModelName} := by native_decide\n" ++
+    s!"example : {modelSource}.certificateManifest.axiomPackage = {reprStr axiomPackage} := by native_decide\n"
+  let out ← runLeanScript script
   if out.exitCode == 0 then
     return .ok ()
   else

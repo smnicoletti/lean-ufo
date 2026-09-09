@@ -162,6 +162,19 @@ rebuilds the Lean module, checks the theorem declarations at their expected
 types, and compares regenerated SHA-256 source/model digests. Do not treat the
 JSON as proof evidence.
 
+Before any recheck subprocess, the CLI parses the module, model, and both final
+theorem names as complete Lean identifiers. The shared certificate helper
+escapes each parsed name component before generating source. Unicode and
+escaped components remain supported. Expressions, extra commands, and comments
+outside escaped components are rejected. The original theorem-name strings
+remain unchanged for manifest comparisons.
+
+Generated scripts use private temporary directories, and digest inputs use
+secure temporary files. Both are removed after use, including on errors.
+These controls keep manifest data out of executable syntax and isolate
+concurrent invocations. They do not sandbox the imported Lean module: export
+and recheck still require a trusted module.
+
 Version metadata comes from `LeanUfo/UFO/DSL/Version.lean`. Development builds
 use a `-dev` artifact version; release automation should replace it with the
 release tag before publishing certificate manifests.

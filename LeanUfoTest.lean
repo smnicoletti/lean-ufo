@@ -1,6 +1,7 @@
 import LeanUfo.Test.Coverage.RegistryCheck
 import LeanUfo.Test.Diagnostics.Rendering
 import LeanUfo.Test.Syntax.TableCorrespondence
+import LeanUfo.Test.Certificates.InputSafety
 import LeanUfo.CertificateCli
 
 /-!
@@ -539,6 +540,13 @@ def checkCertificateExportWorkflow : IO (Array String) := do
   failures := failures ++ (← checkCommand "certificate manifest proof recheck" "lake"
     #["exe", "validate-certificate", (outDir / "CarWithWindow.certificate.json").toString,
       "--module", moduleName])
+  try
+    LeanUfo.Test.Certificates.checkGeneratedNameSource
+    let content ← IO.FS.readFile (outDir / "CarBase.certificate.json")
+    match Lean.Json.parse content with
+    | .ok baseline => LeanUfo.Test.Certificates.checkManifestNameSafety baseline moduleName
+    | .error message => throw <| IO.userError message
+  catch e => failures := failures.push s!"certificate name safety: {e.toString}"
   pure failures
 
 /--
@@ -571,6 +579,9 @@ def fullTestsEnabled : IO Bool := do
 
 def main : IO UInt32 := do
   let mut failures := #[]
+  try
+    LeanUfo.Test.Certificates.checkIdentifierParsing
+  catch e => failures := failures.push s!"certificate identifier parsing: {e.toString}"
   let selected ← selectedAxioms
   let negativeCategories ← negativeCoverageCategories
   failures := failures ++ (← checkCoverageManifest)

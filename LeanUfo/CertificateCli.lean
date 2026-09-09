@@ -6,6 +6,37 @@ open Lean
 
 namespace LeanUfo.CertificateCli
 
+/-- Parse one complete Lean identifier without importing the target module.
+Whitespace and comments outside escaped components are rejected, so attaching
+a field suffix cannot change how the generated command is parsed. -/
+def parseLeanName (text : String) : IO Name := do
+  let env ← mkEmptyEnvironment
+  let input := Parser.mkInputContext text "<certificate name>" (normalizeLineEndings := false)
+  let state := (Parser.rawIdentFn (includeWhitespace := false)).run input
+    { env, options := {} } {} (Parser.mkParserState text)
+  unless !state.hasError && state.pos == text.rawEndPos && state.stxStack.size == 1 do
+    throw <| IO.userError "expected one complete Lean identifier"
+  match state.stxStack.back with
+  | .ident _ _ name _ => pure name
+  | _ => throw <| IO.userError "expected one complete Lean identifier"
+
+/-- Render every component as an escaped identifier. Lean's `Name.toString`
+also prints pseudo-syntax (including names beginning with `#` or `?`), so it
+cannot serve as a source-code escaping boundary for manifest data. -/
+def leanNameSource : Name → Except String String
+  | .str parent part => do
+      let some escaped := Name.escapePart part (force := true)
+        | throw "name component cannot be represented as a Lean identifier"
+      match parent with
+      | .anonymous => pure escaped
+      | _ => return (← leanNameSource parent) ++ "." ++ escaped
+  | _ => .error "expected a nonempty Lean name with string components"
+
+def identifierSource (text : String) : IO String := do
+  match leanNameSource (← parseLeanName text) with
+  | .ok source => pure source
+  | .error message => throw <| IO.userError message
+
 def nameParent? : Name → Option Name
   | .str parent _ => some parent
   | .num parent _ => some parent
@@ -44,10 +75,6 @@ def currentGitCommit : IO (Option String) :=
 def currentGitTag : IO (Option String) :=
   runGit #["describe", "--tags", "--exact-match", "HEAD"]
 
-def sanitizeFileStem (s : String) : String :=
-  s.map fun c =>
-    if c.isAlphanum then c else '-'
-
 def tempDir : IO System.FilePath := do
   match (← IO.getEnv "TMPDIR") with
   | some dir =>
@@ -62,17 +89,12 @@ def tempDir : IO System.FilePath := do
               if dir.isEmpty then pure ("/tmp" : System.FilePath) else pure dir
           | none => pure ("/tmp" : System.FilePath)
 
-def tempFilePath (stem extension : String) : IO System.FilePath := do
-  let dir ← tempDir
-  IO.FS.createDirAll dir
-  pure <| dir / s!"lean-ufo-{sanitizeFileStem stem}.{extension}"
-
 def firstToken (s : String) : Option String :=
   s.trimAscii.toString.splitOn " " |>.head?
 
-def sha256OfString (label content : String) : IO String := do
-  let file ← tempFilePath label "sha-input"
-  IO.FS.writeFile file content
+def sha256OfString (content : String) : IO String := IO.FS.withTempFile fun handle file => do
+  handle.putStr content
+  handle.flush
   let shasum ← IO.Process.output { cmd := "shasum", args := #["-a", "256", file.toString] }
   if shasum.exitCode == 0 then
     match firstToken shasum.stdout with
@@ -102,42 +124,49 @@ def lakeSearchPath : IO SearchPath := do
 def leanProcessEnv : IO (Array (String × Option String)) := do
   pure #[("LEAN_PATH", some (System.SearchPath.toString (← lakeSearchPath)))]
 
-def evalExpressionTextViaLean
+/-- Execute generated source in a private temporary directory. Callers must
+render external identifiers before constructing `source`. A fresh directory
+prevents concurrent exports or rechecks from replacing each other's scripts. -/
+def runLeanScript (source : String) : IO IO.Process.Output :=
+  IO.FS.withTempDir fun dir => do
+    let script := dir / "certificate.lean"
+    IO.FS.writeFile script source
+    IO.Process.output { cmd := "lean", args := #[script.toString], env := (← leanProcessEnv) }
+
+private def evalExpressionTextViaLean
     (moduleString modelString suffix expression : String) : IO String := do
-  let tmp ← tempFilePath s!"text-{moduleString}-{modelString}-{suffix}" "lean"
   let source :=
     s!"import {moduleString}\n" ++
     s!"#eval IO.println ({expression})\n"
-  IO.FS.writeFile tmp source
-  let out ← IO.Process.output {
-    cmd := "lean",
-    args := #[tmp.toString],
-    env := (← leanProcessEnv)
-  }
+  let out ← runLeanScript source
   if out.exitCode == 0 then
     pure out.stdout
   else
     throw <| IO.userError s!"failed to evaluate {suffix} text for {modelString}:\n{out.stderr}"
 
-def modelSourceTextViaLean (moduleString modelString : String) : IO String :=
-  evalExpressionTextViaLean moduleString modelString "source"
-    s!"reprStr {modelString}.source"
+def modelSourceTextViaLean (moduleString modelString : String) : IO String := do
+  let moduleSource ← identifierSource moduleString
+  let modelSource ← identifierSource modelString
+  evalExpressionTextViaLean moduleSource modelString "source"
+    s!"reprStr {modelSource}.source"
 
-def finiteModelTextViaLean (moduleString modelString : String) : IO String :=
-  evalExpressionTextViaLean moduleString modelString "tables"
-    ("reprStr " ++ modelString ++ ".tables.unary ++ \"\\n\" ++ " ++
-      "reprStr " ++ modelString ++ ".tables.binary ++ \"\\n\" ++ " ++
-      "reprStr " ++ modelString ++ ".tables.ternary ++ \"\\n\" ++ " ++
-      "reprStr " ++ modelString ++ ".tables.tupleProjection ++ \"\\n\" ++ " ++
-      "reprStr " ++ modelString ++ ".tables.productFamilies ++ \"\\n\" ++ " ++
-      "reprStr " ++ modelString ++ ".tables.derivedProps")
+def finiteModelTextViaLean (moduleString modelString : String) : IO String := do
+  let moduleSource ← identifierSource moduleString
+  let modelSource ← identifierSource modelString
+  evalExpressionTextViaLean moduleSource modelString "tables"
+    ("reprStr " ++ modelSource ++ ".tables.unary ++ \"\\n\" ++ " ++
+      "reprStr " ++ modelSource ++ ".tables.binary ++ \"\\n\" ++ " ++
+      "reprStr " ++ modelSource ++ ".tables.ternary ++ \"\\n\" ++ " ++
+      "reprStr " ++ modelSource ++ ".tables.tupleProjection ++ \"\\n\" ++ " ++
+      "reprStr " ++ modelSource ++ ".tables.productFamilies ++ \"\\n\" ++ " ++
+      "reprStr " ++ modelSource ++ ".tables.derivedProps")
 
 def modelDigestsViaLean (moduleString modelString : String) :
     IO (String × String) := do
   let sourceText ← modelSourceTextViaLean moduleString modelString
   let tablesText ← finiteModelTextViaLean moduleString modelString
-  let sourceDigest ← sha256OfString s!"{moduleString}-{modelString}-source" sourceText
-  let finiteModelDigest ← sha256OfString s!"{moduleString}-{modelString}-tables" tablesText
+  let sourceDigest ← sha256OfString sourceText
+  let finiteModelDigest ← sha256OfString tablesText
   pure (sourceDigest, finiteModelDigest)
 
 def parseModuleName (s : String) : Name :=

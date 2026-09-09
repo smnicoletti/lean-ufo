@@ -17,21 +17,17 @@ private def evalManifestJsonViaLean
     (moduleString modelString : String) (gitCommit gitTag : Option String)
     (sourceDigest finiteModelDigest : String) :
     IO String := do
-  let tmp ← tempFilePath s!"export-{moduleString}-{modelString}" "lean"
+  let moduleSource ← identifierSource moduleString
+  let modelSource ← identifierSource modelString
   let source :=
-    s!"import {moduleString}\n" ++
-    "#eval IO.println (({ " ++ modelString ++ ".certificateManifest with " ++
+    s!"import {moduleSource}\n" ++
+    "#eval IO.println (({ " ++ modelSource ++ ".certificateManifest with " ++
     s!"gitCommit := {optionStringTerm gitCommit}, " ++
     s!"gitTag := {optionStringTerm gitTag}, " ++
     s!"sourceDigest := some {leanStringTerm sourceDigest}, " ++
     s!"finiteModelDigest := some {leanStringTerm finiteModelDigest}" ++
     " }).toJson.pretty 100)\n"
-  IO.FS.writeFile tmp source
-  let out ← IO.Process.output {
-    cmd := "lean",
-    args := #[tmp.toString],
-    env := (← leanProcessEnv)
-  }
+  let out ← runLeanScript source
   if out.exitCode == 0 then
     pure out.stdout
   else
@@ -42,7 +38,7 @@ unsafe def main (args : List String) : IO UInt32 := do
     | IO.eprintln usageExport; return 2
   let some outString := parseFlagValue "--out" args
     | IO.eprintln usageExport; return 2
-  let moduleName := parseModuleName moduleString
+  let moduleName ← parseLeanName moduleString
   let outDir : System.FilePath := outString
   ensureDir outDir
   let path := moduleSourcePath moduleName
@@ -55,6 +51,9 @@ unsafe def main (args : List String) : IO UInt32 := do
   if models.isEmpty then
     IO.eprintln s!"no certificate manifests found in module {moduleName}"
     return 1
+  -- Validate the whole selection before executing a module for the first model.
+  for modelString in models do
+    discard <| identifierSource modelString
   let gitCommit ← currentGitCommit
   let gitTag ← currentGitTag
   for modelString in models do
