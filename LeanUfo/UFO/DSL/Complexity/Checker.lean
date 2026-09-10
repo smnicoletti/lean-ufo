@@ -32,22 +32,45 @@ def anyListCosted : List α → (α → Costed Bool) → Costed Bool
   | x :: xs, p => Costed.orElse (Costed.charge 1 (p x))
       (fun _ => anyListCosted xs p)
 
+theorem anyListCosted_value (xs : List α) (p : α → Costed Bool) :
+    (anyListCosted xs p).value = xs.any (fun x => (p x).value) := by
+  induction xs with
+  | nil => rfl
+  | cons x xs ih =>
+      simp only [anyListCosted, Costed.orElse_value, Costed.charge_value,
+        List.any_cons, ih]
+
 /-- Visit finite coordinates directly. The decreasing remainder controls the
 loop; the proof supplies the coordinate bound and is erased at runtime. No
 candidate list is constructed before the first predicate evaluation. -/
-def allFinFromCosted {n : Nat} (p : Fin n → Costed Bool) :
-    (start remaining : Nat) → start + remaining ≤ n → Costed Bool
-  | _, 0, _ => .pure true
-  | start, remaining + 1, h =>
-      Costed.andThen (Costed.charge 1 (p ⟨start, by omega⟩))
-        (fun _ => allFinFromCosted p (start + 1) remaining (by omega))
+private def allFinFromCosted.go {n : Nat} (p : Fin n → Costed Bool) :
+    (start remaining : Nat) → start + remaining ≤ n → Nat → Costed Bool
+  | _, 0, _, cost => ⟨true, cost⟩
+  | start, remaining + 1, h, cost =>
+      let current := p ⟨start, by omega⟩
+      let cost := cost + current.cost + 2
+      if current.value then
+        allFinFromCosted.go p (start + 1) remaining (by omega) cost
+      else ⟨false, cost⟩
 
-def anyFinFromCosted {n : Nat} (p : Fin n → Costed Bool) :
-    (start remaining : Nat) → start + remaining ≤ n → Costed Bool
-  | _, 0, _ => .pure false
-  | start, remaining + 1, h =>
-      Costed.orElse (Costed.charge 1 (p ⟨start, by omega⟩))
-        (fun _ => anyFinFromCosted p (start + 1) remaining (by omega))
+private def anyFinFromCosted.go {n : Nat} (p : Fin n → Costed Bool) :
+    (start remaining : Nat) → start + remaining ≤ n → Nat → Costed Bool
+  | _, 0, _, cost => ⟨false, cost⟩
+  | start, remaining + 1, h, cost =>
+      let current := p ⟨start, by omega⟩
+      let cost := cost + current.cost + 2
+      if current.value then ⟨true, cost⟩
+      else anyFinFromCosted.go p (start + 1) remaining (by omega) cost
+
+/-- Accumulate each visited predicate's cost before continuing. The recursive
+call is in tail position, so a full scan needs no stack of pending additions. -/
+def allFinFromCosted {n : Nat} (p : Fin n → Costed Bool)
+    (start remaining : Nat) (h : start + remaining ≤ n) : Costed Bool :=
+  allFinFromCosted.go p start remaining h 0
+
+def anyFinFromCosted {n : Nat} (p : Fin n → Costed Bool)
+    (start remaining : Nat) (h : start + remaining ≤ n) : Costed Bool :=
+  anyFinFromCosted.go p start remaining h 0
 
 def allFinCosted (n : Nat) (p : Fin n → Costed Bool) : Costed Bool :=
   allFinFromCosted p 0 n (by omega)
@@ -57,43 +80,75 @@ def anyFinCosted (n : Nat) (p : Fin n → Costed Bool) : Costed Bool :=
 
 /-- The list occurs only in the specification. Equality includes both the
 Boolean result and the charges for the visited prefix. -/
+private theorem allFinFromCosted_go_eq_list {n : Nat} (p : Fin n → Costed Bool)
+    (start remaining : Nat) (h : start + remaining ≤ n) (cost : Nat) :
+    allFinFromCosted.go p start remaining h cost =
+      Costed.charge cost (allListCosted (List.ofFn fun i : Fin remaining =>
+        (⟨start + i.val, by omega⟩ : Fin n)) p) := by
+  induction remaining generalizing start cost with
+  | zero => simp [allFinFromCosted.go, allListCosted, Costed.pure, Costed.charge]
+  | succ remaining ih =>
+      rw [List.ofFn_succ]
+      cases hc : (p ⟨start, by omega⟩).value <;>
+        simp only [allFinFromCosted.go, Fin.val_zero, Nat.add_zero,
+          allListCosted, Costed.andThen, Costed.charge, hc,
+          Bool.false_eq_true, ↓reduceIte]
+      · congr 1 <;> omega
+      · rw [ih]
+        simp only [Costed.charge, Fin.val_succ]
+        have indices :
+            (List.ofFn fun i : Fin remaining => (⟨start + 1 + i.val, by omega⟩ : Fin n)) =
+              List.ofFn (fun i : Fin remaining => (⟨start + (i.val + 1), by omega⟩ : Fin n)) := by
+          congr 1
+          funext i
+          apply Fin.ext
+          change start + 1 + i.val = start + (i.val + 1)
+          omega
+        rw [indices]
+        congr 1 <;> omega
+
+private theorem anyFinFromCosted_go_eq_list {n : Nat} (p : Fin n → Costed Bool)
+    (start remaining : Nat) (h : start + remaining ≤ n) (cost : Nat) :
+    anyFinFromCosted.go p start remaining h cost =
+      Costed.charge cost (anyListCosted (List.ofFn fun i : Fin remaining =>
+        (⟨start + i.val, by omega⟩ : Fin n)) p) := by
+  induction remaining generalizing start cost with
+  | zero => simp [anyFinFromCosted.go, anyListCosted, Costed.pure, Costed.charge]
+  | succ remaining ih =>
+      rw [List.ofFn_succ]
+      cases hc : (p ⟨start, by omega⟩).value <;>
+        simp only [anyFinFromCosted.go, Fin.val_zero, Nat.add_zero,
+          anyListCosted, Costed.orElse, Costed.charge, hc,
+          Bool.false_eq_true, ↓reduceIte]
+      · rw [ih]
+        simp only [Costed.charge, Fin.val_succ]
+        have indices :
+            (List.ofFn fun i : Fin remaining => (⟨start + 1 + i.val, by omega⟩ : Fin n)) =
+              List.ofFn (fun i : Fin remaining => (⟨start + (i.val + 1), by omega⟩ : Fin n)) := by
+          congr 1
+          funext i
+          apply Fin.ext
+          change start + 1 + i.val = start + (i.val + 1)
+          omega
+        rw [indices]
+        congr 1 <;> omega
+      · congr 1 <;> omega
+
 theorem allFinFromCosted_eq_list {n : Nat} (p : Fin n → Costed Bool)
     (start remaining : Nat) (h : start + remaining ≤ n) :
     allFinFromCosted p start remaining h =
       allListCosted (List.ofFn fun i : Fin remaining =>
         (⟨start + i.val, by omega⟩ : Fin n)) p := by
-  induction remaining generalizing start with
-  | zero => simp [allFinFromCosted, allListCosted]
-  | succ remaining ih =>
-      rw [List.ofFn_succ]
-      simp only [allFinFromCosted, allListCosted]
-      congr 1
-      funext _
-      rw [ih]
-      congr 1
-      apply congrArg List.ofFn
-      funext i
-      apply Fin.ext
-      simp [Nat.add_comm, Nat.add_left_comm]
+  simpa [allFinFromCosted, Costed.charge] using
+    allFinFromCosted_go_eq_list p start remaining h 0
 
 theorem anyFinFromCosted_eq_list {n : Nat} (p : Fin n → Costed Bool)
     (start remaining : Nat) (h : start + remaining ≤ n) :
     anyFinFromCosted p start remaining h =
       anyListCosted (List.ofFn fun i : Fin remaining =>
         (⟨start + i.val, by omega⟩ : Fin n)) p := by
-  induction remaining generalizing start with
-  | zero => simp [anyFinFromCosted, anyListCosted]
-  | succ remaining ih =>
-      rw [List.ofFn_succ]
-      simp only [anyFinFromCosted, anyListCosted]
-      congr 1
-      funext _
-      rw [ih]
-      congr 1
-      apply congrArg List.ofFn
-      funext i
-      apply Fin.ext
-      simp [Nat.add_comm, Nat.add_left_comm]
+  simpa [anyFinFromCosted, Costed.charge] using
+    anyFinFromCosted_go_eq_list p start remaining h 0
 
 theorem allFinCosted_eq_list (n : Nat) (p : Fin n → Costed Bool) :
     allFinCosted n p = allListCosted (List.finRange n) p := by
@@ -131,6 +186,29 @@ theorem anyListCosted_map (xs : List α) (f : α → β) (p : β → Costed Bool
   induction xs with
   | nil => rfl
   | cons x xs ih => simp only [List.map_cons, anyListCosted, ih]
+
+/-- Natural-number consumers use the same finite loop. The range list is a
+proof specification, so even an immediate answer requires no list allocation.
+The equality preserves both the result and the cost of the visited prefix. -/
+theorem allListCosted_range_eq_fin (n : Nat) (p : Nat → Costed Bool) :
+    allListCosted (List.range n) p = allFinCosted n (fun i => p i.val) := by
+  symm
+  rw [allFinCosted_eq_list, ← allListCosted_map]
+  congr 1
+  apply List.ext_getElem
+  · simp
+  · intro i hi hj
+    simp
+
+theorem anyListCosted_range_eq_fin (n : Nat) (p : Nat → Costed Bool) :
+    anyListCosted (List.range n) p = anyFinCosted n (fun i => p i.val) := by
+  symm
+  rw [anyFinCosted_eq_list, ← anyListCosted_map]
+  congr 1
+  apply List.ext_getElem
+  · simp
+  · intro i hi hj
+    simp
 
 private theorem array_indices_toList (xs : Array α) :
     (List.finRange xs.size).map (fun i => xs[i.val]) = xs.toList := by

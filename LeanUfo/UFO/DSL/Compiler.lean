@@ -2728,17 +2728,31 @@ def tupleProjectionTypedTable (tables : FactTables)
 
 /-- A missing world matrix stops after its read and presence test. Otherwise
 count the row-major index arithmetic, cell read, and final option test. -/
-@[inline] def inherenceClosureTableCosted (tables : FactTables)
-    {thingCount worldCount : Nat}
-    (m b : Fin thingCount) (w : Fin worldCount) : Complexity.Costed Bool := do
-  let matrix ← Complexity.Costed.tick tables.inherenceClosures[w.val]? 1
+@[inline] def momentOfClosureCosted (tables : FactTables)
+    (thingCount world moment bearer : Nat) : Complexity.Costed Bool := do
+  let matrix ← Complexity.Costed.tick tables.inherenceClosures[world]? 1
   Complexity.Costed.charge 1 <| match matrix with
   | none => .pure false
   | some closure => do
       let index ← Complexity.Costed.tick
-        (Complexity.matrixIndex tables.denseThingCount m.val b.val) 2
+        (Complexity.matrixIndex thingCount moment bearer) 2
       let cell ← Complexity.Costed.tick closure[index]? 1
       Complexity.Costed.tick (cell.getD false) 1
+
+theorem momentOfClosureCosted_cost_le (tables : FactTables)
+    (thingCount world moment bearer : Nat) :
+    (tables.momentOfClosureCosted thingCount world moment bearer).cost ≤ 6 := by
+  unfold momentOfClosureCosted
+  simp only [Bind.bind, Complexity.Costed.bind, Complexity.Costed.tick]
+  split <;> simp [Complexity.Costed.pure]
+
+/-- Typed checker queries use the stored matrix width. Diagnostic queries can
+pass their explicit width to the same counted core. Equality of those widths
+belongs to model-construction correspondence, not to this lookup bound. -/
+@[inline] def inherenceClosureTableCosted (tables : FactTables)
+    {thingCount worldCount : Nat}
+    (m b : Fin thingCount) (w : Fin worldCount) : Complexity.Costed Bool :=
+  tables.momentOfClosureCosted tables.denseThingCount w.val m.val b.val
 
 def inherenceClosureTable (tables : FactTables)
     {thingCount worldCount : Nat}
@@ -2772,15 +2786,13 @@ theorem tupleProjectionTypedTableCosted_cost_le (tables : FactTables)
 theorem inherenceClosureTableCosted_cost_le (tables : FactTables)
     {thingCount worldCount : Nat} (m b : Fin thingCount) (w : Fin worldCount) :
     (tables.inherenceClosureTableCosted m b w).cost ≤ 6 := by
-  unfold inherenceClosureTableCosted
-  simp only [Bind.bind, Complexity.Costed.bind, Complexity.Costed.tick]
-  split <;> simp [Complexity.Costed.pure]
+  exact momentOfClosureCosted_cost_le tables tables.denseThingCount w.val m.val b.val
 
 theorem inherenceClosureTableCosted_value (tables : FactTables)
     {thingCount worldCount : Nat} (m b : Fin thingCount) (w : Fin worldCount) :
     (tables.inherenceClosureTableCosted m b w).value =
       tables.inherenceClosureTable m b w := by
-  unfold inherenceClosureTableCosted inherenceClosureTable
+  unfold inherenceClosureTableCosted momentOfClosureCosted inherenceClosureTable
   simp only [Bind.bind, Complexity.Costed.bind, Complexity.Costed.tick]
   split <;> simp_all [Complexity.Costed.pure]
 
@@ -2905,25 +2917,138 @@ def momentOfClosure
       closure[Complexity.matrixIndex thingCount moment bearer]?.getD false
   | none => false
 
-/--
-Follow deterministic first-hop cells. Fuel makes malformed external tables
-total; compiled tables need at most `thingCount` hops. Each recursion performs
-one indexed lookup rather than scanning all possible adjacent things.
--/
+/-- The counted query preserves the explicit-width lookup for all raw tables,
+including missing worlds or cells. This proves lookup correspondence only.
+Whether the matrix represents inherence reachability is a separate theorem. -/
+theorem momentOfClosureCosted_value
+    (tables : FactTables) (thingCount world moment bearer : Nat) :
+    (tables.momentOfClosureCosted thingCount world moment bearer).value =
+      tables.momentOfClosure thingCount world moment bearer := by
+  unfold momentOfClosureCosted momentOfClosure
+  simp only [Bind.bind, Complexity.Costed.bind, Complexity.Costed.tick]
+  split <;> simp_all [Complexity.Costed.pure]
+
+/-- A next-hop cell gives the next coordinate toward a target. Fuel limits
+how many cells the helper can follow, even in a cyclic raw table. The accumulator
+stores both the path and the cost before the tail call.
+Each continued hop costs eleven: equality and branch (two), fuel test (one),
+index arithmetic (two), bounds comparison and branch (two), array read (one),
+option test (one), path append (one), and loop step (one).
+The input accumulator is supplied by the caller, which charges its creation.
+Cost composition follows Niu et al. (POPL 2022, doi:10.1145/3498670). -/
 def nextHopPathFromCosted
     (nextHop : Array (Option Nat)) (thingCount current target fuel : Nat)
     (pathAcc : Array Nat := #[]) : Complexity.Costed (Option (Array Nat)) :=
-  if current == target then
-    .tick (some (pathAcc.push current)) 2
-  else match fuel with
-  | 0 => .tick none 1
-  | fuel + 1 =>
-      match nextHop[Complexity.matrixIndex thingCount current target]?.join with
-      | none => .tick none 2
-      | some next =>
-          Complexity.Costed.charge 4
-            (nextHopPathFromCosted nextHop thingCount next target fuel
-              (pathAcc.push current))
+  go nextHop thingCount target fuel current pathAcc 0
+where
+  go (nextHop : Array (Option Nat)) (thingCount target fuel current : Nat)
+      (pathAcc : Array Nat) (cost : Nat) : Complexity.Costed (Option (Array Nat)) :=
+    if current == target then
+      ⟨some (pathAcc.push current), cost + 3⟩
+    else match fuel with
+    | 0 => ⟨none, cost + 3⟩
+    | fuel + 1 =>
+        let index := Complexity.matrixIndex thingCount current target
+        if h : index < nextHop.size then
+          match nextHop[index] with
+          | none => ⟨none, cost + 9⟩
+          | some next => go nextHop thingCount target fuel next (pathAcc.push current) (cost + 11)
+        else ⟨none, cost + 7⟩
+
+private theorem nextHopPathFromCosted_go_value (nextHop : Array (Option Nat))
+    (thingCount target fuel current : Nat) (pathAcc : Array Nat) (a b : Nat) :
+    (nextHopPathFromCosted.go nextHop thingCount target fuel current pathAcc a).value =
+      (nextHopPathFromCosted.go nextHop thingCount target fuel current pathAcc b).value := by
+  induction fuel generalizing current pathAcc a b with
+  | zero => simp only [nextHopPathFromCosted.go]; split <;> rfl
+  | succ fuel ih =>
+      simp only [nextHopPathFromCosted.go]
+      split
+      · rfl
+      · split
+        · split
+          · rfl
+          · exact ih _ _ _ _
+        · rfl
+
+/-- Erasing the accumulated cost yields the deterministic pointer-following
+recurrence. This statement also specifies behavior on malformed raw tables. -/
+theorem nextHopPathFromCosted_value_step
+    (nextHop : Array (Option Nat)) (thingCount current target fuel : Nat) (pathAcc : Array Nat) :
+    (nextHopPathFromCosted nextHop thingCount current target fuel pathAcc).value =
+      if current == target then some (pathAcc.push current)
+      else match fuel with
+      | 0 => none
+      | fuel + 1 =>
+          match nextHop[Complexity.matrixIndex thingCount current target]?.join with
+          | none => none
+          | some next =>
+              (nextHopPathFromCosted nextHop thingCount next target fuel (pathAcc.push current)).value := by
+  rw [nextHopPathFromCosted, nextHopPathFromCosted.go.eq_def]
+  split
+  · rfl
+  · cases fuel with
+    | zero => rfl
+    | succ fuel =>
+        simp only [getElem?_def]
+        split
+        · dsimp only [Option.join, Option.bind, id]
+          split
+          · simp_all only
+          · simp_all only
+            exact nextHopPathFromCosted_go_value _ _ _ _ _ _ _ _
+        · rfl
+
+private theorem nextHopPathFromCosted_go_cost_le (nextHop : Array (Option Nat))
+    (thingCount target fuel current : Nat) (pathAcc : Array Nat) (cost : Nat) :
+    (nextHopPathFromCosted.go nextHop thingCount target fuel current pathAcc cost).cost ≤
+      cost + 11 * fuel + 3 := by
+  induction fuel generalizing current pathAcc cost with
+  | zero => simp only [nextHopPathFromCosted.go]; split <;> simp
+  | succ fuel ih =>
+      simp only [nextHopPathFromCosted.go]
+      split
+      · simp
+      · split
+        · split
+          · simp; omega
+          · apply Nat.le_trans (ih _ _ _)
+            omega
+        · simp; omega
+
+theorem nextHopPathFromCosted_cost_le
+    (nextHop : Array (Option Nat)) (thingCount current target fuel : Nat)
+    (pathAcc : Array Nat) :
+    (nextHopPathFromCosted nextHop thingCount current target fuel pathAcc).cost ≤
+      11 * fuel + 3 := by
+  simpa [nextHopPathFromCosted] using
+    nextHopPathFromCosted_go_cost_le nextHop thingCount target fuel current pathAcc 0
+
+/-- A successful call appends at most one coordinate per hop and the endpoint.
+This bounds later path rendering even when the supplied table is malformed. -/
+theorem nextHopPathFromCosted_some_size
+    (nextHop : Array (Option Nat)) (thingCount current target fuel : Nat)
+    (pathAcc path : Array Nat)
+    (found : (nextHopPathFromCosted nextHop thingCount current target fuel pathAcc).value = some path) :
+    path.size ≤ pathAcc.size + fuel + 1 := by
+  induction fuel generalizing current pathAcc with
+  | zero =>
+      rw [nextHopPathFromCosted_value_step] at found
+      split at found
+      · cases Option.some.inj found
+        simp
+      · cases found
+  | succ fuel ih =>
+      rw [nextHopPathFromCosted_value_step] at found
+      dsimp only at found
+      split at found
+      · cases Option.some.inj found
+        simp
+      · split at found
+        · cases found
+        · have h := ih _ _ found
+          simp only [Array.size_push] at h
+          omega
 
 def nextHopPathFrom?
     (nextHop : Array (Option Nat)) (thingCount current target fuel : Nat) :
@@ -2935,53 +3060,31 @@ def nextHopPathFrom?
     (nextHopPathFromCosted nextHop thingCount current target fuel).value =
       nextHopPathFrom? nextHop thingCount current target fuel := rfl
 
-theorem nextHopPathFromCosted_cost_le
-    (nextHop : Array (Option Nat)) (thingCount current target fuel : Nat)
-    (pathAcc : Array Nat) :
-    (nextHopPathFromCosted nextHop thingCount current target fuel pathAcc).cost ≤
-      4 * fuel + 2 := by
-  induction fuel generalizing current pathAcc with
-  | zero =>
-      simp only [nextHopPathFromCosted]
-      split <;> simp
-  | succ fuel ih =>
-      simp only [nextHopPathFromCosted]
-      split
-      · simp
-      · split
-        · simp
-        · simp only [Complexity.Costed.charge]
-          apply Nat.le_trans (Nat.add_le_add_left (ih _ _) 4)
-          omega
-
-private def threeNodeNextHop : Array (Option Nat) :=
-  #[some 0, some 1, some 1,
-    none, some 1, some 2,
-    none, none, some 2]
-
-example : nextHopPathFrom? threeNodeNextHop 3 0 2 3 = some #[0, 1, 2] := by
-  native_decide
-
-example : nextHopPathFromCosted threeNodeNextHop 3 0 2 3 =
-    ⟨some #[0, 1, 2], 10⟩ := by
-  native_decide
-
-example : nextHopPathFrom? threeNodeNextHop 3 2 0 3 = none := by
-  native_decide
-
-/-- A concrete inherence path reconstructed from the compiled next-hop matrix. -/
+/-- Read the world's next-hop matrix and construct a path accumulator.
+The successful matrix read costs three operations, and initialization costs one.
+A missing world costs only its bounds comparison and branch. -/
 def momentOfPathCosted
     (tables : FactTables) (thingCount : Nat) (world moment bearer : Nat) :
     Complexity.Costed (Option (Array Nat)) :=
-  match tables.inherenceNextHops[world]? with
-  | some nextHop => Complexity.Costed.charge 1
-      (nextHopPathFromCosted nextHop thingCount moment bearer thingCount)
-  | none => .tick none 1
+  if hw : world < tables.inherenceNextHops.size then
+    Complexity.Costed.charge 4
+      (nextHopPathFromCosted tables.inherenceNextHops[world] thingCount moment bearer thingCount)
+  else .tick none 2
 
 def momentOfPath?
     (tables : FactTables) (thingCount : Nat) (world moment bearer : Nat) :
     Option (Array Nat) :=
   (tables.momentOfPathCosted thingCount world moment bearer).value
+
+/-- The world guard preserves optional matrix lookup, including a missing world. -/
+theorem momentOfPathCosted_value_cases
+    (tables : FactTables) (thingCount world moment bearer : Nat) :
+    (tables.momentOfPathCosted thingCount world moment bearer).value =
+      match tables.inherenceNextHops[world]? with
+      | none => none
+      | some nextHop => (nextHopPathFromCosted nextHop thingCount moment bearer thingCount).value := by
+  simp only [momentOfPathCosted, getElem?_def]
+  split <;> rfl
 
 @[simp] theorem momentOfPathCosted_value
     (tables : FactTables) (thingCount : Nat) (world moment bearer : Nat) :
@@ -2991,14 +3094,24 @@ def momentOfPath?
 theorem momentOfPathCosted_cost_le
     (tables : FactTables) (thingCount : Nat) (world moment bearer : Nat) :
     (tables.momentOfPathCosted thingCount world moment bearer).cost ≤
-      4 * thingCount + 3 := by
-  unfold FactTables.momentOfPathCosted
+      11 * thingCount + 7 := by
+  unfold momentOfPathCosted
   split
-  · simp only [Complexity.Costed.charge]
-    apply Nat.le_trans (Nat.add_le_add_left
-      (nextHopPathFromCosted_cost_le _ thingCount moment bearer thingCount #[]) 1)
+  · have h := nextHopPathFromCosted_cost_le tables.inherenceNextHops[world]
+      thingCount moment bearer thingCount #[]
+    simp only [Complexity.Costed.charge_cost]
     omega
   · simp
+
+theorem momentOfPathCosted_some_size
+    (tables : FactTables) (thingCount world moment bearer : Nat) (path : Array Nat)
+    (found : (tables.momentOfPathCosted thingCount world moment bearer).value = some path) :
+    path.size ≤ thingCount + 1 := by
+  unfold momentOfPathCosted at found
+  split at found
+  · simp only [Complexity.Costed.charge_value] at found
+    simpa using nextHopPathFromCosted_some_size _ _ _ _ _ #[] path found
+  · cases found
 
 private def natToFin? (n x : Nat) : Option (Fin n) :=
   if h : x < n then some ⟨x, h⟩ else none

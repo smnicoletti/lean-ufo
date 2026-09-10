@@ -99,12 +99,14 @@ def UnaryField.index : UnaryField → Nat
 
 def UnaryField.count : Nat := UnaryField.all.size
 
+-- Field-index bounds and injectivity justify distinct dense-table addresses.
+-- Kernel-checked finite proofs keep native evaluation out of that argument.
 theorem UnaryField.index_lt_count (field : UnaryField) : field.index < UnaryField.count := by
-  cases field <;> native_decide
+  cases field <;> decide
 
 theorem UnaryField.index_injective : Function.Injective UnaryField.index := by
   intro left right
-  cases left <;> cases right <;> native_decide
+  cases left <;> cases right <;> decide
 
 /-- Finite table field name for a unary AST field. -/
 def UnaryField.toTableField : UnaryField → String
@@ -260,11 +262,11 @@ def BinaryField.index : BinaryField → Nat
 def BinaryField.count : Nat := BinaryField.all.size
 
 theorem BinaryField.index_lt_count (field : BinaryField) : field.index < BinaryField.count := by
-  cases field <;> native_decide
+  cases field <;> decide
 
 theorem BinaryField.index_injective : Function.Injective BinaryField.index := by
   intro left right
-  cases left <;> cases right <;> native_decide
+  cases left <;> cases right <;> decide
 
 /-- Finite table field name for a binary AST field. -/
 def BinaryField.toTableField : BinaryField → String
@@ -307,11 +309,11 @@ def TernaryField.index : TernaryField → Nat
 def TernaryField.count : Nat := TernaryField.all.size
 
 theorem TernaryField.index_lt_count (field : TernaryField) : field.index < TernaryField.count := by
-  cases field <;> native_decide
+  cases field <;> decide
 
 theorem TernaryField.index_injective : Function.Injective TernaryField.index := by
   intro left right
-  cases left <;> cases right <;> native_decide
+  cases left <;> cases right <;> decide
 
 /-- Finite table field name for a ternary AST field. -/
 def TernaryField.toTableField : TernaryField → String

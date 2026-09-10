@@ -335,6 +335,10 @@ LeanUfo/
       Checker/         -- reflective Boolean checks and formal step bounds
       Certificate/     -- generated certificate source and probe support
       Diagnostic/      -- source-level failure analysis and editor widget
+        Analysis.lean  -- aggregate diagnostic import
+        AxiomAnalysis.lean -- registered-axiom reports and their cost proofs
+        DerivedAssertions.lean -- checks and reports for user-written derived claims
+        Widget.lean    -- editor presentation
   Test/                -- DSL syntax, certification, diagnostics, and coverage tests
 docs/                  -- human-facing documentation
 LeanUfoTest.lean       -- executable lake test driver

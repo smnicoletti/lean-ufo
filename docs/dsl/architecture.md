@@ -33,13 +33,23 @@ subdirectories. `Certification.lean` supplies decidability for packaged finite
 axioms, whereas `Certificate/` emits and reuses concrete theorem declarations;
 the similar names describe different stages.
 
-Three large files remain cohesive on purpose. `Checker/Axioms.lean` keeps the
+Two checker files preserve registry order. `Checker/Axioms.lean` keeps the
 ordered axiom registry beside the checks it registers. `Checker/Soundness.lean`
-keeps the matching semantic proofs in the same order. `Diagnostic/Analysis.lean`
-keeps one private diagnostic language and its analyzers together. Splitting any
-of them only by line count would hide that order, expose private types, and add
-cyclic or high-fan-out imports. New code should be extracted only when it has a
-separate responsibility and a narrow public interface.
+keeps the matching semantic proofs in the same order.
+
+`Diagnostic/Analysis.lean` aggregates two diagnostic paths.
+`AxiomAnalysis.lean` owns the private formula language, registered-axiom
+analyzers, and their counted reports. `DerivedAssertions.lean` checks named
+derived claims before axiom certification and explains their failures. It
+imports the shared queries and renderers from the axiom analyzer. The import
+direction is one-way, and the aggregate contains no implementation.
+
+Within the derived-assertion module, sections follow the execution dependencies:
+numeric queries, named dispatch, first-failure selection, report components,
+report dispatch, and public producers. Each helper keeps its specification and
+cost proofs nearby. These are internal layers of one precheck, not additional
+public APIs. The public complexity aggregate imports the resulting guarantees;
+it does not keep a second implementation for counting.
 
 The intended import direction is:
 
@@ -122,7 +132,11 @@ pure Lean code.
 | Aggregate checker | `Checker/Axioms.lean`, `Checker/Soundness.lean` | `checkAxioms4_sound` proves `checkAxioms4 = true -> UFOAxioms4` |
 | Operational costs | `Complexity/CostModel.lean`, `Complexity/Theorems.lean` | Concrete counted execution and fixed/parameterized bounds |
 | Certificate source generation | `Certificate/Generation.lean` | Trusted code emission, checked afterward by the Lean kernel |
-| Diagnostics | `Diagnostic/Analysis.lean`, `Diagnostic/Widget.lean` | Explanatory layer; confirmed counterexamples rely on Lean-checked negation proofs |
+| Axiom diagnostics | `Diagnostic/AxiomAnalysis.lean` | Counted reports; confirmed counterexamples rely on Lean-checked negation proofs |
+| Derived-assertion diagnostics | `Diagnostic/DerivedAssertions.lean` | Counted preliminary checks and complete reports before axiom certification; the proved nine-row cap preserves default output |
+| Diagnostic integration | `Diagnostic/Analysis.lean`, `Diagnostic/Widget.lean` | Aggregate entry points and editor presentation |
+| Product-family diagnostic validation | `Complexity/Diagnostics/ProductFamily.lean` | Counts checks of supplied witnesses and relates their conditions to the checker; raw-registry conversion correspondence remains open |
+| Unique-witness search | `Complexity/Diagnostics/Unique.lean` | Proves the sole-match result and linear cost bound of a search that stops at the second match |
 
 Successful certification rests on:
 
@@ -166,7 +180,8 @@ The frontend layer is responsible for:
 The relevant files are:
 
 - `Frontend/SurfaceSyntax.lean`: concrete grammar only;
-- `Frontend/ModelText.lean`: rendering and name-to-field text helpers;
+- `Frontend/ModelText.lean`: name-to-field text helpers and fact rendering,
+  including counted renderers and their text-equivalence proofs;
 - `Syntax.lean`: command elaboration, declaration emission, certificate checks,
   and diagnostic storage.
 
@@ -511,9 +526,10 @@ failed axiom for the generated finite model. This is why diagnostics distinguish
 - **timeout-style probe limit**: operational limit in the diagnostic probe;
 - **unclassified probe failure**: no semantic conclusion.
 
-`Diagnostic/Analysis.lean` reconstructs source-level evidence from the compiled
-finite tables. It is explanatory, not foundational. The formal evidence remains
-the Lean-checked certificate or negation theorem.
+`Diagnostic/AxiomAnalysis.lean` reconstructs source-level evidence from the
+compiled finite tables. `Diagnostic/DerivedAssertions.lean` reports failed
+user-written derived claims before axiom certification. Both are explanatory.
+The formal evidence remains the Lean-checked certificate or negation theorem.
 
 ## Internal formal guarantees
 

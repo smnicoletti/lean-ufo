@@ -23,8 +23,8 @@ theorem closure_cost_cubic (n : Nat) (edge : Nat → Nat → Bool) :
   warshallMatrixCosted_cost_le n _
 
 theorem diagnostic_output_bound (budget : Nat) (items : Array α) :
-    (boundedEvidenceCosted budget items).value.items.size ≤ budget := by
-  simp [boundedEvidenceCosted]
+    (boundedEvidenceCosted budget items).value.items.size ≤ budget :=
+  boundedEvidence_size_le_budget budget items
 
 /-- Public multivariate bound for the actual short-circuiting source compiler. -/
 theorem source_compiler_operational_bound (source : ModelSource) :

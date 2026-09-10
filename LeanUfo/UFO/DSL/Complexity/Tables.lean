@@ -214,6 +214,33 @@ theorem foldl_compileExplicitFact_binaryLookup
   exact foldl_compileExplicitFact_binaryLookup_list
     facts.toList tables field left right world
 
+/-- Explicit compilation can populate only declared primitive binary fields.
+Derived assertion text and product families do not introduce extra lookup
+fields. This also covers malformed coordinates: an unknown field is false
+independently of its arguments. -/
+theorem compileExplicitModelAST_binaryLookup_unknown
+    (ast : ModelAST) (name : String)
+    (unknown : ∀ field : BinaryField, name ≠ field.toTableField)
+    (x y w : Nat) :
+    (compileExplicitModelAST ast).binaryLookup name x y w = false := by
+  have facts (fs : List CompiledFact) (tables : FactTables) :
+      (fs.foldl compileExplicitFact tables).binaryLookup name x y w =
+        tables.binaryLookup name x y w := by
+    induction fs generalizing tables with
+    | nil => rfl
+    | cons fact fs ih =>
+        simp only [List.foldl_cons, ih]
+        cases fact <;>
+          simp [compileExplicitFact, addUnary, addBinary, addTernary,
+            addTupleProjection, addDerivedProp, unknown]
+  have families (fs : List ProductFamilySpec) (tables : FactTables) :
+      (fs.foldl addProductFamily tables).binaryLookup = tables.binaryLookup := by
+    induction fs generalizing tables with
+    | nil => rfl
+    | cons family fs ih => simpa [addProductFamily] using ih (addProductFamily tables family)
+  simp only [compileExplicitModelAST, FactTables.withDenseFacts_binaryLookup,
+    ← Array.foldl_toList, families, facts]
+
 def matchesTernaryFact (field : TernaryField)
     (first second third world : Nat) : CompiledFact → Bool
   | .ternary candidateField a b c candidateWorld =>

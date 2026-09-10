@@ -19,7 +19,9 @@ For theorem statements and what they guarantee, use
 | `LeanUfo/UFO/DSL/Certificate/Reuse.lean` | Conservative footprint registry for deciding when generated `checked_axN` theorems can reuse parent checks. |
 | `LeanUfo/UFO/DSL/Checker/` | Reflective Boolean checks and their semantic soundness and completeness proofs. |
 | `LeanUfo/UFO/DSL/Complexity/` | Counted compiler, checker, closure, table, and diagnostic computations with their operational bounds. |
-| `LeanUfo/UFO/DSL/Diagnostic/Analysis.lean` | Source-level counterexample reconstruction, diagnostic formula evaluation, evidence, suggestions, and derived-assertion analysis. |
+| `LeanUfo/UFO/DSL/Diagnostic/Analysis.lean` | Aggregate import for both diagnostic paths. |
+| `LeanUfo/UFO/DSL/Diagnostic/AxiomAnalysis.lean` | Registered-axiom counterexamples, formula evaluation, evidence, suggestions, and their cost proofs. |
+| `LeanUfo/UFO/DSL/Diagnostic/DerivedAssertions.lean` | Pre-certification checks and reports for user-written derived claims. |
 | `LeanUfo/UFO/DSL/Syntax.lean` | Command elaborator: parse grammar nodes, call the pure compiler, emit declarations, run generated certificate checks, and save diagnostics. |
 | `LeanUfo/UFO/DSL/Diagnostic/Widget.lean` | Editor-side Lean widget for displaying finite-model diagnostics in VS Code. |
 | `LeanUfo/UFO/DSL/Compiler.lean` | Pure named-fact resolution, scope expansion, taxonomy closure, derived-fact bookkeeping, and finite table construction. |

@@ -58,6 +58,19 @@ instance : LawfulMonad Costed := LawfulMonad.mk' Costed
 @[inline] def charge (extra : Nat) (x : Costed α) : Costed α :=
   ⟨x.value, extra + x.cost⟩
 
+/-- Count one string concatenation after producing both operands. Character
+copying and allocation are outside this primitive-call model. Keeping this
+operation separate lets text proofs use its value equation without expanding
+the cost bookkeeping inside each preceding concatenation. -/
+@[inline] def appendString (left right : Costed String) : Costed String :=
+  ⟨left.value ++ right.value, left.cost + right.cost + 1⟩
+
+@[simp] theorem appendString_value (left right : Costed String) :
+    (appendString left right).value = left.value ++ right.value := rfl
+
+@[simp] theorem appendString_cost (left right : Costed String) :
+    (appendString left right).cost = left.cost + right.cost + 1 := rfl
+
 /-- Count one Boolean negation after the computation of its operand. -/
 def not (x : Costed Bool) : Costed Bool :=
   ⟨!x.value, x.cost + 1⟩
@@ -224,8 +237,22 @@ theorem vectorOfFn_eq_ofFnM {n : Nat} (f : Fin n → Costed α) :
       rw [ih, Vector.ofFn_succ]
       rfl
 
-/-- Induction over the actual constructor proves its bound. `perCell` counts
-the callback; the two extra units count traversal and storage. -/
+/-- Constant callback costs give an exact constructor cost. Induction follows
+the executed constructor. The two extra units count traversal and storage. -/
+theorem vectorOfFn_cost_eq {n : Nat} (f : Fin n → Costed α) (perCell : Nat)
+    (h : ∀ i, (f i).cost = perCell) :
+    (vectorOfFn f).cost = n * (perCell + 2) := by
+  simp only [vectorOfFn_eq_ofFnM]
+  induction n with
+  | zero => simp [Pure.pure, pure]
+  | succ n ih =>
+      have hInit := ih (fun i => f i.castSucc) (fun i => h i.castSucc)
+      simp only [Vector.ofFnM_succ, Bind.bind, Pure.pure, bind, pure, charge]
+      simp only [charge] at hInit
+      rw [hInit, h]
+      simp only [Nat.succ_mul]
+      omega
+
 theorem vectorOfFn_cost_le {n : Nat} (f : Fin n → Costed α) (perCell : Nat)
     (h : ∀ i, (f i).cost ≤ perCell) :
     (vectorOfFn f).cost ≤ n * (perCell + 2) := by
@@ -328,6 +355,24 @@ theorem foldArray_cost_eq (xs : Array α) (initial : β) (step : β → α → C
         omega
   simpa [foldArray_eq_foldlM] using aux xs.toList (by simpa using h) initial
 
+/-- Append by traversing the right array, as Lean's `Array.append` does.
+Each entry costs an iteration, a read, and a write. Reusing the left array
+adds no initialization charge. Allocation and copy-on-write are outside this
+primitive-call model, so the count depends only on the right array's size. -/
+def appendArray (left right : Array α) : Costed (Array α) :=
+  foldArray right left fun out item => tick (out.push item) 1
+
+@[simp] theorem appendArray_value (left right : Array α) :
+    (appendArray left right).value = left ++ right := by
+  simp [appendArray, foldArray_value]
+  rfl
+
+@[simp] theorem appendArray_cost (left right : Array α) :
+    (appendArray left right).cost = 3 * right.size := by
+  have h := foldArray_cost_eq right left (fun out item => tick (out.push item) 1)
+    1 (by intros; rfl)
+  simpa [appendArray, Nat.mul_comm] using h
+
 /-- Exact traversal cost when a callback's charge depends on its input item,
 but not on the accumulated state. -/
 theorem foldArray_cost_eq_sum (xs : Array α) (initial : β) (step : β → α → Costed β)
@@ -361,6 +406,58 @@ theorem foldArray_cost_le (xs : Array α) (initial : β) (step : β → α → C
           List.length_cons, Nat.succ_mul]
         omega
   simpa [foldArray_eq_foldlM] using aux xs.toList (by simpa using h) initial
+
+/-- Sum item-specific callback bounds, including one iteration and one read
+per array entry. This retains the sizes of differently sized input items. -/
+theorem foldArray_cost_le_sum (xs : Array α) (initial : β) (step : β → α → Costed β)
+    (bound : α → Nat) (h : ∀ state, ∀ x ∈ xs, (step state x).cost ≤ bound x) :
+    (foldArray xs initial step).cost ≤ (xs.toList.map (fun x => bound x + 2)).sum := by
+  have aux (ys : List α) (hh : ∀ state, ∀ x ∈ ys, (step state x).cost ≤ bound x) :
+      ∀ state, (ys.foldlM (fun state x => charge 2 (step state x)) state).cost ≤
+        (ys.map (fun x => bound x + 2)).sum := by
+    induction ys with
+    | nil => intro state; simp [Pure.pure, pure]
+    | cons x ys ih =>
+        intro state
+        have hx := hh state x (by simp)
+        have ht := ih (fun state y hy => hh state y (by simp [hy])) (step state x).value
+        simp only [List.foldlM_cons, Bind.bind, bind_cost, charge_cost, charge_value,
+          List.map_cons, List.sum_cons]
+        omega
+  simpa [foldArray_eq_foldlM] using aux xs.toList (by simpa using h) initial
+
+/-- Bound a fold whose state grows by at most one unit per entry. A callback
+can inspect the growing state, so its bound includes the largest reachable
+state size. The proof uses this invariant without adding runtime checks. -/
+theorem foldArray_cost_le_growth (xs : Array α) (initial : β) (step : β → α → Costed β)
+    (size : β → Nat) (a b : Nat)
+    (hcost : ∀ state, ∀ x ∈ xs, (step state x).cost ≤ a * size state + b)
+    (hgrow : ∀ state, ∀ x ∈ xs, size (step state x).value ≤ size state + 1) :
+    (foldArray xs initial step).cost ≤ xs.size * (a * (size initial + xs.size) + b + 2) := by
+  have aux (ys : List α) (limit : Nat)
+      (hc : ∀ state, ∀ x ∈ ys, (step state x).cost ≤ a * size state + b)
+      (hg : ∀ state, ∀ x ∈ ys, size (step state x).value ≤ size state + 1) :
+      ∀ state, size state + ys.length ≤ limit →
+        (ys.foldlM (fun state x => charge 2 (step state x)) state).cost ≤
+          ys.length * (a * limit + b + 2) := by
+    induction ys with
+    | nil => intro state hlimit; simp [Pure.pure, pure]
+    | cons x ys ih =>
+        intro state hlimit
+        have hx := hc state x (by simp)
+        have hs := hg state x (by simp)
+        have ht := ih (fun state y hy => hc state y (by simp [hy]))
+          (fun state y hy => hg state y (by simp [hy])) (step state x).value (by
+            simp only [List.length_cons] at hlimit
+            omega)
+        have hscaled := Nat.mul_le_mul_left a (show size state ≤ limit by
+          simp only [List.length_cons] at hlimit
+          omega)
+        simp only [List.foldlM_cons, Bind.bind, bind_cost, charge_cost, charge_value,
+          List.length_cons, Nat.succ_mul]
+        omega
+  simpa [foldArray_eq_foldlM] using aux xs.toList (size initial + xs.size)
+    (by simpa using hcost) (by simpa using hgrow) initial (by simp)
 
 /-- Traverse an array directly, stopping at the first error. The accumulator
 carries both state and cost. An error carries the cost reached at that point,

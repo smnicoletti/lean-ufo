@@ -295,9 +295,8 @@ private def saveFailedDiagnosticsWidget
     (completed : Array String) (failed? : Option String)
     (message : String) (failureAnalysis : Array String := #[])
     (actualReuse : Array (String × Option Name) := #[]) : CommandElabM Unit := do
-  -- Diagnostics run outside certification. Bound their emitted
-  -- evidence deterministically so a failed model cannot create unbounded UI
-  -- output; the production limiter is the erasure of `boundedEvidenceCosted`.
+  -- This boundary also accepts messages from outside the witness producer.
+  -- Use its shared counted prefix copy to keep widget output within 128 rows.
   let failureAnalysis :=
     (Complexity.boundedEvidence 128 failureAnalysis).items
   saveDiagnosticsWidget cmdStx model worldNames thingNames namedFacts scopedFacts expandedFacts tables

@@ -7,6 +7,9 @@ import LeanUfo.Test.Complexity.Resolution
 import LeanUfo.Test.Complexity.Taxonomy
 import LeanUfo.Test.Complexity.Specialization
 import LeanUfo.Test.Complexity.Tables
+import LeanUfo.Test.Complexity.Diagnostics
+import LeanUfo.Test.Complexity.DerivedAssertions
+import LeanUfo.Test.Complexity.DerivedReportComposition
 import LeanUfo.CertificateCli
 
 /-!

@@ -158,7 +158,12 @@ Lean theorems:
   `DSL/Complexity/`, including the fixed 116-check heterogeneous bound.
   `Complexity/Taxonomy.lean` owns the fixed unary parent graph and its counted,
   duplicate-free ancestor traversal. Model-dependent inherence reachability
-  belongs to `Complexity/Closure.lean`. The [complexity guide](dsl/complexity.md)
+  belongs to `Complexity/Closure.lean`. Counted validation of supplied axiom 99
+  witnesses is in `Complexity/Diagnostics/ProductFamily.lean`; diagnostic report
+  selection and rendering belong to `Diagnostic/AxiomAnalysis.lean`.
+  `Diagnostic/DerivedAssertions.lean` owns preliminary checks and reports for
+  user-written derived claims. `Diagnostic/Analysis.lean` aggregates both paths.
+  The [complexity guide](dsl/complexity.md)
   states the remaining operational-accounting and pipeline obligations.
 
 The central DSL checker theorem is:
