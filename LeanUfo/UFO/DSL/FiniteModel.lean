@@ -1,14 +1,15 @@
 import LeanUfo.UFO.DSL.Certification
+import LeanUfo.UFO.DSL.Complexity.Closure
 
 /-!
 # Finite reflective models for UFO §4
 
 This file is the semantic middle layer for the finite DSL.
 
-The representation has two layers:
+The DSL connects these layers:
 
 * **DSL syntax** is only a user interface.  It names worlds and things and lists
-  facts such as `Mark : ConcreteIndividual`, `Mark :: Person`, and
+  facts such as `ConcreteIndividual(Mark)`, `Mark :: Person`, and
   `Employee ⊑ Person`.
 * **Finite data** is the compiled representation below.  User names disappear
   here; worlds and things are represented by `Fin n` indices.
@@ -19,10 +20,13 @@ The representation has two layers:
   proves it by computation for generated finite signatures; it does not replace
   or weaken the original axiom packages.
 
-The finite backend uses a universal S5 accessibility relation.  This is enough
-for the first DSL workflow and keeps the user syntax focused on ontology facts.
-The structure still has an explicit `worldCount`, so adding an accessibility
-table later is a local extension of this layer.
+The finite backend uses universal S5 accessibility: every declared world is
+accessible from every other world. `worldCount` determines this finite domain;
+the DSL does not accept a separate accessibility relation.
+
+An optional inherence cache carries a proof about this model's relation
+functions. The checker can reuse its arrays directly. The semantic signature
+ignores the cache, so cached and uncached execution must prove the same axioms.
 -/
 
 namespace LeanUfo.UFO.DSL
@@ -168,8 +172,13 @@ structure FiniteModel4 where
   associatedWith : Fin thingCount → Fin thingCount → Fin worldCount → Bool
   intrinsicMomentType : Fin thingCount → Fin worldCount → Bool
   hasValue : Fin thingCount → Fin thingCount → Fin worldCount → Bool
-  tupleProjection :
-    {n : Nat} → Fin thingCount → Fin n → Fin worldCount → Fin thingCount
+  /-- Projection paths have different costs even when they return the same
+  tuple. Keep the counted operation so consumers retain the path's cost.
+  Concrete execution correspondence requires the compiler's table proof. -/
+  tupleProjectionCosted :
+    {n : Nat} → Fin thingCount → Fin n → Fin worldCount → Complexity.Costed (Fin thingCount)
+  tupleProjectionCost_le : ∀ {n : Nat} (p : Fin thingCount) (i : Fin n) (w : Fin worldCount),
+    (tupleProjectionCosted p i w).cost ≤ 11
   productFamilies : Array (ProductFamilyWitness thingCount worldCount)
   distance : Fin thingCount → Fin thingCount → Fin thingCount → Fin worldCount → Bool
   distanceZero : Fin thingCount → Fin worldCount → Bool
@@ -181,7 +190,23 @@ structure FiniteModel4 where
   lifeOf : Fin thingCount → Fin thingCount → Fin worldCount → Bool
   meet : Fin thingCount → Fin thingCount → Fin worldCount → Bool
 
+  /-- Optional reachability arrays, with a proof that every valid query answers
+  this model's inherence relation. The proof is erased at runtime. Hand-built
+  models can omit the cache and let the checker construct its closure. -/
+  inherenceCache : Option { rows : Array (Array Bool) //
+    ∀ (source target : Fin thingCount) (world : Fin worldCount),
+      (Complexity.closureLookupCosted rows thingCount world.val source.val target.val).value =
+        Complexity.reachableVia (fun x y => inheresIn x y world)
+          (List.finRange thingCount) source target } := none
+
 namespace FiniteModel4
+
+/-- Ordinary projection erases the counted operation. This keeps ontology
+semantics independent of instrumentation, as in the cost-aware semantics of
+Niu et al. (POPL 2022, doi:10.1145/3498670). -/
+def tupleProjection (M : FiniteModel4) {n : Nat}
+    (p : Fin M.thingCount) (i : Fin n) (w : Fin M.worldCount) : Fin M.thingCount :=
+  (M.tupleProjectionCosted p i w).value
 
 /-- The internal world type of a finite model. -/
 abbrev World (M : FiniteModel4) : Type := Fin M.worldCount

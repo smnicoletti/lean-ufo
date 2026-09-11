@@ -66,22 +66,78 @@ private def ast (family : Family) (scale : Nat) : ModelAST :=
 
 private structure Row where
   compilerCost : Nat
-  checkerCost : Nat
+  probeCost : Nat
+
+private structure Probe where
+  name : String
+  cost : Nat
+  passed : Bool
+
+/-- Exercise the intended operation directly, even when the aggregate checker
+fails earlier. Fixture validation is benchmark bookkeeping, not part of the
+reported production-operation cost. These models need not satisfy all axioms. -/
+private def targetedProbe (family : Family) (tables : FactTables) (model : FiniteModel4) : Probe :=
+  let world : Fin model.worldCount := ⟨0, model.worldPositive⟩
+  match family with
+  | .sparse =>
+      let scan := Checker.allThingsEvalCosted model fun x =>
+        tables.unaryTypedTableCosted .endurant x world
+      ⟨"unary_scan", scan.cost, scan.value⟩
+  | .dense =>
+      let scan := Checker.allThingsEvalCosted model fun x =>
+        Checker.allThingsEvalCosted model fun y => tables.binaryTypedTableCosted .part x y world
+      ⟨"binary_scan", scan.cost, scan.value⟩
+  | .cyclic =>
+      let closure := tables.inherenceClosureAtCosted 0
+      ⟨"closure_rebuild", closure.cost,
+        closure.value.reachable.size == model.thingCount ^ 2 && closure.value.reachable.all id⟩
+  | .product =>
+      let last : Fin model.thingCount := ⟨model.thingCount - 1, by have := model.thingPositive; omega⟩
+      let search := Checker.productFamilySearchCosted model last last world
+      -- Only the last family's header matches. Missing association facts make
+      -- it fail too, so the search must visit the complete family array.
+      ⟨"family_search", search.cost,
+        model.productFamilies.size == model.thingCount && !search.value⟩
+  | .projection =>
+      let scan := Checker.allThingsEvalCosted model fun tuple =>
+        Checker.allFinEvalCosted model.thingCount fun slot => do
+          let result ← model.tupleProjectionCosted tuple slot world
+          -- Addition, remainder, and comparison validate each stored cell.
+          Complexity.Costed.tick
+            (result.val == (tuple.val + slot.val) % model.thingCount) 3
+      ⟨"projection_scan", scan.cost, scan.value⟩
 
 private def benchmark (family : Family) (scale : Nat) : IO Row := do
-  let n := scale + 1
   let input := ast family scale
-  let start ← IO.monoMsNow
-  let compiled := compileExplicitModelASTCosted input
-  let model := compiled.value.toFiniteModel4 1 n (by omega) (by omega)
-  let checked := Checker.checkAxioms4Costed model
-  let stop ← IO.monoMsNow
-  let metrics := Complexity.modelMetrics input.worldCount input.thingCount compiled.value
-  let relationCells := metrics.unaryCells + metrics.binaryCells + metrics.ternaryCells
-  IO.println s!"{family.name},{input.thingCount},{input.facts.size},\
-    {metrics.productFamilySlots},{relationCells},{metrics.projectionCells},\
-    {compiled.cost},{checked.cost},{stop - start},{checked.value}"
-  return ⟨compiled.cost, checked.cost⟩
+  if bounded : Complexity.Production.explicitModelWellBounded input then
+    let start ← IO.monoMsNow
+    let compiled := compileExplicitModelASTCosted input
+    let compiledAt ← IO.monoMsNow
+    have same : compiled.value = compileExplicitModelAST input := compileExplicitModelASTCosted_value input
+    let construction := compiled.value.toFiniteModel4CachedCosted input.worldCount input.thingCount
+      (by simp [input, ast]) (by simp [input, ast])
+      (by rw [same]; exact compiledLookups_agree input bounded)
+      (by rw [same]; exact compileExplicitModelAST_inherenceCacheValid input)
+      (by rw [same]; exact (compileExplicitModelAST_tableDimensions input).1)
+      (by rw [same]; exact (compileExplicitModelAST_tableDimensions input).2)
+    let model := construction.value
+    let constructedAt ← IO.monoMsNow
+    let checked := Checker.checkAxioms4Costed model
+    let checkedAt ← IO.monoMsNow
+    let probe := targetedProbe family compiled.value model
+    let stop ← IO.monoMsNow
+    unless probe.passed do
+      throw <| IO.userError s!"{family.name} scale {scale}: {probe.name} did not exercise its intended fixture"
+    let metrics := Complexity.modelMetrics input.worldCount input.thingCount compiled.value
+    let relationCells := metrics.unaryCells + metrics.binaryCells + metrics.ternaryCells
+    IO.println s!"{family.name},{input.thingCount},{input.facts.size},\
+      {metrics.productFamilySlots},{relationCells},{metrics.projectionCells},\
+      {compiled.cost},{construction.cost},{checked.cost},{probe.name},{probe.cost},\
+      {compiledAt - start},{constructedAt - compiledAt},{checkedAt - constructedAt},{stop - checkedAt},\
+      {checked.value},{probe.passed}"
+    return ⟨compiled.cost, probe.cost⟩
+  else
+    throw <| IO.userError s!"{family.name} scale {scale}: generated coordinates are out of bounds"
 
 private def nondecreasing : List Nat → Bool
   | .nil => true
@@ -136,16 +192,16 @@ private def checkMonotonicity : IO Unit := do
 
 def run : IO Unit := do
   checkMonotonicity
-  IO.println "family,things,facts,product_family_slots,relation_cells,projection_cells,compiler_cost,checker_cost,elapsed_ms,result"
+  IO.println "family,things,facts,product_family_slots,relation_cells,projection_cells,compiler_cost,model_cost,checker_cost,probe,probe_cost,compiler_ms,model_ms,checker_ms,probe_ms,result,probe_passed"
   for family in #[Family.sparse, .dense, .cyclic, .product, .projection] do
     let mut compilerCosts := #[]
-    let mut checkerCosts := #[]
+    let mut probeCosts := #[]
     for scale in #[1, 2, 4, 8] do
       let row ← benchmark family scale
       compilerCosts := compilerCosts.push row.compilerCost
-      checkerCosts := checkerCosts.push row.checkerCost
+      probeCosts := probeCosts.push row.probeCost
     requireNondecreasing s!"{family.name} compiler" compilerCosts
-    requireNondecreasing s!"{family.name} checker" checkerCosts
+    requireNondecreasing s!"{family.name} controlled probe" probeCosts
 
 end LeanUfo.ComplexityBenchmarks
 

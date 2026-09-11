@@ -581,6 +581,23 @@ theorem foldFin_cost_eq (n : Nat) (initial : α) (step : α → Fin n → Costed
       rw [hr, h]
       simp [Nat.succ_mul, Nat.add_assoc, Nat.add_comm]
 
+/-- A uniform callback bound gives a bound for the complete numeric traversal.
+Each visited index adds its loop charge, including when the callback leaves
+the accumulator unchanged. -/
+theorem foldFin_cost_le (n : Nat) (initial : α) (step : α → Fin n → Costed α)
+    (perStep : Nat) (h : ∀ state i, (step state i).cost ≤ perStep) :
+    (foldFin n initial step).cost ≤ n * (perStep + 1) := by
+  induction n with
+  | zero => simp [foldFin, pure]
+  | succ n ih =>
+      have hr := ih (fun state i => step state i.castSucc) (fun state i => h state i.castSucc)
+      simp only [foldFin, Fin.foldl_succ_last]
+      change (foldFin n initial (fun state i => step state i.castSucc)).cost + 1 +
+        (step (foldFin n initial (fun state i => step state i.castSucc)).value (Fin.last n)).cost ≤ _
+      have hs := h (foldFin n initial (fun state i => step state i.castSucc)).value (Fin.last n)
+      simp only [Nat.succ_mul]
+      omega
+
 /-- Fold a finite interval from its last index to its first. The recursion
 uses numeric indices, without constructing a list. Each applied step charges
 one loop iteration in addition to the callback's own operations. -/

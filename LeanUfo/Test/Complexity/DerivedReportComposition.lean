@@ -170,7 +170,7 @@ example : (derivedAssertionEvidenceCosted #[`w] #[`a, `b] emptyTables
 -- incoming membership witness in its evidence row.
 private def nonemptyFact : NamedDerivedFact := .unary "NonEmptySet" "a"
 private def namedFacts : Array NamedScopedFact := #[.derived nonemptyFact .everywhere]
-private def scopedFacts : Array ScopedCompiledFact := #[.derived (fun _ => "unused") .everywhere]
+private def scopedFacts : Array ScopedCompiledFact := #[.derived (.unary "Quality" 0) .everywhere]
 private def failure : FailedDerivedAssertion :=
   FailedDerivedAssertion.mk nonemptyFact .everywhere 0 true
 
@@ -247,6 +247,41 @@ example : (derivedAssertionAnalysisCosted #[`w] #[`a, `b] #[] #[] emptyTables).c
     5 := by native_decide
 example : derivedAssertionFailureCosted #[] #[`a, `b] namedFacts scopedFacts emptyTables =
     ⟨none, 11⟩ := by native_decide
+
+-- The frontend keeps the precheck result while Lean attempts the assertion
+-- proof. Report selection depends only on that saved result, so even the
+-- proof-failure fallback requires no second scan. Existing rows keep their
+-- order and duplicates, and an empty retained report is still a report.
+example : derivedAssertionFailureReportCosted none =
+    ⟨#["A user-written derived relation assertion failed, but the structured checker could not isolate a false asserted derived fact."], 4⟩ := rfl
+example : derivedAssertionFailureReportCosted (some #[]) = ⟨#[], 1⟩ := by decide
+example : derivedAssertionFailureReportCosted (some #["b", "a", "b"]) =
+    ⟨#["b", "a", "b"], 1⟩ := by decide
+example (rows : Array String) :
+    derivedAssertionFailureReportCosted (some rows) = ⟨rows, 1⟩ := rfl
+
+example (worlds things : Array Name) (named : Array NamedScopedFact)
+    (resolved : Array ScopedCompiledFact) (tables : FactTables) :
+    (derivedAssertionFailureReportCosted
+      (derivedAssertionFailure? worlds things named resolved tables)).value =
+      match derivedAssertionFailure? worlds things named resolved tables with
+      | some rows => rows
+      | none => (derivedAssertionAnalysisCosted worlds things named resolved tables).value :=
+  derivedAssertionFailureReportCosted_precheck_value worlds things named resolved tables
+
+example (worlds things : Array Name) (named : Array NamedScopedFact)
+    (resolved : Array ScopedCompiledFact) (tables : FactTables) :
+    derivedAssertionAnalysisCosted worlds things named resolved tables =
+      (derivedAssertionFailureCosted worlds things named resolved tables).bind
+        derivedAssertionFailureReportCosted :=
+  derivedAssertionAnalysisCosted_eq_bind worlds things named resolved tables
+
+example : (derivedAssertionFailureReportCosted
+    (derivedAssertionFailure? #[`w] #[`a, `b] namedFacts scopedFacts emptyTables)).cost = 1 :=
+  by native_decide
+example : (derivedAssertionFailureReportCosted
+    (derivedAssertionFailure? #[] #[`a, `b] namedFacts scopedFacts emptyTables)).cost = 4 :=
+  by native_decide
 
 example (budget : Nat) (worlds things : Array Name) (named : Array NamedScopedFact)
     (resolved : Array ScopedCompiledFact) (tables : FactTables) :

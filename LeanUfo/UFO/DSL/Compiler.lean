@@ -1,6 +1,8 @@
 import Lean
 import LeanUfo.UFO.DSL.FiniteModel
 import LeanUfo.UFO.DSL.Compiler.AST
+import LeanUfo.UFO.DSL.Compiler.DerivedFacts
+import LeanUfo.UFO.DSL.Compiler.ProductFamilies
 import LeanUfo.UFO.DSL.Complexity.CostModel
 import LeanUfo.UFO.DSL.Complexity.Closure
 import LeanUfo.UFO.DSL.Complexity.Taxonomy
@@ -512,65 +514,28 @@ def extendModelSource (parent child : ModelSource) : Except ResolveError ModelSo
       productFamilies := parent.productFamilies ++ child.productFamilies
       deriveRelations := parent.deriveRelations && child.deriveRelations }
 
-private def finThingSource (idx : Nat) : String :=
-  s!"(⟨{idx}, by decide⟩ : Fin data.thingCount)"
-
-private def finWorldSource (idx : Nat) : String :=
-  s!"(⟨{idx}, by decide⟩ : Fin data.worldCount)"
-
-private def definedUnaryPredicate? (field : String) : Option (String × String) :=
-  match field with
-  | "Quality" => some ("Quality", "sig.toUFOSignature3_3")
-  | "NonEmptySet" => some ("NonEmptySet", "sig.toUFOSignature3_12")
-  | "QualityStructure" => some ("QualityStructure", "sig.toUFOSignature3_12")
-  | "SimpleQuality" => some ("SimpleQuality", "sig.toUFOSignature3_12")
-  | "ComplexQuality" => some ("ComplexQuality", "sig.toUFOSignature3_12")
-  | "SimpleQualityType" => some ("SimpleQualityType", "sig.toUFOSignature3_12")
-  | "ComplexQualityType" => some ("ComplexQualityType", "sig.toUFOSignature3_12")
-  | _ => none
-
-private def definedBinaryPredicate? (field : String) : Option (String × String) :=
-  match field with
-  | "ProperSub" => some ("ProperSub", "sig.toUFOSignature3_1")
-  | "UltimateBearerOf" => some ("UltimateBearerOf", "sig.toUFOSignature3_9")
-  | "SubsetOf" => some ("SubsetOf", "sig.toUFOSignature3_12")
-  | "ProperSubsetOf" => some ("ProperSubsetOf", "sig.toUFOSignature3_12")
-  | _ => none
-
 private def resolveDerivedFact
     (things : Array String) (fact : NamedDerivedFact) :
-    Except ResolveError (Nat → String) := do
+    Except ResolveError ResolvedDerivedFact := do
   match fact with
   | .unary field thing =>
-      let idx ← resolveThing things thing
-      match definedUnaryPredicate? field with
-      | some (definition, sigSource) =>
-          pure fun w => s!"{definition} {sigSource} {finThingSource idx} {finWorldSource w}"
-      | none =>
-          pure fun w => s!"sig.{field} {finThingSource idx} {finWorldSource w}"
+      let thingIdx ← resolveThing things thing
+      pure (.unary field thingIdx)
   | .binary field left right =>
       let leftIdx ← resolveThing things left
       let rightIdx ← resolveThing things right
-      match definedBinaryPredicate? field with
-      | some (definition, sigSource) =>
-          pure fun w =>
-            s!"{definition} {sigSource} {finThingSource leftIdx} {finThingSource rightIdx} {finWorldSource w}"
-      | none =>
-          pure fun w =>
-            s!"sig.{field} {finThingSource leftIdx} {finThingSource rightIdx} {finWorldSource w}"
+      pure (.binary field leftIdx rightIdx)
   | .ternary field first second third =>
       let firstIdx ← resolveThing things first
       let secondIdx ← resolveThing things second
       let thirdIdx ← resolveThing things third
-      pure fun w =>
-        s!"sig.{field} {finThingSource firstIdx} {finThingSource secondIdx} {finThingSource thirdIdx} {finWorldSource w}"
+      pure (.ternary field firstIdx secondIdx thirdIdx)
   | .quaternary field first second third fourth =>
       let firstIdx ← resolveThing things first
       let secondIdx ← resolveThing things second
       let thirdIdx ← resolveThing things third
       let fourthIdx ← resolveThing things fourth
-      pure fun w =>
-        s!"sig.{field} {finThingSource firstIdx} {finThingSource secondIdx} {finThingSource thirdIdx} {finThingSource fourthIdx} {finWorldSource w}"
+      pure (.quaternary field firstIdx secondIdx thirdIdx fourthIdx)
 
 /-- Resolve one named scoped fact to an indexed scoped fact. -/
 def resolveNamedFact
@@ -596,45 +561,34 @@ def resolveNamedFact
       let scope ← resolveScope worlds scope
       pure (.tupleProjection tupleIdx index resultIdx scope)
   | .derived fact scope => do
-      let propAtWorld ← resolveDerivedFact things fact
+      let assertion ← resolveDerivedFact things fact
       let scope ← resolveScope worlds scope
-      pure (.derived propAtWorld scope)
+      pure (.derived assertion scope)
 
 private def resolveDerivedFactIndexed
     (things : NameIndex) (fact : NamedDerivedFact) :
-    Except ResolveError (Nat → String) := do
-      match fact with
-        | .unary field thing =>
-            let idx ← resolveThingIndexed things thing
-            pure fun w =>
-              match definedUnaryPredicate? field with
-              | some (definition, sigSource) =>
-                  s!"{definition} {sigSource} {finThingSource idx} {finWorldSource w}"
-              | none => s!"sig.{field} {finThingSource idx} {finWorldSource w}"
-        | .binary field left right =>
-            let leftIdx ← resolveThingIndexed things left
-            let rightIdx ← resolveThingIndexed things right
-            pure fun w =>
-              match definedBinaryPredicate? field with
-              | some (definition, sigSource) =>
-                  s!"{definition} {sigSource} {finThingSource leftIdx} {finThingSource rightIdx} {finWorldSource w}"
-              | none =>
-                  s!"sig.{field} {finThingSource leftIdx} {finThingSource rightIdx} {finWorldSource w}"
-        | .ternary field first second third =>
-            let firstIdx ← resolveThingIndexed things first
-            let secondIdx ← resolveThingIndexed things second
-            let thirdIdx ← resolveThingIndexed things third
-            pure fun w =>
-              s!"sig.{field} {finThingSource firstIdx} {finThingSource secondIdx} {finThingSource thirdIdx} {finWorldSource w}"
-        | .quaternary field first second third fourth =>
-            let firstIdx ← resolveThingIndexed things first
-            let secondIdx ← resolveThingIndexed things second
-            let thirdIdx ← resolveThingIndexed things third
-            let fourthIdx ← resolveThingIndexed things fourth
-            pure fun w =>
-              s!"sig.{field} {finThingSource firstIdx} {finThingSource secondIdx} {finThingSource thirdIdx} {finThingSource fourthIdx} {finWorldSource w}"
+    Except ResolveError ResolvedDerivedFact := do
+  match fact with
+  | .unary field thing =>
+      let thingIdx ← resolveThingIndexed things thing
+      pure (.unary field thingIdx)
+  | .binary field left right =>
+      let leftIdx ← resolveThingIndexed things left
+      let rightIdx ← resolveThingIndexed things right
+      pure (.binary field leftIdx rightIdx)
+  | .ternary field first second third =>
+      let firstIdx ← resolveThingIndexed things first
+      let secondIdx ← resolveThingIndexed things second
+      let thirdIdx ← resolveThingIndexed things third
+      pure (.ternary field firstIdx secondIdx thirdIdx)
+  | .quaternary field first second third fourth =>
+      let firstIdx ← resolveThingIndexed things first
+      let secondIdx ← resolveThingIndexed things second
+      let thirdIdx ← resolveThingIndexed things third
+      let fourthIdx ← resolveThingIndexed things fourth
+      pure (.quaternary field firstIdx secondIdx thirdIdx fourthIdx)
 
-/-- Specification retained for clause comparison during the counted migration. -/
+/-- Uninstrumented specification for the name-resolution equivalence proof. -/
 private def resolveNamedFactIndexedSpecification
     (worlds things : NameIndex) : NamedScopedFact → Except ResolveError ScopedCompiledFact
   | .unary field thing scope => do
@@ -651,44 +605,32 @@ private def resolveNamedFactIndexedSpecification
       pure (.tupleProjection (← resolveThingIndexed things tuple) index
         (← resolveThingIndexed things result) (← resolveScopeIndexed worlds scope))
   | .derived fact scope => do
-      -- Derived facts still build generated proposition strings, but all names
-      -- are resolved through the shared thing index.
-      let propAtWorld ← resolveDerivedFactIndexed things fact
-      pure (.derived propAtWorld (← resolveScopeIndexed worlds scope))
+      -- Resolve coordinates before world expansion renders the proposition.
+      let assertion ← resolveDerivedFactIndexed things fact
+      pure (.derived assertion (← resolveScopeIndexed worlds scope))
 
 private def resolveDerivedFactIndexedCosted
     (things : NameIndex) (fact : NamedDerivedFact) :
-    Complexity.Costed (Except ResolveError (Nat → String)) :=
+    Complexity.Costed (Except ResolveError ResolvedDerivedFact) :=
   Complexity.Costed.charge 1 <| match fact with
   | .unary field thing =>
-      exceptBindCosted (resolveThingIndexedCosted things thing) fun idx =>
-        Complexity.Costed.pure (.ok fun w =>
-          match definedUnaryPredicate? field with
-          | some (definition, sigSource) =>
-              s!"{definition} {sigSource} {finThingSource idx} {finWorldSource w}"
-          | none => s!"sig.{field} {finThingSource idx} {finWorldSource w}")
+      exceptBindCosted (resolveThingIndexedCosted things thing) fun thingIdx =>
+        Complexity.Costed.pure (.ok (.unary field thingIdx))
   | .binary field left right =>
       exceptBindCosted (resolveThingIndexedCosted things left) fun leftIdx =>
       exceptBindCosted (resolveThingIndexedCosted things right) fun rightIdx =>
-        Complexity.Costed.pure (.ok fun w =>
-          match definedBinaryPredicate? field with
-          | some (definition, sigSource) =>
-              s!"{definition} {sigSource} {finThingSource leftIdx} {finThingSource rightIdx} {finWorldSource w}"
-          | none =>
-              s!"sig.{field} {finThingSource leftIdx} {finThingSource rightIdx} {finWorldSource w}")
+        Complexity.Costed.pure (.ok (.binary field leftIdx rightIdx))
   | .ternary field first second third =>
       exceptBindCosted (resolveThingIndexedCosted things first) fun firstIdx =>
       exceptBindCosted (resolveThingIndexedCosted things second) fun secondIdx =>
       exceptBindCosted (resolveThingIndexedCosted things third) fun thirdIdx =>
-        Complexity.Costed.pure (.ok fun w =>
-          s!"sig.{field} {finThingSource firstIdx} {finThingSource secondIdx} {finThingSource thirdIdx} {finWorldSource w}")
+        Complexity.Costed.pure (.ok (.ternary field firstIdx secondIdx thirdIdx))
   | .quaternary field first second third fourth =>
       exceptBindCosted (resolveThingIndexedCosted things first) fun firstIdx =>
       exceptBindCosted (resolveThingIndexedCosted things second) fun secondIdx =>
       exceptBindCosted (resolveThingIndexedCosted things third) fun thirdIdx =>
       exceptBindCosted (resolveThingIndexedCosted things fourth) fun fourthIdx =>
-        Complexity.Costed.pure (.ok fun w =>
-          s!"sig.{field} {finThingSource firstIdx} {finThingSource secondIdx} {finThingSource thirdIdx} {finThingSource fourthIdx} {finWorldSource w}")
+        Complexity.Costed.pure (.ok (.quaternary field firstIdx secondIdx thirdIdx fourthIdx))
 
 /-- Count the fact-kind test, reference lookups, scope resolution, and tests
 between those stages. A failed reference stops all later lookups. -/
@@ -717,9 +659,9 @@ def resolveNamedFactIndexedCosted
       exceptBindCosted (resolveScopeIndexedCosted worlds scope) fun resolvedScope =>
         Complexity.Costed.pure (.ok (.tupleProjection tupleIdx index resultIdx resolvedScope))
   | .derived fact scope =>
-      exceptBindCosted (resolveDerivedFactIndexedCosted things fact) fun propAtWorld =>
+      exceptBindCosted (resolveDerivedFactIndexedCosted things fact) fun assertion =>
       exceptBindCosted (resolveScopeIndexedCosted worlds scope) fun resolvedScope =>
-        Complexity.Costed.pure (.ok (.derived propAtWorld resolvedScope))
+        Complexity.Costed.pure (.ok (.derived assertion resolvedScope))
 
 /-- Production resolution is the erasure of the counted, short-circuiting pass. -/
 def resolveNamedFactIndexed
@@ -1315,12 +1257,43 @@ theorem FactTables.foldl_writeDenseFact_tupleProjectionResult?
       simp only [List.foldl_cons, ih]
       cases fact <;> rfl
 
+/-- Shared dense binary read for finite relation queries and closure edges.
+Natural coordinates permit the same checked read at both boundaries. The
+eleven operations are two width products, four coordinate operations, field
+selection, a product and sum for flat indexing, a checked read, and an option
+test. Invalid coordinates retain the checked-array behavior. -/
+@[inline] def FactTables.binaryCellCosted (tables : FactTables) (field : BinaryField)
+    (left right world : Nat) : Complexity.Costed Bool := do
+  let width ← Complexity.Costed.tick
+    (tables.denseThingCount * tables.denseThingCount * tables.denseWorldCount) 2
+  let coordinate ← Complexity.Costed.tick
+    (binaryCoordinate tables.denseThingCount tables.denseWorldCount left right world) 4
+  let fieldIndex ← Complexity.Costed.tick field.index 1
+  let index ← Complexity.Costed.tick (fieldIndex * width + coordinate) 2
+  let cell ← Complexity.Costed.tick tables.binaryCells[index]? 1
+  Complexity.Costed.tick (cell.getD false) 1
+
+@[simp] theorem FactTables.binaryCellCosted_cost (tables : FactTables) (field : BinaryField)
+    (left right world : Nat) :
+    (tables.binaryCellCosted field left right world).cost = 11 := rfl
+
 def FactTables.inherenceEdgeAt (tables : FactTables) (world : Nat)
     (left right : Fin tables.denseThingCount) : Bool :=
   let width := tables.denseThingCount * tables.denseThingCount * tables.denseWorldCount
   let coordinate := binaryCoordinate tables.denseThingCount tables.denseWorldCount
     left.val right.val world
   tables.binaryCells[BinaryField.inheresIn.index * width + coordinate]?.getD false
+
+/-- The closure callback executes the same counted binary read as typed model
+queries. A diagonal closure cell does not call it because reflexivity already
+determines that cell's value. -/
+def FactTables.inherenceEdgeAtCosted (tables : FactTables) (world : Nat)
+    (left right : Fin tables.denseThingCount) : Complexity.Costed Bool :=
+  tables.binaryCellCosted .inheresIn left.val right.val world
+
+@[simp] theorem FactTables.inherenceEdgeAtCosted_value (tables : FactTables) (world : Nat)
+    (left right : Fin tables.denseThingCount) :
+    (tables.inherenceEdgeAtCosted world left right).value = tables.inherenceEdgeAt world left right := rfl
 
 structure InherenceClosureData where
   reachable : Array Bool
@@ -1330,8 +1303,8 @@ deriving Repr, Inhabited
 /-- Build one row-major closure and its first-hop evidence in one counted pass. -/
 def FactTables.inherenceClosureAtCosted
     (tables : FactTables) (world : Nat) : Complexity.Costed InherenceClosureData := do
-  let closure ← Complexity.warshallStateCosted tables.denseThingCount
-    (tables.inherenceEdgeAt world)
+  let closure ← Complexity.warshallStateEvalCosted tables.denseThingCount
+    (tables.inherenceEdgeAtCosted world)
   let reachable ← Complexity.matrixToArrayCosted closure.reachable Complexity.Costed.pure
   let nextHop ← Complexity.matrixToArrayCosted closure.nextHop
     (fun hop => Complexity.Costed.tick (hop.map Fin.val))
@@ -1349,10 +1322,11 @@ def FactTables.inherenceClosureAtCosted
 theorem FactTables.inherenceClosureAtCosted_cost_le
     (tables : FactTables) (world : Nat) :
     (tables.inherenceClosureAtCosted world).cost ≤
-      23 * tables.denseThingCount ^ 3 + 28 * tables.denseThingCount ^ 2 +
+      23 * tables.denseThingCount ^ 3 + 48 * tables.denseThingCount ^ 2 +
         5 * tables.denseThingCount := by
-  let closure := Complexity.warshallStateCosted tables.denseThingCount (tables.inherenceEdgeAt world)
-  have hc := Complexity.warshallStateCosted_cost_le tables.denseThingCount (tables.inherenceEdgeAt world)
+  let closure := Complexity.warshallStateEvalCosted tables.denseThingCount (tables.inherenceEdgeAtCosted world)
+  have hc := Complexity.warshallStateEvalCosted_cost_le tables.denseThingCount
+    (tables.inherenceEdgeAtCosted world) 11 (by intro i j; exact Nat.le_refl 11)
   have hr := Complexity.matrixToArrayCosted_cost_le closure.value.reachable
     Complexity.Costed.pure 0 (by intro x; simp)
   have hn := Complexity.matrixToArrayCosted_cost_le closure.value.nextHop
@@ -1490,9 +1464,9 @@ definition without relying on an unchecked native replacement. -/
 theorem FactTables.buildInherenceClosuresCosted_cost_le (tables : FactTables) :
     (tables.buildInherenceClosuresCosted).cost ≤
       tables.denseWorldCount *
-        (23 * tables.denseThingCount ^ 3 + 28 * tables.denseThingCount ^ 2 +
+        (23 * tables.denseThingCount ^ 3 + 48 * tables.denseThingCount ^ 2 +
           5 * tables.denseThingCount + 3) := by
-  let bound := 23 * tables.denseThingCount ^ 3 + 28 * tables.denseThingCount ^ 2 +
+  let bound := 23 * tables.denseThingCount ^ 3 + 48 * tables.denseThingCount ^ 2 +
     5 * tables.denseThingCount + 3
   let produce := fun world => (tables.inherenceClosureAtCosted world).value
   have h := foldl_snd_snd_add_le (List.range' 0 tables.denseWorldCount)
@@ -1936,7 +1910,7 @@ theorem FactTables.withDenseFactsCosted_cost_le
       TernaryField.count * thingCount * thingCount * thingCount * worldCount +
       thingCount * projectionArityOfFacts facts * worldCount) +
       21 * facts.size +
-      worldCount * (23 * thingCount ^ 3 + 28 * thingCount ^ 2 + 5 * thingCount + 3) + 11 := by
+      worldCount * (23 * thingCount ^ 3 + 48 * thingCount ^ 2 + 5 * thingCount + 3) + 11 := by
   let initialized := tables.initializeDenseCosted worldCount thingCount (projectionArityOfFacts facts)
   let populated := Complexity.Costed.foldArray facts initialized.value FactTables.writeDenseFactCosted
   have hc := populated.value.buildInherenceClosuresCosted_cost_le
@@ -2090,7 +2064,43 @@ private def expandAtWorld (world : Nat) : ScopedCompiledFact → CompiledFact
   | .binary field x y _ => .binary field x y world
   | .ternary field x y z _ => .ternary field x y z world
   | .tupleProjection tuple index result _ => .tupleProjection tuple index result world
-  | .derived propAtWorld _ => .derived (propAtWorld world)
+  | .derived assertion _ => .derived (renderDerivedFact assertion world)
+
+/-- One fact-instantiation dispatch. A derived assertion also performs its
+counted proposition rendering; primitive fixed-arity constructors add no further
+work in this source-operation model. -/
+private def expandAtWorldCosted (world : Nat) (fact : ScopedCompiledFact) :
+    Complexity.Costed CompiledFact :=
+  Complexity.Costed.charge 1 <| match fact with
+  | .unary field x _ => Complexity.Costed.pure (.unary field x world)
+  | .binary field x y _ => Complexity.Costed.pure (.binary field x y world)
+  | .ternary field x y z _ => Complexity.Costed.pure (.ternary field x y z world)
+  | .tupleProjection tuple index result _ =>
+      Complexity.Costed.pure (.tupleProjection tuple index result world)
+  | .derived assertion _ =>
+      (renderDerivedFactCosted assertion world).map CompiledFact.derived
+
+private theorem expandAtWorldCosted_value (world : Nat) (fact : ScopedCompiledFact) :
+    (expandAtWorldCosted world fact).value = expandAtWorld world fact := by
+  cases fact <;> rfl
+
+/-- Instantiation cost at any world. The renderer's world-invariance theorem
+justifies using zero here; this is an exact cost, not a size envelope. -/
+def ScopedCompiledFact.instantiationCost (fact : ScopedCompiledFact) : Nat :=
+  (expandAtWorldCosted 0 fact).cost
+
+private theorem expandAtWorldCosted_cost (world : Nat) (fact : ScopedCompiledFact) :
+    (expandAtWorldCosted world fact).cost = fact.instantiationCost := by
+  cases fact <;> simp [expandAtWorldCosted, ScopedCompiledFact.instantiationCost,
+    renderDerivedFactCosted_cost_world _ world 0]
+
+theorem ScopedCompiledFact.instantiationCost_le (fact : ScopedCompiledFact) :
+    fact.instantiationCost ≤ 29 := by
+  cases fact <;>
+    simp [ScopedCompiledFact.instantiationCost, expandAtWorldCosted]
+  rename_i assertion scope
+  have h := renderDerivedFactCosted_cost_le assertion 0
+  omega
 
 /-- Expand one scoped resolved fact into ordinary world-indexed facts. -/
 private def expandScopedFactCore (worldCount : Nat) : ScopedCompiledFact → Array CompiledFact
@@ -2269,18 +2279,19 @@ theorem expandScopedFactCore_projectionArity_le
       all_goals simp
 
 /-- Append one scoped fact without constructing a temporary expansion array.
-Two dispatch charges select the fact's scope. Each emitted fact then costs one
-numeric iteration, one world-indexed fact instantiation, and one output write.
-The instantiation interface includes application of a derived fact's world
-function; its source-to-function correspondence is a separate compiler obligation. -/
+Two dispatch charges select the fact's scope. Each emitted fact charges its
+numeric iteration, counted instantiation, and output write. Derived assertions
+include the renderer's actual cost; no arbitrary world function is stored. -/
 private def expandScopedFactIntoCosted
     (worldCount : Nat) (fact : ScopedCompiledFact) (out : Array CompiledFact) :
     Complexity.Costed (Array CompiledFact) :=
   Complexity.Costed.charge 2 <| match fact.scope with
   | .at world => Complexity.Costed.foldFin 1 out fun output _ =>
-      Complexity.Costed.tick (output.push (expandAtWorld world fact)) 2
+      (expandAtWorldCosted world fact).bind fun compiled =>
+        Complexity.Costed.tick (output.push compiled) 1
   | .everywhere => Complexity.Costed.foldFin worldCount out fun output i =>
-      Complexity.Costed.tick (output.push (expandAtWorld i.val fact)) 2
+      (expandAtWorldCosted i.val fact).bind fun compiled =>
+        Complexity.Costed.tick (output.push compiled) 1
 
 private theorem foldFin_push_eq_append (n : Nat) (f : Fin n → α) (out : Array α) :
     Fin.foldl n (fun output i => output.push (f i)) out = out ++ Array.ofFn f := by
@@ -2295,23 +2306,27 @@ private theorem expandScopedFactIntoCosted_value
   cases fact <;> rename_i scope <;> cases scope <;>
     simp [expandScopedFactIntoCosted, ScopedCompiledFact.scope,
       Complexity.Costed.foldFin_value, Complexity.Costed.tick,
-      foldFin_push_eq_append, expandScopedFactCore,
+      expandAtWorldCosted_value, foldFin_push_eq_append, expandScopedFactCore,
       Fin.foldl_succ, Array.range, Function.comp_def]
 
 private theorem expandScopedFactIntoCosted_cost
     (worldCount : Nat) (fact : ScopedCompiledFact) (out : Array CompiledFact) :
     (expandScopedFactIntoCosted worldCount fact out).cost =
-      3 * fact.expansionWeight worldCount + 2 := by
-  have hc (n : Nat) (f : Fin n → CompiledFact) :
+      (fact.instantiationCost + 2) * fact.expansionWeight worldCount + 2 := by
+  have hc (n : Nat) (world : Fin n → Nat) :
       (Complexity.Costed.foldFin n out (fun output i =>
-        Complexity.Costed.tick (output.push (f i)) 2)).cost = 3 * n := by
-    simpa [Nat.mul_comm] using Complexity.Costed.foldFin_cost_eq n out
-      (fun output i => Complexity.Costed.tick (output.push (f i)) 2) 2
-      (by intro _ _; rfl)
-  cases fact <;> rename_i scope <;> cases scope <;>
-    simp [expandScopedFactIntoCosted, ScopedCompiledFact.scope,
-      ScopedCompiledFact.expansionWeight, FactScope.worldMultiplicity, hc,
-      Nat.add_comm]
+        (expandAtWorldCosted (world i) fact).bind fun compiled =>
+          Complexity.Costed.tick (output.push compiled) 1)).cost =
+        (fact.instantiationCost + 2) * n := by
+    simpa [Nat.mul_comm, Nat.add_assoc] using Complexity.Costed.foldFin_cost_eq n out
+      (fun output i => (expandAtWorldCosted (world i) fact).bind fun compiled =>
+        Complexity.Costed.tick (output.push compiled) 1)
+      (fact.instantiationCost + 1)
+      (by intro _ _; simp [expandAtWorldCosted_cost])
+  unfold expandScopedFactIntoCosted
+  cases h : fact.scope <;>
+    simp [h, ScopedCompiledFact.expansionWeight, FactScope.worldMultiplicity, hc, Nat.add_comm]
+
 
 def expandScopedFactCosted
     (worldCount : Nat) (fact : ScopedCompiledFact) :
@@ -2413,24 +2428,26 @@ theorem expandScopedFactsCosted_projectionArity_le
 theorem expandScopedFactCosted_cost
     (worldCount : Nat) (fact : ScopedCompiledFact) :
     (expandScopedFactCosted worldCount fact).cost =
-      3 * fact.expansionWeight worldCount + 2 :=
+      (fact.instantiationCost + 2) * fact.expansionWeight worldCount + 2 :=
   expandScopedFactIntoCosted_cost worldCount fact #[]
 
-/-- Each emitted fact contributes three units. Each source fact contributes
-two scope-dispatch units and two array-traversal units, even if it emits no
-facts because an everywhere scope has zero worlds. -/
+/-- Exact accumulated instantiation, loop, and output cost. Each input also
+contributes two scope-dispatch and two array-traversal operations. -/
 theorem expandScopedFactsCosted_cost
     (worldCount : Nat) (facts : Array ScopedCompiledFact) :
     (expandScopedFactsCosted worldCount facts).cost =
-      3 * (facts.toList.map (ScopedCompiledFact.expansionWeight worldCount)).sum +
+      (facts.toList.map (fun fact =>
+        (fact.instantiationCost + 2) * fact.expansionWeight worldCount)).sum +
         4 * facts.size := by
   have hc := Complexity.Costed.foldArray_cost_eq_sum facts #[]
     (fun out fact => expandScopedFactIntoCosted worldCount fact out)
-    (fun fact => 3 * fact.expansionWeight worldCount + 2)
+    (fun fact => (fact.instantiationCost + 2) * fact.expansionWeight worldCount + 2)
     (fun out fact => expandScopedFactIntoCosted_cost worldCount fact out)
   have sumCost (xs : List ScopedCompiledFact) :
-      (xs.map (fun fact => (3 * fact.expansionWeight worldCount + 2) + 2)).sum =
-        3 * (xs.map (ScopedCompiledFact.expansionWeight worldCount)).sum +
+      (xs.map (fun fact =>
+        ((fact.instantiationCost + 2) * fact.expansionWeight worldCount + 2) + 2)).sum =
+        (xs.map (fun fact =>
+          (fact.instantiationCost + 2) * fact.expansionWeight worldCount)).sum +
           4 * xs.length := by
     induction xs with
     | nil => simp
@@ -2438,6 +2455,29 @@ theorem expandScopedFactsCosted_cost
         simp only [List.map_cons, List.sum_cons, List.length_cons, ih]
         omega
   simpa [expandScopedFactsCosted, sumCost] using hc
+
+/-- Instantiation costs at most 29, including derived rendering. The loop and
+write add two per emitted fact. This bound also covers empty-world inputs. -/
+theorem expandScopedFactsCosted_cost_le_expansionWeight
+    (worldCount : Nat) (facts : Array ScopedCompiledFact) :
+    (expandScopedFactsCosted worldCount facts).cost ≤
+      31 * (facts.toList.map (ScopedCompiledFact.expansionWeight worldCount)).sum +
+        4 * facts.size := by
+  rw [expandScopedFactsCosted_cost]
+  have hsum (xs : List ScopedCompiledFact) :
+      (xs.map (fun fact =>
+        (fact.instantiationCost + 2) * fact.expansionWeight worldCount)).sum ≤
+          31 * (xs.map (ScopedCompiledFact.expansionWeight worldCount)).sum := by
+    induction xs with
+    | nil => simp
+    | cons fact facts ih =>
+        have hcost := fact.instantiationCost_le
+        have head := Nat.mul_le_mul_right (fact.expansionWeight worldCount)
+          (show fact.instantiationCost + 2 ≤ 31 by omega)
+        simp only [List.map_cons, List.sum_cons, Nat.mul_add]
+        omega
+  exact Nat.add_le_add_right (hsum facts.toList) _
+
 
 theorem expandScopedFactsCosted_value_size
     (worldCount : Nat) (facts : Array ScopedCompiledFact) :
@@ -2460,8 +2500,8 @@ theorem expandScopedFactsCosted_value_size
 theorem expandScopedFactsCosted_cost_le
     (worldCount : Nat) (facts : Array ScopedCompiledFact) :
     (expandScopedFactsCosted worldCount facts).cost ≤
-      facts.size * (3 * worldCount + 7) := by
-  rw [expandScopedFactsCosted_cost]
+      facts.size * (31 * worldCount + 35) := by
+  apply le_trans (expandScopedFactsCosted_cost_le_expansionWeight worldCount facts)
   have listBound (xs : List ScopedCompiledFact) :
       (xs.map (ScopedCompiledFact.expansionWeight worldCount)).sum ≤
         xs.length * (worldCount + 1) := by
@@ -2477,7 +2517,7 @@ theorem expandScopedFactsCosted_cost_le
   have h := listBound facts.toList
   simp only [Array.length_toList] at h
   simp only [Nat.mul_add, Nat.mul_one] at h ⊢
-  rw [Nat.mul_left_comm facts.size 3 worldCount]
+  rw [Nat.mul_left_comm facts.size 31 worldCount]
   omega
 
 example : (expandScopedFactsCosted 3 #[
@@ -2558,7 +2598,7 @@ theorem compileExplicitModelASTCosted_cost_polynomial (ast : ModelAST) :
       TernaryField.count * ast.thingCount * ast.thingCount * ast.thingCount * ast.worldCount +
       ast.thingCount * projectionArityOfFacts ast.facts * ast.worldCount) +
       ast.worldCount *
-        (23 * ast.thingCount ^ 3 + 28 * ast.thingCount ^ 2 + 5 * ast.thingCount + 3) + 11 := by
+        (23 * ast.thingCount ^ 3 + 48 * ast.thingCount ^ 2 + 5 * ast.thingCount + 3) + 11 := by
   apply compileExplicitModelASTCosted_cost_le_parts ast |>.trans
   apply Nat.le_trans (Nat.add_le_add_left
     (FactTables.withDenseFactsCosted_cost_le _ _ _ _) _)
@@ -2608,15 +2648,8 @@ def unaryTypedTable (tables : FactTables) (field : UnaryField)
 in addition to field selection, flat indexing, a read, and an option test. -/
 @[inline] def binaryTypedTableCosted (tables : FactTables) (field : BinaryField)
     {thingCount worldCount : Nat}
-    (x y : Fin thingCount) (w : Fin worldCount) : Complexity.Costed Bool := do
-  let width ← Complexity.Costed.tick
-    (tables.denseThingCount * tables.denseThingCount * tables.denseWorldCount) 2
-  let coordinate ← Complexity.Costed.tick
-    (binaryCoordinate tables.denseThingCount tables.denseWorldCount x.val y.val w.val) 4
-  let fieldIndex ← Complexity.Costed.tick field.index 1
-  let index ← Complexity.Costed.tick (fieldIndex * width + coordinate) 2
-  let cell ← Complexity.Costed.tick tables.binaryCells[index]? 1
-  Complexity.Costed.tick (cell.getD false) 1
+    (x y : Fin thingCount) (w : Fin worldCount) : Complexity.Costed Bool :=
+  tables.binaryCellCosted field x.val y.val w.val
 
 /-- Dense executable binary lookup used after compiler materialization. -/
 def binaryTypedTableDense (tables : FactTables) (field : BinaryField)
@@ -2729,22 +2762,13 @@ def tupleProjectionTypedTable (tables : FactTables)
 /-- A missing world matrix stops after its read and presence test. Otherwise
 count the row-major index arithmetic, cell read, and final option test. -/
 @[inline] def momentOfClosureCosted (tables : FactTables)
-    (thingCount world moment bearer : Nat) : Complexity.Costed Bool := do
-  let matrix ← Complexity.Costed.tick tables.inherenceClosures[world]? 1
-  Complexity.Costed.charge 1 <| match matrix with
-  | none => .pure false
-  | some closure => do
-      let index ← Complexity.Costed.tick
-        (Complexity.matrixIndex thingCount moment bearer) 2
-      let cell ← Complexity.Costed.tick closure[index]? 1
-      Complexity.Costed.tick (cell.getD false) 1
+    (thingCount world moment bearer : Nat) : Complexity.Costed Bool :=
+  Complexity.closureLookupCosted tables.inherenceClosures thingCount world moment bearer
 
 theorem momentOfClosureCosted_cost_le (tables : FactTables)
     (thingCount world moment bearer : Nat) :
-    (tables.momentOfClosureCosted thingCount world moment bearer).cost ≤ 6 := by
-  unfold momentOfClosureCosted
-  simp only [Bind.bind, Complexity.Costed.bind, Complexity.Costed.tick]
-  split <;> simp [Complexity.Costed.pure]
+    (tables.momentOfClosureCosted thingCount world moment bearer).cost ≤ 6 :=
+  Complexity.closureLookupCosted_cost_le _ _ _ _ _
 
 /-- Typed checker queries use the stored matrix width. Diagnostic queries can
 pass their explicit width to the same counted core. Equality of those widths
@@ -2793,8 +2817,8 @@ theorem inherenceClosureTableCosted_value (tables : FactTables)
     (tables.inherenceClosureTableCosted m b w).value =
       tables.inherenceClosureTable m b w := by
   unfold inherenceClosureTableCosted momentOfClosureCosted inherenceClosureTable
-  simp only [Bind.bind, Complexity.Costed.bind, Complexity.Costed.tick]
-  split <;> simp_all [Complexity.Costed.pure]
+  rw [Complexity.closureLookupCosted_value]
+  split <;> simp_all
 
 /-!
 Native dense queries use the counted algorithms with their costs erased.
@@ -2925,8 +2949,8 @@ theorem momentOfClosureCosted_value
     (tables.momentOfClosureCosted thingCount world moment bearer).value =
       tables.momentOfClosure thingCount world moment bearer := by
   unfold momentOfClosureCosted momentOfClosure
-  simp only [Bind.bind, Complexity.Costed.bind, Complexity.Costed.tick]
-  split <;> simp_all [Complexity.Costed.pure]
+  rw [Complexity.closureLookupCosted_value]
+  split <;> simp_all
 
 /-- A next-hop cell gives the next coordinate toward a target. Fuel limits
 how many cells the helper can follow, even in a cyclic raw table. The accumulator
@@ -3113,60 +3137,34 @@ theorem momentOfPathCosted_some_size
     simpa using nextHopPathFromCosted_some_size _ _ _ _ _ #[] path found
   · cases found
 
-private def natToFin? (n x : Nat) : Option (Fin n) :=
-  if h : x < n then some ⟨x, h⟩ else none
-
-private def natArrayToFinArray? (n : Nat) (xs : Array Nat) : Option (Array (Fin n)) :=
-  xs.foldl
-    (fun acc? x =>
-      match acc?, natToFin? n x with
-      | some acc, some x => some (acc.push x)
-      | _, _ => none)
-    (some #[])
-
-private def productFamilyWitnesses
-    (worldCount thingCount : Nat) (families : Array ProductFamilySpec) :
-    Array (ProductFamilyWitness thingCount worldCount) :=
-  Id.run do
-    let mut out := #[]
-    for family in families do
-      for w in [:worldCount] do
-        match natToFin? thingCount family.domain,
-            natToFin? thingCount family.qualityType,
-            natToFin? worldCount w,
-            natArrayToFinArray? thingCount family.dimensionThings,
-            natArrayToFinArray? thingCount family.typeThings with
-        | some domain, some qualityType, some world, some dimensionThings, some typeThings =>
-            if h : dimensionThings.size = typeThings.size then
-              out := out.push
-                { domain := domain
-                  qualityType := qualityType
-                  world := world
-                  dimensionThings := dimensionThings
-                  typeThings := typeThings
-                  sameSize := h }
-        | _, _, _, _, _ => pure ()
-    pure out
-
 /-- Four primitive lookup families with fixed finite coordinate domains. -/
 structure TableLookups (worldCount thingCount : Nat) where
   unary : UnaryField → Fin thingCount → Fin worldCount → Bool
   binary : BinaryField → Fin thingCount → Fin thingCount → Fin worldCount → Bool
   ternary : TernaryField → Fin thingCount → Fin thingCount → Fin thingCount →
     Fin worldCount → Bool
-  projection : Fin thingCount → Nat → Fin worldCount → Fin thingCount
+  projectionCosted : Fin thingCount → Nat → Fin worldCount → Complexity.Costed (Fin thingCount)
+  projectionCost_le : ∀ p i w, (projectionCosted p i w).cost ≤ 11
+
+/-- The ordinary projection uses the value from the same counted lookup. -/
+def TableLookups.projection (lookups : TableLookups worldCount thingCount)
+    (p : Fin thingCount) (i : Nat) (w : Fin worldCount) : Fin thingCount :=
+  (lookups.projectionCosted p i w).value
 
 def sparseLookups (worldCount thingCount : Nat) (tables : FactTables) :
     TableLookups worldCount thingCount :=
   ⟨fun field => tables.unaryTypedTable field,
     fun field => tables.binaryTypedTable field, fun field => tables.ternaryTypedTable field,
-    tables.tupleProjectionTypedTable⟩
+    fun p i w => ⟨tables.tupleProjectionTypedTable p i w,
+      (tables.tupleProjectionTypedTableCosted p i w).cost⟩,
+    fun p i w => tables.tupleProjectionTypedTableCosted_cost_le p i w⟩
 
 def denseLookups (worldCount thingCount : Nat) (tables : FactTables) :
     TableLookups worldCount thingCount :=
   ⟨fun field => tables.unaryTypedTableDense field,
     fun field => tables.binaryTypedTableDense field,
-    fun field => tables.ternaryTypedTableDense field, tables.tupleProjectionTypedTableDense⟩
+    fun field => tables.ternaryTypedTableDense field, tables.tupleProjectionTypedTableCosted,
+    fun p i w => tables.tupleProjectionTypedTableCosted_cost_le p i w⟩
 
 /--
 The proof argument makes sparse/dense agreement a precondition of native
@@ -3177,6 +3175,9 @@ different finite domain.
 This follows the verified-representation principle illustrated by de Moura's
 RadixExperiment: the executable replacement has a theorem at its API boundary.
 It establishes equal values, not equal costs between the two representations.
+The projection field carries the dense evaluator's cost in both bundles.
+Native replacement returns its value and cost from one lookup. The sparse
+bundle's attached counter does not measure sparse kernel reduction.
 -/
 def verifiedLookups (worldCount thingCount : Nat) (tables : FactTables)
     (_agreement : sparseLookups worldCount thingCount tables =
@@ -3197,18 +3198,23 @@ unproved `implemented_by` override, including for malformed raw tables. -/
 
 
 /--
-Compile finite tables into a `FiniteModel4`.
+Assemble the finite-model record from converted product-family witnesses.
 
 This pure constructor defines the finite-model record fields used by generated
 DSL models. Primitive distance, set-membership, and tuple-projection tables are
 read from the DSL facts; higher-arity definition-like relations that are not
 primitive surface syntax remain derived in `FiniteModel4.toUFOSignature4`.
+Every relation field installs a function; assembly does not call the relation.
+The caller therefore charges witness conversion separately, then one fixed
+record construction. Closure allocation and record projections are outside the
+unit-cost model. The stored functions' query costs belong to their consumers.
 -/
-def toFiniteModel4WithLookups
+private def assembleFiniteModel4
     (worldCount thingCount : Nat)
     (worldPositive : 0 < worldCount)
     (thingPositive : 0 < thingCount)
-    (tables : FactTables) (lookups : TableLookups worldCount thingCount) : FiniteModel4 :=
+    (tables : FactTables) (lookups : TableLookups worldCount thingCount)
+    (families : Array (ProductFamilyWitness thingCount worldCount)) : FiniteModel4 :=
 { worldCount := worldCount
   thingCount := thingCount
   worldPositive := worldPositive
@@ -3298,8 +3304,13 @@ def toFiniteModel4WithLookups
   associatedWith := lookups.binary .associatedWith
   intrinsicMomentType := lookups.unary .intrinsicMomentType
   hasValue := lookups.binary .hasValue
-  tupleProjection := fun {_n} p i w => lookups.projection p i.val w
-  productFamilies := productFamilyWitnesses worldCount thingCount tables.productFamilies
+  /- Install the counted callback directly: computing its value and cost in
+  separate lookups would repeat work that the returned counter charges once.
+  Verified lookup replacement preserves compact kernel reduction and runs
+  the dense counted evaluator once per native query. -/
+  tupleProjectionCosted := fun {_n} p i w => lookups.projectionCosted p i.val w
+  tupleProjectionCost_le := fun p i w => lookups.projectionCost_le p i.val w
+  productFamilies := families
   distance := lookups.ternary .distance
   distanceZero := lookups.unary .distanceZero
   distanceSum := lookups.ternary .distanceSum
@@ -3309,13 +3320,67 @@ def toFiniteModel4WithLookups
   lifeOf := lookups.binary .lifeOf
   meet := lookups.binary .meet }
 
+/-- Convert witnesses before assembling the fixed record. This counts the
+array computation itself, not only its insertion into the resulting model.
+The separation of cost and value follows the cost-aware semantics of Niu et al.
+(POPL 2022), doi:10.1145/3498670; the value theorem below covers every field. -/
+def toFiniteModel4WithLookupsCosted
+    (worldCount thingCount : Nat)
+    (worldPositive : 0 < worldCount) (thingPositive : 0 < thingCount)
+    (tables : FactTables) (lookups : TableLookups worldCount thingCount) :
+    Complexity.Costed FiniteModel4 :=
+  (productFamilyWitnessesCosted worldCount thingCount tables.productFamilies).bind fun families =>
+    .tick (assembleFiniteModel4 worldCount thingCount worldPositive thingPositive
+      tables lookups families) 1
+
+def toFiniteModel4WithLookups
+    (worldCount thingCount : Nat)
+    (worldPositive : 0 < worldCount) (thingPositive : 0 < thingCount)
+    (tables : FactTables) (lookups : TableLookups worldCount thingCount) : FiniteModel4 :=
+  (toFiniteModel4WithLookupsCosted worldCount thingCount worldPositive thingPositive
+    tables lookups).value
+
+/-- Instrumentation preserves the complete record assembled from the ordinary
+converted witnesses, including the function-valued relation fields. -/
+theorem toFiniteModel4WithLookupsCosted_value
+    (W T : Nat) (hw : 0 < W) (ht : 0 < T)
+    (tables : FactTables) (lookups : TableLookups W T) :
+    (toFiniteModel4WithLookupsCosted W T hw ht tables lookups).value =
+      assembleFiniteModel4 W T hw ht tables lookups (productFamilyWitnesses W T tables.productFamilies) := rfl
+
+theorem toFiniteModel4WithLookupsCosted_cost
+    (W T : Nat) (hw : 0 < W) (ht : 0 < T)
+    (tables : FactTables) (lookups : TableLookups W T) :
+    (toFiniteModel4WithLookupsCosted W T hw ht tables lookups).cost =
+      (productFamilyWitnessesCosted W T tables.productFamilies).cost + 1 := rfl
+
+/-- The sparse lookup bundle is a fixed record of four functions. Constructing
+it costs one; no table lookup runs until a consumer supplies coordinates. -/
+def toFiniteModel4Costed
+    (worldCount thingCount : Nat)
+    (worldPositive : 0 < worldCount) (thingPositive : 0 < thingCount)
+    (tables : FactTables) : Complexity.Costed FiniteModel4 :=
+  .charge 1 (toFiniteModel4WithLookupsCosted worldCount thingCount worldPositive thingPositive
+    tables (sparseLookups worldCount thingCount tables))
+
 /-- Interpret raw tables without assuming sparse/dense agreement. -/
 def toFiniteModel4
     (worldCount thingCount : Nat)
     (worldPositive : 0 < worldCount) (thingPositive : 0 < thingCount)
     (tables : FactTables) : FiniteModel4 :=
-  toFiniteModel4WithLookups worldCount thingCount worldPositive thingPositive
-    tables (sparseLookups worldCount thingCount tables)
+  (toFiniteModel4Costed worldCount thingCount worldPositive thingPositive tables).value
+
+/-- The verified lookup bundle has the same fixed construction cost as the
+sparse bundle. Its equality proof authorizes dense native evaluation without
+changing any field value. Proof checking is outside the execution cost. -/
+def toFiniteModel4VerifiedCosted
+    (worldCount thingCount : Nat)
+    (worldPositive : 0 < worldCount) (thingPositive : 0 < thingCount)
+    (tables : FactTables)
+    (agreement : sparseLookups worldCount thingCount tables =
+      denseLookups worldCount thingCount tables) : Complexity.Costed FiniteModel4 :=
+  .charge 1 (toFiniteModel4WithLookupsCosted worldCount thingCount worldPositive thingPositive
+    tables (verifiedLookups worldCount thingCount tables agreement))
 
 /-- Interpret compiled tables using dense native lookup only when its agreement
 with the proof-facing lookup is proved for these exact tables and dimensions. -/
@@ -3325,8 +3390,33 @@ def toFiniteModel4Verified
     (tables : FactTables)
     (agreement : sparseLookups worldCount thingCount tables =
       denseLookups worldCount thingCount tables) : FiniteModel4 :=
-  toFiniteModel4WithLookups worldCount thingCount worldPositive thingPositive
-    tables (verifiedLookups worldCount thingCount tables agreement)
+  (toFiniteModel4VerifiedCosted worldCount thingCount worldPositive thingPositive
+    tables agreement).value
+
+theorem toFiniteModel4VerifiedCosted_eq
+    (W T : Nat) (hw : 0 < W) (ht : 0 < T) (tables : FactTables) (agreement) :
+    toFiniteModel4VerifiedCosted W T hw ht tables agreement =
+      toFiniteModel4Costed W T hw ht tables := rfl
+
+/-- Witness conversion is the only input-sized construction work. The two
+additional operations assemble the lookup bundle and the finite-model record. -/
+theorem toFiniteModel4Costed_cost
+    (W T : Nat) (hw : 0 < W) (ht : 0 < T) (tables : FactTables) :
+    (toFiniteModel4Costed W T hw ht tables).cost =
+      (productFamilyWitnessesCosted W T tables.productFamilies).cost + 2 := by
+  simp only [toFiniteModel4Costed, Complexity.Costed.charge_cost,
+    toFiniteModel4WithLookupsCosted_cost]
+  omega
+
+theorem toFiniteModel4VerifiedCosted_cost_le
+    (W T : Nat) (hw : 0 < W) (ht : 0 < T) (tables : FactTables) (agreement) :
+    (toFiniteModel4VerifiedCosted W T hw ht tables agreement).cost ≤
+      3 + W * (7 * (tables.productFamilies.toList.map (fun family =>
+        family.dimensionThings.size + family.typeThings.size)).sum +
+        20 * tables.productFamilies.size) + 2 * tables.productFamilies.size := by
+  rw [toFiniteModel4VerifiedCosted_eq, toFiniteModel4Costed_cost]
+  have bound := productFamilyWitnessesCosted_cost_le_slots W T tables.productFamilies
+  omega
 
 theorem toFiniteModel4Verified_eq
     (worldCount thingCount : Nat)

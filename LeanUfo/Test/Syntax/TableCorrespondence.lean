@@ -58,6 +58,12 @@ example : model.inst (0 : Fin 2) (1 : Fin 2) (0 : Fin 1) = true := by native_dec
 example : model.distance (0 : Fin 2) (1 : Fin 2) (1 : Fin 2) (0 : Fin 1) = true := by native_decide
 example : (model.tupleProjection (0 : Fin 2) (0 : Fin 1) (0 : Fin 1)).val = 1 := rfl
 example : (model.tupleProjection (0 : Fin 2) (0 : Fin 1) (0 : Fin 1)).val = 1 := by native_decide
+-- The proved native replacement preserves the full projection result. Kernel
+-- reduction retains the compact value, while native code runs one dense lookup.
+example : model.tupleProjectionCosted (0 : Fin 2) (0 : Fin 1) (0 : Fin 1) =
+    ⟨(1 : Fin 2), 11⟩ := by decide
+example : model.tupleProjectionCosted (0 : Fin 2) (0 : Fin 1) (0 : Fin 1) =
+    ⟨(1 : Fin 2), 11⟩ := by native_decide
 example : model.productFamilies.size = 1 := by native_decide
 
 end LeanUfo.Test.TableCorrespondence

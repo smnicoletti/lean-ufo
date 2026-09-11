@@ -301,11 +301,11 @@ theorem binary_at_expands_to_singleton
       #[CompiledFact.binary field x y w] :=
   rfl
 
-/-- A derived assertion scoped to one world expands by applying its proposition builder. -/
+/-- A derived assertion scoped to one world expands to its rendered proposition. -/
 theorem derived_at_expands_to_singleton
-    (worldCount : Nat) (propAtWorld : Nat → String) (w : Nat) :
-    expandScopedFact worldCount (.derived propAtWorld (.at w)) =
-      #[CompiledFact.derived (propAtWorld w)] :=
+    (worldCount : Nat) (assertion : ResolvedDerivedFact) (w : Nat) :
+    expandScopedFact worldCount (.derived assertion (.at w)) =
+      #[CompiledFact.derived (renderDerivedFact assertion w)] :=
   rfl
 
 /-- A ternary fact scoped to one world expands to exactly one world-indexed fact. -/
@@ -649,8 +649,7 @@ theorem certificateReuseSource_fresh_none
     (parentTables childTables : FactTables)
     (field : String) :
     certificateReuseSource? parentName parentSource childSource parentTables
-      childTables true field = none := by
-  simp [certificateReuseSource?]
+      childTables true field = none := rfl
 
 end CertificateReuse
 

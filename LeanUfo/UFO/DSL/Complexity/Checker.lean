@@ -375,6 +375,73 @@ theorem allArrayCosted_cost_le_sum (xs : Array α) (p : α → Costed Bool)
 /-- A checker is delayed so the registry can genuinely stop at first failure. -/
 abbrev CheckThunk := Unit → Costed Bool
 
+/-- Compare lengths before visiting paired coordinates. The scan stops at the
+first unequal item. Each visit charges two array reads in addition to the
+finite loop and its Boolean branch. No zip or index array is allocated. -/
+def arrayEqCosted (left right : Array α) (compare : α → α → Costed Bool) : Costed Bool :=
+  if h : left.size = right.size then
+    Costed.charge 2 <| allFinCosted left.size fun i =>
+      Costed.charge 2 (compare left[i.val] (getElem right i.val (by omega)))
+  else Costed.tick false 2
+
+theorem arrayEqCosted_value [BEq α] [LawfulBEq α]
+    (left right : Array α) (compare : α → α → Costed Bool)
+    (hcompare : ∀ a b, (compare a b).value = (a == b)) :
+    (arrayEqCosted left right compare).value = (left == right) := by
+  apply Bool.eq_iff_iff.mpr
+  rw [beq_iff_eq]
+  by_cases hs : left.size = right.size
+  · simp only [arrayEqCosted, hs, ↓reduceDIte, Costed.charge_value,
+      allFinCosted_eq_list, allListCosted_eq_true_iff, hcompare, beq_iff_eq]
+    constructor
+    · intro h
+      apply Array.ext hs
+      intro i hi hj
+      exact h ⟨i, hi⟩ (by simp)
+    · intro h
+      subst right
+      simp
+  · simp only [arrayEqCosted, hs, ↓reduceDIte, Costed.tick_value, Bool.false_eq_true, false_iff]
+    intro h
+    exact hs (congrArg Array.size h)
+
+/-- Heterogeneous item budgets include variable-length records such as
+product families. The left array supplies the scan length and item sizes. -/
+theorem arrayEqCosted_cost_le_sum (left right : Array α)
+    (compare : α → α → Costed Bool) (bound : α → Nat)
+    (hcompare : ∀ a b, (compare a b).cost ≤ bound a) :
+    (arrayEqCosted left right compare).cost ≤
+      2 + (left.toList.map (fun a => bound a + 4)).sum := by
+  by_cases hs : left.size = right.size
+  · simp only [arrayEqCosted, hs, ↓reduceDIte, Costed.charge_cost, allFinCosted_eq_list]
+    have h := allListCosted_cost_le_sum (List.finRange left.size)
+      (fun i => Costed.charge 2 (compare left[i.val] (getElem right i.val (by omega))))
+      (fun i => bound left[i.val] + 2) (by
+        intro i _
+        have h := hcompare left[i.val] (getElem right i.val (by omega))
+        simp only [Costed.charge_cost]
+        omega)
+    have rows : ((List.finRange left.size).map (fun i => bound left[i.val] + 2 + 2)).sum =
+        (left.toList.map (fun a => bound a + 4)).sum := by
+      rw [← array_indices_toList left, List.map_map]
+      simp only [Nat.add_assoc]
+      rfl
+    rw [rows] at h
+    exact Nat.add_le_add_left h 2
+  · simp [arrayEqCosted, hs]
+
+theorem arrayEqCosted_cost_le (left right : Array α)
+    (compare : α → α → Costed Bool) (perItem : Nat)
+    (hcompare : ∀ a b, (compare a b).cost ≤ perItem) :
+    (arrayEqCosted left right compare).cost ≤ 2 + left.size * (perItem + 4) := by
+  have sum (xs : List α) : (xs.map (fun _ => perItem + 4)).sum = xs.length * (perItem + 4) := by
+    induction xs with
+    | nil => simp
+    | cons x xs ih => simp only [List.map_cons, List.sum_cons, List.length_cons, ih,
+        Nat.succ_mul, Nat.add_comm]
+  simpa only [sum, Array.length_toList] using
+    arrayEqCosted_cost_le_sum left right compare (fun _ => perItem) hcompare
+
 /-- A delayed executable check paired with its own proved operational bound. -/
 structure BoundedCheck where
   run : CheckThunk
@@ -403,6 +470,27 @@ def checkBoundedRegistryCosted (checks : Array BoundedCheck) : Costed Bool :=
 
 def boundedRegistryCostBound (checks : Array BoundedCheck) : Nat :=
   (checks.toList.map fun check => check.bound + 3).sum
+
+/-- A separately invoked entry needs its own bound: the registry's actual
+early-exit count can be smaller than the cost of an entry it never reaches. -/
+theorem boundedCheck_cost_le_registryBound (checks : Array BoundedCheck)
+    (check : BoundedCheck) (member : check ∈ checks.toList) :
+    (check.run ()).cost ≤ boundedRegistryCostBound checks := by
+  have bound : ∀ xs : List BoundedCheck, check ∈ xs →
+      check.bound ≤ (xs.map fun entry => entry.bound + 3).sum := by
+    intro xs
+    induction xs with
+    | nil => simp
+    | cons head tail ih =>
+        intro member
+        rcases List.mem_cons.mp member with same | later
+        · subst head
+          simp only [List.map_cons, List.sum_cons]
+          omega
+        · have rest := ih later
+          simp only [List.map_cons, List.sum_cons]
+          omega
+  exact Nat.le_trans check.valid (bound checks.toList member)
 
 theorem checkBoundedRegistryCosted_cost_le (checks : Array BoundedCheck) :
     (checkBoundedRegistryCosted checks).cost ≤ boundedRegistryCostBound checks := by

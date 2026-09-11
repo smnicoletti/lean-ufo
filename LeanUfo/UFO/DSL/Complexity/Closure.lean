@@ -76,14 +76,19 @@ def warshallStateStep
 /-!
 The counted cell computations preserve the tests and their order above. A
 matrix access costs two array reads: one for the row and one for the cell.
-The edge callback below has a one-operation interface; callers must justify
-that interface for their explicit edge representation. Vector construction
-also counts each row/cell write and each loop iteration.
+The `EvalCosted` functions add the cost returned by each executed edge query.
+The Boolean-callback wrappers assign one unit per query and require callers to
+justify that interface. Vector construction counts each row/cell write and
+each loop iteration. This makes callback costs compositional, following the
+cost-aware semantics of Niu et al. (POPL 2022).
 -/
 
-def initialMatrixCosted (edge : Fin n → Fin n → Bool) : Costed (BoolMatrix n) :=
+def initialMatrixEvalCosted (edge : Fin n → Fin n → Costed Bool) : Costed (BoolMatrix n) :=
   Costed.vectorOfFn fun source => Costed.vectorOfFn fun target =>
-    Costed.orElse (.tick (decide (source = target))) (fun _ => .tick (edge source target))
+    Costed.orElse (.tick (decide (source = target))) (fun _ => edge source target)
+
+def initialMatrixCosted (edge : Fin n → Fin n → Bool) : Costed (BoolMatrix n) :=
+  initialMatrixEvalCosted (fun source target => .tick (edge source target))
 
 def warshallMatrixStepCosted
     (pivot : Fin n) (previous : BoolMatrix n) : Costed (BoolMatrix n) :=
@@ -92,12 +97,15 @@ def warshallMatrixStepCosted
       Costed.andThen (.tick (previous.get source pivot) 2)
         (fun _ => .tick (previous.get pivot target) 2)
 
-def initialNextMatrixCosted (edge : Fin n → Fin n → Bool) : Costed (NextMatrix n) :=
+def initialNextMatrixEvalCosted (edge : Fin n → Fin n → Costed Bool) : Costed (NextMatrix n) :=
   Costed.vectorOfFn fun source => Costed.vectorOfFn fun target =>
     Costed.branch (.tick (decide (source = target)))
       (fun _ => .pure (some target)) (fun _ =>
-        Costed.branch (.tick (edge source target))
+        Costed.branch (edge source target)
           (fun _ => .pure (some target)) (fun _ => .pure none))
+
+def initialNextMatrixCosted (edge : Fin n → Fin n → Bool) : Costed (NextMatrix n) :=
+  initialNextMatrixEvalCosted (fun source target => .tick (edge source target))
 
 def warshallNextMatrixStepCosted
     (pivot : Fin n) (previous : WarshallState n) : Costed (NextMatrix n) :=
@@ -110,10 +118,14 @@ def warshallNextMatrixStepCosted
           (fun _ => .tick previous.nextHop[source.val][pivot.val] 2)
           (fun _ => .pure none))
 
-def initialWarshallStateCosted (edge : Fin n → Fin n → Bool) : Costed (WarshallState n) := do
-  let reachable ← initialMatrixCosted edge
-  let nextHop ← initialNextMatrixCosted edge
+def initialWarshallStateEvalCosted
+    (edge : Fin n → Fin n → Costed Bool) : Costed (WarshallState n) := do
+  let reachable ← initialMatrixEvalCosted edge
+  let nextHop ← initialNextMatrixEvalCosted edge
   pure { reachable, nextHop }
+
+def initialWarshallStateCosted (edge : Fin n → Fin n → Bool) : Costed (WarshallState n) :=
+  initialWarshallStateEvalCosted (fun source target => .tick (edge source target))
 
 def warshallStateStepCosted
     (pivot : Fin n) (previous : WarshallState n) : Costed (WarshallState n) := do
@@ -123,7 +135,22 @@ def warshallStateStepCosted
 
 @[simp] theorem initialMatrixCosted_value (edge : Fin n → Fin n → Bool) :
     (initialMatrixCosted edge).value = initialMatrix edge := by
-  simp [initialMatrixCosted, initialMatrix]
+  simp [initialMatrixCosted, initialMatrixEvalCosted, initialMatrix]
+
+@[simp] theorem initialMatrixEvalCosted_value (edge : Fin n → Fin n → Costed Bool) :
+    (initialMatrixEvalCosted edge).value = initialMatrix (fun i j => (edge i j).value) := by
+  simp [initialMatrixEvalCosted, initialMatrix]
+
+@[simp] theorem initialNextMatrixEvalCosted_value (edge : Fin n → Fin n → Costed Bool) :
+    (initialNextMatrixEvalCosted edge).value = initialNextMatrix (fun i j => (edge i j).value) := by
+  simp only [initialNextMatrixEvalCosted, initialNextMatrix, Costed.vectorOfFn_value,
+    Costed.branch_value, Costed.tick_value, Costed.pure_value, decide_eq_true_eq]
+
+@[simp] theorem initialWarshallStateEvalCosted_value (edge : Fin n → Fin n → Costed Bool) :
+    (initialWarshallStateEvalCosted edge).value =
+      initialWarshallState (fun i j => (edge i j).value) := by
+  simp [initialWarshallStateEvalCosted, initialWarshallState, Bind.bind, Pure.pure,
+    Costed.bind, Costed.pure]
 
 @[simp] theorem warshallMatrixStepCosted_value (pivot : Fin n) (previous : BoolMatrix n) :
     (warshallMatrixStepCosted pivot previous).value = warshallMatrixStep pivot previous := by
@@ -131,14 +158,17 @@ def warshallStateStepCosted
 
 @[simp] theorem initialNextMatrixCosted_value (edge : Fin n → Fin n → Bool) :
     (initialNextMatrixCosted edge).value = initialNextMatrix edge := by
-  simp only [initialNextMatrixCosted, initialNextMatrix, Costed.vectorOfFn_value,
+  simp only [initialNextMatrixCosted, initialNextMatrixEvalCosted, initialNextMatrix, Costed.vectorOfFn_value,
     Costed.branch_value, Costed.tick_value, Costed.pure_value, decide_eq_true_eq]
   congr 1
 
 @[simp] theorem initialWarshallStateCosted_value (edge : Fin n → Fin n → Bool) :
     (initialWarshallStateCosted edge).value = initialWarshallState edge := by
-  simp [initialWarshallStateCosted, initialWarshallState, Bind.bind, Pure.pure, Costed.bind,
-    Costed.pure]
+  change (do
+    let reachable ← initialMatrixCosted edge
+    let nextHop ← initialNextMatrixCosted edge
+    pure ({ reachable, nextHop } : WarshallState n) : Costed _).value = _
+  simp [initialWarshallState, Bind.bind, Pure.pure, Costed.bind, Costed.pure]
 
 @[simp] theorem warshallStateStepCosted_value (pivot : Fin n) (previous : WarshallState n) :
     (warshallStateStepCosted pivot previous).value = warshallStateStep pivot previous := by
@@ -187,9 +217,47 @@ theorem initialWarshallStateCosted_cost_le (edge : Fin n → Fin n → Bool) :
     (initialWarshallStateCosted edge).cost ≤ n * (n * 11 + 4) := by
   have hr := initialMatrixCosted_cost_le edge
   have hn := initialNextMatrixCosted_cost_le edge
-  simp only [initialWarshallStateCosted, Bind.bind, Pure.pure, Costed.bind, Costed.pure,
+  change (initialMatrixCosted edge).cost + ((initialNextMatrixCosted edge).cost + 0) ≤ _
+  simp only [
     Nat.add_zero]
   simp only [Nat.mul_add, ← Nat.mul_assoc] at hr hn ⊢
+  omega
+
+theorem initialMatrixEvalCosted_cost_le (edge : Fin n → Fin n → Costed Bool)
+    (edgeBound : Nat) (bound : ∀ i j, (edge i j).cost ≤ edgeBound) :
+    (initialMatrixEvalCosted edge).cost ≤ n * (n * (edgeBound + 4) + 2) := by
+  apply Costed.vectorOfFn_cost_le
+  intro source
+  apply Costed.vectorOfFn_cost_le (perCell := edgeBound + 2)
+  intro target
+  have h := Costed.orElse_cost_le (.tick (decide (source = target)))
+    (fun _ => edge source target) 1 edgeBound (by simp) (bound source target)
+  omega
+
+theorem initialNextMatrixEvalCosted_cost_le (edge : Fin n → Fin n → Costed Bool)
+    (edgeBound : Nat) (bound : ∀ i j, (edge i j).cost ≤ edgeBound) :
+    (initialNextMatrixEvalCosted edge).cost ≤ n * (n * (edgeBound + 5) + 2) := by
+  apply Costed.vectorOfFn_cost_le
+  intro source
+  apply Costed.vectorOfFn_cost_le (perCell := edgeBound + 3)
+  intro target
+  have inner := Costed.branch_cost_le (edge source target)
+    (fun _ => Costed.pure (some target)) (fun _ => Costed.pure none)
+    edgeBound 0 (bound source target) (by simp) (by simp)
+  have outer := Costed.branch_cost_le (.tick (decide (source = target)))
+    (fun _ => Costed.pure (some target))
+    (fun _ => (edge source target).branch (fun _ => .pure (some target)) (fun _ => .pure none))
+    1 (edgeBound + 1) (by simp) (by simp) (by simpa using inner)
+  exact Nat.le_trans outer (by omega)
+
+theorem initialWarshallStateEvalCosted_cost_le (edge : Fin n → Fin n → Costed Bool)
+    (edgeBound : Nat) (bound : ∀ i j, (edge i j).cost ≤ edgeBound) :
+    (initialWarshallStateEvalCosted edge).cost ≤ n * (n * (2 * edgeBound + 9) + 4) := by
+  have hr := initialMatrixEvalCosted_cost_le edge edgeBound bound
+  have hn := initialNextMatrixEvalCosted_cost_le edge edgeBound bound
+  change (initialMatrixEvalCosted edge).cost + ((initialNextMatrixEvalCosted edge).cost + 0) ≤ _
+  simp only [Nat.mul_add, Nat.mul_comm] at hr hn ⊢
+  simp only [← Nat.mul_assoc] at hr hn ⊢
   omega
 
 theorem warshallStateStepCosted_cost_le (pivot : Fin n) (previous : WarshallState n) :
@@ -352,10 +420,16 @@ Compute reachability and next-hop evidence with counted matrix construction
 and short-circuit cell tests. Pivots run from `n - 1` down to zero, preserving
 the compact specification's deterministic choice among possible paths.
 -/
+def warshallStateEvalCosted
+    (n : Nat) (edge : Fin n → Fin n → Costed Bool) : Costed (WarshallState n) :=
+  Costed.foldFinFromRight warshallStateStepCosted
+    (initialWarshallStateEvalCosted edge) 0 n (by omega)
+
+/-- One-operation edge-query interface. Concrete callbacks with internal work
+use `warshallStateEvalCosted` and return their own operation counts. -/
 def warshallStateCosted
     (n : Nat) (edge : Fin n → Fin n → Bool) : Costed (WarshallState n) :=
-  Costed.foldFinFromRight warshallStateStepCosted
-    (initialWarshallStateCosted edge) 0 n (by omega)
+  warshallStateEvalCosted n (fun i j => .tick (edge i j))
 
 /-- Compact production closure. Keeping this definition free of cost packaging
 prevents generated certificate reduction from expanding instrumentation. -/
@@ -371,7 +445,7 @@ def warshallState (n : Nat) (edge : Fin n → Fin n → Bool) : WarshallState n 
     induction pivots with
     | nil => rfl
     | cons pivot pivots ih => simp [warshallViaState, ih]
-  simpa [warshallStateCosted, Costed.foldFinFromRight_value,
+  simpa [warshallStateCosted, warshallStateEvalCosted, Costed.foldFinFromRight_value,
     warshallState, List.finRange] using h (List.finRange n)
 
 theorem warshallStateCosted_cost_le
@@ -381,11 +455,44 @@ theorem warshallStateCosted_cost_le
     (initialWarshallStateCosted edge) 0 n (by omega) (n * (n * 23 + 4))
     warshallStateStepCosted_cost_le
   have hi := initialWarshallStateCosted_cost_le edge
-  simp only [warshallStateCosted]
+  change (Costed.foldFinFromRight warshallStateStepCosted
+    (initialWarshallStateCosted edge) 0 n (by omega)).cost ≤ _
   apply Nat.le_trans h
   apply Nat.le_trans (Nat.add_le_add_right hi _)
   simp only [Nat.pow_succ, Nat.pow_zero, Nat.mul_one, Nat.mul_add, Nat.mul_comm,
     Nat.mul_assoc]
+  simp only [← Nat.mul_assoc]
+  omega
+
+@[simp] theorem warshallStateEvalCosted_value
+    (n : Nat) (edge : Fin n → Fin n → Costed Bool) :
+    (warshallStateEvalCosted n edge).value = warshallState n (fun i j => (edge i j).value) := by
+  have h (pivots : List (Fin n)) :
+      pivots.foldr warshallStateStep (initialWarshallState (fun i j => (edge i j).value)) =
+        warshallViaState (fun i j => (edge i j).value) pivots := by
+    induction pivots with
+    | nil => rfl
+    | cons pivot pivots ih => simp [warshallViaState, ih]
+  simpa [warshallStateEvalCosted, Costed.foldFinFromRight_value,
+    warshallState, List.finRange] using h (List.finRange n)
+
+/-- Query costs occur only during initialization. Each of the two initial
+matrices can query an off-diagonal pair once. The pivot steps retain their
+cubic bound and make no further calls to the input edge function. -/
+theorem warshallStateEvalCosted_cost_le
+    (n : Nat) (edge : Fin n → Fin n → Costed Bool)
+    (edgeBound : Nat) (bound : ∀ i j, (edge i j).cost ≤ edgeBound) :
+    (warshallStateEvalCosted n edge).cost ≤
+      23 * n ^ 3 + (2 * edgeBound + 13) * n ^ 2 + 5 * n := by
+  have h := Costed.foldFinFromRight_cost_le warshallStateStepCosted
+    (initialWarshallStateEvalCosted edge) 0 n (by omega) (n * (n * 23 + 4))
+    warshallStateStepCosted_cost_le
+  have hi := initialWarshallStateEvalCosted_cost_le edge edgeBound bound
+  unfold warshallStateEvalCosted
+  apply Nat.le_trans h
+  apply Nat.le_trans (Nat.add_le_add_right hi _)
+  simp only [Nat.pow_succ, Nat.pow_zero, Nat.mul_one, Nat.mul_add,
+    Nat.mul_comm, Nat.mul_assoc]
   simp only [← Nat.mul_assoc]
   omega
 
@@ -417,10 +524,19 @@ theorem warshallState_nextHop_exists_iff_reachable
   · exact warshallViaState_reachable_implies_nextHop_exists
       edge (List.finRange n) source target
 
+/-- Matrix-only closure with compositional edge costs. Initialization skips
+diagonal queries because reflexivity already determines those cells. Pivot
+updates read the constructed matrix and never call the edge callback. -/
+def warshallMatrixEvalCosted
+    (n : Nat) (edge : Fin n → Fin n → Costed Bool) : Costed (BoolMatrix n) :=
+  Costed.foldFinFromRight warshallMatrixStepCosted
+    (initialMatrixEvalCosted edge) 0 n (by omega)
+
+/-- One-operation Boolean edge interface for the same matrix-only core.
+Concrete evaluators supply their costs through `warshallMatrixEvalCosted`. -/
 def warshallMatrixCosted
     (n : Nat) (edge : Fin n → Fin n → Bool) : Costed (BoolMatrix n) :=
-  Costed.foldFinFromRight warshallMatrixStepCosted
-    (initialMatrixCosted edge) 0 n (by omega)
+  warshallMatrixEvalCosted n (fun i j => .tick (edge i j))
 
 /-- Compact production closure corresponding to the counted dynamic program. -/
 def warshallMatrix (n : Nat) (edge : Fin n → Fin n → Bool) : BoolMatrix n :=
@@ -441,8 +557,43 @@ def warshallMatrix (n : Nat) (edge : Fin n → Fin n → Bool) : BoolMatrix n :=
     induction pivots with
     | nil => rfl
     | cons pivot pivots ih => simp [warshallViaState, warshallStateStep, ih]
-  simpa [warshallMatrixCosted, Costed.foldFinFromRight_value,
+  simpa [warshallMatrixCosted, warshallMatrixEvalCosted, Costed.foldFinFromRight_value,
     warshallMatrix, warshallViaMatrix, List.finRange] using h (List.finRange n)
+
+@[simp] theorem warshallMatrixEvalCosted_value
+    (n : Nat) (edge : Fin n → Fin n → Costed Bool) :
+    (warshallMatrixEvalCosted n edge).value =
+      warshallMatrix n (fun i j => (edge i j).value) := by
+  have h (pivots : List (Fin n)) :
+      pivots.foldr warshallMatrixStep (initialMatrix (fun i j => (edge i j).value)) =
+        (warshallViaState (fun i j => (edge i j).value) pivots).reachable := by
+    induction pivots with
+    | nil => rfl
+    | cons pivot pivots ih => simp [warshallViaState, warshallStateStep, ih]
+  simpa [warshallMatrixEvalCosted, Costed.foldFinFromRight_value,
+    warshallMatrix, warshallViaMatrix, List.finRange] using h (List.finRange n)
+
+/-- Each initial off-diagonal cell executes one edge query. Bounding all n²
+cells by that query cost gives a quadratic input term; pivot updates give
+the cubic term. This is the same callback-cost composition used for next-hop
+construction, following Haslbeck's time-bound rules. -/
+theorem warshallMatrixEvalCosted_cost_le
+    (n : Nat) (edge : Fin n → Fin n → Costed Bool)
+    (edgeBound : Nat) (bound : ∀ i j, (edge i j).cost ≤ edgeBound) :
+    (warshallMatrixEvalCosted n edge).cost ≤
+      10 * n ^ 3 + (edgeBound + 6) * n ^ 2 + 3 * n := by
+  have h := Costed.foldFinFromRight_cost_le warshallMatrixStepCosted
+    (initialMatrixEvalCosted edge) 0 n (by omega) (n * (n * 10 + 2))
+    warshallMatrixStepCosted_cost_le
+  have hi := initialMatrixEvalCosted_cost_le edge edgeBound bound
+  unfold warshallMatrixEvalCosted
+  apply Nat.le_trans h
+  apply Nat.le_trans (Nat.add_le_add_right hi _)
+  simp only [Nat.pow_succ, Nat.pow_zero, Nat.mul_one, Nat.mul_add,
+    Nat.mul_comm, Nat.mul_assoc]
+  simp only [← Nat.mul_assoc]
+  rw [show edgeBound * n * n = n * n * edgeBound by ac_rfl]
+  omega
 
 theorem warshallMatrixCosted_cost_le
     (n : Nat) (edge : Fin n → Fin n → Bool) :
@@ -451,7 +602,8 @@ theorem warshallMatrixCosted_cost_le
     (initialMatrixCosted edge) 0 n (by omega) (n * (n * 10 + 2))
     warshallMatrixStepCosted_cost_le
   have hi := initialMatrixCosted_cost_le edge
-  simp only [warshallMatrixCosted]
+  change (Costed.foldFinFromRight warshallMatrixStepCosted
+    (initialMatrixCosted edge) 0 n (by omega)).cost ≤ _
   apply Nat.le_trans h
   apply Nat.le_trans (Nat.add_le_add_right hi _)
   simp only [Nat.pow_succ, Nat.pow_zero, Nat.mul_one, Nat.mul_add, Nat.mul_comm,
@@ -470,15 +622,46 @@ specification is proved before native compilation selects that executable. -/
 
 def matrixIndex (n row col : Nat) : Nat := row * n + col
 
+/-- Query per-world flat closure arrays. Missing worlds stop after a read and
+presence test. Present worlds add two index operations, a read, and an option
+test. Compiler diagnostics and cached checker queries use this same core. -/
+@[inline] def closureLookupCosted (tables : Array (Array Bool))
+    (thingCount world source target : Nat) : Costed Bool := do
+  let matrix ← Costed.tick tables[world]? 1
+  Costed.charge 1 <| match matrix with
+  | none => .pure false
+  | some closure => do
+      let index ← Costed.tick (matrixIndex thingCount source target) 2
+      let cell ← Costed.tick closure[index]? 1
+      Costed.tick (cell.getD false) 1
+
+@[simp] theorem closureLookupCosted_value (tables : Array (Array Bool))
+    (thingCount world source target : Nat) :
+    (closureLookupCosted tables thingCount world source target).value =
+      (match tables[world]? with
+       | none => false
+       | some row => row[matrixIndex thingCount source target]?.getD false) := by
+  unfold closureLookupCosted
+  simp only [Bind.bind, Costed.bind, Costed.tick]
+  split <;> rfl
+
+theorem closureLookupCosted_cost_le (tables : Array (Array Bool))
+    (thingCount world source target : Nat) :
+    (closureLookupCosted tables thingCount world source target).cost ≤ 6 := by
+  unfold closureLookupCosted
+  simp only [Bind.bind, Costed.bind, Costed.tick]
+  split <;> simp [Costed.pure]
+
 def matrixGet (matrix : Array Bool) (n row col : Nat) : Bool :=
   matrix[matrixIndex n row col]?
     |>.getD false
 
-/-- Row-major erasure preserves every lookup of the sized matrix. -/
+/-- Row-major erasure preserves every lookup of the sized matrix. The same
+proof covers Boolean reachability cells and optional first-hop coordinates. -/
 theorem flatten_toArray_getElem?_matrixIndex
-    (matrix : BoolMatrix n) (row col : Fin n) :
+    (matrix : Vector (Vector α n) n) (row col : Fin n) :
     matrix.flatten.toArray[matrixIndex n row.val col.val]? =
-      some (matrix.get row col) := by
+      some matrix[row.val][col.val] := by
   have hn : 0 < n := Nat.zero_lt_of_lt col.isLt
   have hdiv : (row.val * n + col.val) / n = row.val := by
     rw [Nat.mul_comm row.val n]
@@ -493,15 +676,23 @@ theorem flatten_toArray_getElem?_matrixIndex
       simpa [Nat.succ_mul] using
         Nat.mul_le_mul_right n (Nat.succ_le_iff.mpr row.isLt)
     exact Nat.lt_of_lt_of_le h₁ h₂
-  simp [matrixIndex, BoolMatrix.get, hdiv, hmod, hbound]
+  simp [matrixIndex, hdiv, hmod, hbound]
+
+/-- The size bound grows with both the domain and the edge-query bound.
+Actual counts can fall when added edges let a cell skip later tests. -/
+theorem warshallMatrixEvalCostBound_mono {n m edgeBound largerBound : Nat}
+    (size : n ≤ m) (query : edgeBound ≤ largerBound) :
+    10 * n ^ 3 + (edgeBound + 6) * n ^ 2 + 3 * n ≤
+      10 * m ^ 3 + (largerBound + 6) * m ^ 2 + 3 * m :=
+  Nat.add_le_add
+    (Nat.add_le_add
+      (Nat.mul_le_mul_left 10 (Nat.pow_le_pow_left size 3))
+      (Nat.mul_le_mul (Nat.add_le_add_right query 6) (Nat.pow_le_pow_left size 2)))
+    (Nat.mul_le_mul_left 3 size)
 
 theorem warshallMatrixCostBound_mono {n m : Nat} (h : n ≤ m) :
     10 * n ^ 3 + 7 * n ^ 2 + 3 * n ≤ 10 * m ^ 3 + 7 * m ^ 2 + 3 * m := by
-  exact Nat.add_le_add
-    (Nat.add_le_add
-      (Nat.mul_le_mul_left 10 (Nat.pow_le_pow_left h 3))
-      (Nat.mul_le_mul_left 7 (Nat.pow_le_pow_left h 2)))
-    (Nat.mul_le_mul_left 3 h)
+  exact warshallMatrixEvalCostBound_mono (edgeBound := 1) h (Nat.le_refl 1)
 
 -- For one vertex, initialization costs 12, the pivot costs 16, and its
 -- iteration costs one. Reachability alone costs 6 + 7 + 1. With no vertices,

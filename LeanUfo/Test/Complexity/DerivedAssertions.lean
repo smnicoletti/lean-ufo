@@ -731,23 +731,23 @@ example : (evalNamedDerivedFactCosted #[`w] #[`x, `kind] qualityWithParts
 -- Report selection retains the first inhering thing when two are available.
 example : ((derivedAssertionFailure? #[`w] #[`x, `kind]
     #[.derived (.unary "SimpleQuality" "x") .everywhere]
-    #[.derived (fun _ => "") .everywhere] qualityWithParts).getD #[])[1]? =
+    #[.derived (.unary "Quality" 0) .everywhere] qualityWithParts).getD #[])[1]? =
     some "Required but missing: `SimpleQuality(x)` requires no thing to inhere in it; conflicting `InheresIn(x, x)` is present." :=
   by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`x, `kind]
     #[.derived (.unary "SimpleQuality" "x") .everywhere]
-    #[.derived (fun _ => "") .everywhere] qualityWithParts).getD #[])[5]? =
+    #[.derived (.unary "Quality" 0) .everywhere] qualityWithParts).getD #[])[5]? =
     some "  - Computed SimpleQuality: false, because `x` inheres in `x` at `w`." := by native_decide
 
 example : ((derivedAssertionFailure? #[`w] #[`left, `right]
     #[.derived (.binary "SubsetOf" "left" "right") .everywhere]
-    #[.derived (fun _ => "") .everywhere]
+    #[.derived (.unary "Quality" 0) .everywhere]
     (twoThingTables #[.binary .memberOf 0 0 0, .binary .memberOf 1 0 0])).getD #[])[5]? =
     some "  - Computed SubsetOf: false, because `left` is a member of `left` but not of `right` at `w`." :=
   by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`left, `right]
     #[.derived (.binary "IsDisjointWith" "left" "right") .everywhere]
-    #[.derived (fun _ => "") .everywhere]
+    #[.derived (.unary "Quality" 0) .everywhere]
     (twoThingTables #[.binary .inst 0 0 0, .binary .inst 0 1 0,
       .binary .inst 1 0 0, .binary .inst 1 1 0])).getD #[])[5]? =
     some "  - Computed IsDisjointWith: false, because `left` instantiates both types at `w`." :=
@@ -764,17 +764,17 @@ example : (evalNamedDerivedFactCosted #[`w] #[`x] {} (.ternary "Unknown" "x" "x"
 example : ((derivedAssertionFailure? #[`w0, `w1] #[`x]
     #[.derived (.unary "NonEmptySet" "x") (.at "w1"),
       .derived (.unary "NonEmptySet" "x") (.at "w0")]
-    #[.derived (fun _ => "") (.at 1), .derived (fun _ => "") (.at 0)] {}).getD #[])[0]? =
+    #[.derived (.unary "Quality" 0) (.at 1), .derived (.unary "Quality" 0) (.at 0)] {}).getD #[])[0]? =
     some "Counterexample assignment: w = w1." := by native_decide
 
 -- Everywhere scope starts at the first world. No world means no check.
 example : ((derivedAssertionFailure? #[`w0, `w1] #[`x]
     #[.derived (.unary "NonEmptySet" "x") .everywhere]
-    #[.derived (fun _ => "") .everywhere] {}).getD #[])[0]? =
+    #[.derived (.unary "Quality" 0) .everywhere] {}).getD #[])[0]? =
     some "Counterexample assignment: w = w0." := by native_decide
 example : derivedAssertionFailure? #[] #[`x]
     #[.derived (.unary "NonEmptySet" "x") .everywhere]
-    #[.derived (fun _ => "") .everywhere] {} = none := by native_decide
+    #[.derived (.unary "Quality" 0) .everywhere] {} = none := by native_decide
 
 -- A missing result adds one option test. A Boolean result adds two tests.
 example : failedDerivedAtCosted #[`w] #[`x, `y] (twoThingTables #[])
@@ -824,19 +824,19 @@ example : firstDerivedAssertionFailureCosted #[] #[]
     #[.unary .moment 0 .everywhere] {} = ⟨none, 9⟩ := by native_decide
 example : firstDerivedAssertionFailureCosted #[] #[]
     #[.derived (.unary "Quality" "x") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] {} = ⟨none, 10⟩ := by native_decide
+    #[.derived (.unary "Quality" 0) .everywhere] {} = ⟨none, 10⟩ := by native_decide
 
 -- The first source entry wins even if its world index is greater. A trailing
 -- entry adds only the three-operation stop test. Its predicate is not run.
 example : firstDerivedAssertionFailureCosted #[`w0, `w1] #[]
     #[.derived (.ternary "unknown" "x" "y" "z") (.at "w1"),
       .derived (.unary "Quality" "missing") (.at "w0")]
-    #[.derived (fun _ => "unused") (.at 1), .derived (fun _ => "unused") (.at 0)] {} =
+    #[.derived (.unary "Quality" 0) (.at 1), .derived (.unary "Quality" 0) (.at 0)] {} =
     ⟨some (FailedDerivedAssertion.mk (.ternary "unknown" "x" "y" "z") (.at "w1") 1 false), 19⟩ := by
   native_decide
 example : (firstDerivedAssertionFailureCosted #[`w] #[]
     (Array.replicate 100000 (.derived (.ternary "unknown" "x" "y" "z") (.at "w")))
-    #[.derived (fun _ => "unused") (.at 0)] {}).cost = 19 := by native_decide
+    #[.derived (.unary "Quality" 0) (.at 0)] {}).cost = 19 := by native_decide
 
 -- A successful first world must not hide a failure at the last world.
 -- The two assignment costs are 45 and 63, plus six loop controls and the scope tag.
@@ -958,14 +958,14 @@ example : firstConstitutionalDependenceFailureCosted 1 2
 -- Public reports retain the first source witness when both sources fail.
 example : ((derivedAssertionFailure? #[`w] #[`source, `target]
     #[.derived (.binary "GenericFunctionalDependence" "source" "target") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere]
+    #[.derived (.unary "Quality" 0) .everywhere]
     (twoThingTables #[.binary .inst 0 0 0, .binary .functionsAs 0 0 0,
       .binary .inst 1 0 0, .binary .functionsAs 1 0 0])).getD #[])[5]? =
     some "  - Computed GenericFunctionalDependence: false, because `source` instantiates and functions as `source` at `w`, but there is no distinct thing that instantiates and functions as `target`." := by
   native_decide
 example : ((derivedAssertionFailure? #[`w] #[`source, `target]
     #[.derived (.binary "GenericConstitutionalDependence" "source" "target") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere]
+    #[.derived (.unary "Quality" 0) .everywhere]
     (twoThingTables #[.binary .inst 0 0 0, .binary .inst 1 0 0])).getD #[])[5]? =
     some "  - Computed GenericConstitutionalDependence: false, because `source` instantiates `source` at `w`, but no `target` instance is related by `ConstitutedBy(source, _)`." := by
   native_decide
@@ -1126,7 +1126,7 @@ example : (unreconstructedDerivedReportCosted (.quaternary "Unknown" "a" "b" "c"
   native_decide
 example : derivedAssertionFailure? #[`w] #[]
     #[.derived (.ternary "Unknown" "x" "y" "z") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] {} =
+    #[.derived (.unary "Quality" 0) .everywhere] {} =
     some #["Could not reconstruct the asserted derived relation `Unknown(x, y, z)` at the DSL level.",
       "Suggestion: check that all mentioned things are declared and that the relation has a registered diagnostic evaluator."] := by
   native_decide
@@ -1197,25 +1197,25 @@ example {T₁ T₂ : Nat} (ht : T₁ ≤ T₂) :
 -- This exercises the public precheck and both required-missing/evidence rows.
 example : ((derivedAssertionFailure? #[`w] #[`x, `kind]
     #[.derived (.unary "SimpleQualityType" "kind") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere]
+    #[.derived (.unary "Quality" 0) .everywhere]
     (twoThingTables #[.unary .qualityType 1 0, .binary .inst 0 1 0,
       .binary .inst 1 1 0])).getD #[])[1]? =
     some "Required but missing: `SimpleQualityType(kind)` requires every instance to be a computed `SimpleQuality`; instance `x` is not simple." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`x, `kind]
     #[.derived (.unary "SimpleQualityType" "kind") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere]
+    #[.derived (.unary "Quality" 0) .everywhere]
     (twoThingTables #[.unary .qualityType 1 0, .binary .inst 0 1 0,
       .binary .inst 1 1 0])).getD #[])[5]? =
     some "  - Computed SimpleQualityType: false, because instance `x` is not a computed `SimpleQuality` at `w`." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`x, `kind]
     #[.derived (.unary "ComplexQualityType" "kind") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere]
+    #[.derived (.unary "Quality" 0) .everywhere]
     (twoThingTables #[.unary .qualityType 1 0, .binary .inst 0 1 0,
       .binary .inst 1 1 0])).getD #[])[1]? =
     some "Required but missing: `ComplexQualityType(kind)` requires every instance to be a computed `ComplexQuality`; instance `x` is not complex." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`x, `kind]
     #[.derived (.unary "ComplexQualityType" "kind") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere]
+    #[.derived (.unary "Quality" 0) .everywhere]
     (twoThingTables #[.unary .qualityType 1 0, .binary .inst 0 1 0,
       .binary .inst 1 1 0])).getD #[])[5]? =
     some "  - Computed ComplexQualityType: false, because instance `x` is not a computed `ComplexQuality` at `w`." := by native_decide
@@ -1265,7 +1265,7 @@ example : externalModeRequiredMissingCosted #[`w] #[`x, `y] declaredModeFailureT
     ⟨"`ExternallyDependentMode(x)` requires `Mode(x)` and at least one computed `ExternallyDependent(x, y)`; missing such a witness. Candidate `y` fails because `x` exists at `w`, but `y` does not; this breaks existential dependence.", 134⟩ := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`x, `y]
     #[.derived (.unary "ExternallyDependentMode" "x") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] declaredModeFailureTables).getD #[])[1]? =
+    #[.derived (.unary "Quality" 0) .everywhere] declaredModeFailureTables).getD #[])[1]? =
     some "Required but missing: `ExternallyDependentMode(x)` requires `Mode(x)` and at least one computed `ExternallyDependent(x, y)`; missing such a witness. Candidate `y` fails because `x` exists at `w`, but `y` does not; this breaks existential dependence." := by native_decide
 
 example (W T : Nat) (tables : FactTables)
@@ -1335,11 +1335,11 @@ example : quaIndividualRequiredMissingCosted #[] #[] 7 3 =
 
 example : ((derivedAssertionFailure? #[`w] #[`x, `y]
     #[.derived (.unary "QuaIndividual" "x") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] (twoThingTables #[])).getD #[])[1]? =
+    #[.derived (.unary "Quality" 0) .everywhere] (twoThingTables #[])).getD #[])[1]? =
     some "Required but missing: `QuaIndividual(x)` requires some `QuaIndividualOf(x, y)`; missing any such fact at `w`." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`x, `y]
     #[.derived (.unary "QuaIndividual" "x") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] (twoThingTables #[])).getD #[])[5]? =
+    #[.derived (.unary "Quality" 0) .everywhere] (twoThingTables #[])).getD #[])[5]? =
     some "  - Computed QuaIndividual: false, because no `QuaIndividualOf` fact has this thing on the left." := by native_decide
 
 example (W T : Nat) (tables : FactTables)
@@ -1450,22 +1450,22 @@ example {T₁ T₂ C : Nat} (h : T₁ ≤ T₂) : 44 * T₁ + C ≤ 44 * T₂ + 
 
 example : ((derivedAssertionFailure? #[`w] #[`x, `y]
     #[.derived (.unary "Quality" "x") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] (twoThingTables #[.unary .qualityKind 1 0, .binary .inst 0 1 0,
+    #[.derived (.unary "Quality" 0) .everywhere] (twoThingTables #[.unary .qualityKind 1 0, .binary .inst 0 1 0,
       .unary .qualityKind 0 0, .binary .inst 0 0 0])).getD #[])[1]? =
     some "Required but missing: `Quality(x)` requires exactly one `QualityKind` instantiation; found competing quality kinds x, y at `w`." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`x, `y]
     #[.derived (.unary "Quality" "x") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] (twoThingTables #[.unary .qualityKind 1 0, .binary .inst 0 1 0,
+    #[.derived (.unary "Quality" 0) .everywhere] (twoThingTables #[.unary .qualityKind 1 0, .binary .inst 0 1 0,
       .unary .qualityKind 0 0, .binary .inst 0 0 0])).getD #[])[5]? =
     some "  - Computed Quality: false, because `x` instantiates multiple quality kinds at this world: x, y." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`x, `y]
     #[.derived (.unary "QualityStructure" "x") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] (twoThingTables #[.unary .qualityType 1 0, .binary .associatedWith 0 1 0,
+    #[.derived (.unary "Quality" 0) .everywhere] (twoThingTables #[.unary .qualityType 1 0, .binary .associatedWith 0 1 0,
       .unary .qualityType 0 0, .binary .associatedWith 0 0 0])).getD #[])[1]? =
     some "Required but missing: `QualityStructure(x)` requires exactly one associated `QualityType`; found competing associated quality types x, y." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`x, `y]
     #[.derived (.unary "QualityStructure" "x") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] (twoThingTables #[.unary .qualityType 1 0, .binary .associatedWith 0 1 0,
+    #[.derived (.unary "Quality" 0) .everywhere] (twoThingTables #[.unary .qualityType 1 0, .binary .associatedWith 0 1 0,
       .unary .qualityType 0 0, .binary .associatedWith 0 0 0])).getD #[])[5]? =
     some "  - Computed QualityStructure: false, because multiple associated quality types are present: x, y." := by native_decide
 
@@ -1540,23 +1540,23 @@ example {T₁ T₂ : Nat} (h : T₁ ≤ T₂) : 21 * T₁ + 26 ≤ 21 * T₂ + 2
 
 example : ((derivedAssertionFailure? #[`w] #[`x, `y]
     #[.derived (.unary "NonEmptySet" "x") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] (twoThingTables #[])).getD #[])[1]? =
+    #[.derived (.unary "Quality" 0) .everywhere] (twoThingTables #[])).getD #[])[1]? =
     some "Required but missing: `NonEmptySet(x)` requires some `MemberOf(member, x)`; missing any member at `w`." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`x, `y]
     #[.derived (.unary "NonEmptySet" "x") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] (twoThingTables #[])).getD #[])[5]? =
+    #[.derived (.unary "Quality" 0) .everywhere] (twoThingTables #[])).getD #[])[5]? =
     some "  - Computed NonEmptySet: false, because no `MemberOf(_, x)` fact holds at `w`." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`x, `y]
     #[.derived (.binary "ProperSub" "x" "y") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] (twoThingTables #[.binary .sub 1 0 0])).getD #[])[1]? =
+    #[.derived (.unary "Quality" 0) .everywhere] (twoThingTables #[.binary .sub 1 0 0])).getD #[])[1]? =
     some "Required but missing: `ProperSub(x, y)` requires `Sub(x, y)`; missing the forward `Sub` fact." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`x, `y]
     #[.derived (.binary "ProperSub" "x" "y") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] (twoThingTables #[.binary .sub 1 0 0])).getD #[])[5]? =
+    #[.derived (.unary "Quality" 0) .everywhere] (twoThingTables #[.binary .sub 1 0 0])).getD #[])[5]? =
     some "  - Sub(x, y): false." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`x, `y]
     #[.derived (.binary "ProperSub" "x" "y") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] (twoThingTables #[.binary .sub 1 0 0])).getD #[])[6]? =
+    #[.derived (.unary "Quality" 0) .everywhere] (twoThingTables #[.binary .sub 1 0 0])).getD #[])[6]? =
     some "  - Reverse Sub(y, x): true." := by native_decide
 
 -- Each report component runs the difference search once. For two things,
@@ -1650,27 +1650,27 @@ example {T₁ T₂ C : Nat} (h : T₁ ≤ T₂) : 40 * T₁ + C ≤ 40 * T₂ + 
 
 example : ((derivedAssertionFailure? #[`w] #[`x, `y]
     #[.derived (.binary "SubsetOf" "x" "y") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] (twoThingTables #[.binary .memberOf 1 0 0, .binary .memberOf 0 0 0])).getD #[])[1]? =
+    #[.derived (.unary "Quality" 0) .everywhere] (twoThingTables #[.binary .memberOf 1 0 0, .binary .memberOf 0 0 0])).getD #[])[1]? =
     some "Required but missing: `SubsetOf(x, y)` requires every left member to be a right member; `x` is in `x` but missing from `y`." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`x, `y]
     #[.derived (.binary "SubsetOf" "x" "y") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] (twoThingTables #[.binary .memberOf 1 0 0, .binary .memberOf 0 0 0])).getD #[])[5]? =
+    #[.derived (.unary "Quality" 0) .everywhere] (twoThingTables #[.binary .memberOf 1 0 0, .binary .memberOf 0 0 0])).getD #[])[5]? =
     some "  - Computed SubsetOf: false, because `x` is a member of `x` but not of `y` at `w`." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`x, `y]
     #[.derived (.binary "ProperSubsetOf" "x" "y") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] (twoThingTables #[.binary .memberOf 1 0 0, .binary .memberOf 0 0 0])).getD #[])[1]? =
+    #[.derived (.unary "Quality" 0) .everywhere] (twoThingTables #[.binary .memberOf 1 0 0, .binary .memberOf 0 0 0])).getD #[])[1]? =
     some "Required but missing: `ProperSubsetOf(x, y)` first requires `SubsetOf`; `x` is in the left set but missing from the right set." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`x, `y]
     #[.derived (.binary "ProperSubsetOf" "x" "y") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] (twoThingTables #[.binary .memberOf 1 0 0, .binary .memberOf 0 0 0])).getD #[])[5]? =
+    #[.derived (.unary "Quality" 0) .everywhere] (twoThingTables #[.binary .memberOf 1 0 0, .binary .memberOf 0 0 0])).getD #[])[5]? =
     some "  - Computed ProperSubsetOf: false, because the subset condition already fails: `x` is a member of `x` but not of `y` at `w`." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`x, `y]
     #[.derived (.binary "ProperSubsetOf" "x" "y") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] (twoThingTables #[])).getD #[])[1]? =
+    #[.derived (.unary "Quality" 0) .everywhere] (twoThingTables #[])).getD #[])[1]? =
     some "Required but missing: `ProperSubsetOf(x, y)` requires strictness; missing a member of `y` that is not also a member of `x`." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`x, `y]
     #[.derived (.binary "ProperSubsetOf" "x" "y") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] (twoThingTables #[])).getD #[])[5]? =
+    #[.derived (.unary "Quality" 0) .everywhere] (twoThingTables #[])).getD #[])[5]? =
     some "  - Computed ProperSubsetOf: false, because no member of `y` is outside `x` at `w`." := by native_decide
 
 -- Missing quality runs the uniqueness check and the complete status report.
@@ -1784,35 +1784,35 @@ example {T₁ T₂ : Nat} (h : T₁ ≤ T₂) : 78 * T₁ + 41 ≤ 78 * T₂ + 4
 
 example : ((derivedAssertionFailure? #[`w] #[`x, `y]
     #[.derived (.unary "SimpleQuality" "x") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] (twoThingTables #[])).getD #[])[1]? =
+    #[.derived (.unary "Quality" 0) .everywhere] (twoThingTables #[])).getD #[])[1]? =
     some "Required but missing: `SimpleQuality(x)` requires computed `Quality(x)`; missing the quality condition." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`x, `y]
     #[.derived (.unary "SimpleQuality" "x") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] (twoThingTables #[])).getD #[])[5]? =
+    #[.derived (.unary "Quality" 0) .everywhere] (twoThingTables #[])).getD #[])[5]? =
     some "  - Computed Quality: false, because `x` instantiates no `QualityKind` at this world." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`x, `y]
     #[.derived (.unary "ComplexQuality" "x") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] (twoThingTables #[])).getD #[])[1]? =
+    #[.derived (.unary "Quality" 0) .everywhere] (twoThingTables #[])).getD #[])[1]? =
     some "Required but missing: `ComplexQuality(x)` requires computed `Quality(x)`; missing the quality condition." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`x, `y]
     #[.derived (.unary "ComplexQuality" "x") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] (twoThingTables #[])).getD #[])[5]? =
+    #[.derived (.unary "Quality" 0) .everywhere] (twoThingTables #[])).getD #[])[5]? =
     some "  - Computed Quality: false, because `x` instantiates no `QualityKind` at this world." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`x, `y]
     #[.derived (.unary "SimpleQuality" "x") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] (twoThingTables #[.unary .qualityKind 1 0, .binary .inst 0 1 0, .binary .inheresIn 1 0 0, .binary .inheresIn 0 0 0])).getD #[])[1]? =
+    #[.derived (.unary "Quality" 0) .everywhere] (twoThingTables #[.unary .qualityKind 1 0, .binary .inst 0 1 0, .binary .inheresIn 1 0 0, .binary .inheresIn 0 0 0])).getD #[])[1]? =
     some "Required but missing: `SimpleQuality(x)` requires no thing to inhere in it; conflicting `InheresIn(x, x)` is present." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`x, `y]
     #[.derived (.unary "SimpleQuality" "x") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] (twoThingTables #[.unary .qualityKind 1 0, .binary .inst 0 1 0, .binary .inheresIn 1 0 0, .binary .inheresIn 0 0 0])).getD #[])[5]? =
+    #[.derived (.unary "Quality" 0) .everywhere] (twoThingTables #[.unary .qualityKind 1 0, .binary .inst 0 1 0, .binary .inheresIn 1 0 0, .binary .inheresIn 0 0 0])).getD #[])[5]? =
     some "  - Computed SimpleQuality: false, because `x` inheres in `x` at `w`." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`x, `y]
     #[.derived (.unary "ComplexQuality" "x") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] (twoThingTables #[.unary .qualityKind 1 0, .binary .inst 0 1 0])).getD #[])[1]? =
+    #[.derived (.unary "Quality" 0) .everywhere] (twoThingTables #[.unary .qualityKind 1 0, .binary .inst 0 1 0])).getD #[])[1]? =
     some "Required but missing: `ComplexQuality(x)` requires at least one `InheresIn(part, x)`; missing any inhering part." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`x, `y]
     #[.derived (.unary "ComplexQuality" "x") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] (twoThingTables #[.unary .qualityKind 1 0, .binary .inst 0 1 0])).getD #[])[5]? =
+    #[.derived (.unary "Quality" 0) .everywhere] (twoThingTables #[.unary .qualityKind 1 0, .binary .inst 0 1 0])).getD #[])[5]? =
     some "  - Computed ComplexQuality: false, because it is a computed `Quality` but no thing inheres in it." := by native_decide
 
 -- Missing classification skips instance work. With a classified type,
@@ -1954,43 +1954,43 @@ example {T₁ T₂ : Nat} (h : T₁ ≤ T₂) :
 
 example : ((derivedAssertionFailure? #[`w] #[`t, `y]
     #[.derived (.unary "SimpleQualityType" "t") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] (twoThingTables #[])).getD #[])[1]? =
+    #[.derived (.unary "Quality" 0) .everywhere] (twoThingTables #[])).getD #[])[1]? =
     some "Required but missing: `SimpleQualityType(t)` requires `QualityType(t)`; missing that primitive classification." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`t, `y]
     #[.derived (.unary "SimpleQualityType" "t") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] (twoThingTables #[])).getD #[])[5]? =
+    #[.derived (.unary "Quality" 0) .everywhere] (twoThingTables #[])).getD #[])[5]? =
     some "  - Computed SimpleQualityType: false, because `QualityType(t)` is not true at `w`." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`t, `y]
     #[.derived (.unary "SimpleQualityType" "t") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] (twoThingTables #[.unary .qualityType 0 0, .binary .inst 1 0 0, .binary .inst 0 0 0])).getD #[])[1]? =
+    #[.derived (.unary "Quality" 0) .everywhere] (twoThingTables #[.unary .qualityType 0 0, .binary .inst 1 0 0, .binary .inst 0 0 0])).getD #[])[1]? =
     some "Required but missing: `SimpleQualityType(t)` requires every instance to be a computed `SimpleQuality`; instance `t` is not simple." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`t, `y]
     #[.derived (.unary "SimpleQualityType" "t") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] (twoThingTables #[.unary .qualityType 0 0, .binary .inst 1 0 0, .binary .inst 0 0 0])).getD #[])[5]? =
+    #[.derived (.unary "Quality" 0) .everywhere] (twoThingTables #[.unary .qualityType 0 0, .binary .inst 1 0 0, .binary .inst 0 0 0])).getD #[])[5]? =
     some "  - Computed SimpleQualityType: false, because instance `t` is not a computed `SimpleQuality` at `w`." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`t, `y]
     #[.derived (.unary "SimpleQualityType" "t") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] (twoThingTables #[.unary .qualityType 0 0, .binary .inst 1 0 0, .binary .inst 0 0 0])).getD #[])[6]? =
+    #[.derived (.unary "Quality" 0) .everywhere] (twoThingTables #[.unary .qualityType 0 0, .binary .inst 1 0 0, .binary .inst 0 0 0])).getD #[])[6]? =
     some "  - Computed Quality: false, because `t` instantiates no `QualityKind` at this world." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`t, `y]
     #[.derived (.unary "ComplexQualityType" "t") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] (twoThingTables #[])).getD #[])[1]? =
+    #[.derived (.unary "Quality" 0) .everywhere] (twoThingTables #[])).getD #[])[1]? =
     some "Required but missing: `ComplexQualityType(t)` requires `QualityType(t)`; missing that primitive classification." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`t, `y]
     #[.derived (.unary "ComplexQualityType" "t") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] (twoThingTables #[])).getD #[])[5]? =
+    #[.derived (.unary "Quality" 0) .everywhere] (twoThingTables #[])).getD #[])[5]? =
     some "  - Computed ComplexQualityType: false, because `QualityType(t)` is not true at `w`." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`t, `y]
     #[.derived (.unary "ComplexQualityType" "t") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] (twoThingTables #[.unary .qualityType 0 0, .binary .inst 1 0 0, .binary .inst 0 0 0])).getD #[])[1]? =
+    #[.derived (.unary "Quality" 0) .everywhere] (twoThingTables #[.unary .qualityType 0 0, .binary .inst 1 0 0, .binary .inst 0 0 0])).getD #[])[1]? =
     some "Required but missing: `ComplexQualityType(t)` requires every instance to be a computed `ComplexQuality`; instance `t` is not complex." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`t, `y]
     #[.derived (.unary "ComplexQualityType" "t") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] (twoThingTables #[.unary .qualityType 0 0, .binary .inst 1 0 0, .binary .inst 0 0 0])).getD #[])[5]? =
+    #[.derived (.unary "Quality" 0) .everywhere] (twoThingTables #[.unary .qualityType 0 0, .binary .inst 1 0 0, .binary .inst 0 0 0])).getD #[])[5]? =
     some "  - Computed ComplexQualityType: false, because instance `t` is not a computed `ComplexQuality` at `w`." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`t, `y]
     #[.derived (.unary "ComplexQualityType" "t") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] (twoThingTables #[.unary .qualityType 0 0, .binary .inst 1 0 0, .binary .inst 0 0 0])).getD #[])[6]? =
+    #[.derived (.unary "Quality" 0) .everywhere] (twoThingTables #[.unary .qualityType 0 0, .binary .inst 1 0 0, .binary .inst 0 0 0])).getD #[])[6]? =
     some "  - Computed Quality: false, because `t` instantiates no `QualityKind` at this world." := by native_decide
 
 -- The bearer report always reads the classification and reconstructs the path.
@@ -2085,12 +2085,12 @@ example : externalModeEvidenceCosted #[`actual, `yOnly, `zOnly] #[`x, `y, `z]
 -- alone refutes the assertion. Mode reports retain the declared-candidate note.
 example : ((derivedAssertionFailure? #[`w] #[`x, `y]
     #[.derived (.binary "UltimateBearerOf" "x" "y") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere]
+    #[.derived (.unary "Quality" 0) .everywhere]
     (twoThingTables #[.unary .moment 0 0, .binary .inheresIn 1 0 0])).getD #[])[6]? =
     some "  - `InheresIn` path exists: y InheresIn x." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`x, `y]
     #[.derived (.unary "ExternallyDependentMode" "x") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere] declaredModeFailureTables).getD #[])[8]? =
+    #[.derived (.unary "Quality" 0) .everywhere] declaredModeFailureTables).getD #[])[8]? =
     some "  - Note: asserted `ExternallyDependent` facts name candidate(s) y, but certification uses the computed external-dependence semantics." := by native_decide
 
 example (worlds things : Array Name) (tables : FactTables) (x y w : Nat) :
@@ -2218,17 +2218,17 @@ example : existentialIndependenceEvidenceCosted #[`first, `last] #[`x, `y]
 
 example : ((derivedAssertionFailure? #[`w] #[`x, `y]
     #[.derived (.binary "ExternallyDependent" "x" "y") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere]
+    #[.derived (.unary "Quality" 0) .everywhere]
     (twoThingTables #[.unary .ex 0 0])).getD #[])[6]? =
     some "  - Computed ExternallyDependent: false. `x` exists at `w`, but `y` does not; this breaks existential dependence." := by native_decide
 example : ((derivedAssertionFailure? #[`first, `last] #[`x, `y]
     #[.derived (.binary "ExistentialDependence" "x" "y") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere]
+    #[.derived (.unary "Quality" 0) .everywhere]
     (twoWorldModalTables #[.unary .ex 0 1])).getD #[])[5]? =
     some "  - Computed ExistentialDependence: false, because `x` exists at `last` but `y` does not." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`x, `y]
     #[.derived (.binary "ExistentialIndependence" "x" "y") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere]
+    #[.derived (.unary "Quality" 0) .everywhere]
     (twoThingTables #[.unary .ex 0 0])).getD #[])[5]? =
     some "  - Computed ExistentialIndependence: false: the assertion needs a witness world where Ex(y) holds without Ex(x), but no such world exists in the current `Ex` facts." := by native_decide
 
@@ -2520,42 +2520,42 @@ example {T₁ T₂ : Nat} (h : T₁ ≤ T₂) (c : Nat) :
 -- The public precheck retains each family's required-missing text and witness row.
 example : ((derivedAssertionFailure? #[`w] #[`a, `b, `c]
     #[.derived (.binary "Categorizes" "a" "b") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere]
+    #[.derived (.unary "Quality" 0) .everywhere]
     (threeTypeTables #[.binary .inst 2 0 0])).getD #[])[1]? =
     some "Required but missing: `Categorizes(a, b)` requires each category-instance type to specialize `b`; missing `Sub(c, b)`." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`a, `b, `c]
     #[.derived (.binary "Categorizes" "a" "b") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere]
+    #[.derived (.unary "Quality" 0) .everywhere]
     (threeTypeTables #[.binary .inst 2 0 0])).getD #[])[5]? =
     some "  - Computed Categorizes: false, because `c` instantiates `a` at `w` but `Sub(c, b)` is missing." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`a, `b, `c]
     #[.derived (.binary "IsDisjointWith" "a" "b") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere]
+    #[.derived (.unary "Quality" 0) .everywhere]
     (threeTypeTables #[.binary .inst 2 0 0, .binary .inst 2 1 0])).getD #[])[1]? =
     some "Required but missing: `IsDisjointWith(a, b)` requires no shared instance; `c` instantiates both types." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`a, `b, `c]
     #[.derived (.binary "IsDisjointWith" "a" "b") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere]
+    #[.derived (.unary "Quality" 0) .everywhere]
     (threeTypeTables #[.binary .inst 2 0 0, .binary .inst 2 1 0])).getD #[])[5]? =
     some "  - Computed IsDisjointWith: false, because `c` instantiates both types at `w`." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`a, `b, `c]
     #[.derived (.ternary "IsCompletelyCoveredBy" "a" "b" "c") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere]
+    #[.derived (.unary "Quality" 0) .everywhere]
     (threeTypeTables #[.binary .inst 2 0 0])).getD #[])[1]? =
     some "Required but missing: `IsCompletelyCoveredBy(a, b, c)` requires every `a` instance to instantiate at least one covering type; `c` instantiates neither `b` nor `c`." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`a, `b, `c]
     #[.derived (.ternary "IsCompletelyCoveredBy" "a" "b" "c") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere]
+    #[.derived (.unary "Quality" 0) .everywhere]
     (threeTypeTables #[.binary .inst 2 0 0])).getD #[])[5]? =
     some "  - Computed IsCompletelyCoveredBy: false, because `c` instantiates `a` but instantiates neither covering type at `w`." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`a, `b, `c]
     #[.derived (.ternary "IsPartitionedInto" "a" "b" "c") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere]
+    #[.derived (.unary "Quality" 0) .everywhere]
     (threeTypeTables #[.binary .inst 0 0 0, .binary .inst 1 1 0, .binary .inst 1 2 0])).getD #[])[1]? =
     some "Required but missing: `IsPartitionedInto(a, b, c)` first requires complete coverage; `a` instantiates the partitioned type but neither part type." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`a, `b, `c]
     #[.derived (.ternary "IsPartitionedInto" "a" "b" "c") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere]
+    #[.derived (.unary "Quality" 0) .everywhere]
     (threeTypeTables #[.binary .inst 0 0 0, .binary .inst 1 1 0, .binary .inst 1 2 0])).getD #[])[5]? =
     some "  - Computed IsPartitionedInto: false, because coverage fails: `a` instantiates `a` but instantiates neither covering type at `w`." := by native_decide
 
@@ -3221,61 +3221,61 @@ example {T₁ T₂ : Nat} (h : T₁ ≤ T₂) :
 -- its actual derived assertion, not just a formatter called in isolation.
 example : ((derivedAssertionFailure? #[`w] #[`a, `A, `b, `B]
     #[.derived (.binary "GenericFunctionalDependence" "A" "B") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere]
+    #[.derived (.unary "Quality" 0) .everywhere]
     (functionalReportTables #[.binary .inst 0 1 0, .binary .functionsAs 0 1 0])).getD #[])[1]? =
     some "Required but missing: `GenericFunctionalDependence(A, B)` requires a distinct target-functioning witness for source-functioning `a`; missing such a `B` instance." := by native_decide
 
 example : ((derivedAssertionFailure? #[`w] #[`a, `A, `b, `B]
     #[.derived (.binary "GenericFunctionalDependence" "A" "B") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere]
+    #[.derived (.unary "Quality" 0) .everywhere]
     (functionalReportTables #[.binary .inst 0 1 0, .binary .functionsAs 0 1 0])).getD #[])[5]? =
     some "  - Computed GenericFunctionalDependence: false, because `a` instantiates and functions as `A` at `w`, but there is no distinct thing that instantiates and functions as `B`." := by native_decide
 
 example : ((derivedAssertionFailure? #[`w] #[`a, `A, `b, `B]
     #[.derived (.quaternary "IndividualFunctionalDependence" "a" "A" "b" "B") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere]
+    #[.derived (.unary "Quality" 0) .everywhere]
     (functionalReportTables #[.binary .inst 0 1 0, .binary .functionsAs 0 1 0, .binary .inst 1 3 0, .binary .functionsAs 1 3 0, .binary .inst 2 3 0])).getD #[])[1]? =
     some "Required but missing: `IndividualFunctionalDependence(a, A, b, B)` requires `b` to function as `B` whenever `a` functions as `A`; missing the target `FunctionsAs` fact." := by native_decide
 
 example : ((derivedAssertionFailure? #[`w] #[`a, `A, `b, `B]
     #[.derived (.quaternary "IndividualFunctionalDependence" "a" "A" "b" "B") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere]
+    #[.derived (.unary "Quality" 0) .everywhere]
     (functionalReportTables #[.binary .inst 0 1 0, .binary .functionsAs 0 1 0, .binary .inst 1 3 0, .binary .functionsAs 1 3 0, .binary .inst 2 3 0])).getD #[])[5]? =
     some "  - Computed IndividualFunctionalDependence: false, because `a` functions as `A` but `b` does not function as `B` at `w`." := by native_decide
 
 example : ((derivedAssertionFailure? #[`w] #[`a, `A, `b, `B]
     #[.derived (.quaternary "ComponentOf" "a" "A" "b" "B") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere]
+    #[.derived (.unary "Quality" 0) .everywhere]
     (functionalReportTables #[])).getD #[])[1]? =
     some "Required but missing: `ComponentOf(a, A, b, B)` requires `ProperPart(a, b)`; missing that proper-part fact." := by native_decide
 
 example : ((derivedAssertionFailure? #[`w] #[`a, `A, `b, `B]
     #[.derived (.quaternary "ComponentOf" "a" "A" "b" "B") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere]
+    #[.derived (.unary "Quality" 0) .everywhere]
     (functionalReportTables #[])).getD #[])[5]? =
     some "  - Computed ComponentOf: false, because `ProperPart(a, b)` is missing at `w`." := by native_decide
 
 example : ((derivedAssertionFailure? #[`w] #[`a, `A, `b, `B]
     #[.derived (.binary "GenericConstitutionalDependence" "A" "B") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere]
+    #[.derived (.unary "Quality" 0) .everywhere]
     (functionalReportTables #[.binary .inst 0 1 0])).getD #[])[1]? =
     some "Required but missing: `GenericConstitutionalDependence(A, B)` requires a `B` instance that constitutionally bears source instance `a`; missing such a `ConstitutedBy(a, _)` witness." := by native_decide
 
 example : ((derivedAssertionFailure? #[`w] #[`a, `A, `b, `B]
     #[.derived (.binary "GenericConstitutionalDependence" "A" "B") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere]
+    #[.derived (.unary "Quality" 0) .everywhere]
     (functionalReportTables #[.binary .inst 0 1 0])).getD #[])[5]? =
     some "  - Computed GenericConstitutionalDependence: false, because `a` instantiates `A` at `w`, but no `B` instance is related by `ConstitutedBy(a, _)`." := by native_decide
 
 example : ((derivedAssertionFailure? #[`w] #[`a, `A, `b, `B]
     #[.derived (.quaternary "Constitution" "a" "A" "b" "B") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere]
+    #[.derived (.unary "Quality" 0) .everywhere]
     (functionalReportTables #[.binary .inst 0 1 0, .binary .inst 1 3 0, .binary .constitutedBy 0 1 0, .binary .inst 2 3 0])).getD #[])[1]? =
     some "Required but missing: `Constitution(a, A, b, B)` requires `ConstitutedBy(a, b)`; missing that fact." := by native_decide
 
 example : ((derivedAssertionFailure? #[`w] #[`a, `A, `b, `B]
     #[.derived (.quaternary "Constitution" "a" "A" "b" "B") .everywhere]
-    #[.derived (fun _ => "unused") .everywhere]
+    #[.derived (.unary "Quality" 0) .everywhere]
     (functionalReportTables #[.binary .inst 0 1 0, .binary .inst 1 3 0, .binary .constitutedBy 0 1 0, .binary .inst 2 3 0])).getD #[])[5]? =
     some "  - Computed Constitution: false, because `ConstitutedBy(a, b)` is missing at `w`." := by native_decide
 

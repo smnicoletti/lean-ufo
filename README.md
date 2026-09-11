@@ -331,9 +331,9 @@ LeanUfo/
       Satisfiability/  -- ordinary ModelX and positive-relator model chains
     DSL/               -- finite DSL public entry point, backend, and examples
       Frontend/        -- surface grammar and text rendering
-      Compiler/        -- vocabulary, AST, and verified native model boundary
-      Checker/         -- reflective Boolean checks and formal step bounds
-      Certificate/     -- generated certificate source and probe support
+      Compiler/        -- AST, proposition rendering, witness conversion, verified model boundary
+      Checker/         -- reflective Boolean checks and semantic correspondence
+      Certificate/     -- proof generation, attempt execution, and reuse planning
       Diagnostic/      -- source-level failure analysis and editor widget
         Analysis.lean  -- aggregate diagnostic import
         AxiomAnalysis.lean -- registered-axiom reports and their cost proofs

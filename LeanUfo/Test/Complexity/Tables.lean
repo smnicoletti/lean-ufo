@@ -21,6 +21,51 @@ private def queryTables : FactTables :=
     (.binary .inst 0 1 0)).writeDenseFact
     (.ternary .distance 1 0 1 1)).writeDenseFact (.tupleProjection 0 1 1 1)
 
+-- Both callers execute the same binary operation, including its cost.
+example (tables : FactTables) (world : Fin tables.denseWorldCount)
+    (left right : Fin tables.denseThingCount) :
+    tables.inherenceEdgeAtCosted world.val left right =
+      tables.binaryTypedTableCosted .inheresIn left right world := rfl
+
+example : queryTables.inherenceEdgeAtCosted 0 (0 : Fin 2) (1 : Fin 2) = ⟨false, 11⟩ := by native_decide
+example : (queryTables.writeDenseFact (.binary .inheresIn 0 1 0)).inherenceEdgeAtCosted
+    0 (0 : Fin 2) (1 : Fin 2) = ⟨true, 11⟩ := by native_decide
+
+-- Empty and singleton matrices make no edge queries. A high callback cost
+-- therefore changes neither count. The singleton includes its one pivot.
+example : (Complexity.warshallStateEvalCosted 0
+    (fun _ _ => Complexity.Costed.tick false 1000)).cost = 0 := by native_decide
+example : (Complexity.warshallStateEvalCosted 1
+    (fun _ _ => Complexity.Costed.tick false 1000)).cost = 29 := by native_decide
+
+-- Two off-diagonal pairs are queried in each initial matrix. Replacing unit
+-- queries by eleven-operation queries adds 4 * 10 = 40 operations. Expensive
+-- diagonal callbacks remain skipped, not charged at their upper bound.
+example : (Complexity.warshallStateEvalCosted 2 (fun i j =>
+    Complexity.Costed.tick false (if i == j then 1000 else 11))).cost = 228 := by native_decide
+example : (Complexity.warshallStateEvalCosted 2 (fun i j =>
+    Complexity.Costed.tick true (if i == j then 1000 else 11))).cost = 200 := by native_decide
+
+example (n : Nat) (edge : Fin n → Fin n → Bool) (cost : Fin n → Fin n → Nat) :
+    (Complexity.warshallStateEvalCosted n (fun i j => Complexity.Costed.tick (edge i j) (cost i j))).value =
+      Complexity.warshallState n edge :=
+  Complexity.warshallStateEvalCosted_value n _
+
+-- Row-major conversion adds 13 * 4 = 52 operations to the two-thing core.
+-- A two-edge cycle reaches every pair and retains first hops 0, 1, 0, 1.
+example :
+    let result := emptyTables.inherenceClosureAtCosted 0
+    result.cost = 280 ∧ result.value.reachable = #[true, false, false, true] ∧
+      result.value.nextHop = #[some 0, none, none, some 1] := by native_decide
+example :
+    let tables := (emptyTables.writeDenseFact (.binary .inheresIn 0 1 0)).writeDenseFact
+      (.binary .inheresIn 1 0 0)
+    let result := tables.inherenceClosureAtCosted 0
+    result.cost = 252 ∧ result.value.reachable = #[true, true, true, true] ∧
+      result.value.nextHop = #[some 0, some 1, some 0, some 1] := by native_decide
+
+example : (({} : FactTables).inherenceClosureAtCosted 0).cost = 0 := by native_decide
+
 -- Width products, coordinates, field selection, flat indexing, checked read,
 -- and optional-result test total 8, 11, and 14 operations respectively.
 example : queryTables.unaryTypedTableCosted .ex (1 : Fin 2) (1 : Fin 2) =

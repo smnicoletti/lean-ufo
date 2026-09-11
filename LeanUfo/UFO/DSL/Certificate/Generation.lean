@@ -1,4 +1,5 @@
 import Lean
+import LeanUfo.UFO.DSL.Certificate.Checking
 import LeanUfo.UFO.DSL.Certificate.Tactic
 import LeanUfo.UFO.DSL.Checker
 import LeanUfo.UFO.DSL.Compiler
@@ -8,9 +9,9 @@ import LeanUfo.UFO.DSL.Version
 # Generated certificate source for finite UFO DSL models
 
 This module owns the generated theorem registry and proof-source construction
-for `ufo_model ... certify`.  It does not elaborate commands or save diagnostics;
-`Syntax.lean` remains responsible for running these generated snippets through
-Lean and reporting failures.
+for `ufo_model ... certify`. Each proof source separates native check requests
+from the remaining proof text. `Certificate/Execution.lean` executes those
+requests; `Syntax.lean` elaborates the prepared source and reports failures.
 -/
 
 open Lean
@@ -220,6 +221,122 @@ def checkerFunctionName (field : String) : String :=
         "checkAx" ++ field.drop 2
       else
         "check" ++ field
+
+namespace CertificateChecking
+
+/-- A native decision evaluates compiled Lean code for a proof goal. These
+requests retain the existing `native_decide` trust boundary. An agreement request
+evaluates the child before the parent and requires the same field on both.
+The expected-answer request also covers a failed check's negation probe. -/
+inductive NativeCall where
+  | expect (field : String) (answer : Bool)
+  | agree (field : String) (parent : Name)
+deriving Repr, DecidableEq
+
+/-- The closed Boolean expression evaluated for this request. Both native
+proof production and the reference tactic rendering use this same expression. -/
+def NativeCall.booleanSource : NativeCall → String
+  | .expect field answer =>
+      let checkFn := s!"LeanUfo.UFO.DSL.Checker.{checkerFunctionName field}"
+      s!"LeanUfo.UFO.DSL.CertificateChecking.resultsAgree ({checkFn} data) {answer}"
+  | .agree field parent =>
+      let checkFn := s!"LeanUfo.UFO.DSL.Checker.{checkerFunctionName field}"
+      s!"LeanUfo.UFO.DSL.CertificateChecking.resultsAgree ({checkFn} data) ({checkFn} {parent}.data)"
+
+/-- Insert a proof that the request's Boolean expression equals true. For an
+expected answer, recover equality with that answer. Agreement requests already
+have the proof type used by the surrounding reuse argument. -/
+def NativeCall.proofTermWith (request : NativeCall) (comparisonProof : String) : String :=
+  match request with
+  | .expect field answer =>
+      let checkFn := s!"LeanUfo.UFO.DSL.Checker.{checkerFunctionName field}"
+      s!"((LeanUfo.UFO.DSL.CertificateChecking.resultsAgree_eq_true ({checkFn} data) {answer}).mp {comparisonProof})"
+  | .agree .. => comparisonProof
+
+/-- The type annotation fixes the decision's actual inputs. Cost records stay
+out of proof goals to preserve compact kernel reduction. -/
+def NativeCall.proofTerm (request : NativeCall) : String :=
+  request.proofTermWith s!"(by native_decide : {request.booleanSource} = true)"
+
+/-- A generated proof contains ordered native decisions separated by ordinary
+proof text. Each decision contributes both its typed proof term and its call
+request. This prevents a separate list of calls from drifting from the emitter.
+Text fragments perform excluded proof-engine work; registered native checker
+calls belong in `call` nodes. Axiom 99's general tactic fallback is excluded.
+
+The list describes possible calls: a native preparation error stops later requests.
+This separation of compositional algorithm cost from surrounding proof work
+follows the cost-aware method of Niu et al. (POPL 2022); see the complexity guide. -/
+inductive ProofScript where
+  | done (text : String)
+  | call (before : String) (request : NativeCall) (rest : ProofScript)
+
+def ProofScript.render : ProofScript → String
+  | .done text => text
+  | .call before request rest => before ++ request.proofTerm ++ rest.render
+
+def ProofScript.nativeCalls : ProofScript → List NativeCall
+  | .done _ => []
+  | .call _ request rest => request :: rest.nativeCalls
+
+/-- Number of checker invocations specified by a request, not an operation
+cost. One agreement decision evaluates two checkers; one expected-answer
+decision evaluates only the child. A proof may stop before this request. -/
+def NativeCall.checkerCalls : NativeCall → Nat
+  | .expect .. => 1
+  | .agree .. => 2
+
+def ProofScript.checkerCalls (script : ProofScript) : Nat :=
+  (script.nativeCalls.map NativeCall.checkerCalls).sum
+
+/-- A proof source keeps its executable proof plan separate from the command
+that embeds it. `script` records native checker decisions without constructing
+their tactic text. `wrap` adds the surrounding theorem or proof-term syntax
+after preparation, or around tactic text in reference tests. The optional limits
+reproduce the existing generated option values during native preparation. -/
+structure ProofSource where
+  script : ProofScript
+  wrap : String → String
+  maxHeartbeats? : Option Nat := none
+  maxRecDepth? : Option Nat := none
+
+/-- Render a source only for reference-source tests. Native execution consumes
+`script` directly so it does not construct `native_decide` snippets. -/
+def ProofSource.render (source : ProofSource) : String :=
+  source.wrap source.script.render
+
+/-- Execute ordered native requests before assembling the remaining proof.
+The callback returns a proof of `request.booleanSource = true`, or an error.
+The first error stops preparation, so later requests cannot run. All request
+execution belongs to this loop; inserting returned proofs requires no native
+decision tactic. The axiom-99 general fallback remains excluded proof text.
+
+Charges count the script and result branches. Rendering, parsing, and proof
+construction remain outside the algorithm-cost boundary. The shared monadic
+loop follows the compositional cost method of Niu et al. (POPL 2022). -/
+def ProofScript.prepare {m : Type → Type} [Monad m] {ε : Type}
+    (charge : Nat → m Unit) (native : NativeCall → m (Except ε String)) :
+    ProofScript → m (Except ε String)
+  | .done text => do
+      charge 1
+      pure (.ok text)
+  | .call before request rest => do
+      charge 1
+      let result ← native request
+      charge 1
+      match result with
+      | .error error => pure (.error error)
+      | .ok proof =>
+          let suffix ← rest.prepare charge native
+          charge 1
+          pure (suffix.map fun text => before ++ request.proofTermWith proof ++ text)
+
+def ProofScript.prepareCosted {ε : Type}
+    (native : NativeCall → Complexity.Costed (Except ε String)) (script : ProofScript) :
+    Complexity.Costed (Except ε String) :=
+  script.prepare (fun n => Complexity.Costed.tick () n) native
+
+end CertificateChecking
 
 def certFormula : String → String
   | "ax1" => "Type(x) ↔ ◇(∃ y, y :: x)"
@@ -689,23 +806,29 @@ private def checkerCounterexampleBackend? (field : CertField) : Option CheckerCo
   | "ax108" => direct "checkAx108" "checkAx108_complete"
   | _ => none
 
-private def checkerCertificateProof? (field : CertField) : Option String :=
+/-- The frontend declares `checked_` theorems in registry order before each
+semantic certificate. Reuse those proofs instead of evaluating their checks
+again. Axiom 73 still evaluates prerequisite 75, and axiom 78 evaluates 79:
+those fields come later, so their checked theorems do not yet exist. Trial
+proofs and final declarations use this same body and each pay for those calls.
+The soundness theorems check that every reused result has the required type. -/
+private def checkerCertificateProof? (field : CertField) : Option CertificateChecking.ProofScript :=
   match field.field with
   | "ax73" =>
-      some
-        "exact LeanUfo.UFO.DSL.Checker.checkAx73_sound data (by native_decide) (by native_decide) (by native_decide) (by native_decide)"
+      some (.call "exact LeanUfo.UFO.DSL.Checker.checkAx73_sound data checked_ax47 checked_ax72 "
+        (.expect "ax75" true) (.done " checked_ax73"))
   | "ax78" =>
-      some
-        "exact LeanUfo.UFO.DSL.Checker.checkAx78_sound data (by native_decide) (by native_decide) (by native_decide) (by native_decide) (by native_decide) (by native_decide) (by native_decide)"
+      some (.call "exact LeanUfo.UFO.DSL.Checker.checkAx78_sound data checked_ax48 checked_ax52 checked_ax72 checked_ax75 checked_ax77 "
+        (.expect "ax79" true) (.done " checked_ax78"))
   | "ax79" =>
-      some
-        "exact LeanUfo.UFO.DSL.Checker.checkAx79_sound data (by native_decide) (by native_decide) (by native_decide)"
+      some (.done
+        "exact LeanUfo.UFO.DSL.Checker.checkAx79_sound data checked_ax72 checked_ax75 checked_ax79")
   | _ =>
       checkerSoundnessName? field |>.map fun theoremName =>
-        if field.field == "ax99" then
+        .done (if field.field == "ax99" then
           s!"exact LeanUfo.UFO.DSL.Checker.{theoremName} data {checkedTheoremName field.field}"
         else
-          s!"simpa [sig, ufo_checker] using {checkedTheoremName field.field}"
+          s!"simpa [sig, ufo_checker] using {checkedTheoremName field.field}")
 
 private def certTactic (field : CertField) : String :=
   match certificateSimpDefs? field with
@@ -722,62 +845,80 @@ linter active.
 -/
 
 /--
-Some axioms must be probed by elaborating the generated theorem command, not by
-first elaborating a standalone proof term.
+Select direct semantic-theorem declaration for axioms 1–6, 44, and 68.
+These fields skip the standalone semantic trial; the checked Boolean theorem
+has already passed its own trial and declaration. Other fields try the semantic
+proof before declaring it. The shared field driver counts both schedules.
 
-The ordinary term probe is cheaper and keeps successful probes out of the
-environment, but it elaborates in a slightly different context from the final
-command.  A small number of fields are sensitive to that difference:
-
-* `ax1`-`ax6` reduce to finite definitions over all things/worlds; on larger
-  models the standalone term probe can run out before the command theorem does.
-* `ax68` is checker-backed in the final theorem, but the standalone proof-term
-  probe can still diverge from command elaboration around the native checker
-  call and generated finite closure.
-* `ax44` reduces to a large finite type-taxonomy proposition; the term probe may
-  fail decidability synthesis even when the generated theorem command succeeds.
-
-Keeping this list explicit avoids mistaking probe incompleteness for a semantic
-counterexample.
+This fixed list preserves the established elaboration policy for the large
+quantified, taxonomy, and closure fields. Term trials and theorem commands use
+different elaboration contexts, so changing the list requires certification
+and performance checks. The policy does not schedule native evaluation:
+registered native requests belong to the separate preparation executor.
 -/
+def useCommandCertificateProbeCosted (field : CertField) : Complexity.Costed Bool :=
+  (Complexity.Costed.tick (field.field == "ax1")).orElse fun _ =>
+  (Complexity.Costed.tick (field.field == "ax2")).orElse fun _ =>
+  (Complexity.Costed.tick (field.field == "ax3")).orElse fun _ =>
+  (Complexity.Costed.tick (field.field == "ax4")).orElse fun _ =>
+  (Complexity.Costed.tick (field.field == "ax5")).orElse fun _ =>
+  (Complexity.Costed.tick (field.field == "ax6")).orElse fun _ =>
+  (Complexity.Costed.tick (field.field == "ax44")).orElse fun _ =>
+    Complexity.Costed.tick (field.field == "ax68")
+
 def useCommandCertificateProbe (field : CertField) : Bool :=
-  field.field == "ax1" || field.field == "ax2" || field.field == "ax3" ||
-    field.field == "ax4" || field.field == "ax5" || field.field == "ax6" ||
-    field.field == "ax44" || field.field == "ax68"
+  (useCommandCertificateProbeCosted field).value
 
 def certAxiomTheorem
-    (_worldCount _thingCount : Nat) (_tables : FactTables) (field : CertField) : String :=
+    (_worldCount _thingCount : Nat) (_tables : FactTables) (field : CertField) :
+    CertificateChecking.ProofSource :=
   match checkerCertificateProof? field with
   | some proof =>
-      s!"set_option maxHeartbeats 1000000 in set_option maxRecDepth 20000 in theorem {certTheoremName field.field} : {field.prop} := by
-  {proof}"
+      { script := proof
+        wrap := fun body =>
+          s!"set_option maxHeartbeats 1000000 in set_option maxRecDepth 20000 in theorem {certTheoremName field.field} : {field.prop} := by
+  {body}"
+        maxHeartbeats? := some 1000000
+        maxRecDepth? := some 20000 }
   | none =>
-      s!"set_option maxHeartbeats 1000000 in set_option maxRecDepth 20000 in set_option linter.unusedSimpArgs false in theorem {certTheoremName field.field} : {field.prop} := by
-{indentLines "  " (certTactic field)}"
+      { script := .done (indentLines "  " (certTactic field))
+        wrap := fun body =>
+          s!"set_option maxHeartbeats 1000000 in set_option maxRecDepth 20000 in set_option linter.unusedSimpArgs false in theorem {certTheoremName field.field} : {field.prop} := by
+{body}"
+        maxHeartbeats? := some 1000000
+        maxRecDepth? := some 20000 }
 
-def checkedAxiomTheorem (field : CertField) (reuseFrom? : Option Name := none) : String :=
+/-- Trials and declarations share one proof body. Reuse evaluates the counted
+child/parent comparison's erasure, then applies the parent's checked theorem.
+The comparison proves equal answers, not that either answer is true. -/
+private def checkedAxiomProofScript (field : CertField) (reuseFrom? : Option Name) :
+    CertificateChecking.ProofScript :=
   let checkFn := s!"LeanUfo.UFO.DSL.Checker.{checkerFunctionName field.field}"
   match reuseFrom? with
-  | none =>
-      s!"set_option maxHeartbeats 1000000 in set_option maxRecDepth 20000 in theorem {checkedTheoremName field.field} : {checkFn} data = true := by
-  native_decide"
+  | none => .call "exact " (.expect field.field true) (.done "")
   | some parent =>
-      s!"set_option maxHeartbeats 1000000 in set_option maxRecDepth 20000 in theorem {checkedTheoremName field.field} : {checkFn} data = true := by
-  have hEq : {checkFn} data = {checkFn} {parent}.data := by
-    native_decide
-  simpa [hEq] using {parent}.{checkedTheoremName field.field}"
+      .call s!"have hEq : {checkFn} data = {checkFn} {parent}.data :=
+  (LeanUfo.UFO.DSL.CertificateChecking.resultsAgree_eq_true
+    ({checkFn} data) ({checkFn} {parent}.data)).mp " (.agree field.field parent)
+      (.done s!"\nsimpa [hEq] using {parent}.{checkedTheoremName field.field}")
 
-def checkedAxiomProofCheck (field : CertField) (reuseFrom? : Option Name := none) : String :=
+def checkedAxiomTheorem (field : CertField) (reuseFrom? : Option Name := none) :
+    CertificateChecking.ProofSource :=
   let checkFn := s!"LeanUfo.UFO.DSL.Checker.{checkerFunctionName field.field}"
-  match reuseFrom? with
-  | none =>
+  { script := checkedAxiomProofScript field reuseFrom?
+    wrap := fun body =>
+      s!"set_option maxHeartbeats 1000000 in set_option maxRecDepth 20000 in theorem {checkedTheoremName field.field} : {checkFn} data = true := by
+{indentLines "  " body}"
+    maxHeartbeats? := some 1000000
+    maxRecDepth? := some 20000 }
+
+def checkedAxiomProofCheck (field : CertField) (reuseFrom? : Option Name := none) :
+    CertificateChecking.ProofSource :=
+  let checkFn := s!"LeanUfo.UFO.DSL.Checker.{checkerFunctionName field.field}"
+  { script := checkedAxiomProofScript field reuseFrom?
+    wrap := fun body =>
       s!"(by
-  native_decide : {checkFn} data = true)"
-  | some parent =>
-      s!"(by
-  have hEq : {checkFn} data = {checkFn} {parent}.data := by
-    native_decide
-  simpa [hEq] using {parent}.{checkedTheoremName field.field} : {checkFn} data = true)"
+{indentLines "  " body} : {checkFn} data = true)" }
 
 def certificateBody : String :=
   let fieldSource := certFields.map fun field =>
@@ -852,35 +993,41 @@ def derivedFactsBody (props : Array String) : String :=
   else
     "by\n  ufo_cert_tac"
 
-def certAxiomCounterexampleCheck (field : CertField) : String :=
+/-- A failure probe can reuse preceding fields' checked theorems, but cannot
+assume that the current field has one: its trial check may have failed before
+declaration. The probe evaluates that field as false, plus any prerequisite
+later in registry order. Reuse here proves a premise, not the negated axiom. -/
+private def certAxiomCounterexampleScript (field : CertField) : CertificateChecking.ProofScript :=
   if field.field == "ax73" then
-    s!"show ¬ ({field.prop}) from by
+    .call s!"show ¬ ({field.prop}) from by
   set_option maxHeartbeats 1000000 in
   set_option maxRecDepth 20000 in
   intro h
-  have h47 : LeanUfo.UFO.DSL.Checker.checkAx47 data = true := by native_decide
-  have h72 : LeanUfo.UFO.DSL.Checker.checkAx72 data = true := by native_decide
-  have h75 : LeanUfo.UFO.DSL.Checker.checkAx75 data = true := by native_decide
+  have h47 : LeanUfo.UFO.DSL.Checker.checkAx47 data = true := checked_ax47
+  have h72 : LeanUfo.UFO.DSL.Checker.checkAx72 data = true := checked_ax72
+  have h75 : LeanUfo.UFO.DSL.Checker.checkAx75 data = true := " (.expect "ax75" true)
+      (.call "
   have hcheck : LeanUfo.UFO.DSL.Checker.checkAx73 data = true :=
     LeanUfo.UFO.DSL.Checker.checkAx73_complete_with_prereqs data
       (LeanUfo.UFO.DSL.Checker.checkAx47_sound data h47)
       (LeanUfo.UFO.DSL.Checker.checkAx72_sound data h72)
       (LeanUfo.UFO.DSL.Checker.checkAx75_sound data h75)
       h
-  have hcheckFalse : LeanUfo.UFO.DSL.Checker.checkAx73 data = false := by
-    native_decide
+  have hcheckFalse : LeanUfo.UFO.DSL.Checker.checkAx73 data = false := " (.expect "ax73" false)
+        (.done "
   rw [hcheckFalse] at hcheck
-  contradiction"
+  contradiction"))
   else if field.field == "ax78" then
-    s!"show ¬ ({field.prop}) from by
+    .call s!"show ¬ ({field.prop}) from by
   set_option maxHeartbeats 1000000 in
   intro h
-  have h48 : LeanUfo.UFO.DSL.Checker.checkAx48 data = true := by native_decide
-  have h52 : LeanUfo.UFO.DSL.Checker.checkAx52 data = true := by native_decide
-  have h72 : LeanUfo.UFO.DSL.Checker.checkAx72 data = true := by native_decide
-  have h75 : LeanUfo.UFO.DSL.Checker.checkAx75 data = true := by native_decide
-  have h77 : LeanUfo.UFO.DSL.Checker.checkAx77 data = true := by native_decide
-  have h79 : LeanUfo.UFO.DSL.Checker.checkAx79 data = true := by native_decide
+  have h48 : LeanUfo.UFO.DSL.Checker.checkAx48 data = true := checked_ax48
+  have h52 : LeanUfo.UFO.DSL.Checker.checkAx52 data = true := checked_ax52
+  have h72 : LeanUfo.UFO.DSL.Checker.checkAx72 data = true := checked_ax72
+  have h75 : LeanUfo.UFO.DSL.Checker.checkAx75 data = true := checked_ax75
+  have h77 : LeanUfo.UFO.DSL.Checker.checkAx77 data = true := checked_ax77
+  have h79 : LeanUfo.UFO.DSL.Checker.checkAx79 data = true := " (.expect "ax79" true)
+      (.call "
   have h72Sem := LeanUfo.UFO.DSL.Checker.checkAx72_sound data h72
   have h75Sem := LeanUfo.UFO.DSL.Checker.checkAx75_sound data h75
   have h79Sem := LeanUfo.UFO.DSL.Checker.checkAx79_sound_with_prereqs data h72Sem h75Sem h79
@@ -893,53 +1040,66 @@ def certAxiomCounterexampleCheck (field : CertField) : String :=
       (LeanUfo.UFO.DSL.Checker.checkAx77_sound data h77)
       h79Sem
       h
-  have hcheckFalse : LeanUfo.UFO.DSL.Checker.checkAx78 data = false := by
-    native_decide
+  have hcheckFalse : LeanUfo.UFO.DSL.Checker.checkAx78 data = false := " (.expect "ax78" false)
+        (.done "
   rw [hcheckFalse] at hcheck
-  contradiction"
+  contradiction"))
   else if field.field == "ax79" then
-    s!"show ¬ ({field.prop}) from by
+    .call s!"show ¬ ({field.prop}) from by
   set_option maxHeartbeats 1000000 in
   intro h
-  have h72 : LeanUfo.UFO.DSL.Checker.checkAx72 data = true := by native_decide
-  have h75 : LeanUfo.UFO.DSL.Checker.checkAx75 data = true := by native_decide
+  have h72 : LeanUfo.UFO.DSL.Checker.checkAx72 data = true := checked_ax72
+  have h75 : LeanUfo.UFO.DSL.Checker.checkAx75 data = true := checked_ax75
   have hcheck : LeanUfo.UFO.DSL.Checker.checkAx79 data = true :=
     LeanUfo.UFO.DSL.Checker.checkAx79_complete_with_prereqs data
       (LeanUfo.UFO.DSL.Checker.checkAx72_sound data h72)
       (LeanUfo.UFO.DSL.Checker.checkAx75_sound data h75)
       h
-  have hcheckFalse : LeanUfo.UFO.DSL.Checker.checkAx79 data = false := by
-    native_decide
+  have hcheckFalse : LeanUfo.UFO.DSL.Checker.checkAx79 data = false := " (.expect "ax79" false)
+      (.done "
   rw [hcheckFalse] at hcheck
-  contradiction"
+  contradiction")
   else match checkerCounterexampleBackend? field with
   | some backend =>
-    s!"show ¬ ({field.prop}) from by
+    .call s!"show ¬ ({field.prop}) from by
   set_option maxHeartbeats 1000000 in
   intro h
   have hcheck : LeanUfo.UFO.DSL.Checker.{backend.checkFn} data = true :=
     LeanUfo.UFO.DSL.Checker.{backend.completeTheorem} data h
-  have hcheckFalse : LeanUfo.UFO.DSL.Checker.{backend.checkFn} data = false := by
-    native_decide
+  have hcheckFalse : LeanUfo.UFO.DSL.Checker.{backend.checkFn} data = false := "
+      (.expect field.field false) (.done "
   rw [hcheckFalse] at hcheck
-  contradiction"
+  contradiction")
   | none =>
-    s!"show ¬ ({field.prop}) from by
+    .done s!"show ¬ ({field.prop}) from by
   set_option maxHeartbeats 1000000 in
   set_option linter.unusedSimpArgs false in
   {certificateSimp} <;> (try omega) <;> (try grind) <;> native_decide"
 
+def certAxiomCounterexampleCheck (field : CertField) : CertificateChecking.ProofSource :=
+  { script := certAxiomCounterexampleScript field
+    wrap := fun body => body
+    maxHeartbeats? := some 1000000
+    maxRecDepth? := if field.field == "ax73" then some 20000 else none }
+
 def certAxiomProofCheck
-    (_worldCount _thingCount : Nat) (_tables : FactTables) (field : CertField) : String :=
+    (_worldCount _thingCount : Nat) (_tables : FactTables) (field : CertField) :
+    CertificateChecking.ProofSource :=
   match checkerCertificateProof? field with
   | some proof =>
-      s!"show {field.prop} from by
+      { script := proof
+        wrap := fun body =>
+          s!"show {field.prop} from by
   set_option maxHeartbeats 1000000 in
-  {proof}"
+  {body}"
+        maxHeartbeats? := some 1000000 }
   | none =>
-      s!"show {field.prop} from by
+      { script := .done (indentLines "  " (certTactic field))
+        wrap := fun body =>
+          s!"show {field.prop} from by
   set_option maxHeartbeats 1000000 in
   set_option linter.unusedSimpArgs false in
-{indentLines "  " (certTactic field)}"
+{body}"
+        maxHeartbeats? := some 1000000 }
 
 end LeanUfo.UFO.DSL

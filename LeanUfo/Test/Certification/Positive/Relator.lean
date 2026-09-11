@@ -4,9 +4,10 @@ import LeanUfo.UFO.DSL.ConcreteExamples.RelatorProbe
 End-to-end regression for the repaired relator fragment.
 
 The canonical DSL model lives in `ConcreteExamples/RelatorProbe.lean` and is
-imported here instead of being duplicated. A fresh certification of that model
-takes about 22 minutes, so defining a second `ufo_model` in this test would pay
-the same cost twice and allow the two witnesses to drift apart.
+imported here instead of being duplicated. Defining a second `ufo_model` in
+this test would certify the same model twice and allow the witnesses to drift
+apart. Performance comparisons belong to the controlled benchmark runs
+described in `docs/testing.md`.
 
 The indices below follow the declaration order in `RelatorProbe`. Generated DSL
 models do not currently export named constants for their worlds and things, so

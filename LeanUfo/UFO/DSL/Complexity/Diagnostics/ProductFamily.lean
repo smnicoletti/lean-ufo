@@ -1,5 +1,5 @@
 import LeanUfo.UFO.DSL.Complexity.Diagnostics
-import LeanUfo.UFO.DSL.Checker.Axioms
+import LeanUfo.UFO.DSL.Checker.Soundness
 
 /-!
 # Counted validation of declared product families
@@ -241,7 +241,7 @@ theorem productFamilyDiagnosticCosted_valid_iff (tables : FactTables)
 /-- The diagnostic checks the same relational witness conditions as the
 certification checker when both interpret the same tables. This theorem does
 not identify their costs: the diagnostic includes concrete dense-query work.
-Conversion of a raw registry into finite witnesses is a separate obligation. -/
+The source-level theorem below also connects the converted witness registry. -/
 theorem productFamilyDiagnosticCosted_checker_iff (M : FiniteModel4)
     (tables : FactTables) (pf : ProductFamilyWitness M.thingCount M.worldCount)
     (member : (fun x y w => tables.binaryTypedTableDense .memberOf x y w) = M.memberOf)
@@ -336,5 +336,97 @@ theorem productFamiliesDiagnosticCosted_cost_le (W T : Nat) (tables : FactTables
       simp only [Costed.charge_cost]
       omega)
   simpa [productFamiliesDiagnosticBound, Nat.add_assoc] using h
+
+/- The source proof fixes all four table interpretations. Header mismatches
+return false before the relational checks. A matching header permits direct
+use of the per-witness correspondence theorem. -/
+private theorem compiledProductFamilyDiagnostic_iff (source : ModelSource) (compiled : CompiledModelSource)
+    (success : compileModelSource source = .ok compiled)
+    (hw : 0 < source.worlds.size) (ht : 0 < source.things.size)
+    (pf : ProductFamilyWitness source.things.size source.worlds.size)
+    (x t : Fin source.things.size) (w : Fin source.worlds.size)
+    (world : pf.world = w) :
+    let M := compiled.tables.toFiniteModel4Cached source.worlds.size source.things.size hw ht
+      (compileModelSource_ok_lookups_agree source compiled success)
+      (compileModelSource_ok_inherenceCacheValid source compiled success)
+      (compileModelSource_ok_tableDimensions source compiled success).1
+      (compileModelSource_ok_tableDimensions source compiled success).2
+    (productFamilyDiagnosticCosted source.worlds.size source.things.size compiled.tables
+      x.val t.val w.val pf.toSpec).value = true ↔
+      productFamilyWitnessProp M pf x t w := by
+  subst w
+  by_cases domain : pf.domain = x
+  · subst x
+    by_cases quality : pf.qualityType = t
+    · subst t
+      let M := compiled.tables.toFiniteModel4Cached source.worlds.size source.things.size hw ht
+        (compileModelSource_ok_lookups_agree source compiled success)
+        (compileModelSource_ok_inherenceCacheValid source compiled success)
+        (compileModelSource_ok_tableDimensions source compiled success).1
+        (compileModelSource_ok_tableDimensions source compiled success).2
+      have agreement := (compileModelSource_ok_lookups_agree source compiled success).symm
+      apply productFamilyDiagnosticCosted_checker_iff M compiled.tables pf
+      · exact congrArg (fun lookups => lookups.binary .memberOf) agreement
+      · exact congrArg (fun lookups => lookups.binary .associatedWith) agreement
+      · exact congrArg (fun lookups => lookups.binary .characterization) agreement
+      · intro n p i w
+        exact (FactTables.tupleProjectionTypedTableCosted_value_dense _ p i.val w).symm.trans
+          (congrArg (fun lookups => lookups.projection p i.val w) agreement)
+    · have unequal : (pf.qualityType.val == t.val) = false := by
+        simpa [Fin.ext_iff] using quality
+      simp [productFamilyDiagnosticCosted, ProductFamilyWitness.toSpec,
+        Costed.andThen_value, unequal, productFamilyWitnessProp]
+      intro equal
+      exact (quality equal).elim
+  · have unequal : (pf.domain.val == x.val) = false := by
+      simpa [Fin.ext_iff] using domain
+    simp [productFamilyDiagnosticCosted, ProductFamilyWitness.toSpec,
+      Costed.andThen_value, unequal, productFamilyWitnessProp]
+    intro equal
+    exact (domain equal).elim
+
+/-- For successful source compilation, the diagnostic's search of resolved
+families and the checker's search of converted witnesses return the same Boolean.
+The conversion theorem supplies every source family at each world and retains
+its coordinates. No independently chosen registry or relation agreement is
+assumed. This is value correspondence, not equality of execution costs. -/
+theorem productFamiliesDiagnosticCosted_eq_checker_of_compile
+    (source : ModelSource) (compiled : CompiledModelSource)
+    (success : compileModelSource source = .ok compiled)
+    (hw : 0 < source.worlds.size) (ht : 0 < source.things.size)
+    (x t : Fin source.things.size) (w : Fin source.worlds.size) :
+    let M := compiled.tables.toFiniteModel4Cached source.worlds.size source.things.size hw ht
+      (compileModelSource_ok_lookups_agree source compiled success)
+      (compileModelSource_ok_inherenceCacheValid source compiled success)
+      (compileModelSource_ok_tableDimensions source compiled success).1
+      (compileModelSource_ok_tableDimensions source compiled success).2
+    (productFamiliesDiagnosticCosted source.worlds.size source.things.size compiled.tables
+      x.val t.val w.val).value = (productFamilySearchCosted M x t w).value := by
+  let M := compiled.tables.toFiniteModel4Cached source.worlds.size source.things.size hw ht
+    (compileModelSource_ok_lookups_agree source compiled success)
+    (compileModelSource_ok_inherenceCacheValid source compiled success)
+    (compileModelSource_ok_tableDimensions source compiled success).1
+    (compileModelSource_ok_tableDimensions source compiled success).2
+  apply Bool.eq_iff_iff.mpr
+  refine Iff.trans ?_ (productFamilySearchCosted_eq_true_iff M x t w).symm
+  rw [productFamiliesDiagnosticCosted, anyArrayCosted_eq_list, anyListCosted_eq_true_iff]
+  simp only [Costed.charge_value]
+  constructor
+  · rintro ⟨family, member, valid⟩
+    obtain ⟨pf, member, spec, world⟩ :=
+      (compileModelSource_ok_modelFamilies_mem_iff source compiled success hw ht family w).mpr
+        (by simpa using member)
+    refine ⟨pf, member, ?_⟩
+    apply (compiledProductFamilyDiagnostic_iff source compiled success hw ht pf x t w world).mp
+    exact (congrArg (fun family =>
+      (productFamilyDiagnosticCosted source.worlds.size source.things.size compiled.tables
+        x.val t.val w.val family).value) spec).trans valid
+  · rintro ⟨pf, member, valid⟩
+    have world := valid.2.2.1
+    refine ⟨pf.toSpec, ?_, ?_⟩
+    · simpa using
+        (compileModelSource_ok_modelFamilies_mem_iff source compiled success hw ht pf.toSpec w).mp
+        ⟨pf, member, rfl, world⟩
+    · exact (compiledProductFamilyDiagnostic_iff source compiled success hw ht pf x t w world).mpr valid
 
 end LeanUfo.UFO.DSL.Complexity

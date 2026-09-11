@@ -121,19 +121,22 @@ example :
   native_decide
 
 /-- Scope expansion preserves source-fact order, then ascending world order,
-for all five fact constructors. Nine outputs and five inputs cost 47 units. -/
+for all five fact constructors. Nine outputs and five inputs cost 79 units,
+including 32 for the two derived propositions. -/
 example :
     let result := expandScopedFactsCosted 2 #[
       .unary .ex 3 .everywhere, .binary .inst 1 2 (.at 1),
       .ternary .distance 0 1 2 .everywhere,
       .tupleProjection 4 2 5 .everywhere,
-      .derived (fun world => toString world) .everywhere]
+      .derived (.unary "Quality" 0) .everywhere]
     (match result.value.toList with
     | [.unary .ex 3 0, .unary .ex 3 1, .binary .inst 1 2 1,
        .ternary .distance 0 1 2 0, .ternary .distance 0 1 2 1,
        .tupleProjection 4 2 5 0, .tupleProjection 4 2 5 1,
-       .derived "0", .derived "1"] => true
-    | _ => false) = true ∧ result.cost = 47 := by
+       .derived first, .derived second] =>
+         first == renderDerivedFactSpecification (.unary "Quality" 0) 0 &&
+         second == renderDerivedFactSpecification (.unary "Quality" 0) 1
+    | _ => false) = true ∧ result.cost = 79 := by
   native_decide
 
 example :

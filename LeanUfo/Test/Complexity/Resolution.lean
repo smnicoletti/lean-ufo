@@ -59,12 +59,12 @@ example :
   native_decide
 
 -- Four thing references attain the single-fact bound. The generated
--- proposition function is stored here; rendering its string is a later pass.
+-- proposition stores resolved coordinates; rendering its string is a later pass.
 example :
     let result := resolveNamedFactIndexedCosted worlds things
       (.derived (.quaternary "relation" "x" "x" "x" "x") (.at "w"))
     (match result.value with
-      | .ok (.derived _ (.at 0)) => true
+      | .ok (.derived (.quaternary "relation" 0 0 0 0) (.at 0)) => true
       | _ => false) = true ∧ result.cost = 20 := by
   native_decide
 

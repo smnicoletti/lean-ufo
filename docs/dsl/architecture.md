@@ -13,10 +13,10 @@ The source tree is organized by responsibility, not by theorem size:
 ```text
 LeanUfo/UFO/DSL/
   Frontend/          surface grammar and source-text/name translation
-  Compiler/          typed vocabulary, AST, and verified native model boundary
+  Compiler/          AST, proposition rendering, witness conversion, verified model boundary
   FiniteModel.lean   executable finite representation and semantic bridge
   Checker/           Boolean decisions and their semantic correctness proofs
-  Certificate/       proof-term generation, reuse, and elaborator tactics
+  Certificate/       proof-term generation, checked-field driver, reuse, and tactics
   Complexity/        operational cost model and compositional bounds
   Diagnostic/        failure analysis and editor presentation
   ConcreteExamples/  user-facing positive and negative models
@@ -37,12 +37,19 @@ Two checker files preserve registry order. `Checker/Axioms.lean` keeps the
 ordered axiom registry beside the checks it registers. `Checker/Soundness.lean`
 keeps the matching semantic proofs in the same order.
 
-`Diagnostic/Analysis.lean` aggregates two diagnostic paths.
+`Diagnostic/Analysis.lean` integrates two diagnostic paths.
 `AxiomAnalysis.lean` owns the private formula language, registered-axiom
 analyzers, and their counted reports. `DerivedAssertions.lean` checks named
 derived claims before axiom certification and explains their failures. It
 imports the shared queries and renderers from the axiom analyzer. The import
-direction is one-way, and the aggregate contains no implementation.
+direction is one-way. `Analysis.lean` also selects the report after a proof
+probe. Its counted selector preserves the confirmed/unconfirmed distinction
+and adds probe errors or closure evidence only on the selected branch.
+
+The frontend retains the derived-assertion precheck result while Lean attempts
+its semantic proof. If certification stops there, report selection uses the
+saved result. It preserves an existing report or constructs the proof-failure
+fallback without scanning the facts again.
 
 Within the derived-assertion module, sections follow the execution dependencies:
 numeric queries, named dispatch, first-failure selection, report components,
@@ -50,6 +57,14 @@ report dispatch, and public producers. Each helper keeps its specification and
 cost proofs nearby. These are internal layers of one precheck, not additional
 public APIs. The public complexity aggregate imports the resulting guarantees;
 it does not keep a second implementation for counting.
+
+`Complexity/Diagnostics/Source.lean` connects the derived-assertion costs to
+successful source compilation. It derives the stored-proposition count from
+the compiler output and gives a bound in source size. Compiler size lemmas
+remain in `Complexity/Compiler.lean`; diagnostic composition imports them.
+The frontend's string-to-name conversion lives in `Frontend/ModelText.lean`.
+Fresh-model, extension, and imported-source paths share its counted erasure.
+The source/diagnostic component bound includes both world and thing arrays.
 
 The intended import direction is:
 
@@ -91,26 +106,20 @@ flowchart TD
   I --> J["Diagnostics<br/>source-level evidence and widget data"]
 ```
 
-The positive path proves ordinary Lean declarations such as:
+The positive path proves these ordinary Lean declarations (schematically,
+with field-specific signature projections omitted):
 
 ```lean
 Model.checked_axN   : checkAxN Model.data = true
-Model.certified_axN : ax_aN Model.sig...
+Model.certified_axN : ax_aN Model.sig
 Model.certified     : UFOAxioms4 Model.sig
 ```
 
-For checker-backed fields, the generated theorem has the shape:
-
-```lean
-theorem Model.certified_axN : ax_aN Model.sig... :=
-  LeanUfo.UFO.DSL.Checker.checkAxN_sound Model.data (by native_decide)
-```
-
 The negative path is separate. If certification stops at `axN`, diagnostics try
-to prove:
+to prove the negated semantic proposition, shown in the same shorthand:
 
 ```lean
-¬ ax_aN Model.sig...
+¬ ax_aN Model.sig
 ```
 
 When that negation proof succeeds, the failure is a confirmed semantic
@@ -126,17 +135,27 @@ pure Lean code.
 | --- | --- | --- |
 | Surface grammar and command elaboration | `Frontend/SurfaceSyntax.lean`, `Syntax.lean` | Trusted frontend/metaprogramming |
 | Name and scope compilation | `Compiler.lean`, `Compiler/AST.lean`, `Compiler/Fields.lean` | Pure functions, with pipeline guarantees in `Guarantees.lean` |
+| Product-family conversion | `Compiler/ProductFamilies.lean`, `Compiler/VerifiedModel.lean` | Production erases the counted converter; valid source families have exact family/world readback |
+| Source-to-model sizes | `Complexity/Compiler.lean` | Cached models have W · F family witnesses, W · S slots, and W + W·T² cache storage. Construction is bounded by source metrics, and checker size by 3N² for source size N |
+| Closure cache correspondence | `Compiler/VerifiedModel.lean` | Stored arrays agree with Warshall over the compiled edges. Generated finite models carry that proof, and axiom 68 reads the arrays directly through a counted query |
+| Finite-model construction | `Compiler.lean`, `Compiler/VerifiedModel.lean` | Counts witness conversion, fixed-record construction, and proved cache installation. The cached constructor preserves the UFO signature |
 | Finite model tables | `FiniteModel.lean` | Ordinary Lean data compiled to a Prop-valued UFO signature |
 | Semantic bridge | `FiniteModel4.toUFOSignature4` in `FiniteModel.lean` | Defines the semantic interpretation checked by the core axioms |
 | Positive checker | `Checker/Axioms.lean`, `Checker/Soundness.lean` | Soundness proves `checkAxN = true -> ax_aN`; most fields also have completeness |
 | Aggregate checker | `Checker/Axioms.lean`, `Checker/Soundness.lean` | `checkAxioms4_sound` proves `checkAxioms4 = true -> UFOAxioms4` |
 | Operational costs | `Complexity/CostModel.lean`, `Complexity/Theorems.lean` | Concrete counted execution and fixed/parameterized bounds |
+| Checker/table cost correspondence | `Complexity/Queries.lean` | Full value/cost equalities for 112 table-using entries, plus four constant definition checks. All 116 registry entries are covered. Workflow composition uses these source-operation costs, not native instruction counts. |
+| Source-linked component bound | `Complexity/Theorems.lean` | Charges successful source compilation, construction of its returned model, and one aggregate checker call. The frontend's repeated per-field checks and report branches require further composition. |
+| Source-to-workflow bound | `Complexity/Certification.lean` | Composes compiler output, derived assertions, native proof requests, retries, registry traversal, and selected failure analysis. Provides fixed-registry data complexity and an explicit diagnostic term; excludes Lean proof work and emission. |
 | Certificate source generation | `Certificate/Generation.lean` | Trusted code emission, checked afterward by the Lean kernel |
 | Axiom diagnostics | `Diagnostic/AxiomAnalysis.lean` | Counted reports; confirmed counterexamples rely on Lean-checked negation proofs |
 | Derived-assertion diagnostics | `Diagnostic/DerivedAssertions.lean` | Counted preliminary checks and complete reports before axiom certification; the proved nine-row cap preserves default output |
-| Diagnostic integration | `Diagnostic/Analysis.lean`, `Diagnostic/Widget.lean` | Aggregate entry points and editor presentation |
-| Product-family diagnostic validation | `Complexity/Diagnostics/ProductFamily.lean` | Counts checks of supplied witnesses and relates their conditions to the checker; raw-registry conversion correspondence remains open |
+| Diagnostic integration | `Diagnostic/Analysis.lean`, `Diagnostic/Widget.lean` | Counted probe-report selection and editor presentation |
+| Product-family diagnostic validation | `Complexity/Diagnostics/ProductFamily.lean` | Counts checks of supplied witnesses. Successful source compilation proves equal diagnostic/checker registry-search results across witness conversion; costs remain separate |
 | Unique-witness search | `Complexity/Diagnostics/Unique.lean` | Proves the sole-match result and linear cost bound of a search that stops at the second match |
+| Formula evaluation and failure selection | `Complexity/Diagnostics/Formula.lean` | Explicit cost bounds for the interpreter, minimizer, and successful context, plus bounds on retained arrays. Parameters include formula size, quantifier depth, domains, environments, and atomic-query cost; no uniform polynomial for unrestricted formulas |
+| Generic report composition | `Complexity/Diagnostics/Reports.lean` | Formula-size bounds for executed evidence discovery, assignment search, source scans, text, registry selection, and retained output. These compose diagnostic components, not the full source-to-checker pipeline |
+| Inherence path evidence | `Complexity/Diagnostics/Paths.lean` | Returned paths follow actual model edges and end at the requested target; reconstruction succeeds exactly for reachable pairs within the existing fuel limit |
 
 Successful certification rests on:
 
@@ -182,6 +201,17 @@ The relevant files are:
 - `Frontend/SurfaceSyntax.lean`: concrete grammar only;
 - `Frontend/ModelText.lean`: name-to-field text helpers and fact rendering,
   including counted renderers and their text-equivalence proofs;
+- `Certificate/Checking.lean`: `run` owns initial/fresh checked attempts,
+  `runField` adds the precheck and semantic attempts, and `runFields` visits
+  the registry and retains the successful prefix and reuse records.
+  `runAfterAssertions` skips certification after a derived-fact failure;
+  `reportAfterRegistry` analyzes only the recorded failed field.
+  `Syntax.lean` supplies the elaboration callbacks and erases branch charges.
+  `Complexity/Frontend.lean` proves erasure and local driver bounds;
+  `Complexity/Certification.lean` supplies source-linked native operands and
+  composes the compiler, assertion, registry, and failure-analysis stages;
+- `Certificate/Execution.lean`: runs each proof source's native requests under
+  its resource options, then inserts the returned proofs into the source;
 - `Syntax.lean`: command elaboration, declaration emission, certificate checks,
   and diagnostic storage.
 
@@ -227,6 +257,10 @@ Compiler code is divided among:
 - `Compiler.lean`;
 - `Compiler/AST.lean`;
 - `Compiler/Fields.lean`;
+- `Compiler/DerivedFacts.lean`, which renders resolved derived assertions as
+  Lean propositions and proves text preservation and construction-cost bounds;
+- `Compiler/ProductFamilies.lean`, which converts resolved family records into
+  finite witnesses and proves the counted converter's value and cost bounds;
 - `Compiler/VerifiedModel.lean`, which supplies the equality proof required to
   select dense native lookup for compiled facts.
 
@@ -293,15 +327,19 @@ checkAxNCosted : FiniteModel4 -> Costed Bool
 The production checker is the `value` projection of the counted checker. Each
 counted definition follows Lean's actual short-circuit order and has separate
 value-correspondence and operational-bound theorems. The fixed aggregate is an
-ordered registry of 116 delayed counted computations, rather than a parallel
-syntactic envelope.
+ordered registry of 116 delayed counted computations.
+
+Projection lookup returns its value and cost together through `TableLookups`.
+The proved native replacement performs one dense lookup. Kernel reduction uses
+the compact value definition, whose equality to the dense value is proved.
+The attached counter measures the dense lookup, not sparse kernel reduction.
 
 Semantic certification follows one explicit computation path:
 
 ```text
 finite model
   -> explicit Boolean computation (`checkAxN`)
-  -> `native_decide` evaluates the concrete Boolean result
+  -> the executor's `nativeEqTrue` call proves the requested Boolean result
   -> reusable soundness theorem turns `true` into the semantic axiom proof
 ```
 
@@ -309,11 +347,13 @@ This structure separates model failure from proof-search failure. The Boolean
 checker decides each finite condition. Lean then applies a reusable soundness
 theorem instead of searching a large unfolded proposition for each model.
 
-For example, a generated certificate field has the form:
+For an ordinary checker-backed field, the generated semantic proof uses the
+stored Boolean theorem. This schematic example abbreviates field-specific
+signature projections and prerequisites:
 
 ```lean
-theorem Model.certified_axN : ax_aN Model.sig... :=
-  checkAxN_sound Model.data (by native_decide)
+theorem Model.certified_axN : ax_aN Model.sig :=
+  checkAxN_sound Model.data Model.checked_axN
 ```
 
 The Boolean function `checkAxN` is ordinary Lean code that scans the compiled
@@ -321,9 +361,8 @@ finite tables: worlds, things, instantiation, specialization, classifications,
 relations, membership, tuple projections, distances, and product-family
 witnesses. The reusable theorem `checkAxN_sound` is proved once in
 `Checker/Soundness.lean`; each concrete model only has to evaluate the Boolean
-checker. This makes the semantic certification algorithm explicit and
-predictable, and it is what enables the operational bounds in
-`Complexity/Theorems.lean`.
+checker. `Complexity/Theorems.lean` bounds that computation, and
+`Complexity/Certification.lean` composes the scheduled attempts.
 
 ```mermaid
 flowchart TD
@@ -394,18 +433,25 @@ Model.certified_ax108 : ax_a108 Model.sig
 Model.certified : UFOAxioms4 Model.sig
 ```
 
-The per-axiom theorem calls the corresponding checker soundness theorem and
-uses `native_decide` to evaluate the concrete generated model:
-
-```lean
-exact LeanUfo.UFO.DSL.Checker.checkAxN_sound data (by native_decide)
-```
-
-The command also emits a stored Boolean check theorem per field:
+The command first emits a Boolean check theorem for each field. For a fresh
+proof, the executor evaluates the generated Boolean request through Lean's
+`nativeEqTrue` API and inserts the returned proof:
 
 ```lean
 Model.checked_axN : checkAxN Model.data = true
 ```
+
+The semantic certificate then uses this stored result through the checker
+soundness bridge. It does not normally evaluate the same check again.
+Axioms 73, 78, and 79 also need prerequisite results. Their generated proofs
+reuse the checked theorems already available in registry order. Axiom 73
+still evaluates check 75, and axiom 78 evaluates check 79, because those
+fields come later. Axiom 79 needs no further evaluation for its semantic
+proof. A trial proof and a final declaration each run their remaining calls.
+
+Counterexample probes reuse preceding fields' checked theorems too. They
+evaluate the failed field as false instead of assuming its checked theorem
+exists. A failed trial can prevent that declaration from being created.
 
 These `checked_axN` declarations are the reusable certificate atoms. The public
 semantic theorem names stay unchanged (`certified_axN`, `certified`,
@@ -440,9 +486,43 @@ tables, tuple projections, and product-family witnesses. Representative fields:
 - `ax68`: unchanged `Moment` and `InheresIn` footprint;
 - `ax101`: unchanged `Quale` and `Distance` footprint.
 
-The registry is explicit. A row is a reuse plan, not proof
-evidence. The command generator first asks the registry whether reuse looks
-possible, then emits a child `checked_axN` theorem that proves by computation:
+The planner first checks fresh mode, then source equality, then the selected
+table footprint if the sources differ. Production erases the counted planner.
+Array comparisons stop at a length mismatch or the first unequal item; family
+comparisons include both slot arrays. `Complexity/Reuse.lean` proves value
+equivalence and size bounds under the compiler's abstract string/map interface.
+Its source-linked bound uses the actual parent compiler output. The compiler
+proofs bound each stored row array by expanded facts and preserve family slots.
+The [complexity guide](complexity.md) states the parameters and limits.
+
+The shared checked-attempt driver runs this planner once before the initial
+proof trial. Both that trial and its declaration receive the same selected
+parent. A failed reuse attempt can trigger fresh proofs, but not another
+planner run. The outer axiom-68 precheck can skip this whole driver on failure.
+The counted driver includes planning; it does not receive an uncharged parent
+selection from outside its cost boundary.
+
+The generator represents registered native decisions as typed requests inside
+`CertificateChecking.ProofScript`. Each request supplies its own annotated
+proof term, so its field and expected answer also determine the generated goal.
+Trial and declaration entry points use the same script in separate attempts.
+The executor runs the ordered requests before Lean elaborates the remaining
+proof text. A native preparation error stops later requests and is captured
+by the frontend's existing failure handling. Resource options apply during
+preparation as well as proof elaboration. The loop has erasure and cost proofs,
+used by `Complexity/Certification.lean` for the workflow composition. The emitter
+and proof-engine work remain outside that algorithmic bound.
+
+Each generated decision compares Boolean results through `resultsAgree`, the
+counted comparison's erasure. Expected-answer requests compare the child result
+with a literal; agreement requests compare child and parent results.
+`Complexity/Frontend.lean` composes their counted operands with this comparison.
+It also connects reconstruction to the checker on the returned model. Field
+names are resolved by the emitter, not by a new runtime dispatch table. Costs
+remain outside generated proof goals to keep kernel reduction compact.
+
+A registry row is a reuse plan, not proof evidence. Once the planner selects a
+parent, the generator emits a child `checked_axN` theorem that proves by computation:
 
 ```lean
 checkAxN Child.data = checkAxN Parent.data

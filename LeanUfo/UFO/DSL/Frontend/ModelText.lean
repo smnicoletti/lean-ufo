@@ -20,6 +20,35 @@ open Lean
 
 namespace LeanUfo.UFO.DSL
 
+/-- Convert stored source strings into single-component Lean names in order.
+This is name construction, not parsing: a dot remains part of one component.
+The output initialization costs one. Each entry costs an iteration, an array
+read, a `Name.mkSimple` construction, and an output write. String-character
+work and allocation are outside the unit-cost model. -/
+@[inline] def namesFromStringsCosted (xs : Array String) : Complexity.Costed (Array Name) :=
+  Complexity.Costed.charge 1 <|
+    Complexity.Costed.foldArray xs #[] fun out name =>
+      Complexity.Costed.tick (out.push (Name.mkSimple name)) 2
+
+@[simp] theorem namesFromStringsCosted_value (xs : Array String) :
+    (namesFromStringsCosted xs).value = xs.map Name.mkSimple := by
+  simp only [namesFromStringsCosted, Complexity.Costed.charge_value,
+    Complexity.Costed.foldArray_value, Complexity.Costed.tick_value]
+  simp
+
+@[simp] theorem namesFromStringsCosted_cost (xs : Array String) :
+    (namesFromStringsCosted xs).cost = 4 * xs.size + 1 := by
+  have count := Complexity.Costed.foldArray_cost_eq xs (#[] : Array Name)
+    (fun out name => Complexity.Costed.tick (out.push (Name.mkSimple name)) 2)
+    2 (by intros; rfl)
+  simp only [namesFromStringsCosted, Complexity.Costed.charge_cost]
+  omega
+
+/-- Production erasure of the counted conversion, shared by fresh models,
+extension parsing, and certification of an imported model source. -/
+@[inline] def namesFromStrings (xs : Array String) : Array Name :=
+  (namesFromStringsCosted xs).value
+
 def derivedUnaryField? (p : Name) : Option String :=
   match p.toString with
   | "Quality" => some "Quality"
@@ -577,7 +606,7 @@ def derivedPropSummaryPairs
     let mut out := #[]
     for i in [:namedFacts.size] do
       match namedFacts[i]?, scopedFacts[i]? with
-      | some (.derived named scope), some (.derived propAtWorld resolvedScope) =>
+      | some (.derived named scope), some (.derived assertion resolvedScope) =>
           let worldIdxs : Array Nat :=
             match resolvedScope with
             | .at w => #[w]
@@ -586,7 +615,7 @@ def derivedPropSummaryPairs
           for j in [:worldIdxs.size] do
             let w := worldIdxs[j]!
             let worldLabel := worldLabels[j]?.getD (indexedName worldNames w)
-            out := out.push (propAtWorld w, s!"[{worldLabel}] [derived assertion] {namedDerivedFactSummary named}")
+            out := out.push (renderDerivedFact assertion w, s!"[{worldLabel}] [derived assertion] {namedDerivedFactSummary named}")
       | _, _ => pure ()
     pure out
 

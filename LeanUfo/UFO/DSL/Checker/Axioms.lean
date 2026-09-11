@@ -37,11 +37,17 @@ def iffB (p q : Bool) : Bool :=
   (p && q) || (!p && !q)
 
 /-!
-The two helpers below are the counted executable cores for the common unary
-table implications in the UFO registry.  They make table accesses and Lean's
-left-to-right short circuit explicit.  Following Niu et al. (POPL 2022) and
-Haslbeck (2018), the cost is composed at the operation that computes the value;
-it is not attached afterwards as an envelope.
+The two helpers below count unary table implications and disjointness checks.
+Each executed lookup costs eight operations: coordinate/width arithmetic,
+field selection, flat indexing, a checked read, and its default-result test.
+`Complexity/Queries.lean` proves full value/cost equality to loops over the
+compiler's counted unary evaluator for the actual cached model. The right
+lookup remains delayed, so a false premise skips it.
+
+The fixed charge summarizes that proved block computation, following the
+compositional time-bound method of Haslbeck (2018). It does not bound arbitrary
+hand-written Boolean function bodies. The compiler correspondence is required
+for the concrete implementation claim.
 -/
 
 def checkUnaryTableImplicationCosted (M : FiniteModel4)
@@ -50,8 +56,8 @@ def checkUnaryTableImplicationCosted (M : FiniteModel4)
   allThingsEvalCosted M fun x =>
     allWorldsEvalCosted M fun w =>
       Complexity.Costed.implies
-        (Complexity.Costed.tick (left x w) 1) fun _ =>
-        Complexity.Costed.tick (right x w) 1
+        (Complexity.Costed.tick (left x w) 8) fun _ =>
+        Complexity.Costed.tick (right x w) 8
 
 def checkUnaryTableDisjointCosted (M : FiniteModel4)
     (left right : Fin M.thingCount → Fin M.worldCount → Bool) :
@@ -59,8 +65,8 @@ def checkUnaryTableDisjointCosted (M : FiniteModel4)
   allThingsEvalCosted M fun x =>
     allWorldsEvalCosted M fun w =>
       Complexity.Costed.implies
-        (Complexity.Costed.tick (left x w) 1) fun _ =>
-        (Complexity.Costed.tick (right x w) 1).not
+        (Complexity.Costed.tick (left x w) 8) fun _ =>
+        (Complexity.Costed.tick (right x w) 8).not
 
 theorem checkUnaryTableImplicationCosted_value (M : FiniteModel4)
     (left right : Fin M.thingCount → Fin M.worldCount → Bool) :
@@ -87,11 +93,11 @@ theorem checkUnaryTableDisjointCosted_value (M : FiniteModel4)
 theorem checkUnaryTableImplicationCosted_cost_le (M : FiniteModel4)
     (left right : Fin M.thingCount → Fin M.worldCount → Bool) :
     (checkUnaryTableImplicationCosted M left right).cost ≤
-      M.thingCount * (M.worldCount * 6 + 2) := by
+      M.thingCount * (M.worldCount * 20 + 2) := by
   unfold checkUnaryTableImplicationCosted
-  apply allThingsEvalCosted_cost_le M _ (M.worldCount * 6)
+  apply allThingsEvalCosted_cost_le M _ (M.worldCount * 20)
   intro x
-  apply allWorldsEvalCosted_cost_le M _ 4
+  apply allWorldsEvalCosted_cost_le M _ 18
   intro w
   cases h : left x w <;>
     simp [Complexity.Costed.implies, Complexity.Costed.orElse,
@@ -100,29 +106,32 @@ theorem checkUnaryTableImplicationCosted_cost_le (M : FiniteModel4)
 theorem checkUnaryTableDisjointCosted_cost_le (M : FiniteModel4)
     (left right : Fin M.thingCount → Fin M.worldCount → Bool) :
     (checkUnaryTableDisjointCosted M left right).cost ≤
-      M.thingCount * (M.worldCount * 7 + 2) := by
+      M.thingCount * (M.worldCount * 21 + 2) := by
   unfold checkUnaryTableDisjointCosted
-  apply allThingsEvalCosted_cost_le M _ (M.worldCount * 7)
+  apply allThingsEvalCosted_cost_le M _ (M.worldCount * 21)
   intro x
-  apply allWorldsEvalCosted_cost_le M _ 5
+  apply allWorldsEvalCosted_cost_le M _ 19
   intro w
   cases h : left x w <;>
     simp [Complexity.Costed.implies, Complexity.Costed.orElse,
       Complexity.Costed.not]
 
 /--
-Operational evaluation of the derived `Type` predicate.  The apparently unused
-current-world argument is retained because it is part of the semantic checker
-interface; the executable definition scans every explicit world and thing and
-charges each `inst` table access.  Keeping this as the production core follows
-the verified-interpreter discipline illustrated by RadixExperiment, while the
-cost composition follows Niu et al.; these are separate methodological roles.
+The derived `Type` predicate searches for an instance, visiting worlds first
+and then things. A first witness ends both searches. The current-world argument
+belongs to the semantic interface but does not restrict this global search.
+Each visited `inst` query charges eleven operations. `Complexity/Queries.lean`
+proves equality of the whole computation with counted table reads on the
+verified compiler model. Each caller pays for every scan it actually executes.
+
+The local implementation proof follows RadixExperiment's verified-interpreter
+organization. Cost composition follows Niu et al.'s cost-aware semantics.
 -/
 def typeBCosted (M : FiniteModel4) (x : Fin M.thingCount)
     (_w : Fin M.worldCount) : Complexity.Costed Bool :=
   anyWorldsEvalCosted M fun v =>
     anyThingsEvalCosted M fun y =>
-      Complexity.Costed.tick (M.inst y x v) 1
+      Complexity.Costed.tick (M.inst y x v) 11
 
 def typeB (M : FiniteModel4) (x : Fin M.thingCount) (w : Fin M.worldCount) : Bool :=
   (typeBCosted M x w).value
@@ -134,17 +143,17 @@ theorem typeB_eq_legacy (M : FiniteModel4) (x : Fin M.thingCount)
     (w : Fin M.worldCount) :
     typeB M x w = anyWorlds M (fun v => anyThings M (fun y => M.inst y x v)) := by
   unfold typeB typeBCosted
-  rw [anyWorldsEvalCosted_value]
-  congr 1
+  simp only [anyWorldsEvalCosted_value, anyThingsEvalCosted_value,
+    Complexity.Costed.tick_value]
 
 theorem typeBCosted_cost_le (M : FiniteModel4) (x : Fin M.thingCount)
     (w : Fin M.worldCount) :
     (typeBCosted M x w).cost ≤
-      M.worldCount * (M.thingCount * 3 + 2) := by
+      M.worldCount * (M.thingCount * 13 + 2) := by
   unfold typeBCosted
-  apply anyWorldsEvalCosted_cost_le M _ (M.thingCount * 3)
+  apply anyWorldsEvalCosted_cost_le M _ (M.thingCount * 13)
   intro v
-  apply anyThingsEvalCosted_cost_le M _ 1
+  apply anyThingsEvalCosted_cost_le M _ 11
   intro y
   simp
 
@@ -170,18 +179,33 @@ theorem individualB_eq_legacy (M : FiniteModel4) (x : Fin M.thingCount)
 theorem individualBCosted_cost_le (M : FiniteModel4) (x : Fin M.thingCount)
     (w : Fin M.worldCount) :
     (individualBCosted M x w).cost ≤
-      M.worldCount * (M.thingCount * 3 + 2) + 1 := by
+      M.worldCount * (M.thingCount * 13 + 2) + 1 := by
   unfold individualBCosted
   simp only [Complexity.Costed.not_cost]
   exact Nat.add_le_add_right (typeBCosted_cost_le M x w) 1
 
+/-- Every instance of x must also instantiate y, across all worlds. The second
+query runs only after a true first query. Both are eleven-operation binary
+reads on the verified model, giving at most 26 per visited thing with loop
+overhead. -/
 def instSubsumptionCosted
     (M : FiniteModel4) (x y : Fin M.thingCount) : Complexity.Costed Bool :=
   allWorldsEvalCosted M fun w =>
     allThingsEvalCosted M fun z =>
       Complexity.Costed.implies
-        (Complexity.Costed.tick (M.inst z x w) 1) fun _ =>
-        Complexity.Costed.tick (M.inst z y w) 1
+        (Complexity.Costed.tick (M.inst z x w) 11) fun _ =>
+        Complexity.Costed.tick (M.inst z y w) 11
+
+theorem instSubsumptionCosted_value (M : FiniteModel4)
+    (t k : Fin M.thingCount) :
+    (instSubsumptionCosted M t k).value = allWorlds M (fun v =>
+      allThings M (fun x => impliesB (M.inst x t v) (M.inst x k v))) := by
+  unfold instSubsumptionCosted
+  rw [allWorldsEvalCosted_value]
+  congr 1
+  funext v
+  rw [allThingsEvalCosted_value]
+  simp [Complexity.Costed.implies_value, impliesB]
 
 theorem instSubsumptionCosted_value_eq_decide
     (M : FiniteModel4) (x y : Fin M.thingCount) :
@@ -200,11 +224,11 @@ theorem instSubsumptionCosted_value_eq_decide
 theorem instSubsumptionCosted_cost_le
     (M : FiniteModel4) (x y : Fin M.thingCount) :
     (instSubsumptionCosted M x y).cost ≤
-      M.worldCount * (M.thingCount * 6 + 2) := by
+      M.worldCount * (M.thingCount * 26 + 2) := by
   unfold instSubsumptionCosted
-  apply allWorldsEvalCosted_cost_le M _ (M.thingCount * 6)
+  apply allWorldsEvalCosted_cost_le M _ (M.thingCount * 26)
   intro w
-  apply allThingsEvalCosted_cost_le M _ 4
+  apply allThingsEvalCosted_cost_le M _ 24
   intro z
   cases h : M.inst z x w <;>
     simp [Complexity.Costed.implies, Complexity.Costed.orElse,
@@ -238,10 +262,10 @@ theorem subDefB_eq_legacy
 theorem subDefBCosted_cost_le
     (M : FiniteModel4) (x y : Fin M.thingCount) (w : Fin M.worldCount) :
     (subDefBCosted M x y w).cost ≤
-      2 * (M.worldCount * (M.thingCount * 3 + 2)) +
-        M.worldCount * (M.thingCount * 6 + 2) + 2 := by
-  let q := M.worldCount * (M.thingCount * 3 + 2)
-  let s := M.worldCount * (M.thingCount * 6 + 2)
+      2 * (M.worldCount * (M.thingCount * 13 + 2)) +
+        M.worldCount * (M.thingCount * 26 + 2) + 2 := by
+  let q := M.worldCount * (M.thingCount * 13 + 2)
+  let s := M.worldCount * (M.thingCount * 26 + 2)
   have hx := typeBCosted_cost_le M x w
   have hy := typeBCosted_cost_le M y w
   have hs := instSubsumptionCosted_cost_le M x y
@@ -333,7 +357,7 @@ def reachableInheresInB
     (M : FiniteModel4) (m b : Fin M.thingCount) (w : Fin M.worldCount) : Bool :=
   reachableInheresInVia M (List.finRange M.thingCount) m b w
 
-/-- The generic closure specification is exactly the legacy checker recurrence. -/
+/-- The generic closure specification equals the checker's reachability recurrence. -/
 theorem reachableInheresInVia_eq_reachableVia
     (M : FiniteModel4) (pivots : List (Fin M.thingCount))
     (m b : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -348,20 +372,38 @@ theorem reachableInheresInVia_eq_reachableVia
 def inherenceMatricesCosted (M : FiniteModel4) :
     Complexity.Costed
       (Vector (Complexity.BoolMatrix M.thingCount) M.worldCount) :=
-  ⟨Vector.ofFn fun w =>
-      Complexity.warshallMatrix M.thingCount (fun x y => M.inheresIn x y w),
-    M.worldCount * (7 * M.thingCount ^ 3 + 5 * M.thingCount ^ 2)⟩
+  Complexity.Costed.vectorOfFn fun w =>
+    Complexity.warshallMatrixEvalCosted M.thingCount
+      (fun x y => Complexity.Costed.tick (M.inheresIn x y w) 11)
 
+/-- Compact matrix specification for certificate reduction. Native execution
+uses counted world traversal through a proved function equality.
+Each executed edge callback charges the eleven-operation dense binary read.
+The compiled-model block equality connects this charge to the actual read;
+arbitrary hand-written relation functions need their own cost contract. -/
 def inherenceMatrices (M : FiniteModel4) :
     Vector (Complexity.BoolMatrix M.thingCount) M.worldCount :=
-  (inherenceMatricesCosted M).value
+  Vector.ofFn fun w => Complexity.warshallMatrix M.thingCount (fun x y => M.inheresIn x y w)
 
 @[simp] theorem inherenceMatricesCosted_value (M : FiniteModel4) :
-    (inherenceMatricesCosted M).value = inherenceMatrices M := rfl
+    (inherenceMatricesCosted M).value = inherenceMatrices M := by
+  simp [inherenceMatricesCosted, inherenceMatrices]
 
-@[simp] theorem inherenceMatricesCosted_cost (M : FiniteModel4) :
-    (inherenceMatricesCosted M).cost =
-      M.worldCount * (7 * M.thingCount ^ 3 + 5 * M.thingCount ^ 2) := rfl
+private def inherenceMatricesErased (M : FiniteModel4) := (inherenceMatricesCosted M).value
+
+@[csimp] theorem inherenceMatrices_eq_erased : @inherenceMatrices = @inherenceMatricesErased := by
+  funext M
+  exact (inherenceMatricesCosted_value M).symm
+
+/-- Each visited world contributes the executed closure cost and two vector
+construction operations. The bound covers matrix initialization and pivot
+traversal, including early exits inside each cell. -/
+theorem inherenceMatricesCosted_cost_le (M : FiniteModel4) :
+    (inherenceMatricesCosted M).cost ≤
+      M.worldCount * (10 * M.thingCount ^ 3 + 17 * M.thingCount ^ 2 + 3 * M.thingCount + 2) := by
+  apply Complexity.Costed.vectorOfFn_cost_le
+  intro w
+  exact Complexity.warshallMatrixEvalCosted_cost_le _ _ 11 (by intros; rfl)
 
 /-- Constant-time reachability lookup after per-world closure construction. -/
 def reachableInheresInWarshallB
@@ -370,12 +412,33 @@ def reachableInheresInWarshallB
     (m b : Fin M.thingCount) (w : Fin M.worldCount) : Bool :=
   Complexity.BoolMatrix.get closures[w.val] m b
 
+/-- Read the selected world, source row, and target cell. Finite coordinates
+carry their bounds as proofs, so these reads need no runtime presence tests.
+Each read contributes its own cost, as in the compositional cost semantics of
+Niu et al. (POPL 2022). The matrix's construction cost is charged separately. -/
+@[inline] def reachableInheresInWarshallCosted
+    (M : FiniteModel4)
+    (closures : Vector (Complexity.BoolMatrix M.thingCount) M.worldCount)
+    (m b : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool := do
+  let matrix ← Complexity.Costed.tick closures[w.val] 1
+  let row ← Complexity.Costed.tick matrix[m.val] 1
+  Complexity.Costed.tick row[b.val] 1
+
+@[simp] theorem reachableInheresInWarshallCosted_value (M : FiniteModel4) (closures)
+    (m b : Fin M.thingCount) (w : Fin M.worldCount) :
+    (reachableInheresInWarshallCosted M closures m b w).value =
+      reachableInheresInWarshallB M closures m b w := rfl
+
+@[simp] theorem reachableInheresInWarshallCosted_cost (M : FiniteModel4) (closures)
+    (m b : Fin M.thingCount) (w : Fin M.worldCount) :
+    (reachableInheresInWarshallCosted M closures m b w).cost = 3 := rfl
+
 theorem reachableInheresInWarshallB_eq
     (M : FiniteModel4) (m b : Fin M.thingCount) (w : Fin M.worldCount) :
     reachableInheresInWarshallB M (inherenceMatrices M) m b w =
       reachableInheresInB M m b w := by
   rw [reachableInheresInB, reachableInheresInWarshallB, inherenceMatrices]
-  simp only [inherenceMatricesCosted, Vector.getElem_ofFn]
+  simp only [Vector.getElem_ofFn]
   rw [Complexity.warshallMatrix_get]
   exact (reachableInheresInVia_eq_reachableVia
     M (List.finRange M.thingCount) m b w).symm
@@ -386,93 +449,103 @@ def ultimateBearerOfWarshallB
     (b m : Fin M.thingCount) (w : Fin M.worldCount) : Bool :=
   !(M.moment b w) && reachableInheresInWarshallB M closures m b w
 
-def ultimateBearerOfWarshallCosted
-    (M : FiniteModel4)
-    (closures : Vector (Complexity.BoolMatrix M.thingCount) M.worldCount)
+/-- Counted reachability queries separate bearer logic from matrix storage.
+The query's value determines the answer; its cost is accumulated only if called.
+This permits direct reuse of flat compiler caches without copying their cells. -/
+abbrev ReachabilityQuery (M : FiniteModel4) :=
+  Fin M.thingCount → Fin M.thingCount → Fin M.worldCount → Complexity.Costed Bool
+
+def ultimateBearerOfCosted (M : FiniteModel4) (reachable : ReachabilityQuery M)
     (b m : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
   Complexity.Costed.andThen
-    (Complexity.Costed.not (Complexity.Costed.tick (M.moment b w) 1)) fun _ =>
-    Complexity.Costed.tick (reachableInheresInWarshallB M closures m b w) 1
+    (Complexity.Costed.not (Complexity.Costed.tick (M.moment b w) 8)) fun _ =>
+    reachable m b w
 
-theorem ultimateBearerOfWarshallCosted_value (M : FiniteModel4) (closures)
+theorem ultimateBearerOfCosted_value (M : FiniteModel4) (reachable : ReachabilityQuery M)
     (b m : Fin M.thingCount) (w : Fin M.worldCount) :
-    (ultimateBearerOfWarshallCosted M closures b m w).value =
-      ultimateBearerOfWarshallB M closures b m w := by
-  simp [ultimateBearerOfWarshallCosted, ultimateBearerOfWarshallB,
-    Complexity.Costed.andThen_value]
+    (ultimateBearerOfCosted M reachable b m w).value =
+      (!(M.moment b w) && (reachable m b w).value) := by
+  simp [ultimateBearerOfCosted, Complexity.Costed.andThen_value]
 
-theorem ultimateBearerOfWarshallCosted_cost_le (M : FiniteModel4) (closures)
+/-- A moment cannot be an ultimate bearer. That branch skips the reachability
+query and its cost. Eight unary-read operations, a negation, and the branch
+cost ten. Compiled-model correspondence proves the unary-read charge. -/
+theorem ultimateBearerOfCosted_cost (M : FiniteModel4) (reachable : ReachabilityQuery M)
     (b m : Fin M.thingCount) (w : Fin M.worldCount) :
-    (ultimateBearerOfWarshallCosted M closures b m w).cost ≤ 4 := by
+    (ultimateBearerOfCosted M reachable b m w).cost =
+      if M.moment b w then 10 else 10 + (reachable m b w).cost := by
   cases h : M.moment b w <;>
-    simp [ultimateBearerOfWarshallCosted, Complexity.Costed.andThen, h,
-      Complexity.Costed.not]
+    simp [ultimateBearerOfCosted, Complexity.Costed.andThen, h, Complexity.Costed.not]
 
-def ultimateBearerUniqueForCosted
-    (M : FiniteModel4)
-    (closures : Vector (Complexity.BoolMatrix M.thingCount) M.worldCount)
+theorem ultimateBearerOfCosted_cost_le (M : FiniteModel4) (reachable : ReachabilityQuery M)
+    (queryBound : Nat) (bound : ∀ m b w, (reachable m b w).cost ≤ queryBound)
+    (b m : Fin M.thingCount) (w : Fin M.worldCount) :
+    (ultimateBearerOfCosted M reachable b m w).cost ≤ queryBound + 10 := by
+  rw [ultimateBearerOfCosted_cost]
+  have h := bound m b w
+  split <;> omega
+
+def ultimateBearerUniqueForCosted (M : FiniteModel4) (reachable : ReachabilityQuery M)
     (b m : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun b' =>
-    Complexity.Costed.implies
-      (ultimateBearerOfWarshallCosted M closures b' m w) fun _ =>
+    Complexity.Costed.implies (ultimateBearerOfCosted M reachable b' m w) fun _ =>
       Complexity.Costed.tick (decide (b' = b)) 1
 
-theorem ultimateBearerUniqueForCosted_value (M : FiniteModel4) (closures)
+theorem ultimateBearerUniqueForCosted_value (M : FiniteModel4) (reachable : ReachabilityQuery M)
     (b m : Fin M.thingCount) (w : Fin M.worldCount) :
-    (ultimateBearerUniqueForCosted M closures b m w).value =
+    (ultimateBearerUniqueForCosted M reachable b m w).value =
       allThings M (fun b' => impliesB
-        (ultimateBearerOfWarshallB M closures b' m w) (decide (b' = b))) := by
+        (!(M.moment b' w) && (reachable m b' w).value) (decide (b' = b))) := by
   unfold ultimateBearerUniqueForCosted
   rw [allThingsEvalCosted_value]
-  simp [Complexity.Costed.implies_value, ultimateBearerOfWarshallCosted_value,
-    impliesB]
+  simp [Complexity.Costed.implies_value, ultimateBearerOfCosted_value, impliesB]
 
-theorem ultimateBearerUniqueForCosted_cost_le (M : FiniteModel4) (closures)
+theorem ultimateBearerUniqueForCosted_cost_le (M : FiniteModel4) (reachable : ReachabilityQuery M)
+    (queryBound : Nat) (bound : ∀ m b w, (reachable m b w).cost ≤ queryBound)
     (b m : Fin M.thingCount) (w : Fin M.worldCount) :
-    (ultimateBearerUniqueForCosted M closures b m w).cost ≤ M.thingCount * 9 := by
+    (ultimateBearerUniqueForCosted M reachable b m w).cost ≤ M.thingCount * (queryBound + 15) := by
   unfold ultimateBearerUniqueForCosted
-  apply allThingsEvalCosted_cost_le M _ 7
+  apply allThingsEvalCosted_cost_le M _ (queryBound + 13)
   intro b'
-  have hb := ultimateBearerOfWarshallCosted_cost_le M closures b' m w
-  cases h : (ultimateBearerOfWarshallCosted M closures b' m w).value <;>
-    simp [Complexity.Costed.implies, Complexity.Costed.orElse,
-      Complexity.Costed.not, h] <;> omega
+  have hb := ultimateBearerOfCosted_cost_le M reachable queryBound bound b' m w
+  cases h : (ultimateBearerOfCosted M reachable b' m w).value <;>
+    simp [Complexity.Costed.implies, Complexity.Costed.orElse, Complexity.Costed.not, h] <;> omega
 
-def ultimateBearerWitnessCosted
-    (M : FiniteModel4)
-    (closures : Vector (Complexity.BoolMatrix M.thingCount) M.worldCount)
+def ultimateBearerWitnessCosted (M : FiniteModel4) (reachable : ReachabilityQuery M)
     (b m : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
-  Complexity.Costed.andThen (ultimateBearerOfWarshallCosted M closures b m w) fun _ =>
-    ultimateBearerUniqueForCosted M closures b m w
+  Complexity.Costed.andThen (ultimateBearerOfCosted M reachable b m w) fun _ =>
+    ultimateBearerUniqueForCosted M reachable b m w
 
-theorem ultimateBearerWitnessCosted_value (M : FiniteModel4) (closures)
+theorem ultimateBearerWitnessCosted_value (M : FiniteModel4) (reachable : ReachabilityQuery M)
     (b m : Fin M.thingCount) (w : Fin M.worldCount) :
-    (ultimateBearerWitnessCosted M closures b m w).value =
-      (ultimateBearerOfWarshallB M closures b m w &&
+    (ultimateBearerWitnessCosted M reachable b m w).value =
+      ((!(M.moment b w) && (reachable m b w).value) &&
         allThings M (fun b' => impliesB
-          (ultimateBearerOfWarshallB M closures b' m w) (decide (b' = b)))) := by
+          (!(M.moment b' w) && (reachable m b' w).value) (decide (b' = b)))) := by
   simp [ultimateBearerWitnessCosted, Complexity.Costed.andThen_value,
-    ultimateBearerOfWarshallCosted_value, ultimateBearerUniqueForCosted_value]
+    ultimateBearerOfCosted_value, ultimateBearerUniqueForCosted_value]
 
-theorem ultimateBearerWitnessCosted_cost_le (M : FiniteModel4) (closures)
+theorem ultimateBearerWitnessCosted_cost_le (M : FiniteModel4) (reachable : ReachabilityQuery M)
+    (queryBound : Nat) (bound : ∀ m b w, (reachable m b w).cost ≤ queryBound)
     (b m : Fin M.thingCount) (w : Fin M.worldCount) :
-    (ultimateBearerWitnessCosted M closures b m w).cost ≤ M.thingCount * 9 + 5 := by
-  have hb := ultimateBearerOfWarshallCosted_cost_le M closures b m w
-  have hu := ultimateBearerUniqueForCosted_cost_le M closures b m w
-  cases h : (ultimateBearerOfWarshallCosted M closures b m w).value <;>
+    (ultimateBearerWitnessCosted M reachable b m w).cost ≤
+      M.thingCount * (queryBound + 15) + queryBound + 11 := by
+  have hb := ultimateBearerOfCosted_cost_le M reachable queryBound bound b m w
+  have hu := ultimateBearerUniqueForCosted_cost_le M reachable queryBound bound b m w
+  cases h : (ultimateBearerOfCosted M reachable b m w).value <;>
     simp [ultimateBearerWitnessCosted, Complexity.Costed.andThen, h] <;> omega
 
-def existsUniqueUltimateBearerWarshallCosted
-    (M : FiniteModel4)
-    (closures : Vector (Complexity.BoolMatrix M.thingCount) M.worldCount)
+def existsUniqueUltimateBearerCosted (M : FiniteModel4) (reachable : ReachabilityQuery M)
     (m : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
-  anyThingsEvalCosted M fun b => ultimateBearerWitnessCosted M closures b m w
+  anyThingsEvalCosted M fun b => ultimateBearerWitnessCosted M reachable b m w
 
+/-- The compact matrix-based specification remains available to certificate
+proofs. Its executable search is the same bearer algorithm with a nested query. -/
 def existsUniqueUltimateBearerWarshallB
     (M : FiniteModel4)
     (closures : Vector (Complexity.BoolMatrix M.thingCount) M.worldCount)
     (m : Fin M.thingCount) (w : Fin M.worldCount) : Bool :=
-  (existsUniqueUltimateBearerWarshallCosted M closures m w).value
+  (existsUniqueUltimateBearerCosted M (reachableInheresInWarshallCosted M closures) m w).value
 
 theorem existsUniqueUltimateBearerWarshallB_eq_legacy (M : FiniteModel4) (closures)
     (m : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -482,22 +555,24 @@ theorem existsUniqueUltimateBearerWarshallB_eq_legacy (M : FiniteModel4) (closur
           ∀ b' : Fin M.thingCount,
             ultimateBearerOfWarshallB M closures b' m w = true → b' = b) := by
   apply Bool.eq_iff_iff.mpr
-  unfold existsUniqueUltimateBearerWarshallB existsUniqueUltimateBearerWarshallCosted
+  unfold existsUniqueUltimateBearerWarshallB existsUniqueUltimateBearerCosted
   rw [anyThingsEvalCosted_value, anyThings_eq_true_iff, decide_eq_true_iff]
-  simp [ultimateBearerWitnessCosted_value, allThings_eq_true_iff, impliesB]
+  simp [ultimateBearerWitnessCosted_value, allThings_eq_true_iff, impliesB,
+    ultimateBearerOfWarshallB]
   grind
 
-def ultimateBearerUniquenessBound (M : FiniteModel4) : Nat :=
-  M.thingCount * (M.thingCount * 9 + 7)
+def ultimateBearerUniquenessBound (M : FiniteModel4) (queryBound : Nat) : Nat :=
+  M.thingCount * (M.thingCount * (queryBound + 15) + queryBound + 13)
 
-theorem existsUniqueUltimateBearerWarshallCosted_cost_le (M : FiniteModel4) (closures)
+theorem existsUniqueUltimateBearerCosted_cost_le (M : FiniteModel4) (reachable : ReachabilityQuery M)
+    (queryBound : Nat) (bound : ∀ m b w, (reachable m b w).cost ≤ queryBound)
     (m : Fin M.thingCount) (w : Fin M.worldCount) :
-    (existsUniqueUltimateBearerWarshallCosted M closures m w).cost ≤
-      ultimateBearerUniquenessBound M := by
-  unfold existsUniqueUltimateBearerWarshallCosted ultimateBearerUniquenessBound
-  apply anyThingsEvalCosted_cost_le M _ (M.thingCount * 9 + 5)
+    (existsUniqueUltimateBearerCosted M reachable m w).cost ≤
+      ultimateBearerUniquenessBound M queryBound := by
+  unfold existsUniqueUltimateBearerCosted ultimateBearerUniquenessBound
+  apply anyThingsEvalCosted_cost_le M _ (M.thingCount * (queryBound + 15) + queryBound + 11)
   intro b
-  exact ultimateBearerWitnessCosted_cost_le M closures b m w
+  exact ultimateBearerWitnessCosted_cost_le M reachable queryBound bound b m w
 
 def ultimateBearerOfB
     (M : FiniteModel4) (b m : Fin M.thingCount) (w : Fin M.worldCount) : Bool :=
@@ -548,7 +623,9 @@ theorem checkAx68Warshall_eq (M : FiniteModel4) :
 def checkAx1Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x =>
     allWorldsEvalCosted M fun w =>
-      Complexity.Costed.iff (typeBCosted M x w) fun _ => typeBCosted M x w
+      Complexity.Costed.bind (typeBCosted M x w) fun answer =>
+        Complexity.Costed.iff (Complexity.Costed.pure answer) fun _ =>
+          Complexity.Costed.pure answer
 
 def checkAx1 (M : FiniteModel4) : Bool :=
   (checkAx1Costed M).value
@@ -562,52 +639,53 @@ theorem checkAx1_eq_legacy (M : FiniteModel4) :
   congr 1
   funext x
   rw [allWorldsEvalCosted_value]
-  simp only [Complexity.Costed.iff_value, typeBCosted_value]
+  simp only [Complexity.Costed.bind_value, Complexity.Costed.pure_value, Complexity.Costed.iff_value, typeBCosted_value]
   simp [typeB_eq_legacy, iffB]
 
 /--
-The two syntactic sides of axiom 1 are evaluated independently.  Although
-their values coincide, the operational theorem charges both
-scans instead of simplifying the checker to `true`.
+Axiom 1 evaluates its shared type search once per visited assignment.
+The conservative bound retains slack for a second scan; the exact counter
+charges only the executed search and Boolean operations.
 -/
 theorem checkAx1Costed_cost_le (M : FiniteModel4) :
     (checkAx1Costed M).cost ≤ M.thingCount *
-      (M.worldCount * (2 * (M.worldCount * (M.thingCount * 3 + 2)) + 4) + 2) := by
+      (M.worldCount * (2 * (M.worldCount * (M.thingCount * 13 + 2)) + 4) + 2) := by
   unfold checkAx1Costed
-  let q := M.worldCount * (M.thingCount * 3 + 2)
+  let q := M.worldCount * (M.thingCount * 13 + 2)
   apply allThingsEvalCosted_cost_le M _ (M.worldCount * (2 * q + 4))
   intro x
   apply allWorldsEvalCosted_cost_le M _ (2 * q + 2)
   intro w
   have ht := typeBCosted_cost_le M x w
   cases h : typeB M x w
-  all_goals simp [Complexity.Costed.iff, h]
+  all_goals simp [Complexity.Costed.bind_cost, Complexity.Costed.iff,
+      Complexity.Costed.pure, h]
   all_goals omega
 
 def noInstancesEveryWorldCosted (M : FiniteModel4) (x : Fin M.thingCount) :
     Complexity.Costed Bool :=
   allWorldsEvalCosted M fun v =>
     (anyThingsEvalCosted M fun y =>
-      Complexity.Costed.tick (M.inst y x v) 1).not
+      Complexity.Costed.tick (M.inst y x v) 11).not
 
 theorem noInstancesEveryWorldCosted_value (M : FiniteModel4)
     (x : Fin M.thingCount) :
     (noInstancesEveryWorldCosted M x).value =
       allWorlds M (fun v => !(anyThings M (fun y => M.inst y x v))) := by
   unfold noInstancesEveryWorldCosted
-  rw [allWorldsEvalCosted_value]
-  congr 1
+  simp only [allWorldsEvalCosted_value, Complexity.Costed.not_value,
+    anyThingsEvalCosted_value, Complexity.Costed.tick_value]
 
 theorem noInstancesEveryWorldCosted_cost_le (M : FiniteModel4)
     (x : Fin M.thingCount) :
     (noInstancesEveryWorldCosted M x).cost ≤
-      M.worldCount * (M.thingCount * 3 + 3) := by
+      M.worldCount * (M.thingCount * 13 + 3) := by
   unfold noInstancesEveryWorldCosted
-  apply allWorldsEvalCosted_cost_le M _ (M.thingCount * 3 + 1)
+  apply allWorldsEvalCosted_cost_le M _ (M.thingCount * 13 + 1)
   intro v
   simp only [Complexity.Costed.not_cost]
   have h := anyThingsEvalCosted_cost_le M
-    (fun y => Complexity.Costed.tick (M.inst y x v) 1) 1 (by intro y; simp)
+    (fun y => Complexity.Costed.tick (M.inst y x v) 11) 11 (by intro y; simp)
   omega
 
 def checkAx2Costed (M : FiniteModel4) : Complexity.Costed Bool :=
@@ -639,11 +717,11 @@ theorem checkAx2_eq_legacy (M : FiniteModel4) :
 theorem checkAx2Costed_cost_le (M : FiniteModel4) :
     (checkAx2Costed M).cost ≤ M.thingCount *
       (M.worldCount *
-        (M.worldCount * (M.thingCount * 3 + 2) +
-          M.worldCount * (M.thingCount * 3 + 3) + 5) + 2) := by
+        (M.worldCount * (M.thingCount * 13 + 2) +
+          M.worldCount * (M.thingCount * 13 + 3) + 5) + 2) := by
   unfold checkAx2Costed
-  let q := M.worldCount * (M.thingCount * 3 + 2)
-  let r := M.worldCount * (M.thingCount * 3 + 3)
+  let q := M.worldCount * (M.thingCount * 13 + 2)
+  let r := M.worldCount * (M.thingCount * 13 + 3)
   apply allThingsEvalCosted_cost_le M _ (M.worldCount * (q + r + 5))
   intro x
   apply allWorldsEvalCosted_cost_le M _ (q + r + 3)
@@ -677,10 +755,10 @@ theorem checkAxioms1To2_eq_true_iff (M : FiniteModel4) :
 theorem checkAxioms1To2Costed_cost_le (M : FiniteModel4) :
     (checkAxioms1To2Costed M).cost ≤ 2 *
       (M.thingCount * (M.worldCount *
-        (M.worldCount * (M.thingCount * 3 + 2) +
-          M.worldCount * (M.thingCount * 3 + 3) + 5) + 2) + 3) := by
-  let q := M.worldCount * (M.thingCount * 3 + 2)
-  let r := M.worldCount * (M.thingCount * 3 + 3)
+        (M.worldCount * (M.thingCount * 13 + 2) +
+          M.worldCount * (M.thingCount * 13 + 3) + 5) + 2) + 3) := by
+  let q := M.worldCount * (M.thingCount * 13 + 2)
+  let r := M.worldCount * (M.thingCount * 13 + 3)
   let bound := M.thingCount * (M.worldCount * (q + r + 5) + 2)
   have hqr : q ≤ r := by
     exact Nat.mul_le_mul_left M.worldCount (by omega)
@@ -704,7 +782,7 @@ def checkAx3Costed (M : FiniteModel4) : Complexity.Costed Bool :=
     allThingsEvalCosted M fun _y =>
       allWorldsEvalCosted M fun w =>
         Complexity.Costed.implies
-          (Complexity.Costed.tick (M.inst x _y w) 1) fun _ =>
+          (Complexity.Costed.tick (M.inst x _y w) 11) fun _ =>
           Complexity.Costed.orElse (typeBCosted M x w) fun _ =>
             individualBCosted M x w
 
@@ -728,15 +806,15 @@ theorem checkAx3_eq_legacy (M : FiniteModel4) :
 theorem checkAx3Costed_cost_le (M : FiniteModel4) :
     (checkAx3Costed M).cost ≤ M.thingCount *
       (M.thingCount *
-        (M.worldCount * (2 * (M.worldCount * (M.thingCount * 3 + 2)) + 7) + 2) + 2) := by
+        (M.worldCount * (2 * (M.worldCount * (M.thingCount * 13 + 2)) + 17) + 2) + 2) := by
   unfold checkAx3Costed
-  let q := M.worldCount * (M.thingCount * 3 + 2)
+  let q := M.worldCount * (M.thingCount * 13 + 2)
   apply allThingsEvalCosted_cost_le M _
-    (M.thingCount * (M.worldCount * (2 * q + 7) + 2))
+    (M.thingCount * (M.worldCount * (2 * q + 17) + 2))
   intro x
-  apply allThingsEvalCosted_cost_le M _ (M.worldCount * (2 * q + 7))
+  apply allThingsEvalCosted_cost_le M _ (M.worldCount * (2 * q + 17))
   intro y
-  apply allWorldsEvalCosted_cost_le M _ (2 * q + 5)
+  apply allWorldsEvalCosted_cost_le M _ (2 * q + 15)
   intro w
   have ht := typeBCosted_cost_le M x w
   have hi := individualBCosted_cost_le M x w
@@ -753,8 +831,8 @@ def checkAx4Costed (M : FiniteModel4) : Complexity.Costed Bool :=
         allThingsEvalCosted M fun z =>
           (Complexity.Costed.andThen (typeBCosted M x w) fun _ =>
             Complexity.Costed.andThen
-              (Complexity.Costed.tick (M.inst x y w) 1) fun _ =>
-              Complexity.Costed.tick (M.inst y z w) 1).not
+              (Complexity.Costed.tick (M.inst x y w) 11) fun _ =>
+              Complexity.Costed.tick (M.inst y z w) 11).not
 
 def checkAx4 (M : FiniteModel4) : Bool :=
   (checkAx4Costed M).value
@@ -784,18 +862,18 @@ theorem checkAx4_eq_legacy (M : FiniteModel4) :
 theorem checkAx4Costed_cost_le (M : FiniteModel4) :
     (checkAx4Costed M).cost ≤ M.worldCount *
       (M.thingCount * (M.thingCount *
-        (M.thingCount * (M.worldCount * (M.thingCount * 3 + 2) + 7) + 2) + 2) + 2) := by
+        (M.thingCount * (M.worldCount * (M.thingCount * 13 + 2) + 27) + 2) + 2) + 2) := by
   unfold checkAx4Costed
-  let q := M.worldCount * (M.thingCount * 3 + 2)
+  let q := M.worldCount * (M.thingCount * 13 + 2)
   apply allWorldsEvalCosted_cost_le M _
-    (M.thingCount * (M.thingCount * (M.thingCount * (q + 7) + 2) + 2))
+    (M.thingCount * (M.thingCount * (M.thingCount * (q + 27) + 2) + 2))
   intro w
   apply allThingsEvalCosted_cost_le M _
-    (M.thingCount * (M.thingCount * (q + 7) + 2))
+    (M.thingCount * (M.thingCount * (q + 27) + 2))
   intro x
-  apply allThingsEvalCosted_cost_le M _ (M.thingCount * (q + 7))
+  apply allThingsEvalCosted_cost_le M _ (M.thingCount * (q + 27))
   intro y
-  apply allThingsEvalCosted_cost_le M _ (q + 5)
+  apply allThingsEvalCosted_cost_le M _ (q + 25)
   intro z
   have ht := typeBCosted_cost_le M x w
   cases htype : typeB M x w
@@ -808,7 +886,7 @@ def checkAx5Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x =>
     allThingsEvalCosted M fun y =>
       allWorldsEvalCosted M fun w =>
-        Complexity.Costed.iff (Complexity.Costed.tick (M.sub x y w) 1) fun _ =>
+        Complexity.Costed.iff (Complexity.Costed.tick (M.sub x y w) 11) fun _ =>
           subDefBCosted M x y w
 
 def checkAx5 (M : FiniteModel4) : Bool :=
@@ -835,29 +913,32 @@ theorem checkAx5_eq_legacy (M : FiniteModel4) :
 theorem checkAx5Costed_cost_le (M : FiniteModel4) :
     (checkAx5Costed M).cost ≤ M.thingCount *
       (M.thingCount * (M.worldCount *
-        (2 * (M.worldCount * (M.thingCount * 3 + 2)) +
-          M.worldCount * (M.thingCount * 6 + 2) + 7) + 2) + 2) := by
+        (2 * (M.worldCount * (M.thingCount * 13 + 2)) +
+          M.worldCount * (M.thingCount * 26 + 2) + 17) + 2) + 2) := by
   unfold checkAx5Costed
-  let q := M.worldCount * (M.thingCount * 3 + 2)
-  let s := M.worldCount * (M.thingCount * 6 + 2)
+  let q := M.worldCount * (M.thingCount * 13 + 2)
+  let s := M.worldCount * (M.thingCount * 26 + 2)
   apply allThingsEvalCosted_cost_le M _
-    (M.thingCount * (M.worldCount * (2 * q + s + 7) + 2))
+    (M.thingCount * (M.worldCount * (2 * q + s + 17) + 2))
   intro x
-  apply allThingsEvalCosted_cost_le M _ (M.worldCount * (2 * q + s + 7))
+  apply allThingsEvalCosted_cost_le M _ (M.worldCount * (2 * q + s + 17))
   intro y
-  apply allWorldsEvalCosted_cost_le M _ (2 * q + s + 5)
+  apply allWorldsEvalCosted_cost_le M _ (2 * q + s + 15)
   intro w
   have hd := subDefBCosted_cost_le M x y w
   cases hs : M.sub x y w
   all_goals simp [Complexity.Costed.iff]
   all_goals omega
 
+/-- Two instantiations and two negated specializations form the premise.
+The bound 49 includes four binary reads, three conjunction tests, and two
+negations. Later reads and negations are skipped after a false conjunct. -/
 def ax6AntecedentCosted (M : FiniteModel4)
     (t1 t2 x : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
-  Complexity.Costed.andThen (Complexity.Costed.tick (M.inst x t1 w) 1) fun _ =>
-    Complexity.Costed.andThen (Complexity.Costed.tick (M.inst x t2 w) 1) fun _ =>
-      Complexity.Costed.andThen (Complexity.Costed.tick (M.sub t1 t2 w) 1).not fun _ =>
-        (Complexity.Costed.tick (M.sub t2 t1 w) 1).not
+  Complexity.Costed.andThen (Complexity.Costed.tick (M.inst x t1 w) 11) fun _ =>
+    Complexity.Costed.andThen (Complexity.Costed.tick (M.inst x t2 w) 11) fun _ =>
+      Complexity.Costed.andThen (Complexity.Costed.tick (M.sub t1 t2 w) 11).not fun _ =>
+        (Complexity.Costed.tick (M.sub t2 t1 w) 11).not
 
 theorem ax6AntecedentCosted_value (M : FiniteModel4)
     (t1 t2 x : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -870,7 +951,7 @@ theorem ax6AntecedentCosted_value (M : FiniteModel4)
 
 theorem ax6AntecedentCosted_cost_le (M : FiniteModel4)
     (t1 t2 x : Fin M.thingCount) (w : Fin M.worldCount) :
-    (ax6AntecedentCosted M t1 t2 x w).cost ≤ 9 := by
+    (ax6AntecedentCosted M t1 t2 x w).cost ≤ 49 := by
   unfold ax6AntecedentCosted
   cases h1 : M.inst x t1 w <;> cases h2 : M.inst x t2 w <;>
     cases h12 : M.sub t1 t2 w <;>
@@ -879,9 +960,9 @@ theorem ax6AntecedentCosted_cost_le (M : FiniteModel4)
 def ax6WitnessCosted (M : FiniteModel4)
     (a b x : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
   anyThingsEvalCosted M fun t3 =>
-    Complexity.Costed.andThen (Complexity.Costed.tick (M.sub a t3 w) 1) fun _ =>
-      Complexity.Costed.andThen (Complexity.Costed.tick (M.sub b t3 w) 1) fun _ =>
-        Complexity.Costed.tick (M.inst x t3 w) 1
+    Complexity.Costed.andThen (Complexity.Costed.tick (M.sub a t3 w) 11) fun _ =>
+      Complexity.Costed.andThen (Complexity.Costed.tick (M.sub b t3 w) 11) fun _ =>
+        Complexity.Costed.tick (M.inst x t3 w) 11
 
 theorem ax6WitnessCosted_value (M : FiniteModel4)
     (a b x : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -897,9 +978,9 @@ theorem ax6WitnessCosted_value (M : FiniteModel4)
 
 theorem ax6WitnessCosted_cost_le (M : FiniteModel4)
     (a b x : Fin M.thingCount) (w : Fin M.worldCount) :
-    (ax6WitnessCosted M a b x w).cost ≤ M.thingCount * 7 := by
+    (ax6WitnessCosted M a b x w).cost ≤ M.thingCount * 37 := by
   unfold ax6WitnessCosted
-  apply anyThingsEvalCosted_cost_le M _ 5
+  apply anyThingsEvalCosted_cost_le M _ 35
   intro t3
   cases h1 : M.sub a t3 w <;> cases h2 : M.sub b t3 w <;>
     simp [Complexity.Costed.andThen]
@@ -907,9 +988,9 @@ theorem ax6WitnessCosted_cost_le (M : FiniteModel4)
 def ax6LowerWitnessCosted (M : FiniteModel4)
     (a b x : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
   anyThingsEvalCosted M fun t3 =>
-    Complexity.Costed.andThen (Complexity.Costed.tick (M.sub t3 a w) 1) fun _ =>
-      Complexity.Costed.andThen (Complexity.Costed.tick (M.sub t3 b w) 1) fun _ =>
-        Complexity.Costed.tick (M.inst x t3 w) 1
+    Complexity.Costed.andThen (Complexity.Costed.tick (M.sub t3 a w) 11) fun _ =>
+      Complexity.Costed.andThen (Complexity.Costed.tick (M.sub t3 b w) 11) fun _ =>
+        Complexity.Costed.tick (M.inst x t3 w) 11
 
 theorem ax6LowerWitnessCosted_value (M : FiniteModel4)
     (a b x : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -925,9 +1006,9 @@ theorem ax6LowerWitnessCosted_value (M : FiniteModel4)
 
 theorem ax6LowerWitnessCosted_cost_le (M : FiniteModel4)
     (a b x : Fin M.thingCount) (w : Fin M.worldCount) :
-    (ax6LowerWitnessCosted M a b x w).cost ≤ M.thingCount * 7 := by
+    (ax6LowerWitnessCosted M a b x w).cost ≤ M.thingCount * 37 := by
   unfold ax6LowerWitnessCosted
-  apply anyThingsEvalCosted_cost_le M _ 5
+  apply anyThingsEvalCosted_cost_le M _ 35
   intro t3
   cases h1 : M.sub t3 a w <;> cases h2 : M.sub t3 b w <;>
     simp [Complexity.Costed.andThen]
@@ -948,7 +1029,7 @@ theorem ax6ConsequentCosted_value (M : FiniteModel4)
 
 theorem ax6ConsequentCosted_cost_le (M : FiniteModel4)
     (t1 t2 x : Fin M.thingCount) (w : Fin M.worldCount) :
-    (ax6ConsequentCosted M t1 t2 x w).cost ≤ 14 * M.thingCount + 1 := by
+    (ax6ConsequentCosted M t1 t2 x w).cost ≤ 74 * M.thingCount + 1 := by
   have h1 := ax6WitnessCosted_cost_le M t1 t2 x w
   have h2 := ax6LowerWitnessCosted_cost_le M t1 t2 x w
   cases h : (ax6WitnessCosted M t1 t2 x w).value <;>
@@ -991,17 +1072,17 @@ theorem checkAx6_eq_legacy (M : FiniteModel4) :
 theorem checkAx6Costed_cost_le (M : FiniteModel4) :
     (checkAx6Costed M).cost ≤ M.thingCount *
       (M.thingCount * (M.thingCount *
-        (M.worldCount * (14 * M.thingCount + 14) + 2) + 2) + 2) := by
+        (M.worldCount * (74 * M.thingCount + 54) + 2) + 2) + 2) := by
   unfold checkAx6Costed
   apply allThingsEvalCosted_cost_le M _
-    (M.thingCount * (M.thingCount * (M.worldCount * (14 * M.thingCount + 14) + 2) + 2))
+    (M.thingCount * (M.thingCount * (M.worldCount * (74 * M.thingCount + 54) + 2) + 2))
   intro t1
   apply allThingsEvalCosted_cost_le M _
-    (M.thingCount * (M.worldCount * (14 * M.thingCount + 14) + 2))
+    (M.thingCount * (M.worldCount * (74 * M.thingCount + 54) + 2))
   intro t2
-  apply allThingsEvalCosted_cost_le M _ (M.worldCount * (14 * M.thingCount + 14))
+  apply allThingsEvalCosted_cost_le M _ (M.worldCount * (74 * M.thingCount + 54))
   intro x
-  apply allWorldsEvalCosted_cost_le M _ (14 * M.thingCount + 12)
+  apply allWorldsEvalCosted_cost_le M _ (74 * M.thingCount + 52)
   intro w
   have ha := ax6AntecedentCosted_cost_le M t1 t2 x w
   have hc := ax6ConsequentCosted_cost_le M t1 t2 x w
@@ -1015,7 +1096,7 @@ def checkUnaryTableToIndividualCosted (M : FiniteModel4)
   allThingsEvalCosted M fun x =>
     allWorldsEvalCosted M fun w =>
       Complexity.Costed.implies
-        (Complexity.Costed.tick (left x w) 1) fun _ => individualBCosted M x w
+        (Complexity.Costed.tick (left x w) 8) fun _ => individualBCosted M x w
 
 theorem checkUnaryTableToIndividualCosted_value (M : FiniteModel4)
     (left : Fin M.thingCount → Fin M.worldCount → Bool) :
@@ -1033,13 +1114,13 @@ theorem checkUnaryTableToIndividualCosted_cost_le (M : FiniteModel4)
     (left : Fin M.thingCount → Fin M.worldCount → Bool) :
     (checkUnaryTableToIndividualCosted M left).cost ≤
       M.thingCount *
-        (M.worldCount * (M.worldCount * (M.thingCount * 3 + 2) + 6) + 2) := by
+        (M.worldCount * (M.worldCount * (M.thingCount * 13 + 2) + 13) + 2) := by
   unfold checkUnaryTableToIndividualCosted
   apply allThingsEvalCosted_cost_le M _
-    (M.worldCount * (M.worldCount * (M.thingCount * 3 + 2) + 6))
+    (M.worldCount * (M.worldCount * (M.thingCount * 13 + 2) + 13))
   intro x
   apply allWorldsEvalCosted_cost_le M _
-    (M.worldCount * (M.thingCount * 3 + 2) + 4)
+    (M.worldCount * (M.thingCount * 13 + 2) + 11)
   intro w
   have hi := individualBCosted_cost_le M x w
   cases h : left x w
@@ -1060,7 +1141,7 @@ theorem checkAx7_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx7Costed_cost_le (M : FiniteModel4) :
     (checkAx7Costed M).cost ≤ M.thingCount *
-      (M.worldCount * (M.worldCount * (M.thingCount * 3 + 2) + 6) + 2) :=
+      (M.worldCount * (M.worldCount * (M.thingCount * 13 + 2) + 13) + 2) :=
   checkUnaryTableToIndividualCosted_cost_le M M.concreteIndividual
 
 def checkAx8Costed (M : FiniteModel4) : Complexity.Costed Bool :=
@@ -1076,7 +1157,7 @@ theorem checkAx8_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx8Costed_cost_le (M : FiniteModel4) :
     (checkAx8Costed M).cost ≤ M.thingCount *
-      (M.worldCount * (M.worldCount * (M.thingCount * 3 + 2) + 6) + 2) :=
+      (M.worldCount * (M.worldCount * (M.thingCount * 13 + 2) + 13) + 2) :=
   checkUnaryTableToIndividualCosted_cost_le M M.abstractIndividual
 
 /--
@@ -1090,8 +1171,8 @@ def checkAx9Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x =>
     allWorldsEvalCosted M fun w =>
       Complexity.Costed.implies
-        (Complexity.Costed.tick (M.concreteIndividual x w) 1) fun _ =>
-        (Complexity.Costed.tick (M.abstractIndividual x w) 1).not
+        (Complexity.Costed.tick (M.concreteIndividual x w) 8) fun _ =>
+        (Complexity.Costed.tick (M.abstractIndividual x w) 8).not
 
 /-- The production axiom-9 checker is the erasure of its counted evaluator. -/
 def checkAx9 (M : FiniteModel4) : Bool :=
@@ -1120,11 +1201,11 @@ theorem checkAx9_eq_legacy (M : FiniteModel4) :
 
 /-- Concrete worst-case cost of axiom 9 over the explicit world/thing tables. -/
 theorem checkAx9Costed_cost_le (M : FiniteModel4) :
-    (checkAx9Costed M).cost ≤ M.thingCount * (M.worldCount * 7 + 2) := by
+    (checkAx9Costed M).cost ≤ M.thingCount * (M.worldCount * 21 + 2) := by
   unfold checkAx9Costed
-  apply allThingsEvalCosted_cost_le M _ (M.worldCount * 7)
+  apply allThingsEvalCosted_cost_le M _ (M.worldCount * 21)
   intro x
-  apply allWorldsEvalCosted_cost_le M _ 5
+  apply allWorldsEvalCosted_cost_le M _ 19
   intro w
   cases h : M.concreteIndividual x w <;>
     simp [Complexity.Costed.implies, Complexity.Costed.orElse,
@@ -1135,8 +1216,8 @@ def checkAx10Costed (M : FiniteModel4) : Complexity.Costed Bool :=
     allWorldsEvalCosted M fun w =>
       Complexity.Costed.iff (individualBCosted M x w) fun _ =>
         Complexity.Costed.orElse
-          (Complexity.Costed.tick (M.concreteIndividual x w) 1) fun _ =>
-          Complexity.Costed.tick (M.abstractIndividual x w) 1
+          (Complexity.Costed.tick (M.concreteIndividual x w) 8) fun _ =>
+          Complexity.Costed.tick (M.abstractIndividual x w) 8
 
 def checkAx10 (M : FiniteModel4) : Bool :=
   (checkAx10Costed M).value
@@ -1155,13 +1236,13 @@ theorem checkAx10_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx10Costed_cost_le (M : FiniteModel4) :
     (checkAx10Costed M).cost ≤ M.thingCount *
-      (M.worldCount * (M.worldCount * (M.thingCount * 3 + 2) + 8) + 2) := by
+      (M.worldCount * (M.worldCount * (M.thingCount * 13 + 2) + 22) + 2) := by
   unfold checkAx10Costed
   apply allThingsEvalCosted_cost_le M _
-    (M.worldCount * (M.worldCount * (M.thingCount * 3 + 2) + 8))
+    (M.worldCount * (M.worldCount * (M.thingCount * 13 + 2) + 22))
   intro x
   apply allWorldsEvalCosted_cost_le M _
-    (M.worldCount * (M.thingCount * 3 + 2) + 6)
+    (M.worldCount * (M.thingCount * 13 + 2) + 20)
   intro w
   have hi := individualBCosted_cost_le M x w
   cases hii : individualB M x w
@@ -1181,7 +1262,7 @@ theorem checkAx11_eq_legacy (M : FiniteModel4) :
   exact checkUnaryTableImplicationCosted_value M M.endurant M.concreteIndividual
 
 theorem checkAx11Costed_cost_le (M : FiniteModel4) :
-    (checkAx11Costed M).cost ≤ M.thingCount * (M.worldCount * 6 + 2) :=
+    (checkAx11Costed M).cost ≤ M.thingCount * (M.worldCount * 20 + 2) :=
   checkUnaryTableImplicationCosted_cost_le M M.endurant M.concreteIndividual
 
 def checkAx12Costed (M : FiniteModel4) : Complexity.Costed Bool :=
@@ -1196,7 +1277,7 @@ theorem checkAx12_eq_legacy (M : FiniteModel4) :
   exact checkUnaryTableImplicationCosted_value M M.perdurant M.concreteIndividual
 
 theorem checkAx12Costed_cost_le (M : FiniteModel4) :
-    (checkAx12Costed M).cost ≤ M.thingCount * (M.worldCount * 6 + 2) :=
+    (checkAx12Costed M).cost ≤ M.thingCount * (M.worldCount * 20 + 2) :=
   checkUnaryTableImplicationCosted_cost_le M M.perdurant M.concreteIndividual
 
 def checkAx13Costed (M : FiniteModel4) : Complexity.Costed Bool :=
@@ -1211,17 +1292,17 @@ theorem checkAx13_eq_legacy (M : FiniteModel4) :
   exact checkUnaryTableDisjointCosted_value M M.endurant M.perdurant
 
 theorem checkAx13Costed_cost_le (M : FiniteModel4) :
-    (checkAx13Costed M).cost ≤ M.thingCount * (M.worldCount * 7 + 2) :=
+    (checkAx13Costed M).cost ≤ M.thingCount * (M.worldCount * 21 + 2) :=
   checkUnaryTableDisjointCosted_cost_le M M.endurant M.perdurant
 
 def checkAx14Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x =>
     allWorldsEvalCosted M fun w =>
       Complexity.Costed.iff
-        (Complexity.Costed.tick (M.concreteIndividual x w) 1) fun _ =>
+        (Complexity.Costed.tick (M.concreteIndividual x w) 8) fun _ =>
         Complexity.Costed.orElse
-          (Complexity.Costed.tick (M.endurant x w) 1) fun _ =>
-          Complexity.Costed.tick (M.perdurant x w) 1
+          (Complexity.Costed.tick (M.endurant x w) 8) fun _ =>
+          Complexity.Costed.tick (M.perdurant x w) 8
 
 def checkAx14 (M : FiniteModel4) : Bool :=
   (checkAx14Costed M).value
@@ -1238,11 +1319,11 @@ theorem checkAx14_eq_legacy (M : FiniteModel4) :
   grind
 
 theorem checkAx14Costed_cost_le (M : FiniteModel4) :
-    (checkAx14Costed M).cost ≤ M.thingCount * (M.worldCount * 8 + 2) := by
+    (checkAx14Costed M).cost ≤ M.thingCount * (M.worldCount * 29 + 2) := by
   unfold checkAx14Costed
-  apply allThingsEvalCosted_cost_le M _ (M.worldCount * 8)
+  apply allThingsEvalCosted_cost_le M _ (M.worldCount * 29)
   intro x
-  apply allWorldsEvalCosted_cost_le M _ 6
+  apply allWorldsEvalCosted_cost_le M _ 27
   intro w
   cases hc : M.concreteIndividual x w <;>
     cases he : M.endurant x w <;>
@@ -1254,7 +1335,7 @@ def checkUnaryTableToTypeCosted (M : FiniteModel4)
   allThingsEvalCosted M fun x =>
     allWorldsEvalCosted M fun w =>
       Complexity.Costed.implies
-        (Complexity.Costed.tick (left x w) 1) fun _ => typeBCosted M x w
+        (Complexity.Costed.tick (left x w) 8) fun _ => typeBCosted M x w
 
 theorem checkUnaryTableToTypeCosted_value (M : FiniteModel4)
     (left : Fin M.thingCount → Fin M.worldCount → Bool) :
@@ -1271,13 +1352,13 @@ theorem checkUnaryTableToTypeCosted_cost_le (M : FiniteModel4)
     (left : Fin M.thingCount → Fin M.worldCount → Bool) :
     (checkUnaryTableToTypeCosted M left).cost ≤
       M.thingCount *
-        (M.worldCount * (M.worldCount * (M.thingCount * 3 + 2) + 5) + 2) := by
+        (M.worldCount * (M.worldCount * (M.thingCount * 13 + 2) + 12) + 2) := by
   unfold checkUnaryTableToTypeCosted
   apply allThingsEvalCosted_cost_le M _
-    (M.worldCount * (M.worldCount * (M.thingCount * 3 + 2) + 5))
+    (M.worldCount * (M.worldCount * (M.thingCount * 13 + 2) + 12))
   intro x
   apply allWorldsEvalCosted_cost_le M _
-    (M.worldCount * (M.thingCount * 3 + 2) + 3)
+    (M.worldCount * (M.thingCount * 13 + 2) + 10)
   intro w
   have ht := typeBCosted_cost_le M x w
   cases h : left x w
@@ -1298,7 +1379,7 @@ theorem checkAx15_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx15Costed_cost_le (M : FiniteModel4) :
     (checkAx15Costed M).cost ≤ M.thingCount *
-      (M.worldCount * (M.worldCount * (M.thingCount * 3 + 2) + 5) + 2) :=
+      (M.worldCount * (M.worldCount * (M.thingCount * 13 + 2) + 12) + 2) :=
   checkUnaryTableToTypeCosted_cost_le M M.endurantType
 
 def checkAx16Costed (M : FiniteModel4) : Complexity.Costed Bool :=
@@ -1314,7 +1395,7 @@ theorem checkAx16_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx16Costed_cost_le (M : FiniteModel4) :
     (checkAx16Costed M).cost ≤ M.thingCount *
-      (M.worldCount * (M.worldCount * (M.thingCount * 3 + 2) + 5) + 2) :=
+      (M.worldCount * (M.worldCount * (M.thingCount * 13 + 2) + 12) + 2) :=
   checkUnaryTableToTypeCosted_cost_le M M.perdurantType
 
 def checkAx17Costed (M : FiniteModel4) : Complexity.Costed Bool :=
@@ -1329,14 +1410,13 @@ theorem checkAx17_eq_legacy (M : FiniteModel4) :
   exact checkUnaryTableDisjointCosted_value M M.endurantType M.perdurantType
 
 theorem checkAx17Costed_cost_le (M : FiniteModel4) :
-    (checkAx17Costed M).cost ≤ M.thingCount * (M.worldCount * 7 + 2) :=
+    (checkAx17Costed M).cost ≤ M.thingCount * (M.worldCount * 21 + 2) :=
   checkUnaryTableDisjointCosted_cost_le M M.endurantType M.perdurantType
 
 /-!
-The first fully operational registry slice.  It uses delayed checks, so failure
-really prevents later axioms from running.  This is a staging theorem for the
-production 116-check registry, not a claim that the remaining axioms have
-already been instrumented.
+This eleven-check registry groups axioms 7 through 17. Its delayed checks stop
+at the first failure. The local bound supports composition of axioms 1 through
+17; the production registry contains all 116 registered checks.
 -/
 
 def axiom7To17RegistryCosted (M : FiniteModel4) :
@@ -1383,20 +1463,20 @@ theorem checkAxioms7To17_eq_true_iff (M : FiniteModel4) :
 theorem checkAxioms7To17Costed_cost_le (M : FiniteModel4) :
     (checkAxioms7To17Costed M).cost ≤
       11 * (M.thingCount *
-        (M.worldCount * (M.worldCount * (M.thingCount * 3 + 2) + 8) + 2) + 3) := by
-  let q := M.worldCount * (M.thingCount * 3 + 2)
-  let bound := M.thingCount * (M.worldCount * (q + 8) + 2)
-  have hDirect : M.thingCount * (M.worldCount * 8 + 2) ≤ bound := by
+        (M.worldCount * (M.worldCount * (M.thingCount * 13 + 2) + 29) + 2) + 3) := by
+  let q := M.worldCount * (M.thingCount * 13 + 2)
+  let bound := M.thingCount * (M.worldCount * (q + 29) + 2)
+  have hDirect : M.thingCount * (M.worldCount * 29 + 2) ≤ bound := by
     exact Nat.mul_le_mul_left M.thingCount (Nat.add_le_add_right
-      (Nat.mul_le_mul_left M.worldCount (Nat.le_add_left 8 q)) 2)
-  have hType : M.thingCount * (M.worldCount * (q + 5) + 2) ≤ bound := by
-    exact Nat.mul_le_mul_left M.thingCount (Nat.add_le_add_right
-      (Nat.mul_le_mul_left M.worldCount
-        (Nat.add_le_add_left (show 5 ≤ 8 by omega) q)) 2)
-  have hIndividual : M.thingCount * (M.worldCount * (q + 6) + 2) ≤ bound := by
+      (Nat.mul_le_mul_left M.worldCount (Nat.le_add_left 29 q)) 2)
+  have hType : M.thingCount * (M.worldCount * (q + 12) + 2) ≤ bound := by
     exact Nat.mul_le_mul_left M.thingCount (Nat.add_le_add_right
       (Nat.mul_le_mul_left M.worldCount
-        (Nat.add_le_add_left (show 6 ≤ 8 by omega) q)) 2)
+        (Nat.add_le_add_left (show 12 ≤ 29 by omega) q)) 2)
+  have hIndividual : M.thingCount * (M.worldCount * (q + 13) + 2) ≤ bound := by
+    exact Nat.mul_le_mul_left M.thingCount (Nat.add_le_add_right
+      (Nat.mul_le_mul_left M.worldCount
+        (Nat.add_le_add_left (show 13 ≤ 29 by omega) q)) 2)
   unfold checkAxioms7To17Costed
   change (Complexity.checkRegistryCosted (axiom7To17RegistryCosted M)).cost ≤
     11 * (bound + 3)
@@ -1408,14 +1488,16 @@ theorem checkAxioms7To17Costed_cost_le (M : FiniteModel4) :
   · exact le_trans (checkAx8Costed_cost_le M) hIndividual
   · exact le_trans (checkAx9Costed_cost_le M) (le_trans
       (Nat.mul_le_mul_left M.thingCount (by omega)) hDirect)
-  · exact checkAx10Costed_cost_le M
+  · exact le_trans (checkAx10Costed_cost_le M) (Nat.mul_le_mul_left M.thingCount
+      (Nat.add_le_add_right (Nat.mul_le_mul_left M.worldCount (by dsimp [q]; omega)) 2))
   · exact le_trans (checkAx11Costed_cost_le M) (le_trans
       (Nat.mul_le_mul_left M.thingCount (by omega)) hDirect)
   · exact le_trans (checkAx12Costed_cost_le M) (le_trans
       (Nat.mul_le_mul_left M.thingCount (by omega)) hDirect)
   · exact le_trans (checkAx13Costed_cost_le M) (le_trans
       (Nat.mul_le_mul_left M.thingCount (by omega)) hDirect)
-  · exact le_trans (checkAx14Costed_cost_le M) hDirect
+  · exact le_trans (checkAx14Costed_cost_le M) (le_trans
+      (Nat.mul_le_mul_left M.thingCount (by omega)) hDirect)
   · exact le_trans (checkAx15Costed_cost_le M) hType
   · exact le_trans (checkAx16Costed_cost_le M) hType
   · exact le_trans (checkAx17Costed_cost_le M) (le_trans
@@ -1423,19 +1505,19 @@ theorem checkAxioms7To17Costed_cost_le (M : FiniteModel4) :
 
 def axioms1To17CostBound (M : FiniteModel4) : Nat :=
   2 * (M.thingCount * (M.worldCount *
-      (M.worldCount * (M.thingCount * 3 + 2) +
-        M.worldCount * (M.thingCount * 3 + 3) + 5) + 2) + 3) +
+      (M.worldCount * (M.thingCount * 13 + 2) +
+        M.worldCount * (M.thingCount * 13 + 3) + 5) + 2) + 3) +
   M.thingCount * (M.thingCount *
-      (M.worldCount * (2 * (M.worldCount * (M.thingCount * 3 + 2)) + 7) + 2) + 2) +
+      (M.worldCount * (2 * (M.worldCount * (M.thingCount * 13 + 2)) + 17) + 2) + 2) +
   M.worldCount * (M.thingCount * (M.thingCount *
-      (M.thingCount * (M.worldCount * (M.thingCount * 3 + 2) + 7) + 2) + 2) + 2) +
+      (M.thingCount * (M.worldCount * (M.thingCount * 13 + 2) + 27) + 2) + 2) + 2) +
   M.thingCount * (M.thingCount * (M.worldCount *
-      (2 * (M.worldCount * (M.thingCount * 3 + 2)) +
-        M.worldCount * (M.thingCount * 6 + 2) + 7) + 2) + 2) +
+      (2 * (M.worldCount * (M.thingCount * 13 + 2)) +
+        M.worldCount * (M.thingCount * 26 + 2) + 17) + 2) + 2) +
   M.thingCount * (M.thingCount * (M.thingCount *
-      (M.worldCount * (14 * M.thingCount + 14) + 2) + 2) + 2) +
+      (M.worldCount * (74 * M.thingCount + 54) + 2) + 2) + 2) +
   11 * (M.thingCount *
-      (M.worldCount * (M.worldCount * (M.thingCount * 3 + 2) + 8) + 2) + 3) +
+      (M.worldCount * (M.worldCount * (M.thingCount * 13 + 2) + 29) + 2) + 3) +
   5
 
 /-- Ordered short-circuit composition of every counted checker from 1 to 17. -/
@@ -1479,13 +1561,26 @@ theorem checkAxioms1To17Costed_cost_le (M : FiniteModel4) :
     h12v, h3v, h4v, h5v, h6v, axioms1To17CostBound]
   all_goals omega
 
+/-!
+Modal instantiation scans visit worlds in index order. Each binary table read
+charges eleven operations, including coordinate arithmetic and the checked
+array read. `Complexity/Queries.lean` proves equality of both result and cost
+with the table evaluator on the compiler's verified model. A successful
+existential scan stops at its first witness; a universal scan stops at its
+first counterexample. Thus adding facts can reduce the actual cost.
+
+The bounds compose those executed operations following Niu et al.'s cost-aware
+semantics and Haslbeck's time-bound rules. Erasure connects the counted core
+to production, while separate UFO theorems establish its semantic meaning.
+-/
+
 def instanceSomeWorldCosted (M : FiniteModel4)
     (x t : Fin M.thingCount) : Complexity.Costed Bool :=
-  anyWorldsEvalCosted M fun v => Complexity.Costed.tick (M.inst x t v) 1
+  anyWorldsEvalCosted M fun v => Complexity.Costed.tick (M.inst x t v) 11
 
 def instanceAllWorldsCosted (M : FiniteModel4)
     (x t : Fin M.thingCount) : Complexity.Costed Bool :=
-  allWorldsEvalCosted M fun v => Complexity.Costed.tick (M.inst x t v) 1
+  allWorldsEvalCosted M fun v => Complexity.Costed.tick (M.inst x t v) 11
 
 theorem instanceSomeWorldCosted_value (M : FiniteModel4)
     (x t : Fin M.thingCount) :
@@ -1503,17 +1598,17 @@ theorem instanceAllWorldsCosted_value (M : FiniteModel4)
 
 theorem instanceSomeWorldCosted_cost_le (M : FiniteModel4)
     (x t : Fin M.thingCount) :
-    (instanceSomeWorldCosted M x t).cost ≤ M.worldCount * 3 := by
+    (instanceSomeWorldCosted M x t).cost ≤ M.worldCount * 13 := by
   unfold instanceSomeWorldCosted
-  apply anyWorldsEvalCosted_cost_le M _ 1
+  apply anyWorldsEvalCosted_cost_le M _ 11
   intro v
   simp
 
 theorem instanceAllWorldsCosted_cost_le (M : FiniteModel4)
     (x t : Fin M.thingCount) :
-    (instanceAllWorldsCosted M x t).cost ≤ M.worldCount * 3 := by
+    (instanceAllWorldsCosted M x t).cost ≤ M.worldCount * 13 := by
   unfold instanceAllWorldsCosted
-  apply allWorldsEvalCosted_cost_le M _ 1
+  apply allWorldsEvalCosted_cost_le M _ 11
   intro v
   simp
 
@@ -1537,9 +1632,9 @@ theorem rigidInstancesCosted_value (M : FiniteModel4)
 
 theorem rigidInstancesCosted_cost_le (M : FiniteModel4)
     (t : Fin M.thingCount) :
-    (rigidInstancesCosted M t).cost ≤ M.thingCount * (6 * M.worldCount + 4) := by
+    (rigidInstancesCosted M t).cost ≤ M.thingCount * (26 * M.worldCount + 4) := by
   unfold rigidInstancesCosted
-  apply allThingsEvalCosted_cost_le M _ (6 * M.worldCount + 2)
+  apply allThingsEvalCosted_cost_le M _ (26 * M.worldCount + 2)
   intro x
   have hs := instanceSomeWorldCosted_cost_le M x t
   have ha := instanceAllWorldsCosted_cost_le M x t
@@ -1549,7 +1644,7 @@ theorem rigidInstancesCosted_cost_le (M : FiniteModel4)
 
 def checkAx18ConsequentCosted (M : FiniteModel4)
     (t : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
-  Complexity.Costed.andThen (Complexity.Costed.tick (M.endurantType t w) 1) fun _ =>
+  Complexity.Costed.andThen (Complexity.Costed.tick (M.endurantType t w) 8) fun _ =>
     rigidInstancesCosted M t
 
 theorem checkAx18ConsequentCosted_value (M : FiniteModel4)
@@ -1565,7 +1660,7 @@ theorem checkAx18ConsequentCosted_value (M : FiniteModel4)
 theorem checkAx18ConsequentCosted_cost_le (M : FiniteModel4)
     (t : Fin M.thingCount) (w : Fin M.worldCount) :
     (checkAx18ConsequentCosted M t w).cost ≤
-      M.thingCount * (6 * M.worldCount + 4) + 2 := by
+      M.thingCount * (26 * M.worldCount + 4) + 9 := by
   have hr := rigidInstancesCosted_cost_le M t
   cases h : M.endurantType t w
   · simp [checkAx18ConsequentCosted, Complexity.Costed.andThen, h]
@@ -1575,7 +1670,7 @@ theorem checkAx18ConsequentCosted_cost_le (M : FiniteModel4)
 def checkAx18Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun t =>
     allWorldsEvalCosted M fun w =>
-      Complexity.Costed.iff (Complexity.Costed.tick (M.rigid t w) 1) fun _ =>
+      Complexity.Costed.iff (Complexity.Costed.tick (M.rigid t w) 8) fun _ =>
         checkAx18ConsequentCosted M t w
 
 def checkAx18 (M : FiniteModel4) : Bool :=
@@ -1603,32 +1698,22 @@ theorem checkAx18_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx18Costed_cost_le (M : FiniteModel4) :
     (checkAx18Costed M).cost ≤ M.thingCount *
-      (M.worldCount * (M.thingCount * (6 * M.worldCount + 4) + 7) + 2) := by
+      (M.worldCount * (M.thingCount * (26 * M.worldCount + 4) + 21) + 2) := by
   unfold checkAx18Costed
   apply allThingsEvalCosted_cost_le M _
-    (M.worldCount * (M.thingCount * (6 * M.worldCount + 4) + 7))
+    (M.worldCount * (M.thingCount * (26 * M.worldCount + 4) + 21))
   intro t
   apply allWorldsEvalCosted_cost_le M _
-    (M.thingCount * (6 * M.worldCount + 4) + 5)
+    (M.thingCount * (26 * M.worldCount + 4) + 19)
   intro w
   have hc := checkAx18ConsequentCosted_cost_le M t w
   cases h : M.rigid t w <;>
     simp [Complexity.Costed.iff] <;> omega
 
-/-!
-The modal-classification checkers below use the same compositional cost
-instrumentation as `Complexity.CostModel`: costs follow the executable's
-left-to-right short-circuit order (Niu et al.; Haslbeck), while each production
-Boolean is literally the erasure of its counted definition.  The latter is the
-implementation-correspondence pattern used here under inspiration from
-Forster et al. and de Moura's RadixExperiment; it is distinct from the later
-semantic soundness theorem for each UFO axiom.
--/
-
 def instanceAbsentSomeWorldCosted (M : FiniteModel4)
     (x t : Fin M.thingCount) : Complexity.Costed Bool :=
   anyWorldsEvalCosted M fun v =>
-    (Complexity.Costed.tick (M.inst x t v) 1).not
+    (Complexity.Costed.tick (M.inst x t v) 11).not
 
 theorem instanceAbsentSomeWorldCosted_value (M : FiniteModel4)
     (x t : Fin M.thingCount) :
@@ -1640,9 +1725,9 @@ theorem instanceAbsentSomeWorldCosted_value (M : FiniteModel4)
 
 theorem instanceAbsentSomeWorldCosted_cost_le (M : FiniteModel4)
     (x t : Fin M.thingCount) :
-    (instanceAbsentSomeWorldCosted M x t).cost ≤ M.worldCount * 4 := by
+    (instanceAbsentSomeWorldCosted M x t).cost ≤ M.worldCount * 14 := by
   unfold instanceAbsentSomeWorldCosted
-  apply anyWorldsEvalCosted_cost_le M _ 2
+  apply anyWorldsEvalCosted_cost_le M _ 12
   intro v
   simp
 
@@ -1667,9 +1752,9 @@ theorem antiRigidInstancesCosted_value (M : FiniteModel4)
 theorem antiRigidInstancesCosted_cost_le (M : FiniteModel4)
     (t : Fin M.thingCount) :
     (antiRigidInstancesCosted M t).cost ≤
-      M.thingCount * (7 * M.worldCount + 4) := by
+      M.thingCount * (27 * M.worldCount + 4) := by
   unfold antiRigidInstancesCosted
-  apply allThingsEvalCosted_cost_le M _ (7 * M.worldCount + 2)
+  apply allThingsEvalCosted_cost_le M _ (27 * M.worldCount + 2)
   intro x
   have hs := instanceSomeWorldCosted_cost_le M x t
   have ha := instanceAbsentSomeWorldCosted_cost_le M x t
@@ -1680,7 +1765,7 @@ theorem antiRigidInstancesCosted_cost_le (M : FiniteModel4)
 def checkAx19ConsequentCosted (M : FiniteModel4)
     (t : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
   Complexity.Costed.andThen
-    (Complexity.Costed.tick (M.endurantType t w) 1) fun _ =>
+    (Complexity.Costed.tick (M.endurantType t w) 8) fun _ =>
       antiRigidInstancesCosted M t
 
 theorem checkAx19ConsequentCosted_value (M : FiniteModel4)
@@ -1696,7 +1781,7 @@ theorem checkAx19ConsequentCosted_value (M : FiniteModel4)
 theorem checkAx19ConsequentCosted_cost_le (M : FiniteModel4)
     (t : Fin M.thingCount) (w : Fin M.worldCount) :
     (checkAx19ConsequentCosted M t w).cost ≤
-      M.thingCount * (7 * M.worldCount + 4) + 2 := by
+      M.thingCount * (27 * M.worldCount + 4) + 9 := by
   have ha := antiRigidInstancesCosted_cost_le M t
   cases h : M.endurantType t w
   · simp [checkAx19ConsequentCosted, Complexity.Costed.andThen, h]
@@ -1707,7 +1792,7 @@ def checkAx19Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun t =>
     allWorldsEvalCosted M fun w =>
       Complexity.Costed.iff
-        (Complexity.Costed.tick (M.antiRigid t w) 1) fun _ =>
+        (Complexity.Costed.tick (M.antiRigid t w) 8) fun _ =>
           checkAx19ConsequentCosted M t w
 
 def checkAx19 (M : FiniteModel4) : Bool :=
@@ -1737,13 +1822,13 @@ theorem checkAx19_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx19Costed_cost_le (M : FiniteModel4) :
     (checkAx19Costed M).cost ≤ M.thingCount *
-      (M.worldCount * (M.thingCount * (7 * M.worldCount + 4) + 7) + 2) := by
+      (M.worldCount * (M.thingCount * (27 * M.worldCount + 4) + 21) + 2) := by
   unfold checkAx19Costed
   apply allThingsEvalCosted_cost_le M _
-    (M.worldCount * (M.thingCount * (7 * M.worldCount + 4) + 7))
+    (M.worldCount * (M.thingCount * (27 * M.worldCount + 4) + 21))
   intro t
   apply allWorldsEvalCosted_cost_le M _
-    (M.thingCount * (7 * M.worldCount + 4) + 5)
+    (M.thingCount * (27 * M.worldCount + 4) + 19)
   intro w
   have hc := checkAx19ConsequentCosted_cost_le M t w
   cases h : M.antiRigid t w <;>
@@ -1752,10 +1837,10 @@ theorem checkAx19Costed_cost_le (M : FiniteModel4) :
 def checkAx20ConsequentCosted (M : FiniteModel4)
     (t : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
   Complexity.Costed.andThen
-    (Complexity.Costed.tick (M.endurantType t w) 1) fun _ =>
+    (Complexity.Costed.tick (M.endurantType t w) 8) fun _ =>
       Complexity.Costed.andThen
-        (Complexity.Costed.tick (M.rigid t w) 1).not fun _ =>
-          (Complexity.Costed.tick (M.antiRigid t w) 1).not
+        (Complexity.Costed.tick (M.rigid t w) 8).not fun _ =>
+          (Complexity.Costed.tick (M.antiRigid t w) 8).not
 
 theorem checkAx20ConsequentCosted_value (M : FiniteModel4)
     (t : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -1768,7 +1853,7 @@ theorem checkAx20ConsequentCosted_value (M : FiniteModel4)
 
 theorem checkAx20ConsequentCosted_cost_le (M : FiniteModel4)
     (t : Fin M.thingCount) (w : Fin M.worldCount) :
-    (checkAx20ConsequentCosted M t w).cost ≤ 7 := by
+    (checkAx20ConsequentCosted M t w).cost ≤ 28 := by
   unfold checkAx20ConsequentCosted
   cases he : M.endurantType t w <;> cases hr : M.rigid t w <;>
     simp [Complexity.Costed.andThen, Complexity.Costed.not]
@@ -1777,7 +1862,7 @@ def checkAx20Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun t =>
     allWorldsEvalCosted M fun w =>
       Complexity.Costed.iff
-        (Complexity.Costed.tick (M.semiRigid t w) 1) fun _ =>
+        (Complexity.Costed.tick (M.semiRigid t w) 8) fun _ =>
           checkAx20ConsequentCosted M t w
 
 def checkAx20 (M : FiniteModel4) : Bool :=
@@ -1801,11 +1886,11 @@ theorem checkAx20_eq_legacy (M : FiniteModel4) :
       simp [iffB]
 
 theorem checkAx20Costed_cost_le (M : FiniteModel4) :
-    (checkAx20Costed M).cost ≤ M.thingCount * (M.worldCount * 12 + 2) := by
+    (checkAx20Costed M).cost ≤ M.thingCount * (M.worldCount * 40 + 2) := by
   unfold checkAx20Costed
-  apply allThingsEvalCosted_cost_le M _ (M.worldCount * 12)
+  apply allThingsEvalCosted_cost_le M _ (M.worldCount * 40)
   intro t
-  apply allWorldsEvalCosted_cost_le M _ 10
+  apply allWorldsEvalCosted_cost_le M _ 38
   intro w
   have hc := checkAx20ConsequentCosted_cost_le M t w
   cases h : M.semiRigid t w <;>
@@ -1814,7 +1899,7 @@ theorem checkAx20Costed_cost_le (M : FiniteModel4) :
 def ax21KindWitnessCosted (M : FiniteModel4)
     (x : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
   anyThingsEvalCosted M fun k =>
-    Complexity.Costed.andThen (Complexity.Costed.tick (M.kind k w) 1) fun _ =>
+    Complexity.Costed.andThen (Complexity.Costed.tick (M.kind k w) 8) fun _ =>
       instanceAllWorldsCosted M x k
 
 theorem ax21KindWitnessCosted_value (M : FiniteModel4)
@@ -1831,9 +1916,9 @@ theorem ax21KindWitnessCosted_value (M : FiniteModel4)
 theorem ax21KindWitnessCosted_cost_le (M : FiniteModel4)
     (x : Fin M.thingCount) (w : Fin M.worldCount) :
     (ax21KindWitnessCosted M x w).cost ≤
-      M.thingCount * (3 * M.worldCount + 4) := by
+      M.thingCount * (13 * M.worldCount + 11) := by
   unfold ax21KindWitnessCosted
-  apply anyThingsEvalCosted_cost_le M _ (3 * M.worldCount + 2)
+  apply anyThingsEvalCosted_cost_le M _ (13 * M.worldCount + 9)
   intro k
   have hi := instanceAllWorldsCosted_cost_le M x k
   cases hk : M.kind k w
@@ -1845,7 +1930,7 @@ def checkAx21Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x =>
     allWorldsEvalCosted M fun w =>
       Complexity.Costed.implies
-        (Complexity.Costed.tick (M.endurant x w) 1) fun _ =>
+        (Complexity.Costed.tick (M.endurant x w) 8) fun _ =>
           ax21KindWitnessCosted M x w
 
 def checkAx21 (M : FiniteModel4) : Bool :=
@@ -1865,13 +1950,13 @@ theorem checkAx21_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx21Costed_cost_le (M : FiniteModel4) :
     (checkAx21Costed M).cost ≤ M.thingCount *
-      (M.worldCount * (M.thingCount * (3 * M.worldCount + 4) + 5) + 2) := by
+      (M.worldCount * (M.thingCount * (13 * M.worldCount + 11) + 12) + 2) := by
   unfold checkAx21Costed
   apply allThingsEvalCosted_cost_le M _
-    (M.worldCount * (M.thingCount * (3 * M.worldCount + 4) + 5))
+    (M.worldCount * (M.thingCount * (13 * M.worldCount + 11) + 12))
   intro x
   apply allWorldsEvalCosted_cost_le M _
-    (M.thingCount * (3 * M.worldCount + 4) + 3)
+    (M.thingCount * (13 * M.worldCount + 11) + 10)
   intro w
   have hw := ax21KindWitnessCosted_cost_le M x w
   cases he : M.endurant x w
@@ -1883,8 +1968,8 @@ theorem checkAx21Costed_cost_le (M : FiniteModel4) :
 
 def ax22AntecedentCosted (M : FiniteModel4)
     (k x : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
-  Complexity.Costed.andThen (Complexity.Costed.tick (M.kind k w) 1) fun _ =>
-    Complexity.Costed.tick (M.inst x k w) 1
+  Complexity.Costed.andThen (Complexity.Costed.tick (M.kind k w) 8) fun _ =>
+    Complexity.Costed.tick (M.inst x k w) 11
 
 theorem ax22AntecedentCosted_value (M : FiniteModel4)
     (k x : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -1894,7 +1979,7 @@ theorem ax22AntecedentCosted_value (M : FiniteModel4)
 
 theorem ax22AntecedentCosted_cost_le (M : FiniteModel4)
     (k x : Fin M.thingCount) (w : Fin M.worldCount) :
-    (ax22AntecedentCosted M k x w).cost ≤ 3 := by
+    (ax22AntecedentCosted M k x w).cost ≤ 20 := by
   unfold ax22AntecedentCosted
   cases hk : M.kind k w <;> simp [Complexity.Costed.andThen]
 
@@ -1905,8 +1990,8 @@ not a hidden proposition-level decision procedure.
 -/
 def ax22AlternativeCosted (M : FiniteModel4)
     (k x z : Fin M.thingCount) (v : Fin M.worldCount) : Complexity.Costed Bool :=
-  Complexity.Costed.andThen (Complexity.Costed.tick (M.kind z v) 1) fun _ =>
-    Complexity.Costed.andThen (Complexity.Costed.tick (M.inst x z v) 1) fun _ =>
+  Complexity.Costed.andThen (Complexity.Costed.tick (M.kind z v) 8) fun _ =>
+    Complexity.Costed.andThen (Complexity.Costed.tick (M.inst x z v) 11) fun _ =>
       Complexity.Costed.tick (decide (z ≠ k)) 1
 
 theorem ax22AlternativeCosted_value (M : FiniteModel4)
@@ -1919,7 +2004,7 @@ theorem ax22AlternativeCosted_value (M : FiniteModel4)
 
 theorem ax22AlternativeCosted_cost_le (M : FiniteModel4)
     (k x z : Fin M.thingCount) (v : Fin M.worldCount) :
-    (ax22AlternativeCosted M k x z v).cost ≤ 5 := by
+    (ax22AlternativeCosted M k x z v).cost ≤ 22 := by
   unfold ax22AlternativeCosted
   cases hk : M.kind z v <;> cases hi : M.inst x z v <;>
     simp [Complexity.Costed.andThen]
@@ -1943,11 +2028,11 @@ theorem ax22CounterexampleCosted_value (M : FiniteModel4)
 theorem ax22CounterexampleCosted_cost_le (M : FiniteModel4)
     (k x : Fin M.thingCount) :
     (ax22CounterexampleCosted M k x).cost ≤
-      M.worldCount * (M.thingCount * 7 + 2) := by
+      M.worldCount * (M.thingCount * 24 + 2) := by
   unfold ax22CounterexampleCosted
-  apply anyWorldsEvalCosted_cost_le M _ (M.thingCount * 7)
+  apply anyWorldsEvalCosted_cost_le M _ (M.thingCount * 24)
   intro v
-  apply anyThingsEvalCosted_cost_le M _ 5
+  apply anyThingsEvalCosted_cost_le M _ 22
   intro z
   exact ax22AlternativeCosted_cost_le M k x z v
 
@@ -1981,17 +2066,17 @@ theorem checkAx22_eq_legacy (M : FiniteModel4) :
 theorem checkAx22Costed_cost_le (M : FiniteModel4) :
     (checkAx22Costed M).cost ≤ M.thingCount *
       (M.thingCount *
-        (M.worldCount * (M.worldCount * (M.thingCount * 7 + 2) + 8) + 2) + 2) := by
+        (M.worldCount * (M.worldCount * (M.thingCount * 24 + 2) + 25) + 2) + 2) := by
   unfold checkAx22Costed
   apply allThingsEvalCosted_cost_le M _
     (M.thingCount *
-      (M.worldCount * (M.worldCount * (M.thingCount * 7 + 2) + 8) + 2))
+      (M.worldCount * (M.worldCount * (M.thingCount * 24 + 2) + 25) + 2))
   intro k
   apply allThingsEvalCosted_cost_le M _
-    (M.worldCount * (M.worldCount * (M.thingCount * 7 + 2) + 8))
+    (M.worldCount * (M.worldCount * (M.thingCount * 24 + 2) + 25))
   intro x
   apply allWorldsEvalCosted_cost_le M _
-    (M.worldCount * (M.thingCount * 7 + 2) + 6)
+    (M.worldCount * (M.thingCount * 24 + 2) + 23)
   intro w
   have ha := ax22AntecedentCosted_cost_le M k x w
   have hc := ax22CounterexampleCosted_cost_le M k x
@@ -1999,42 +2084,13 @@ theorem checkAx22Costed_cost_le (M : FiniteModel4) :
     simp [Complexity.Costed.implies, Complexity.Costed.orElse,
       Complexity.Costed.not, h] <;> omega
 
-def ax23SubsumesInstancesCosted (M : FiniteModel4)
-    (t k : Fin M.thingCount) : Complexity.Costed Bool :=
-  allWorldsEvalCosted M fun v =>
-    allThingsEvalCosted M fun x =>
-      Complexity.Costed.implies (Complexity.Costed.tick (M.inst x t v) 1) fun _ =>
-        Complexity.Costed.tick (M.inst x k v) 1
-
-theorem ax23SubsumesInstancesCosted_value (M : FiniteModel4)
-    (t k : Fin M.thingCount) :
-    (ax23SubsumesInstancesCosted M t k).value = allWorlds M (fun v =>
-      allThings M (fun x => impliesB (M.inst x t v) (M.inst x k v))) := by
-  unfold ax23SubsumesInstancesCosted
-  rw [allWorldsEvalCosted_value]
-  congr 1
-  funext v
-  rw [allThingsEvalCosted_value]
-  simp [Complexity.Costed.implies_value, impliesB]
-
-theorem ax23SubsumesInstancesCosted_cost_le (M : FiniteModel4)
-    (t k : Fin M.thingCount) :
-    (ax23SubsumesInstancesCosted M t k).cost ≤
-      M.worldCount * (M.thingCount * 6 + 2) := by
-  unfold ax23SubsumesInstancesCosted
-  apply allWorldsEvalCosted_cost_le M _ (M.thingCount * 6)
-  intro v
-  apply allThingsEvalCosted_cost_le M _ 4
-  intro x
-  cases hi : M.inst x t v <;>
-    simp [Complexity.Costed.implies, Complexity.Costed.orElse,
-      Complexity.Costed.not]
-
+/-- A kind qualifies when every instance of the candidate type is also its
+instance. Axioms 5 and 23 use the same world-then-thing subsumption scan. -/
 def ax23KindWitnessCosted (M : FiniteModel4)
     (t : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
   anyThingsEvalCosted M fun k =>
-    Complexity.Costed.andThen (Complexity.Costed.tick (M.kind k w) 1) fun _ =>
-      ax23SubsumesInstancesCosted M t k
+    Complexity.Costed.andThen (Complexity.Costed.tick (M.kind k w) 8) fun _ =>
+      instSubsumptionCosted M t k
 
 theorem ax23KindWitnessCosted_value (M : FiniteModel4)
     (t : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -2046,17 +2102,17 @@ theorem ax23KindWitnessCosted_value (M : FiniteModel4)
   congr 1
   funext k
   cases hk : M.kind k w <;>
-    simp [Complexity.Costed.andThen, ax23SubsumesInstancesCosted_value]
+    simp [Complexity.Costed.andThen, instSubsumptionCosted_value]
 
 theorem ax23KindWitnessCosted_cost_le (M : FiniteModel4)
     (t : Fin M.thingCount) (w : Fin M.worldCount) :
     (ax23KindWitnessCosted M t w).cost ≤
-      M.thingCount * (M.worldCount * (M.thingCount * 6 + 2) + 4) := by
+      M.thingCount * (M.worldCount * (M.thingCount * 26 + 2) + 11) := by
   unfold ax23KindWitnessCosted
   apply anyThingsEvalCosted_cost_le M _
-    (M.worldCount * (M.thingCount * 6 + 2) + 2)
+    (M.worldCount * (M.thingCount * 26 + 2) + 9)
   intro k
-  have hs := ax23SubsumesInstancesCosted_cost_le M t k
+  have hs := instSubsumptionCosted_cost_le M t k
   cases hk : M.kind k w
   · simp [Complexity.Costed.andThen]
   · simp [Complexity.Costed.andThen]
@@ -2065,7 +2121,7 @@ theorem ax23KindWitnessCosted_cost_le (M : FiniteModel4)
 def checkAx23ConsequentCosted (M : FiniteModel4)
     (t : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
   Complexity.Costed.andThen
-    (Complexity.Costed.tick (M.endurantType t w) 1) fun _ =>
+    (Complexity.Costed.tick (M.endurantType t w) 8) fun _ =>
       ax23KindWitnessCosted M t w
 
 theorem checkAx23ConsequentCosted_value (M : FiniteModel4)
@@ -2081,7 +2137,7 @@ theorem checkAx23ConsequentCosted_value (M : FiniteModel4)
 theorem checkAx23ConsequentCosted_cost_le (M : FiniteModel4)
     (t : Fin M.thingCount) (w : Fin M.worldCount) :
     (checkAx23ConsequentCosted M t w).cost ≤
-      M.thingCount * (M.worldCount * (M.thingCount * 6 + 2) + 4) + 2 := by
+      M.thingCount * (M.worldCount * (M.thingCount * 26 + 2) + 11) + 9 := by
   have hw := ax23KindWitnessCosted_cost_le M t w
   cases he : M.endurantType t w
   · simp [checkAx23ConsequentCosted, Complexity.Costed.andThen, he]
@@ -2091,7 +2147,7 @@ theorem checkAx23ConsequentCosted_cost_le (M : FiniteModel4)
 def checkAx23Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun t =>
     allWorldsEvalCosted M fun w =>
-      Complexity.Costed.iff (Complexity.Costed.tick (M.sortal t w) 1) fun _ =>
+      Complexity.Costed.iff (Complexity.Costed.tick (M.sortal t w) 8) fun _ =>
         checkAx23ConsequentCosted M t w
 
 def checkAx23 (M : FiniteModel4) : Bool :=
@@ -2120,58 +2176,63 @@ theorem checkAx23_eq_legacy (M : FiniteModel4) :
 theorem checkAx23Costed_cost_le (M : FiniteModel4) :
     (checkAx23Costed M).cost ≤ M.thingCount *
       (M.worldCount *
-        (M.thingCount * (M.worldCount * (M.thingCount * 6 + 2) + 4) + 7) + 2) := by
+        (M.thingCount * (M.worldCount * (M.thingCount * 26 + 2) + 11) + 21) + 2) := by
   unfold checkAx23Costed
   apply allThingsEvalCosted_cost_le M _
     (M.worldCount *
-      (M.thingCount * (M.worldCount * (M.thingCount * 6 + 2) + 4) + 7))
+      (M.thingCount * (M.worldCount * (M.thingCount * 26 + 2) + 11) + 21))
   intro t
   apply allWorldsEvalCosted_cost_le M _
-    (M.thingCount * (M.worldCount * (M.thingCount * 6 + 2) + 4) + 5)
+    (M.thingCount * (M.worldCount * (M.thingCount * 26 + 2) + 11) + 19)
   intro w
   have hc := checkAx23ConsequentCosted_cost_le M t w
   cases h : M.sortal t w <;>
     simp [Complexity.Costed.iff] <;> omega
 
 /-!
-Shared counted cores for the direct classification-table axioms.  Factoring
-the executable shapes mirrors RadixExperiment's pass-local correspondence
-style: each axiom below is a thin erasure of a proved core, while its UFO
-semantic theorem remains a distinct result.
+Shared counted cores for classification checks. Each executed unary lookup
+charges eight operations. `Complexity/Queries.lean` proves full value/cost
+equality with the compiler's dense table evaluator on the verified model.
+The generic Boolean-function arguments alone do not imply that implementation
+guarantee. `iff` evaluates both sides once; `andThen` and `orElse` can skip
+their second operand when the first answer determines the result.
+
+Following RadixExperiment's local correspondence proofs, each constructor
+boundary has its own equality. The UFO semantic theorem remains separate.
 -/
 
 def checkUnaryIffAndCosted (M : FiniteModel4)
     (left first second : Fin M.thingCount → Fin M.worldCount → Bool) :
     Complexity.Costed Bool :=
   allThingsEvalCosted M fun t => allWorldsEvalCosted M fun w =>
-    Complexity.Costed.iff (Complexity.Costed.tick (left t w) 1) fun _ =>
-      Complexity.Costed.andThen (Complexity.Costed.tick (first t w) 1) fun _ =>
-        Complexity.Costed.tick (second t w) 1
+    Complexity.Costed.iff (Complexity.Costed.tick (left t w) 8) fun _ =>
+      Complexity.Costed.andThen (Complexity.Costed.tick (first t w) 8) fun _ =>
+        Complexity.Costed.tick (second t w) 8
 
 def checkUnaryIffAndNotCosted (M : FiniteModel4)
     (left first second : Fin M.thingCount → Fin M.worldCount → Bool) :
     Complexity.Costed Bool :=
   allThingsEvalCosted M fun t => allWorldsEvalCosted M fun w =>
-    Complexity.Costed.iff (Complexity.Costed.tick (left t w) 1) fun _ =>
-      Complexity.Costed.andThen (Complexity.Costed.tick (first t w) 1) fun _ =>
-        (Complexity.Costed.tick (second t w) 1).not
+    Complexity.Costed.iff (Complexity.Costed.tick (left t w) 8) fun _ =>
+      Complexity.Costed.andThen (Complexity.Costed.tick (first t w) 8) fun _ =>
+        (Complexity.Costed.tick (second t w) 8).not
 
 def checkUnaryIffOrAndCosted (M : FiniteModel4)
     (leftA leftB rightA rightB : Fin M.thingCount → Fin M.worldCount → Bool) :
     Complexity.Costed Bool :=
   allThingsEvalCosted M fun t => allWorldsEvalCosted M fun w =>
     Complexity.Costed.iff
-      (Complexity.Costed.orElse (Complexity.Costed.tick (leftA t w) 1) fun _ =>
-        Complexity.Costed.tick (leftB t w) 1) fun _ =>
-      Complexity.Costed.andThen (Complexity.Costed.tick (rightA t w) 1) fun _ =>
-        Complexity.Costed.tick (rightB t w) 1
+      (Complexity.Costed.orElse (Complexity.Costed.tick (leftA t w) 8) fun _ =>
+        Complexity.Costed.tick (leftB t w) 8) fun _ =>
+      Complexity.Costed.andThen (Complexity.Costed.tick (rightA t w) 8) fun _ =>
+        Complexity.Costed.tick (rightB t w) 8
 
 def checkWorldFirstDisjointCosted (M : FiniteModel4)
     (left right : Fin M.thingCount → Fin M.worldCount → Bool) :
     Complexity.Costed Bool :=
   allWorldsEvalCosted M fun w => allThingsEvalCosted M fun t =>
-    (Complexity.Costed.andThen (Complexity.Costed.tick (left t w) 1) fun _ =>
-      Complexity.Costed.tick (right t w) 1).not
+    (Complexity.Costed.andThen (Complexity.Costed.tick (left t w) 8) fun _ =>
+      Complexity.Costed.tick (right t w) 8).not
 
 theorem checkUnaryIffAndCosted_value (M : FiniteModel4) (left first second) :
     (checkUnaryIffAndCosted M left first second).value = allThings M (fun t =>
@@ -2220,28 +2281,28 @@ theorem checkWorldFirstDisjointCosted_value (M : FiniteModel4) (left right) :
 
 theorem checkUnaryIffAndCosted_cost_le (M : FiniteModel4) (left first second) :
     (checkUnaryIffAndCosted M left first second).cost ≤
-      M.thingCount * (M.worldCount * 8 + 2) := by
+      M.thingCount * (M.worldCount * 29 + 2) := by
   unfold checkUnaryIffAndCosted
-  apply allThingsEvalCosted_cost_le M _ (M.worldCount * 8)
-  intro t; apply allWorldsEvalCosted_cost_le M _ 6; intro w
+  apply allThingsEvalCosted_cost_le M _ (M.worldCount * 29)
+  intro t; apply allWorldsEvalCosted_cost_le M _ 27; intro w
   cases hl : left t w <;> cases hf : first t w <;>
     simp [Complexity.Costed.iff, Complexity.Costed.andThen]
 
 theorem checkUnaryIffAndNotCosted_cost_le (M : FiniteModel4) (left first second) :
     (checkUnaryIffAndNotCosted M left first second).cost ≤
-      M.thingCount * (M.worldCount * 9 + 2) := by
+      M.thingCount * (M.worldCount * 30 + 2) := by
   unfold checkUnaryIffAndNotCosted
-  apply allThingsEvalCosted_cost_le M _ (M.worldCount * 9)
-  intro t; apply allWorldsEvalCosted_cost_le M _ 7; intro w
+  apply allThingsEvalCosted_cost_le M _ (M.worldCount * 30)
+  intro t; apply allWorldsEvalCosted_cost_le M _ 28; intro w
   cases hl : left t w <;> cases hf : first t w <;>
     simp [Complexity.Costed.iff, Complexity.Costed.andThen, Complexity.Costed.not]
 
 theorem checkUnaryIffOrAndCosted_cost_le (M : FiniteModel4) (leftA leftB rightA rightB) :
     (checkUnaryIffOrAndCosted M leftA leftB rightA rightB).cost ≤
-      M.thingCount * (M.worldCount * 10 + 2) := by
+      M.thingCount * (M.worldCount * 38 + 2) := by
   unfold checkUnaryIffOrAndCosted
-  apply allThingsEvalCosted_cost_le M _ (M.worldCount * 10)
-  intro t; apply allWorldsEvalCosted_cost_le M _ 8; intro w
+  apply allThingsEvalCosted_cost_le M _ (M.worldCount * 38)
+  intro t; apply allWorldsEvalCosted_cost_le M _ 36; intro w
   cases ha : leftA t w <;> cases hb : leftB t w <;>
     cases hc : rightA t w <;>
       simp [Complexity.Costed.iff, Complexity.Costed.orElse,
@@ -2249,10 +2310,10 @@ theorem checkUnaryIffOrAndCosted_cost_le (M : FiniteModel4) (leftA leftB rightA 
 
 theorem checkWorldFirstDisjointCosted_cost_le (M : FiniteModel4) (left right) :
     (checkWorldFirstDisjointCosted M left right).cost ≤
-      M.worldCount * (M.thingCount * 6 + 2) := by
+      M.worldCount * (M.thingCount * 20 + 2) := by
   unfold checkWorldFirstDisjointCosted
-  apply allWorldsEvalCosted_cost_le M _ (M.thingCount * 6)
-  intro w; apply allThingsEvalCosted_cost_le M _ 4; intro t
+  apply allWorldsEvalCosted_cost_le M _ (M.thingCount * 20)
+  intro w; apply allThingsEvalCosted_cost_le M _ 18; intro t
   cases hl : left t w <;>
     simp [Complexity.Costed.andThen, Complexity.Costed.not]
 
@@ -2260,52 +2321,52 @@ def checkAx24Costed (M : FiniteModel4) :=
   checkUnaryIffAndNotCosted M M.nonSortal M.endurantType M.sortal
 def checkAx24 (M : FiniteModel4) := (checkAx24Costed M).value
 theorem checkAx24_eq_legacy (M : FiniteModel4) : checkAx24 M = allThings M (fun t => allWorlds M (fun w => iffB (M.nonSortal t w) (M.endurantType t w && !(M.sortal t w)))) := checkUnaryIffAndNotCosted_value M M.nonSortal M.endurantType M.sortal
-theorem checkAx24Costed_cost_le (M : FiniteModel4) : (checkAx24Costed M).cost ≤ M.thingCount * (M.worldCount * 9 + 2) := checkUnaryIffAndNotCosted_cost_le M M.nonSortal M.endurantType M.sortal
+theorem checkAx24Costed_cost_le (M : FiniteModel4) : (checkAx24Costed M).cost ≤ M.thingCount * (M.worldCount * 30 + 2) := checkUnaryIffAndNotCosted_cost_le M M.nonSortal M.endurantType M.sortal
 
 def checkAx25Costed (M : FiniteModel4) := checkWorldFirstDisjointCosted M M.kind M.subKind
 def checkAx25 (M : FiniteModel4) := (checkAx25Costed M).value
 theorem checkAx25_eq_legacy (M : FiniteModel4) : checkAx25 M = allWorlds M (fun w => allThings M (fun t => !(M.kind t w && M.subKind t w))) := checkWorldFirstDisjointCosted_value M M.kind M.subKind
-theorem checkAx25Costed_cost_le (M : FiniteModel4) : (checkAx25Costed M).cost ≤ M.worldCount * (M.thingCount * 6 + 2) := checkWorldFirstDisjointCosted_cost_le M M.kind M.subKind
+theorem checkAx25Costed_cost_le (M : FiniteModel4) : (checkAx25Costed M).cost ≤ M.worldCount * (M.thingCount * 20 + 2) := checkWorldFirstDisjointCosted_cost_le M M.kind M.subKind
 
 def checkAx26Costed (M : FiniteModel4) := checkUnaryIffOrAndCosted M M.kind M.subKind M.rigid M.sortal
 def checkAx26 (M : FiniteModel4) := (checkAx26Costed M).value
 theorem checkAx26_eq_legacy (M : FiniteModel4) : checkAx26 M = allThings M (fun t => allWorlds M (fun w => iffB (M.kind t w || M.subKind t w) (M.rigid t w && M.sortal t w))) := checkUnaryIffOrAndCosted_value M M.kind M.subKind M.rigid M.sortal
-theorem checkAx26Costed_cost_le (M : FiniteModel4) : (checkAx26Costed M).cost ≤ M.thingCount * (M.worldCount * 10 + 2) := checkUnaryIffOrAndCosted_cost_le M M.kind M.subKind M.rigid M.sortal
+theorem checkAx26Costed_cost_le (M : FiniteModel4) : (checkAx26Costed M).cost ≤ M.thingCount * (M.worldCount * 38 + 2) := checkUnaryIffOrAndCosted_cost_le M M.kind M.subKind M.rigid M.sortal
 
 def checkAx27Costed (M : FiniteModel4) := checkWorldFirstDisjointCosted M M.phase M.role
 def checkAx27 (M : FiniteModel4) := (checkAx27Costed M).value
 theorem checkAx27_eq_legacy (M : FiniteModel4) : checkAx27 M = allWorlds M (fun w => allThings M (fun t => !(M.phase t w && M.role t w))) := checkWorldFirstDisjointCosted_value M M.phase M.role
-theorem checkAx27Costed_cost_le (M : FiniteModel4) : (checkAx27Costed M).cost ≤ M.worldCount * (M.thingCount * 6 + 2) := checkWorldFirstDisjointCosted_cost_le M M.phase M.role
+theorem checkAx27Costed_cost_le (M : FiniteModel4) : (checkAx27Costed M).cost ≤ M.worldCount * (M.thingCount * 20 + 2) := checkWorldFirstDisjointCosted_cost_le M M.phase M.role
 
 def checkAx28Costed (M : FiniteModel4) := checkUnaryIffOrAndCosted M M.phase M.role M.antiRigid M.sortal
 def checkAx28 (M : FiniteModel4) := (checkAx28Costed M).value
 theorem checkAx28_eq_legacy (M : FiniteModel4) : checkAx28 M = allThings M (fun t => allWorlds M (fun w => iffB (M.phase t w || M.role t w) (M.antiRigid t w && M.sortal t w))) := checkUnaryIffOrAndCosted_value M M.phase M.role M.antiRigid M.sortal
-theorem checkAx28Costed_cost_le (M : FiniteModel4) : (checkAx28Costed M).cost ≤ M.thingCount * (M.worldCount * 10 + 2) := checkUnaryIffOrAndCosted_cost_le M M.phase M.role M.antiRigid M.sortal
+theorem checkAx28Costed_cost_le (M : FiniteModel4) : (checkAx28Costed M).cost ≤ M.thingCount * (M.worldCount * 38 + 2) := checkUnaryIffOrAndCosted_cost_le M M.phase M.role M.antiRigid M.sortal
 
 def checkAx29Costed (M : FiniteModel4) := checkUnaryIffAndCosted M M.semiRigidSortal M.semiRigid M.sortal
 def checkAx29 (M : FiniteModel4) := (checkAx29Costed M).value
 theorem checkAx29_eq_legacy (M : FiniteModel4) : checkAx29 M = allThings M (fun t => allWorlds M (fun w => iffB (M.semiRigidSortal t w) (M.semiRigid t w && M.sortal t w))) := checkUnaryIffAndCosted_value M M.semiRigidSortal M.semiRigid M.sortal
-theorem checkAx29Costed_cost_le (M : FiniteModel4) : (checkAx29Costed M).cost ≤ M.thingCount * (M.worldCount * 8 + 2) := checkUnaryIffAndCosted_cost_le M M.semiRigidSortal M.semiRigid M.sortal
+theorem checkAx29Costed_cost_le (M : FiniteModel4) : (checkAx29Costed M).cost ≤ M.thingCount * (M.worldCount * 29 + 2) := checkUnaryIffAndCosted_cost_le M M.semiRigidSortal M.semiRigid M.sortal
 
 def checkAx30Costed (M : FiniteModel4) := checkUnaryIffAndCosted M M.category M.rigid M.nonSortal
 def checkAx30 (M : FiniteModel4) := (checkAx30Costed M).value
 theorem checkAx30_eq_legacy (M : FiniteModel4) : checkAx30 M = allThings M (fun t => allWorlds M (fun w => iffB (M.category t w) (M.rigid t w && M.nonSortal t w))) := checkUnaryIffAndCosted_value M M.category M.rigid M.nonSortal
-theorem checkAx30Costed_cost_le (M : FiniteModel4) : (checkAx30Costed M).cost ≤ M.thingCount * (M.worldCount * 8 + 2) := checkUnaryIffAndCosted_cost_le M M.category M.rigid M.nonSortal
+theorem checkAx30Costed_cost_le (M : FiniteModel4) : (checkAx30Costed M).cost ≤ M.thingCount * (M.worldCount * 29 + 2) := checkUnaryIffAndCosted_cost_le M M.category M.rigid M.nonSortal
 
 def checkAx31Costed (M : FiniteModel4) := checkUnaryIffAndCosted M M.mixin M.semiRigid M.nonSortal
 def checkAx31 (M : FiniteModel4) := (checkAx31Costed M).value
 theorem checkAx31_eq_legacy (M : FiniteModel4) : checkAx31 M = allThings M (fun t => allWorlds M (fun w => iffB (M.mixin t w) (M.semiRigid t w && M.nonSortal t w))) := checkUnaryIffAndCosted_value M M.mixin M.semiRigid M.nonSortal
-theorem checkAx31Costed_cost_le (M : FiniteModel4) : (checkAx31Costed M).cost ≤ M.thingCount * (M.worldCount * 8 + 2) := checkUnaryIffAndCosted_cost_le M M.mixin M.semiRigid M.nonSortal
+theorem checkAx31Costed_cost_le (M : FiniteModel4) : (checkAx31Costed M).cost ≤ M.thingCount * (M.worldCount * 29 + 2) := checkUnaryIffAndCosted_cost_le M M.mixin M.semiRigid M.nonSortal
 
 def checkAx32Costed (M : FiniteModel4) := checkWorldFirstDisjointCosted M M.phaseMixin M.roleMixin
 def checkAx32 (M : FiniteModel4) := (checkAx32Costed M).value
 theorem checkAx32_eq_legacy (M : FiniteModel4) : checkAx32 M = allWorlds M (fun w => allThings M (fun t => !(M.phaseMixin t w && M.roleMixin t w))) := checkWorldFirstDisjointCosted_value M M.phaseMixin M.roleMixin
-theorem checkAx32Costed_cost_le (M : FiniteModel4) : (checkAx32Costed M).cost ≤ M.worldCount * (M.thingCount * 6 + 2) := checkWorldFirstDisjointCosted_cost_le M M.phaseMixin M.roleMixin
+theorem checkAx32Costed_cost_le (M : FiniteModel4) : (checkAx32Costed M).cost ≤ M.worldCount * (M.thingCount * 20 + 2) := checkWorldFirstDisjointCosted_cost_le M M.phaseMixin M.roleMixin
 
 def checkAx33Costed (M : FiniteModel4) := checkUnaryIffOrAndCosted M M.phaseMixin M.roleMixin M.antiRigid M.nonSortal
 def checkAx33 (M : FiniteModel4) := (checkAx33Costed M).value
 theorem checkAx33_eq_legacy (M : FiniteModel4) : checkAx33 M = allThings M (fun t => allWorlds M (fun w => iffB (M.phaseMixin t w || M.roleMixin t w) (M.antiRigid t w && M.nonSortal t w))) := checkUnaryIffOrAndCosted_value M M.phaseMixin M.roleMixin M.antiRigid M.nonSortal
-theorem checkAx33Costed_cost_le (M : FiniteModel4) : (checkAx33Costed M).cost ≤ M.thingCount * (M.worldCount * 10 + 2) := checkUnaryIffOrAndCosted_cost_le M M.phaseMixin M.roleMixin M.antiRigid M.nonSortal
+theorem checkAx33Costed_cost_le (M : FiniteModel4) : (checkAx33Costed M).cost ≤ M.thingCount * (M.worldCount * 38 + 2) := checkUnaryIffOrAndCosted_cost_le M M.phaseMixin M.roleMixin M.antiRigid M.nonSortal
 
 /-!
 Delayed composition for axioms 18--33.  As in the cost-aware semantics of Niu
@@ -2351,18 +2412,18 @@ theorem checkAxioms18To33_eq_true_iff (M : FiniteModel4) :
     checkAx29, checkAx30, checkAx31, checkAx32, checkAx33]
 
 def axioms18To33PerCheckBound (M : FiniteModel4) : Nat :=
-  M.thingCount * (M.worldCount * (M.thingCount * (6 * M.worldCount + 4) + 7) + 2) +
-  M.thingCount * (M.worldCount * (M.thingCount * (7 * M.worldCount + 4) + 7) + 2) +
-  M.thingCount * (M.worldCount * 12 + 2) +
-  M.thingCount * (M.worldCount * (M.thingCount * (3 * M.worldCount + 4) + 5) + 2) +
+  M.thingCount * (M.worldCount * (M.thingCount * (26 * M.worldCount + 4) + 21) + 2) +
+  M.thingCount * (M.worldCount * (M.thingCount * (27 * M.worldCount + 4) + 21) + 2) +
+  M.thingCount * (M.worldCount * 40 + 2) +
+  M.thingCount * (M.worldCount * (M.thingCount * (13 * M.worldCount + 11) + 12) + 2) +
   M.thingCount * (M.thingCount *
-    (M.worldCount * (M.worldCount * (M.thingCount * 7 + 2) + 8) + 2) + 2) +
+    (M.worldCount * (M.worldCount * (M.thingCount * 24 + 2) + 25) + 2) + 2) +
   M.thingCount * (M.worldCount *
-    (M.thingCount * (M.worldCount * (M.thingCount * 6 + 2) + 4) + 7) + 2) +
-  M.thingCount * (M.worldCount * 9 + 2) +
-  M.worldCount * (M.thingCount * 6 + 2) +
-  M.thingCount * (M.worldCount * 10 + 2) +
-  M.thingCount * (M.worldCount * 8 + 2)
+    (M.thingCount * (M.worldCount * (M.thingCount * 26 + 2) + 11) + 21) + 2) +
+  M.thingCount * (M.worldCount * 30 + 2) +
+  M.worldCount * (M.thingCount * 20 + 2) +
+  M.thingCount * (M.worldCount * 38 + 2) +
+  M.thingCount * (M.worldCount * 29 + 2)
 
 theorem checkAxioms18To33Costed_cost_le (M : FiniteModel4) :
     (checkAxioms18To33Costed M).cost ≤
@@ -2391,21 +2452,29 @@ theorem checkAxioms18To33Costed_cost_le (M : FiniteModel4) :
   · have h := checkAx32Costed_cost_le M; unfold axioms18To33PerCheckBound; omega
   · have h := checkAx33Costed_cost_le M; unfold axioms18To33PerCheckBound; omega
 
+/--
+Each predicate carries its own query cost. This matters because bridge checks mix
+unary and binary reads, while other callers use derived relations. Conjunction
+skips its second predicate when the first is false. Implication skips its
+consequent when the conjunction is false. The bound adds three Boolean operations
+and two world-loop operations to the three predicate bounds.
+-/
 def checkTwoThingsWorldsImpCosted (M : FiniteModel4)
     (first second consequent :
-      Fin M.thingCount → Fin M.thingCount → Fin M.worldCount → Bool) :
+      Fin M.thingCount → Fin M.thingCount → Fin M.worldCount → Complexity.Costed Bool) :
     Complexity.Costed Bool :=
   allThingsEvalCosted M fun a => allThingsEvalCosted M fun b =>
     allWorldsEvalCosted M fun w =>
       Complexity.Costed.implies
-        (Complexity.Costed.andThen (Complexity.Costed.tick (first a b w) 1) fun _ =>
-          Complexity.Costed.tick (second a b w) 1) fun _ =>
-        Complexity.Costed.tick (consequent a b w) 1
+        (Complexity.Costed.andThen (first a b w) fun _ =>
+          second a b w) fun _ =>
+        consequent a b w
 
 theorem checkTwoThingsWorldsImpCosted_value (M : FiniteModel4) (first second consequent) :
     (checkTwoThingsWorldsImpCosted M first second consequent).value =
       allThings M (fun a => allThings M (fun b => allWorlds M (fun w =>
-        impliesB (first a b w && second a b w) (consequent a b w)))) := by
+        impliesB ((first a b w).value && (second a b w).value)
+          (consequent a b w).value))) := by
   unfold checkTwoThingsWorldsImpCosted
   rw [allThingsEvalCosted_value]; congr 1; funext a
   rw [allThingsEvalCosted_value]; congr 1; funext b
@@ -2413,23 +2482,38 @@ theorem checkTwoThingsWorldsImpCosted_value (M : FiniteModel4) (first second con
   simp [Complexity.Costed.implies_value, Complexity.Costed.andThen_value, impliesB]
 
 theorem checkTwoThingsWorldsImpCosted_cost_le (M : FiniteModel4)
-    (first second consequent) :
+    (first second consequent :
+      Fin M.thingCount → Fin M.thingCount → Fin M.worldCount → Complexity.Costed Bool)
+    (firstBound secondBound consequentBound : Nat)
+    (hf : ∀ a b w, (first a b w).cost ≤ firstBound)
+    (hs : ∀ a b w, (second a b w).cost ≤ secondBound)
+    (hc : ∀ a b w, (consequent a b w).cost ≤ consequentBound) :
     (checkTwoThingsWorldsImpCosted M first second consequent).cost ≤
-      M.thingCount * (M.thingCount * (M.worldCount * 8 + 2) + 2) := by
+      M.thingCount * (M.thingCount *
+        (M.worldCount * (firstBound + secondBound + consequentBound + 5) + 2) + 2) := by
   unfold checkTwoThingsWorldsImpCosted
-  apply allThingsEvalCosted_cost_le M _ (M.thingCount * (M.worldCount * 8 + 2))
-  intro a; apply allThingsEvalCosted_cost_le M _ (M.worldCount * 8)
-  intro b; apply allWorldsEvalCosted_cost_le M _ 6; intro w
-  cases hf : first a b w <;> cases hs : second a b w <;>
-    simp [Complexity.Costed.implies, Complexity.Costed.orElse,
-      Complexity.Costed.andThen, Complexity.Costed.not]
+  apply allThingsEvalCosted_cost_le M _ (M.thingCount *
+    (M.worldCount * (firstBound + secondBound + consequentBound + 5) + 2))
+  intro a
+  apply allThingsEvalCosted_cost_le M _
+    (M.worldCount * (firstBound + secondBound + consequentBound + 5))
+  intro b
+  apply allWorldsEvalCosted_cost_le M _ (firstBound + secondBound + consequentBound + 3)
+  intro w
+  have hand := Complexity.Costed.andThen_cost_le (first a b w) (fun _ => second a b w)
+    firstBound secondBound
+    (hf a b w) (hs a b w)
+  have himp := Complexity.Costed.implies_cost_le _ (fun _ => consequent a b w)
+    (firstBound + 1 + secondBound)
+    consequentBound hand (hc a b w)
+  omega
 
 def checkThingWorldWorldImpCosted (M : FiniteModel4)
     (left right : Fin M.thingCount → Fin M.worldCount → Bool) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun t => allWorldsEvalCosted M fun w =>
     allWorldsEvalCosted M fun v =>
-      Complexity.Costed.implies (Complexity.Costed.tick (left t w) 1) fun _ =>
-        Complexity.Costed.tick (right t v) 1
+      Complexity.Costed.implies (Complexity.Costed.tick (left t w) 8) fun _ =>
+        Complexity.Costed.tick (right t v) 8
 
 theorem checkThingWorldWorldImpCosted_value (M : FiniteModel4) (left right) :
     (checkThingWorldWorldImpCosted M left right).value = allThings M (fun t =>
@@ -2442,18 +2526,19 @@ theorem checkThingWorldWorldImpCosted_value (M : FiniteModel4) (left right) :
 
 theorem checkThingWorldWorldImpCosted_cost_le (M : FiniteModel4) (left right) :
     (checkThingWorldWorldImpCosted M left right).cost ≤
-      M.thingCount * (M.worldCount * (M.worldCount * 6 + 2) + 2) := by
+      M.thingCount * (M.worldCount * (M.worldCount * 20 + 2) + 2) := by
   unfold checkThingWorldWorldImpCosted
-  apply allThingsEvalCosted_cost_le M _ (M.worldCount * (M.worldCount * 6 + 2))
-  intro t; apply allWorldsEvalCosted_cost_le M _ (M.worldCount * 6)
-  intro w; apply allWorldsEvalCosted_cost_le M _ 4; intro v
+  apply allThingsEvalCosted_cost_le M _ (M.worldCount * (M.worldCount * 20 + 2))
+  intro t; apply allWorldsEvalCosted_cost_le M _ (M.worldCount * 20)
+  intro w; apply allWorldsEvalCosted_cost_le M _ 18; intro v
   cases hl : left t w <;>
     simp [Complexity.Costed.implies, Complexity.Costed.orElse, Complexity.Costed.not]
 
 def checkAxInstEndurantCosted (M : FiniteModel4) :=
   checkTwoThingsWorldsImpCosted M
-    (fun t _ w => M.endurantType t w) (fun t x w => M.inst x t w)
-    (fun _ x w => M.endurant x w)
+    (fun t _ w => Complexity.Costed.tick (M.endurantType t w) 8)
+    (fun t x w => Complexity.Costed.tick (M.inst x t w) 11)
+    (fun _ x w => Complexity.Costed.tick (M.endurant x w) 8)
 def checkAxInstEndurant (M : FiniteModel4) := (checkAxInstEndurantCosted M).value
 theorem checkAxInstEndurant_eq_legacy (M : FiniteModel4) :
     checkAxInstEndurant M = allThings M (fun t => allThings M (fun x =>
@@ -2461,12 +2546,14 @@ theorem checkAxInstEndurant_eq_legacy (M : FiniteModel4) :
         (M.endurant x w)))) := checkTwoThingsWorldsImpCosted_value M _ _ _
 theorem checkAxInstEndurantCosted_cost_le (M : FiniteModel4) :
     (checkAxInstEndurantCosted M).cost ≤
-      M.thingCount * (M.thingCount * (M.worldCount * 8 + 2) + 2) :=
-  checkTwoThingsWorldsImpCosted_cost_le M _ _ _
+      M.thingCount * (M.thingCount * (M.worldCount * 32 + 2) + 2) :=
+  checkTwoThingsWorldsImpCosted_cost_le M _ _ _ 8 11 8
+    (by intros; rfl) (by intros; rfl) (by intros; rfl)
 
 def checkAxSubKindSortalCosted (M : FiniteModel4) :=
-  checkTwoThingsWorldsImpCosted M (fun a k w => M.sub a k w)
-    (fun _ k w => M.kind k w) (fun a _ w => M.sortal a w)
+  checkTwoThingsWorldsImpCosted M (fun a k w => Complexity.Costed.tick (M.sub a k w) 11)
+    (fun _ k w => Complexity.Costed.tick (M.kind k w) 8)
+    (fun a _ w => Complexity.Costed.tick (M.sortal a w) 8)
 def checkAxSubKindSortal (M : FiniteModel4) := (checkAxSubKindSortalCosted M).value
 theorem checkAxSubKindSortal_eq_legacy (M : FiniteModel4) :
     checkAxSubKindSortal M = allThings M (fun a => allThings M (fun k =>
@@ -2474,12 +2561,14 @@ theorem checkAxSubKindSortal_eq_legacy (M : FiniteModel4) :
         (M.sortal a w)))) := checkTwoThingsWorldsImpCosted_value M _ _ _
 theorem checkAxSubKindSortalCosted_cost_le (M : FiniteModel4) :
     (checkAxSubKindSortalCosted M).cost ≤
-      M.thingCount * (M.thingCount * (M.worldCount * 8 + 2) + 2) :=
-  checkTwoThingsWorldsImpCosted_cost_le M _ _ _
+      M.thingCount * (M.thingCount * (M.worldCount * 32 + 2) + 2) :=
+  checkTwoThingsWorldsImpCosted_cost_le M _ _ _ 11 8 8
+    (by intros; rfl) (by intros; rfl) (by intros; rfl)
 
 def checkAxNonSortalUpCosted (M : FiniteModel4) :=
-  checkTwoThingsWorldsImpCosted M (fun a _ w => M.nonSortal a w)
-    (fun a b w => M.sub a b w) (fun _ b w => M.nonSortal b w)
+  checkTwoThingsWorldsImpCosted M (fun a _ w => Complexity.Costed.tick (M.nonSortal a w) 8)
+    (fun a b w => Complexity.Costed.tick (M.sub a b w) 11)
+    (fun _ b w => Complexity.Costed.tick (M.nonSortal b w) 8)
 def checkAxNonSortalUp (M : FiniteModel4) := (checkAxNonSortalUpCosted M).value
 theorem checkAxNonSortalUp_eq_legacy (M : FiniteModel4) :
     checkAxNonSortalUp M = allThings M (fun a => allThings M (fun b =>
@@ -2487,8 +2576,9 @@ theorem checkAxNonSortalUp_eq_legacy (M : FiniteModel4) :
         (M.nonSortal b w)))) := checkTwoThingsWorldsImpCosted_value M _ _ _
 theorem checkAxNonSortalUpCosted_cost_le (M : FiniteModel4) :
     (checkAxNonSortalUpCosted M).cost ≤
-      M.thingCount * (M.thingCount * (M.worldCount * 8 + 2) + 2) :=
-  checkTwoThingsWorldsImpCosted_cost_le M _ _ _
+      M.thingCount * (M.thingCount * (M.worldCount * 32 + 2) + 2) :=
+  checkTwoThingsWorldsImpCosted_cost_le M _ _ _ 8 11 8
+    (by intros; rfl) (by intros; rfl) (by intros; rfl)
 
 def checkAxKindStableCosted (M : FiniteModel4) :=
   checkThingWorldWorldImpCosted M M.kind M.kind
@@ -2499,22 +2589,28 @@ theorem checkAxKindStable_eq_legacy (M : FiniteModel4) :
   checkThingWorldWorldImpCosted_value M M.kind M.kind
 theorem checkAxKindStableCosted_cost_le (M : FiniteModel4) :
     (checkAxKindStableCosted M).cost ≤
-      M.thingCount * (M.worldCount * (M.worldCount * 6 + 2) + 2) :=
+      M.thingCount * (M.worldCount * (M.worldCount * 20 + 2) + 2) :=
   checkThingWorldWorldImpCosted_cost_le M M.kind M.kind
 
 /-!
-Operational existence-and-uniqueness for qualities.  This replaces the former
-opaque `decide (∃! ...)` with the actual finite candidate and competitor scans.
-The explicit equality charge follows the unit-cost model; keeping production as
-the counted erasure follows the implementation-correspondence methodology of
-Forster et al. and the verified-interpreter organization exemplified by
-RadixExperiment.
+Quality means that exactly one quality kind classifies the candidate thing.
+The executable scans kinds in index order. For each matching kind, it restarts
+at index zero and searches for a distinct match. A failed kind test skips its
+instantiation read; a distinct matching competitor ends the uniqueness scan.
+The two scans retain their repeated reads.
+
+A candidate costs at most 20 operations: eight for the unary kind read,
+one conjunction test, and eleven for the binary instantiation read. Comparing
+finite indices costs one. Full result-and-cost correspondence to the compiler's
+table evaluators appears in `Complexity/Queries.lean`. This follows the local
+implementation proofs illustrated by Forster et al. and RadixExperiment.
+The separate semantic theorem identifies the result with unique existence.
 -/
 
 def qualityCandidateCosted (M : FiniteModel4) (x t : Fin M.thingCount)
     (w : Fin M.worldCount) : Complexity.Costed Bool :=
-  Complexity.Costed.andThen (Complexity.Costed.tick (M.qualityKind t w) 1) fun _ =>
-    Complexity.Costed.tick (M.inst x t w) 1
+  Complexity.Costed.andThen (Complexity.Costed.tick (M.qualityKind t w) 8) fun _ =>
+    Complexity.Costed.tick (M.inst x t w) 11
 
 theorem qualityCandidateCosted_value (M : FiniteModel4) (x t : Fin M.thingCount)
     (w : Fin M.worldCount) :
@@ -2524,7 +2620,7 @@ theorem qualityCandidateCosted_value (M : FiniteModel4) (x t : Fin M.thingCount)
   cases h : M.qualityKind t w <;> simp [Complexity.Costed.andThen]
 
 theorem qualityCandidateCosted_cost_le (M : FiniteModel4) (x t : Fin M.thingCount)
-    (w : Fin M.worldCount) : (qualityCandidateCosted M x t w).cost ≤ 3 := by
+    (w : Fin M.worldCount) : (qualityCandidateCosted M x t w).cost ≤ 20 := by
   unfold qualityCandidateCosted
   cases h : M.qualityKind t w <;> simp [Complexity.Costed.andThen]
 
@@ -2544,9 +2640,9 @@ theorem qualityUniqueForCosted_value (M : FiniteModel4) (x t : Fin M.thingCount)
 
 theorem qualityUniqueForCosted_cost_le (M : FiniteModel4) (x t : Fin M.thingCount)
     (w : Fin M.worldCount) :
-    (qualityUniqueForCosted M x t w).cost ≤ M.thingCount * 8 := by
+    (qualityUniqueForCosted M x t w).cost ≤ M.thingCount * 25 := by
   unfold qualityUniqueForCosted
-  apply allThingsEvalCosted_cost_le M _ 6
+  apply allThingsEvalCosted_cost_le M _ 23
   intro t'
   have hc := qualityCandidateCosted_cost_le M x t' w
   cases h : (qualityCandidateCosted M x t' w).value <;>
@@ -2568,7 +2664,7 @@ theorem qualityWitnessCosted_value (M : FiniteModel4) (x t : Fin M.thingCount)
 
 theorem qualityWitnessCosted_cost_le (M : FiniteModel4) (x t : Fin M.thingCount)
     (w : Fin M.worldCount) :
-    (qualityWitnessCosted M x t w).cost ≤ M.thingCount * 8 + 4 := by
+    (qualityWitnessCosted M x t w).cost ≤ M.thingCount * 25 + 21 := by
   have hc := qualityCandidateCosted_cost_le M x t w
   have hu := qualityUniqueForCosted_cost_le M x t w
   cases h : (qualityCandidateCosted M x t w).value <;>
@@ -2583,9 +2679,9 @@ def qualityB (M : FiniteModel4) (x : Fin M.thingCount) (w : Fin M.worldCount) : 
 
 theorem qualityBCosted_cost_le (M : FiniteModel4) (x : Fin M.thingCount)
     (w : Fin M.worldCount) :
-    (qualityBCosted M x w).cost ≤ M.thingCount * (M.thingCount * 8 + 6) := by
+    (qualityBCosted M x w).cost ≤ M.thingCount * (M.thingCount * 25 + 23) := by
   unfold qualityBCosted
-  apply anyThingsEvalCosted_cost_le M _ (M.thingCount * 8 + 4)
+  apply anyThingsEvalCosted_cost_le M _ (M.thingCount * 25 + 21)
   intro t
   exact qualityWitnessCosted_cost_le M x t w
 
@@ -2651,9 +2747,9 @@ def checkUnaryIffOrSingleCosted (M : FiniteModel4)
     Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allWorldsEvalCosted M fun w =>
     Complexity.Costed.iff
-      (Complexity.Costed.orElse (Complexity.Costed.tick (leftA x w) 1) fun _ =>
-        Complexity.Costed.tick (leftB x w) 1) fun _ =>
-      Complexity.Costed.tick (right x w) 1
+      (Complexity.Costed.orElse (Complexity.Costed.tick (leftA x w) 8) fun _ =>
+        Complexity.Costed.tick (leftB x w) 8) fun _ =>
+      Complexity.Costed.tick (right x w) 8
 
 theorem checkUnaryIffOrSingleCosted_value (M : FiniteModel4) (leftA leftB right) :
     (checkUnaryIffOrSingleCosted M leftA leftB right).value = allThings M (fun x =>
@@ -2666,10 +2762,10 @@ theorem checkUnaryIffOrSingleCosted_value (M : FiniteModel4) (leftA leftB right)
 
 theorem checkUnaryIffOrSingleCosted_cost_le (M : FiniteModel4) (leftA leftB right) :
     (checkUnaryIffOrSingleCosted M leftA leftB right).cost ≤
-      M.thingCount * (M.worldCount * 8 + 2) := by
+      M.thingCount * (M.worldCount * 29 + 2) := by
   unfold checkUnaryIffOrSingleCosted
-  apply allThingsEvalCosted_cost_le M _ (M.worldCount * 8)
-  intro x; apply allWorldsEvalCosted_cost_le M _ 6; intro w
+  apply allThingsEvalCosted_cost_le M _ (M.worldCount * 29)
+  intro x; apply allWorldsEvalCosted_cost_le M _ 27; intro w
   cases ha : leftA x w <;> cases hb : leftB x w <;>
     simp [Complexity.Costed.iff, Complexity.Costed.orElse]
 
@@ -2684,7 +2780,7 @@ theorem checkAx34_eq_legacy (M : FiniteModel4) :
   checkUnaryIffOrSingleCosted_value M M.substantial M.moment M.endurant
 
 theorem checkAx34Costed_cost_le (M : FiniteModel4) :
-    (checkAx34Costed M).cost ≤ M.thingCount * (M.worldCount * 8 + 2) :=
+    (checkAx34Costed M).cost ≤ M.thingCount * (M.worldCount * 29 + 2) :=
   checkUnaryIffOrSingleCosted_cost_le M M.substantial M.moment M.endurant
 
 def checkUnaryIffThreeOrSingleCosted (M : FiniteModel4)
@@ -2692,10 +2788,10 @@ def checkUnaryIffThreeOrSingleCosted (M : FiniteModel4)
     Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allWorldsEvalCosted M fun w =>
     Complexity.Costed.iff
-      (Complexity.Costed.orElse (Complexity.Costed.tick (leftA x w) 1) fun _ =>
-        Complexity.Costed.orElse (Complexity.Costed.tick (leftB x w) 1) fun _ =>
-          Complexity.Costed.tick (leftC x w) 1) fun _ =>
-      Complexity.Costed.tick (right x w) 1
+      (Complexity.Costed.orElse (Complexity.Costed.tick (leftA x w) 8) fun _ =>
+        Complexity.Costed.orElse (Complexity.Costed.tick (leftB x w) 8) fun _ =>
+          Complexity.Costed.tick (leftC x w) 8) fun _ =>
+      Complexity.Costed.tick (right x w) 8
 
 theorem checkUnaryIffThreeOrSingleCosted_value (M : FiniteModel4)
     (leftA leftB leftC right) :
@@ -2712,10 +2808,10 @@ theorem checkUnaryIffThreeOrSingleCosted_value (M : FiniteModel4)
 theorem checkUnaryIffThreeOrSingleCosted_cost_le (M : FiniteModel4)
     (leftA leftB leftC right) :
     (checkUnaryIffThreeOrSingleCosted M leftA leftB leftC right).cost ≤
-      M.thingCount * (M.worldCount * 10 + 2) := by
+      M.thingCount * (M.worldCount * 38 + 2) := by
   unfold checkUnaryIffThreeOrSingleCosted
-  apply allThingsEvalCosted_cost_le M _ (M.worldCount * 10)
-  intro x; apply allWorldsEvalCosted_cost_le M _ 8; intro w
+  apply allThingsEvalCosted_cost_le M _ (M.worldCount * 38)
+  intro x; apply allWorldsEvalCosted_cost_le M _ 36; intro w
   cases ha : leftA x w <;> cases hb : leftB x w <;>
     cases hc : leftC x w <;>
       simp [Complexity.Costed.iff, Complexity.Costed.orElse]
@@ -2728,7 +2824,7 @@ theorem checkAx35_eq_legacy (M : FiniteModel4) :
       !(M.substantial x w && M.moment x w))) :=
   checkWorldFirstDisjointCosted_value M M.substantial M.moment
 theorem checkAx35Costed_cost_le (M : FiniteModel4) :
-    (checkAx35Costed M).cost ≤ M.worldCount * (M.thingCount * 6 + 2) :=
+    (checkAx35Costed M).cost ≤ M.worldCount * (M.thingCount * 20 + 2) :=
   checkWorldFirstDisjointCosted_cost_le M M.substantial M.moment
 
 def checkAx36Costed (M : FiniteModel4) :=
@@ -2740,38 +2836,38 @@ theorem checkAx36_eq_legacy (M : FiniteModel4) :
         (M.substantial x w))) :=
   checkUnaryIffThreeOrSingleCosted_value M M.object M.collective M.quantity M.substantial
 theorem checkAx36Costed_cost_le (M : FiniteModel4) :
-    (checkAx36Costed M).cost ≤ M.thingCount * (M.worldCount * 10 + 2) :=
+    (checkAx36Costed M).cost ≤ M.thingCount * (M.worldCount * 38 + 2) :=
   checkUnaryIffThreeOrSingleCosted_cost_le M M.object M.collective M.quantity M.substantial
 
 def checkAx37Costed (M : FiniteModel4) := checkWorldFirstDisjointCosted M M.object M.collective
 def checkAx37 (M : FiniteModel4) := (checkAx37Costed M).value
 theorem checkAx37_eq_legacy (M : FiniteModel4) : checkAx37 M = allWorlds M (fun w => allThings M (fun x => !(M.object x w && M.collective x w))) := checkWorldFirstDisjointCosted_value M M.object M.collective
-theorem checkAx37Costed_cost_le (M : FiniteModel4) : (checkAx37Costed M).cost ≤ M.worldCount * (M.thingCount * 6 + 2) := checkWorldFirstDisjointCosted_cost_le M M.object M.collective
+theorem checkAx37Costed_cost_le (M : FiniteModel4) : (checkAx37Costed M).cost ≤ M.worldCount * (M.thingCount * 20 + 2) := checkWorldFirstDisjointCosted_cost_le M M.object M.collective
 
 def checkAx38Costed (M : FiniteModel4) := checkWorldFirstDisjointCosted M M.object M.quantity
 def checkAx38 (M : FiniteModel4) := (checkAx38Costed M).value
 theorem checkAx38_eq_legacy (M : FiniteModel4) : checkAx38 M = allWorlds M (fun w => allThings M (fun x => !(M.object x w && M.quantity x w))) := checkWorldFirstDisjointCosted_value M M.object M.quantity
-theorem checkAx38Costed_cost_le (M : FiniteModel4) : (checkAx38Costed M).cost ≤ M.worldCount * (M.thingCount * 6 + 2) := checkWorldFirstDisjointCosted_cost_le M M.object M.quantity
+theorem checkAx38Costed_cost_le (M : FiniteModel4) : (checkAx38Costed M).cost ≤ M.worldCount * (M.thingCount * 20 + 2) := checkWorldFirstDisjointCosted_cost_le M M.object M.quantity
 
 def checkAx39Costed (M : FiniteModel4) := checkWorldFirstDisjointCosted M M.collective M.quantity
 def checkAx39 (M : FiniteModel4) := (checkAx39Costed M).value
 theorem checkAx39_eq_legacy (M : FiniteModel4) : checkAx39 M = allWorlds M (fun w => allThings M (fun x => !(M.collective x w && M.quantity x w))) := checkWorldFirstDisjointCosted_value M M.collective M.quantity
-theorem checkAx39Costed_cost_le (M : FiniteModel4) : (checkAx39Costed M).cost ≤ M.worldCount * (M.thingCount * 6 + 2) := checkWorldFirstDisjointCosted_cost_le M M.collective M.quantity
+theorem checkAx39Costed_cost_le (M : FiniteModel4) : (checkAx39Costed M).cost ≤ M.worldCount * (M.thingCount * 20 + 2) := checkWorldFirstDisjointCosted_cost_le M M.collective M.quantity
 
 def checkAx40Costed (M : FiniteModel4) :=
   checkUnaryIffOrSingleCosted M M.relator M.intrinsicMoment M.moment
 def checkAx40 (M : FiniteModel4) := (checkAx40Costed M).value
 theorem checkAx40_eq_legacy (M : FiniteModel4) : checkAx40 M = allThings M (fun x => allWorlds M (fun w => iffB (M.relator x w || M.intrinsicMoment x w) (M.moment x w))) := checkUnaryIffOrSingleCosted_value M M.relator M.intrinsicMoment M.moment
-theorem checkAx40Costed_cost_le (M : FiniteModel4) : (checkAx40Costed M).cost ≤ M.thingCount * (M.worldCount * 8 + 2) := checkUnaryIffOrSingleCosted_cost_le M M.relator M.intrinsicMoment M.moment
+theorem checkAx40Costed_cost_le (M : FiniteModel4) : (checkAx40Costed M).cost ≤ M.thingCount * (M.worldCount * 29 + 2) := checkUnaryIffOrSingleCosted_cost_le M M.relator M.intrinsicMoment M.moment
 
 def checkAx41Costed (M : FiniteModel4) := checkWorldFirstDisjointCosted M M.relator M.intrinsicMoment
 def checkAx41 (M : FiniteModel4) := (checkAx41Costed M).value
 theorem checkAx41_eq_legacy (M : FiniteModel4) : checkAx41 M = allWorlds M (fun w => allThings M (fun x => !(M.relator x w && M.intrinsicMoment x w))) := checkWorldFirstDisjointCosted_value M M.relator M.intrinsicMoment
-theorem checkAx41Costed_cost_le (M : FiniteModel4) : (checkAx41Costed M).cost ≤ M.worldCount * (M.thingCount * 6 + 2) := checkWorldFirstDisjointCosted_cost_le M M.relator M.intrinsicMoment
+theorem checkAx41Costed_cost_le (M : FiniteModel4) : (checkAx41Costed M).cost ≤ M.worldCount * (M.thingCount * 20 + 2) := checkWorldFirstDisjointCosted_cost_le M M.relator M.intrinsicMoment
 
 def ax42LeftCosted (M : FiniteModel4) (x : Fin M.thingCount)
     (w : Fin M.worldCount) : Complexity.Costed Bool :=
-  Complexity.Costed.orElse (Complexity.Costed.tick (M.mode x w) 1) fun _ =>
+  Complexity.Costed.orElse (Complexity.Costed.tick (M.mode x w) 8) fun _ =>
     qualityBCosted M x w
 
 theorem ax42LeftCosted_value (M : FiniteModel4) (x : Fin M.thingCount)
@@ -2781,7 +2877,7 @@ theorem ax42LeftCosted_value (M : FiniteModel4) (x : Fin M.thingCount)
 
 theorem ax42LeftCosted_cost_le (M : FiniteModel4) (x : Fin M.thingCount)
     (w : Fin M.worldCount) :
-    (ax42LeftCosted M x w).cost ≤ M.thingCount * (M.thingCount * 8 + 6) + 2 := by
+    (ax42LeftCosted M x w).cost ≤ M.thingCount * (M.thingCount * 25 + 23) + 9 := by
   have hq := qualityBCosted_cost_le M x w
   cases hm : M.mode x w
   · simp [ax42LeftCosted, Complexity.Costed.orElse, hm]
@@ -2791,7 +2887,7 @@ theorem ax42LeftCosted_cost_le (M : FiniteModel4) (x : Fin M.thingCount)
 def checkAx42Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allWorldsEvalCosted M fun w =>
     Complexity.Costed.iff (ax42LeftCosted M x w) fun _ =>
-      Complexity.Costed.tick (M.intrinsicMoment x w) 1
+      Complexity.Costed.tick (M.intrinsicMoment x w) 8
 
 def checkAx42 (M : FiniteModel4) : Bool := (checkAx42Costed M).value
 
@@ -2807,13 +2903,13 @@ theorem checkAx42_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx42Costed_cost_le (M : FiniteModel4) :
     (checkAx42Costed M).cost ≤ M.thingCount *
-      (M.worldCount * (M.thingCount * (M.thingCount * 8 + 6) + 7) + 2) := by
+      (M.worldCount * (M.thingCount * (M.thingCount * 25 + 23) + 21) + 2) := by
   unfold checkAx42Costed
   apply allThingsEvalCosted_cost_le M _
-    (M.worldCount * (M.thingCount * (M.thingCount * 8 + 6) + 7))
+    (M.worldCount * (M.thingCount * (M.thingCount * 25 + 23) + 21))
   intro x
   apply allWorldsEvalCosted_cost_le M _
-    (M.thingCount * (M.thingCount * 8 + 6) + 5)
+    (M.thingCount * (M.thingCount * 25 + 23) + 19)
   intro w
   have hl := ax42LeftCosted_cost_le M x w
   cases h : (ax42LeftCosted M x w).value <;>
@@ -2821,7 +2917,7 @@ theorem checkAx42Costed_cost_le (M : FiniteModel4) :
 
 def ax43BodyCosted (M : FiniteModel4) (x : Fin M.thingCount)
     (w : Fin M.worldCount) : Complexity.Costed Bool :=
-  (Complexity.Costed.andThen (Complexity.Costed.tick (M.mode x w) 1) fun _ =>
+  (Complexity.Costed.andThen (Complexity.Costed.tick (M.mode x w) 8) fun _ =>
     qualityBCosted M x w).not
 
 theorem ax43BodyCosted_value (M : FiniteModel4) (x : Fin M.thingCount)
@@ -2831,7 +2927,7 @@ theorem ax43BodyCosted_value (M : FiniteModel4) (x : Fin M.thingCount)
 
 theorem ax43BodyCosted_cost_le (M : FiniteModel4) (x : Fin M.thingCount)
     (w : Fin M.worldCount) :
-    (ax43BodyCosted M x w).cost ≤ M.thingCount * (M.thingCount * 8 + 6) + 3 := by
+    (ax43BodyCosted M x w).cost ≤ M.thingCount * (M.thingCount * 25 + 23) + 10 := by
   have hq := qualityBCosted_cost_le M x w
   cases hm : M.mode x w
   · simp [ax43BodyCosted, Complexity.Costed.andThen, Complexity.Costed.not, hm]
@@ -2853,13 +2949,13 @@ theorem checkAx43_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx43Costed_cost_le (M : FiniteModel4) :
     (checkAx43Costed M).cost ≤ M.worldCount *
-      (M.thingCount * (M.thingCount * (M.thingCount * 8 + 6) + 5) + 2) := by
+      (M.thingCount * (M.thingCount * (M.thingCount * 25 + 23) + 12) + 2) := by
   unfold checkAx43Costed
   apply allWorldsEvalCosted_cost_le M _
-    (M.thingCount * (M.thingCount * (M.thingCount * 8 + 6) + 5))
+    (M.thingCount * (M.thingCount * (M.thingCount * 25 + 23) + 12))
   intro w
   apply allThingsEvalCosted_cost_le M _
-    (M.thingCount * (M.thingCount * 8 + 6) + 3)
+    (M.thingCount * (M.thingCount * 25 + 23) + 10)
   intro x
   exact ax43BodyCosted_cost_le M x w
 
@@ -2867,7 +2963,7 @@ def typeInstancesConditionCosted (M : FiniteModel4) (t : Fin M.thingCount)
     (leaf : Fin M.thingCount → Fin M.worldCount → Complexity.Costed Bool) :
     Complexity.Costed Bool :=
   allWorldsEvalCosted M fun v => allThingsEvalCosted M fun x =>
-    Complexity.Costed.implies (Complexity.Costed.tick (M.inst x t v) 1) fun _ =>
+    Complexity.Costed.implies (Complexity.Costed.tick (M.inst x t v) 11) fun _ =>
       leaf x v
 
 theorem typeInstancesConditionCosted_value (M : FiniteModel4) (t : Fin M.thingCount)
@@ -2884,11 +2980,11 @@ theorem typeInstancesConditionCosted_cost_le (M : FiniteModel4)
     (leaf : Fin M.thingCount → Fin M.worldCount → Complexity.Costed Bool)
     (leafBound : Nat) (hLeaf : ∀ x v, (leaf x v).cost ≤ leafBound) :
     (typeInstancesConditionCosted M t leaf).cost ≤
-      M.worldCount * (M.thingCount * (leafBound + 5) + 2) := by
+      M.worldCount * (M.thingCount * (leafBound + 15) + 2) := by
   unfold typeInstancesConditionCosted
-  apply allWorldsEvalCosted_cost_le M _ (M.thingCount * (leafBound + 5))
+  apply allWorldsEvalCosted_cost_le M _ (M.thingCount * (leafBound + 15))
   intro v
-  apply allThingsEvalCosted_cost_le M _ (leafBound + 3)
+  apply allThingsEvalCosted_cost_le M _ (leafBound + 13)
   intro x
   have hl := hLeaf x v
   cases hi : M.inst x t v <;>
@@ -2900,7 +2996,7 @@ def typeByInstancesEvalCosted (M : FiniteModel4)
     (leaf : Fin M.thingCount → Fin M.worldCount → Complexity.Costed Bool) :
     Complexity.Costed Bool :=
   allThingsEvalCosted M fun t => allWorldsEvalCosted M fun w =>
-    Complexity.Costed.iff (Complexity.Costed.tick (typePred t w) 1) fun _ =>
+    Complexity.Costed.iff (Complexity.Costed.tick (typePred t w) 8) fun _ =>
       Complexity.Costed.andThen (typeBCosted M t w) fun _ =>
         typeInstancesConditionCosted M t leaf
 
@@ -2922,14 +3018,14 @@ theorem typeByInstancesEvalCosted_cost_le (M : FiniteModel4) (typePred leaf)
     (leafBound : Nat) (hLeaf : ∀ x v, (leaf x v).cost ≤ leafBound) :
     (typeByInstancesEvalCosted M typePred leaf).cost ≤ M.thingCount *
       (M.worldCount *
-        (M.worldCount * (M.thingCount * 3 + 2) +
-          M.worldCount * (M.thingCount * (leafBound + 5) + 2) + 6) + 2) := by
+        (M.worldCount * (M.thingCount * 13 + 2) +
+          M.worldCount * (M.thingCount * (leafBound + 15) + 2) + 13) + 2) := by
   unfold typeByInstancesEvalCosted
-  let q := M.worldCount * (M.thingCount * 3 + 2)
-  let c := M.worldCount * (M.thingCount * (leafBound + 5) + 2)
-  apply allThingsEvalCosted_cost_le M _ (M.worldCount * (q + c + 6))
+  let q := M.worldCount * (M.thingCount * 13 + 2)
+  let c := M.worldCount * (M.thingCount * (leafBound + 15) + 2)
+  apply allThingsEvalCosted_cost_le M _ (M.worldCount * (q + c + 13))
   intro t
-  apply allWorldsEvalCosted_cost_le M _ (q + c + 4)
+  apply allWorldsEvalCosted_cost_le M _ (q + c + 11)
   intro w
   have ht := typeBCosted_cost_le M t w
   have hc := typeInstancesConditionCosted_cost_le M t leaf leafBound hLeaf
@@ -2941,7 +3037,7 @@ theorem typeByInstancesEvalCosted_cost_le (M : FiniteModel4) (typePred leaf)
 def typeByInstancesCosted (M : FiniteModel4)
     (typePred leafPred : Fin M.thingCount → Fin M.worldCount → Bool) :
     Complexity.Costed Bool :=
-  typeByInstancesEvalCosted M typePred fun x w => Complexity.Costed.tick (leafPred x w) 1
+  typeByInstancesEvalCosted M typePred fun x w => Complexity.Costed.tick (leafPred x w) 8
 
 def typeByInstancesB (M : FiniteModel4)
     (typePred leafPred : Fin M.thingCount → Fin M.worldCount → Bool) : Bool :=
@@ -2957,34 +3053,35 @@ theorem typeByInstancesB_eq_legacy (M : FiniteModel4) (typePred leafPred) :
 theorem typeByInstancesCosted_cost_le (M : FiniteModel4) (typePred leafPred) :
     (typeByInstancesCosted M typePred leafPred).cost ≤ M.thingCount *
       (M.worldCount *
-        (M.worldCount * (M.thingCount * 3 + 2) +
-          M.worldCount * (M.thingCount * 6 + 2) + 6) + 2) := by
-  apply typeByInstancesEvalCosted_cost_le M typePred _ 1
+        (M.worldCount * (M.thingCount * 13 + 2) +
+          M.worldCount * (M.thingCount * 23 + 2) + 13) + 2) := by
+  apply typeByInstancesEvalCosted_cost_le M typePred _ 8
   intro x v
   simp
 
 /-!
-Axiom 44 uses a delayed registry. Nine families have unit-cost
-leaf predicates; the quality family instead reuses the counted uniqueness scan.
-Keeping those bounds separate prevents the quadratic quality test from being
-silently presented as a primitive table lookup.  The delayed organization also
-mirrors the verified-interpreter structure exemplified by RadixExperiment,
-while the quantitative theorem remains a distinct operational guarantee.
+Axiom 44 evaluates ten classification families in registry order. Nine families
+use direct unary leaf reads at cost eight. The quality family runs the counted
+uniqueness scan. The shared evaluator accepts a counted leaf so its bound
+includes the work of that specific family. A false type scan skips all instance
+checks; a failed family skips later registry entries. The delayed computations
+follow Niu et al.'s cost-aware composition, with local implementation
+correspondence proofs in the style illustrated by RadixExperiment.
 -/
 
 def ax44DirectFamilyBound (M : FiniteModel4) : Nat :=
   M.thingCount *
     (M.worldCount *
-      (M.worldCount * (M.thingCount * 3 + 2) +
-        M.worldCount * (M.thingCount * 6 + 2) + 6) + 2)
+      (M.worldCount * (M.thingCount * 13 + 2) +
+        M.worldCount * (M.thingCount * 23 + 2) + 13) + 2)
 
 def ax44QualityFamilyBound (M : FiniteModel4) : Nat :=
   M.thingCount *
     (M.worldCount *
-      (M.worldCount * (M.thingCount * 3 + 2) +
+      (M.worldCount * (M.thingCount * 13 + 2) +
         M.worldCount *
-          (M.thingCount * (M.thingCount * (M.thingCount * 8 + 6) + 5) + 2) +
-        6) + 2)
+          (M.thingCount * (M.thingCount * (M.thingCount * 25 + 23) + 15) + 2) +
+        13) + 2)
 
 def checkAx44QualityCosted (M : FiniteModel4) : Complexity.Costed Bool :=
   typeByInstancesEvalCosted M M.qualityType (qualityBCosted M)
@@ -3000,7 +3097,7 @@ theorem checkAx44QualityCosted_cost_le (M : FiniteModel4) :
     (checkAx44QualityCosted M).cost ≤ ax44QualityFamilyBound M := by
   unfold checkAx44QualityCosted ax44QualityFamilyBound
   apply typeByInstancesEvalCosted_cost_le M M.qualityType _
-    (M.thingCount * (M.thingCount * 8 + 6))
+    (M.thingCount * (M.thingCount * 25 + 23))
   exact qualityBCosted_cost_le M
 
 def axiom44RegistryCosted (M : FiniteModel4) : Array Complexity.CheckThunk := #[
@@ -3134,7 +3231,7 @@ theorem kindByTypeB_eq_legacy (M : FiniteModel4) (kindPred typePred) :
 
 theorem kindByTypeCosted_cost_le (M : FiniteModel4) (kindPred typePred) :
     (kindByTypeCosted M kindPred typePred).cost ≤
-      M.thingCount * (M.worldCount * 8 + 2) :=
+      M.thingCount * (M.worldCount * 29 + 2) :=
   checkUnaryIffAndCosted_cost_le M kindPred typePred M.kind
 
 def axiom45RegistryCosted (M : FiniteModel4) : Array Complexity.CheckThunk := #[
@@ -3171,24 +3268,27 @@ theorem checkAx45_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx45Costed_cost_le (M : FiniteModel4) :
     (checkAx45Costed M).cost ≤
-      6 * (M.thingCount * (M.worldCount * 8 + 2) + 3) := by
+      6 * (M.thingCount * (M.worldCount * 29 + 2) + 3) := by
   unfold checkAx45Costed
   apply Complexity.checkRegistryCosted_cost_le _
-    (M.thingCount * (M.worldCount * 8 + 2))
+    (M.thingCount * (M.worldCount * 29 + 2))
   intro check hcheck
   simp [axiom45RegistryCosted] at hcheck
   rcases hcheck with rfl | rfl | rfl | rfl | rfl | rfl
   all_goals dsimp
   all_goals exact kindByTypeCosted_cost_le M _ _
 
+/-- Search the six kind fields in their UFO registry order, stopping at the first
+true field. Six unary reads and five disjunction tests cost at most 53.
+Instantiation is checked only after a kind field succeeds. -/
 def specificEndurantKindCosted (M : FiniteModel4) (k : Fin M.thingCount)
     (w : Fin M.worldCount) : Complexity.Costed Bool :=
-  Complexity.Costed.orElse (Complexity.Costed.tick (M.objectKind k w) 1) fun _ =>
-    Complexity.Costed.orElse (Complexity.Costed.tick (M.collectiveKind k w) 1) fun _ =>
-      Complexity.Costed.orElse (Complexity.Costed.tick (M.quantityKind k w) 1) fun _ =>
-        Complexity.Costed.orElse (Complexity.Costed.tick (M.relatorKind k w) 1) fun _ =>
-          Complexity.Costed.orElse (Complexity.Costed.tick (M.modeKind k w) 1) fun _ =>
-            Complexity.Costed.tick (M.qualityKind k w) 1
+  Complexity.Costed.orElse (Complexity.Costed.tick (M.objectKind k w) 8) fun _ =>
+    Complexity.Costed.orElse (Complexity.Costed.tick (M.collectiveKind k w) 8) fun _ =>
+      Complexity.Costed.orElse (Complexity.Costed.tick (M.quantityKind k w) 8) fun _ =>
+        Complexity.Costed.orElse (Complexity.Costed.tick (M.relatorKind k w) 8) fun _ =>
+          Complexity.Costed.orElse (Complexity.Costed.tick (M.modeKind k w) 8) fun _ =>
+            Complexity.Costed.tick (M.qualityKind k w) 8
 
 def specificEndurantKindB (M : FiniteModel4) (k : Fin M.thingCount)
     (w : Fin M.worldCount) : Bool :=
@@ -3207,7 +3307,7 @@ theorem specificEndurantKindB_eq_legacy (M : FiniteModel4)
 
 theorem specificEndurantKindCosted_cost_le (M : FiniteModel4)
     (k : Fin M.thingCount) (w : Fin M.worldCount) :
-    (specificEndurantKindCosted M k w).cost ≤ 11 := by
+    (specificEndurantKindCosted M k w).cost ≤ 53 := by
   unfold specificEndurantKindCosted
   cases h1 : M.objectKind k w <;> cases h2 : M.collectiveKind k w <;>
     cases h3 : M.quantityKind k w <;> cases h4 : M.relatorKind k w <;>
@@ -3218,7 +3318,7 @@ def ax46WitnessCosted (M : FiniteModel4) (x : Fin M.thingCount)
     (v : Fin M.worldCount) : Complexity.Costed Bool :=
   anyThingsEvalCosted M fun k =>
     Complexity.Costed.andThen (specificEndurantKindCosted M k v) fun _ =>
-      Complexity.Costed.tick (M.inst x k v) 1
+      Complexity.Costed.tick (M.inst x k v) 11
 
 theorem ax46WitnessCosted_value (M : FiniteModel4) (x : Fin M.thingCount)
     (v : Fin M.worldCount) :
@@ -3230,9 +3330,9 @@ theorem ax46WitnessCosted_value (M : FiniteModel4) (x : Fin M.thingCount)
 
 theorem ax46WitnessCosted_cost_le (M : FiniteModel4) (x : Fin M.thingCount)
     (v : Fin M.worldCount) :
-    (ax46WitnessCosted M x v).cost ≤ M.thingCount * 15 := by
+    (ax46WitnessCosted M x v).cost ≤ M.thingCount * 67 := by
   unfold ax46WitnessCosted
-  apply anyThingsEvalCosted_cost_le M _ 13
+  apply anyThingsEvalCosted_cost_le M _ 65
   intro k
   have hk := specificEndurantKindCosted_cost_le M k v
   cases h : (specificEndurantKindCosted M k v).value <;>
@@ -3240,7 +3340,7 @@ theorem ax46WitnessCosted_cost_le (M : FiniteModel4) (x : Fin M.thingCount)
 
 def checkAx46Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allWorldsEvalCosted M fun w =>
-    Complexity.Costed.implies (Complexity.Costed.tick (M.endurant x w) 1) fun _ =>
+    Complexity.Costed.implies (Complexity.Costed.tick (M.endurant x w) 8) fun _ =>
       anyWorldsEvalCosted M fun v => ax46WitnessCosted M x v
 
 def checkAx46 (M : FiniteModel4) : Bool := (checkAx46Costed M).value
@@ -3257,25 +3357,56 @@ theorem checkAx46_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx46Costed_cost_le (M : FiniteModel4) :
     (checkAx46Costed M).cost ≤ M.thingCount *
-      (M.worldCount * (M.worldCount * (M.thingCount * 15 + 2) + 5) + 2) := by
+      (M.worldCount * (M.worldCount * (M.thingCount * 67 + 2) + 12) + 2) := by
   unfold checkAx46Costed
   apply allThingsEvalCosted_cost_le M _
-    (M.worldCount * (M.worldCount * (M.thingCount * 15 + 2) + 5))
+    (M.worldCount * (M.worldCount * (M.thingCount * 67 + 2) + 12))
   intro x
   apply allWorldsEvalCosted_cost_le M _
-    (M.worldCount * (M.thingCount * 15 + 2) + 3)
+    (M.worldCount * (M.thingCount * 67 + 2) + 10)
   intro w
   have hw : (anyWorldsEvalCosted M fun v => ax46WitnessCosted M x v).cost ≤
-      M.worldCount * (M.thingCount * 15 + 2) := by
-    apply anyWorldsEvalCosted_cost_le M _ (M.thingCount * 15)
+      M.worldCount * (M.thingCount * 67 + 2) := by
+    apply anyWorldsEvalCosted_cost_le M _ (M.thingCount * 67)
     exact ax46WitnessCosted_cost_le M x
   cases h : M.endurant x w <;>
     simp [Complexity.Costed.implies, Complexity.Costed.orElse,
       Complexity.Costed.not] ; omega
 
+/--
+Charge the compiled reflexive binary query without changing the supplied answer.
+The compiled part and overlap fields test coordinate equality first. Equality
+and its branch cost two; unequal coordinates also execute an eleven-operation
+dense read. Cost bookkeeping is outside the source-operation model.
+
+On arbitrary relation functions this definition preserves values but supplies
+no implementation-cost guarantee. `Complexity/Queries.lean` proves full counted
+equality with the guarded table evaluator on the compiled model. This extends
+the block-cost correspondence used for direct reads (Haslbeck; Forster et al.).
+-/
+def reflexiveBinaryQueryCosted {T W : Nat}
+    (relation : Fin T → Fin T → Fin W → Bool) (x y : Fin T) (w : Fin W) :
+    Complexity.Costed Bool :=
+  Complexity.Costed.tick (relation x y w) (if x == y then 2 else 13)
+
+@[simp] theorem reflexiveBinaryQueryCosted_value {T W : Nat}
+    (relation : Fin T → Fin T → Fin W → Bool) (x y : Fin T) (w : Fin W) :
+    (reflexiveBinaryQueryCosted relation x y w).value = relation x y w := rfl
+
+theorem reflexiveBinaryQueryCosted_cost_le {T W : Nat}
+    (relation : Fin T → Fin T → Fin W → Bool) (x y : Fin T) (w : Fin W) :
+    (reflexiveBinaryQueryCosted relation x y w).cost ≤ 13 := by
+  change (if x == y then 2 else 13) ≤ 13
+  split <;> omega
+
+@[simp] theorem reflexiveBinaryQueryCosted_self_cost {T W : Nat}
+    (relation : Fin T → Fin T → Fin W → Bool) (x : Fin T) (w : Fin W) :
+    (reflexiveBinaryQueryCosted relation x x w).cost = 2 := by
+  simp [reflexiveBinaryQueryCosted]
+
 def checkAx47Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allWorldsEvalCosted M fun w =>
-    Complexity.Costed.tick (M.part x x w) 1
+    reflexiveBinaryQueryCosted M.part x x w
 
 def checkAx47 (M : FiniteModel4) : Bool := (checkAx47Costed M).value
 
@@ -3283,21 +3414,24 @@ theorem checkAx47_eq_legacy (M : FiniteModel4) :
   checkAx47 M = allThings M (fun x => allWorlds M (fun w => M.part x x w)) := by
   unfold checkAx47 checkAx47Costed
   rw [allThingsEvalCosted_value]
+  congr 1; funext x
+  rw [allWorldsEvalCosted_value]
   rfl
 
 theorem checkAx47Costed_cost_le (M : FiniteModel4) :
-    (checkAx47Costed M).cost ≤ M.thingCount * (M.worldCount * 3 + 2) := by
+    (checkAx47Costed M).cost ≤ M.thingCount * (M.worldCount * 4 + 2) := by
   unfold checkAx47Costed
-  apply allThingsEvalCosted_cost_le M _ (M.worldCount * 3)
+  apply allThingsEvalCosted_cost_le M _ (M.worldCount * 4)
   intro x
-  apply allWorldsEvalCosted_cost_le M _ 1
+  apply allWorldsEvalCosted_cost_le M _ 2
   intro w
   simp
 
 def checkAx48Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   checkTwoThingsWorldsImpCosted M
-    (fun x y w => M.part x y w) (fun x y w => M.part y x w)
-    (fun x y _ => decide (x = y))
+    (fun x y w => reflexiveBinaryQueryCosted M.part x y w)
+    (fun x y w => reflexiveBinaryQueryCosted M.part y x w)
+    (fun x y _ => Complexity.Costed.tick (decide (x = y)) 1)
 
 def checkAx48 (M : FiniteModel4) : Bool := (checkAx48Costed M).value
 
@@ -3309,25 +3443,27 @@ theorem checkAx48_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx48Costed_cost_le (M : FiniteModel4) :
     (checkAx48Costed M).cost ≤
-      M.thingCount * (M.thingCount * (M.worldCount * 8 + 2) + 2) :=
-  checkTwoThingsWorldsImpCosted_cost_le M _ _ _
+      M.thingCount * (M.thingCount * (M.worldCount * 32 + 2) + 2) :=
+  checkTwoThingsWorldsImpCosted_cost_le M _ _ _ 13 13 1
+    (fun _ _ _ => reflexiveBinaryQueryCosted_cost_le _ _ _ _)
+    (fun _ _ _ => reflexiveBinaryQueryCosted_cost_le _ _ _ _) (by intros; rfl)
 
+/-- The three-thing implication composes the counted predicates supplied by its caller. -/
 def checkThreeThingsWorldsImpCosted (M : FiniteModel4)
     (first second consequent : Fin M.thingCount → Fin M.thingCount →
-      Fin M.thingCount → Fin M.worldCount → Bool) : Complexity.Costed Bool :=
+      Fin M.thingCount → Fin M.worldCount → Complexity.Costed Bool) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allThingsEvalCosted M fun y =>
     allThingsEvalCosted M fun z => allWorldsEvalCosted M fun w =>
       Complexity.Costed.implies
-        (Complexity.Costed.andThen (Complexity.Costed.tick (first x y z w) 1) fun _ =>
-          Complexity.Costed.tick (second x y z w) 1) fun _ =>
-        Complexity.Costed.tick (consequent x y z w) 1
+        (Complexity.Costed.andThen (first x y z w) fun _ =>
+          second x y z w) fun _ => consequent x y z w
 
 theorem checkThreeThingsWorldsImpCosted_value (M : FiniteModel4)
     (first second consequent) :
     (checkThreeThingsWorldsImpCosted M first second consequent).value =
       allThings M (fun x => allThings M (fun y => allThings M (fun z =>
-        allWorlds M (fun w => impliesB (first x y z w && second x y z w)
-          (consequent x y z w))))) := by
+        allWorlds M (fun w => impliesB ((first x y z w).value && (second x y z w).value)
+          (consequent x y z w).value)))) := by
   unfold checkThreeThingsWorldsImpCosted
   rw [allThingsEvalCosted_value]; congr 1; funext x
   rw [allThingsEvalCosted_value]; congr 1; funext y
@@ -3336,29 +3472,38 @@ theorem checkThreeThingsWorldsImpCosted_value (M : FiniteModel4)
   simp [Complexity.Costed.implies_value, Complexity.Costed.andThen_value, impliesB]
 
 theorem checkThreeThingsWorldsImpCosted_cost_le (M : FiniteModel4)
-    (first second consequent) :
+    (first second consequent : Fin M.thingCount → Fin M.thingCount →
+      Fin M.thingCount → Fin M.worldCount → Complexity.Costed Bool)
+    (firstBound secondBound consequentBound : Nat)
+    (hf : ∀ x y z w, (first x y z w).cost ≤ firstBound)
+    (hs : ∀ x y z w, (second x y z w).cost ≤ secondBound)
+    (hc : ∀ x y z w, (consequent x y z w).cost ≤ consequentBound) :
     (checkThreeThingsWorldsImpCosted M first second consequent).cost ≤
-      M.thingCount * (M.thingCount *
-        (M.thingCount * (M.worldCount * 8 + 2) + 2) + 2) := by
+      M.thingCount * (M.thingCount * (M.thingCount *
+        (M.worldCount * (firstBound + secondBound + consequentBound + 5) + 2) + 2) + 2) := by
   unfold checkThreeThingsWorldsImpCosted
   apply allThingsEvalCosted_cost_le M _
-    (M.thingCount * (M.thingCount * (M.worldCount * 8 + 2) + 2))
+    (M.thingCount * (M.thingCount *
+      (M.worldCount * (firstBound + secondBound + consequentBound + 5) + 2) + 2))
   intro x
-  apply allThingsEvalCosted_cost_le M _
-    (M.thingCount * (M.worldCount * 8 + 2))
+  apply allThingsEvalCosted_cost_le M _ (M.thingCount *
+    (M.worldCount * (firstBound + secondBound + consequentBound + 5) + 2))
   intro y
-  apply allThingsEvalCosted_cost_le M _ (M.worldCount * 8)
+  apply allThingsEvalCosted_cost_le M _
+    (M.worldCount * (firstBound + secondBound + consequentBound + 5))
   intro z
-  apply allWorldsEvalCosted_cost_le M _ 6
+  apply allWorldsEvalCosted_cost_le M _ (firstBound + secondBound + consequentBound + 3)
   intro w
-  cases hf : first x y z w <;> cases hs : second x y z w <;>
-    simp [Complexity.Costed.implies, Complexity.Costed.orElse,
-      Complexity.Costed.andThen, Complexity.Costed.not]
+  have hand := Complexity.Costed.andThen_cost_le (first x y z w)
+    (fun _ => second x y z w) firstBound secondBound (hf x y z w) (hs x y z w)
+  have himp := Complexity.Costed.implies_cost_le _ (fun _ => consequent x y z w)
+    (firstBound + 1 + secondBound) consequentBound hand (hc x y z w)
+  omega
 
 def checkAx49Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   checkThreeThingsWorldsImpCosted M
-    (fun x y _ w => M.part x y w) (fun _ y z w => M.part y z w)
-    (fun x _ z w => M.part x z w)
+    (fun x y _ w => reflexiveBinaryQueryCosted M.part x y w) (fun _ y z w => reflexiveBinaryQueryCosted M.part y z w)
+    (fun x _ z w => reflexiveBinaryQueryCosted M.part x z w)
 
 def checkAx49 (M : FiniteModel4) : Bool := (checkAx49Costed M).value
 
@@ -3370,14 +3515,17 @@ theorem checkAx49_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx49Costed_cost_le (M : FiniteModel4) :
     (checkAx49Costed M).cost ≤ M.thingCount * (M.thingCount *
-      (M.thingCount * (M.worldCount * 8 + 2) + 2) + 2) :=
-  checkThreeThingsWorldsImpCosted_cost_le M _ _ _
+      (M.thingCount * (M.worldCount * 44 + 2) + 2) + 2) :=
+  checkThreeThingsWorldsImpCosted_cost_le M _ _ _ 13 13 13
+    (fun _ _ _ _ => reflexiveBinaryQueryCosted_cost_le _ _ _ _)
+    (fun _ _ _ _ => reflexiveBinaryQueryCosted_cost_le _ _ _ _)
+    (fun _ _ _ _ => reflexiveBinaryQueryCosted_cost_le _ _ _ _)
 
 def overlapWitnessCosted (M : FiniteModel4) (x y : Fin M.thingCount)
     (w : Fin M.worldCount) : Complexity.Costed Bool :=
   anyThingsEvalCosted M fun z =>
-    Complexity.Costed.andThen (Complexity.Costed.tick (M.part z x w) 1) fun _ =>
-      Complexity.Costed.tick (M.part z y w) 1
+    Complexity.Costed.andThen (reflexiveBinaryQueryCosted M.part z x w) fun _ =>
+      reflexiveBinaryQueryCosted M.part z y w
 
 theorem overlapWitnessCosted_value (M : FiniteModel4) (x y : Fin M.thingCount)
     (w : Fin M.worldCount) :
@@ -3389,16 +3537,18 @@ theorem overlapWitnessCosted_value (M : FiniteModel4) (x y : Fin M.thingCount)
 
 theorem overlapWitnessCosted_cost_le (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) :
-    (overlapWitnessCosted M x y w).cost ≤ M.thingCount * 5 := by
+    (overlapWitnessCosted M x y w).cost ≤ M.thingCount * 29 := by
   unfold overlapWitnessCosted
-  apply anyThingsEvalCosted_cost_le M _ 3
+  apply anyThingsEvalCosted_cost_le M _ 27
   intro z
-  cases h : M.part z x w <;> simp [Complexity.Costed.andThen]
+  exact Complexity.Costed.andThen_cost_le _ _ 13 13
+    (reflexiveBinaryQueryCosted_cost_le _ _ _ _)
+    (reflexiveBinaryQueryCosted_cost_le _ _ _ _)
 
 def checkAx50Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allThingsEvalCosted M fun y =>
     allWorldsEvalCosted M fun w =>
-      Complexity.Costed.iff (Complexity.Costed.tick (M.overlap x y w) 1) fun _ =>
+      Complexity.Costed.iff (reflexiveBinaryQueryCosted M.overlap x y w) fun _ =>
         overlapWitnessCosted M x y w
 
 def checkAx50 (M : FiniteModel4) : Bool := (checkAx50Costed M).value
@@ -3411,7 +3561,7 @@ theorem checkAx50_eq_legacy (M : FiniteModel4) :
   rw [allThingsEvalCosted_value]; congr 1; funext x
   rw [allThingsEvalCosted_value]; congr 1; funext y
   rw [allWorldsEvalCosted_value]; congr 1; funext w
-  rw [Complexity.Costed.iff_value, Complexity.Costed.tick_value,
+  rw [Complexity.Costed.iff_value, reflexiveBinaryQueryCosted_value,
     overlapWitnessCosted_value]
   cases hl : M.overlap x y w <;>
     cases hr : anyThings M (fun z => M.part z x w && M.part z y w) <;>
@@ -3419,25 +3569,24 @@ theorem checkAx50_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx50Costed_cost_le (M : FiniteModel4) :
     (checkAx50Costed M).cost ≤ M.thingCount *
-      (M.thingCount * (M.worldCount * (M.thingCount * 5 + 5) + 2) + 2) := by
+      (M.thingCount * (M.worldCount * (M.thingCount * 29 + 17) + 2) + 2) := by
   unfold checkAx50Costed
-  apply allThingsEvalCosted_cost_le M _
-    (M.thingCount * (M.worldCount * (M.thingCount * 5 + 5) + 2))
+  apply allThingsEvalCosted_cost_le M _ _
   intro x
-  apply allThingsEvalCosted_cost_le M _
-    (M.worldCount * (M.thingCount * 5 + 5))
+  apply allThingsEvalCosted_cost_le M _ _
   intro y
-  apply allWorldsEvalCosted_cost_le M _ (M.thingCount * 5 + 3)
+  apply allWorldsEvalCosted_cost_le M _ (M.thingCount * 29 + 15)
   intro w
-  have hz := overlapWitnessCosted_cost_le M x y w
-  cases h : M.overlap x y w <;>
-    simp [Complexity.Costed.iff] <;> omega
+  have h := Complexity.Costed.iff_cost_le (reflexiveBinaryQueryCosted M.overlap x y w)
+    (fun _ => overlapWitnessCosted M x y w) 13 (M.thingCount * 29)
+    (reflexiveBinaryQueryCosted_cost_le _ _ _ _) (overlapWitnessCosted_cost_le M x y w)
+  omega
 
 def supplementationWitnessCosted (M : FiniteModel4) (x y : Fin M.thingCount)
     (w : Fin M.worldCount) : Complexity.Costed Bool :=
   anyThingsEvalCosted M fun z =>
-    Complexity.Costed.andThen (Complexity.Costed.tick (M.part z y w) 1) fun _ =>
-      (Complexity.Costed.tick (M.overlap z x w) 1).not
+    Complexity.Costed.andThen (reflexiveBinaryQueryCosted M.part z y w) fun _ =>
+      (reflexiveBinaryQueryCosted M.overlap z x w).not
 
 theorem supplementationWitnessCosted_value (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -3449,18 +3598,21 @@ theorem supplementationWitnessCosted_value (M : FiniteModel4)
 
 theorem supplementationWitnessCosted_cost_le (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) :
-    (supplementationWitnessCosted M x y w).cost ≤ M.thingCount * 6 := by
+    (supplementationWitnessCosted M x y w).cost ≤ M.thingCount * 30 := by
   unfold supplementationWitnessCosted
-  apply anyThingsEvalCosted_cost_le M _ 4
+  apply anyThingsEvalCosted_cost_le M _ 28
   intro z
-  cases h : M.part z y w <;>
-    simp [Complexity.Costed.andThen, Complexity.Costed.not]
+  apply Complexity.Costed.andThen_cost_le _ _ 13 14
+  · exact reflexiveBinaryQueryCosted_cost_le _ _ _ _
+  · change (reflexiveBinaryQueryCosted M.overlap z x w).cost + 1 ≤ 14
+    have h := reflexiveBinaryQueryCosted_cost_le M.overlap z x w
+    omega
 
 def checkAx51Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allThingsEvalCosted M fun y =>
     allWorldsEvalCosted M fun w =>
       Complexity.Costed.implies
-        (Complexity.Costed.not (Complexity.Costed.tick (M.part y x w) 1)) fun _ =>
+        (Complexity.Costed.not (reflexiveBinaryQueryCosted M.part y x w)) fun _ =>
         supplementationWitnessCosted M x y w
 
 def checkAx51 (M : FiniteModel4) : Bool := (checkAx51Costed M).value
@@ -3478,27 +3630,28 @@ theorem checkAx51_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx51Costed_cost_le (M : FiniteModel4) :
     (checkAx51Costed M).cost ≤ M.thingCount *
-      (M.thingCount * (M.worldCount * (M.thingCount * 6 + 6) + 2) + 2) := by
+      (M.thingCount * (M.worldCount * (M.thingCount * 30 + 18) + 2) + 2) := by
   unfold checkAx51Costed
-  apply allThingsEvalCosted_cost_le M _
-    (M.thingCount * (M.worldCount * (M.thingCount * 6 + 6) + 2))
+  apply allThingsEvalCosted_cost_le M _ _
   intro x
-  apply allThingsEvalCosted_cost_le M _
-    (M.worldCount * (M.thingCount * 6 + 6))
+  apply allThingsEvalCosted_cost_le M _ _
   intro y
-  apply allWorldsEvalCosted_cost_le M _ (M.thingCount * 6 + 4)
+  apply allWorldsEvalCosted_cost_le M _ (M.thingCount * 30 + 16)
   intro w
-  have hz := supplementationWitnessCosted_cost_le M x y w
-  cases h : M.part y x w <;>
-    simp [Complexity.Costed.implies, Complexity.Costed.orElse,
-      Complexity.Costed.not] ; omega
+  have hp : ((reflexiveBinaryQueryCosted M.part y x w).not).cost ≤ 14 := by
+    change (reflexiveBinaryQueryCosted M.part y x w).cost + 1 ≤ 14
+    have h := reflexiveBinaryQueryCosted_cost_le M.part y x w
+    omega
+  have h := Complexity.Costed.implies_cost_le _ (fun _ => supplementationWitnessCosted M x y w)
+    14 (M.thingCount * 30) hp (supplementationWitnessCosted_cost_le M x y w)
+  omega
 
 def checkAx52Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allThingsEvalCosted M fun y =>
     allWorldsEvalCosted M fun w =>
-      Complexity.Costed.iff (Complexity.Costed.tick (M.properPart x y w) 1) fun _ =>
-        Complexity.Costed.andThen (Complexity.Costed.tick (M.part x y w) 1) fun _ =>
-          (Complexity.Costed.tick (M.part y x w) 1).not
+      Complexity.Costed.iff (Complexity.Costed.tick (M.properPart x y w) 11) fun _ =>
+        Complexity.Costed.andThen (reflexiveBinaryQueryCosted M.part x y w) fun _ =>
+          (reflexiveBinaryQueryCosted M.part y x w).not
 
 def checkAx52 (M : FiniteModel4) : Bool := (checkAx52Costed M).value
 
@@ -3510,32 +3663,53 @@ theorem checkAx52_eq_legacy (M : FiniteModel4) :
   rw [allThingsEvalCosted_value]; congr 1; funext x
   rw [allThingsEvalCosted_value]; congr 1; funext y
   rw [allWorldsEvalCosted_value]; congr 1; funext w
-  rw [Complexity.Costed.iff_value, Complexity.Costed.tick_value,
-    Complexity.Costed.andThen_value, Complexity.Costed.not_value]
+  simp only [Complexity.Costed.iff_value, Complexity.Costed.tick_value,
+    Complexity.Costed.andThen_value, Complexity.Costed.not_value,
+    reflexiveBinaryQueryCosted_value]
   cases hl : M.properPart x y w <;>
     cases hp : M.part x y w <;> cases hr : M.part y x w <;> simp [iffB]
 
 theorem checkAx52Costed_cost_le (M : FiniteModel4) :
     (checkAx52Costed M).cost ≤
-      M.thingCount * (M.thingCount * (M.worldCount * 9 + 2) + 2) := by
+      M.thingCount * (M.thingCount * (M.worldCount * 43 + 2) + 2) := by
   unfold checkAx52Costed
-  apply allThingsEvalCosted_cost_le M _
-    (M.thingCount * (M.worldCount * 9 + 2))
+  apply allThingsEvalCosted_cost_le M _ _
   intro x
-  apply allThingsEvalCosted_cost_le M _ (M.worldCount * 9)
+  apply allThingsEvalCosted_cost_le M _ _
   intro y
-  apply allWorldsEvalCosted_cost_le M _ 7
+  apply allWorldsEvalCosted_cost_le M _ 41
   intro w
-  cases hp : M.properPart x y w <;> cases hxy : M.part x y w <;>
-    simp [Complexity.Costed.iff, Complexity.Costed.andThen,
-      Complexity.Costed.not]
+  apply Complexity.Costed.iff_cost_le _ _ 11 28
+  · simp
+  · apply Complexity.Costed.andThen_cost_le _ _ 13 14
+    · exact reflexiveBinaryQueryCosted_cost_le _ _ _ _
+    · change (reflexiveBinaryQueryCosted M.part y x w).cost + 1 ≤ 14
+      have h := reflexiveBinaryQueryCosted_cost_le M.part y x w
+      omega
+
+/-!
+## Functional dependence
+
+The generic predicate checks each functioning instance for a distinct functioning
+instance of the target type. The individual predicate first checks that generic
+condition, then its two instance fields and functions-as implication. A functional
+component also requires proper part. Each primitive query is a direct binary
+table read, charged eleven operations on compiled models.
+
+These bounds compose the costs of the executed searches, following Haslbeck's
+time-bound rules. `Complexity/Queries.lean` proves full counted correspondence
+with the compiled tables. Definition checks 53–55 bind each predicate once
+and reuse its Boolean result on both sides of equivalence. The bind stays
+inside the existing quantifiers. These counters describe source operations,
+not native call counts.
+-/
 
 def genericFunctionalWitnessCosted (M : FiniteModel4) (x y' : Fin M.thingCount)
     (w : Fin M.worldCount) : Complexity.Costed Bool :=
   anyThingsEvalCosted M fun y =>
     Complexity.Costed.andThen (Complexity.Costed.tick (decide (y ≠ x)) 1) fun _ =>
-      Complexity.Costed.andThen (Complexity.Costed.tick (M.inst y y' w) 1) fun _ =>
-        Complexity.Costed.tick (M.functionsAs y y' w) 1
+      Complexity.Costed.andThen (Complexity.Costed.tick (M.inst y y' w) 11) fun _ =>
+        Complexity.Costed.tick (M.functionsAs y y' w) 11
 
 theorem genericFunctionalWitnessCosted_value (M : FiniteModel4)
     (x y' : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -3547,9 +3721,9 @@ theorem genericFunctionalWitnessCosted_value (M : FiniteModel4)
 
 theorem genericFunctionalWitnessCosted_cost_le (M : FiniteModel4)
     (x y' : Fin M.thingCount) (w : Fin M.worldCount) :
-    (genericFunctionalWitnessCosted M x y' w).cost ≤ M.thingCount * 7 := by
+    (genericFunctionalWitnessCosted M x y' w).cost ≤ M.thingCount * 27 := by
   unfold genericFunctionalWitnessCosted
-  apply anyThingsEvalCosted_cost_le M _ 5
+  apply anyThingsEvalCosted_cost_le M _ 25
   intro y
   cases hn : decide (y ≠ x) <;> cases hi : M.inst y y' w <;>
     simp [Complexity.Costed.andThen]
@@ -3559,8 +3733,8 @@ def genericFunctionalDependenceCosted
     Complexity.Costed Bool :=
   allThingsEvalCosted M fun x =>
     Complexity.Costed.implies
-      (Complexity.Costed.andThen (Complexity.Costed.tick (M.inst x x' w) 1) fun _ =>
-        Complexity.Costed.tick (M.functionsAs x x' w) 1) fun _ =>
+      (Complexity.Costed.andThen (Complexity.Costed.tick (M.inst x x' w) 11) fun _ =>
+        Complexity.Costed.tick (M.functionsAs x x' w) 11) fun _ =>
       genericFunctionalWitnessCosted M x y' w
 
 def genericFunctionalDependenceB
@@ -3579,14 +3753,14 @@ theorem genericFunctionalDependenceB_eq_legacy (M : FiniteModel4)
     genericFunctionalWitnessCosted_value, impliesB]
 
 def genericFunctionalDependenceBound (M : FiniteModel4) : Nat :=
-  M.thingCount * (M.thingCount * 7 + 7)
+  M.thingCount * (M.thingCount * 27 + 27)
 
 theorem genericFunctionalDependenceCosted_cost_le (M : FiniteModel4)
     (x' y' : Fin M.thingCount) (w : Fin M.worldCount) :
     (genericFunctionalDependenceCosted M x' y' w).cost ≤
       genericFunctionalDependenceBound M := by
   unfold genericFunctionalDependenceCosted genericFunctionalDependenceBound
-  apply allThingsEvalCosted_cost_le M _ (M.thingCount * 7 + 5)
+  apply allThingsEvalCosted_cost_le M _ (M.thingCount * 27 + 25)
   intro x
   have hw := genericFunctionalWitnessCosted_cost_le M x y' w
   cases hi : M.inst x x' w <;> cases hf : M.functionsAs x x' w <;>
@@ -3598,11 +3772,11 @@ def individualFunctionalDependenceCosted
     (x x' y y' : Fin M.thingCount) (w : Fin M.worldCount) :
     Complexity.Costed Bool :=
   Complexity.Costed.andThen (genericFunctionalDependenceCosted M x' y' w) fun _ =>
-    Complexity.Costed.andThen (Complexity.Costed.tick (M.inst x x' w) 1) fun _ =>
-      Complexity.Costed.andThen (Complexity.Costed.tick (M.inst y y' w) 1) fun _ =>
+    Complexity.Costed.andThen (Complexity.Costed.tick (M.inst x x' w) 11) fun _ =>
+      Complexity.Costed.andThen (Complexity.Costed.tick (M.inst y y' w) 11) fun _ =>
         Complexity.Costed.implies
-          (Complexity.Costed.tick (M.functionsAs x x' w) 1) fun _ =>
-          Complexity.Costed.tick (M.functionsAs y y' w) 1
+          (Complexity.Costed.tick (M.functionsAs x x' w) 11) fun _ =>
+          Complexity.Costed.tick (M.functionsAs y y' w) 11
 
 def individualFunctionalDependenceB
     (M : FiniteModel4)
@@ -3625,7 +3799,7 @@ theorem individualFunctionalDependenceB_eq_legacy (M : FiniteModel4)
         simp [impliesB]
 
 def individualFunctionalDependenceBound (M : FiniteModel4) : Nat :=
-  genericFunctionalDependenceBound M + 9
+  genericFunctionalDependenceBound M + 49
 
 theorem individualFunctionalDependenceCosted_cost_le (M : FiniteModel4)
     (x x' y y' : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -3642,8 +3816,12 @@ theorem individualFunctionalDependenceCosted_cost_le (M : FiniteModel4)
 def checkAx53Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x' => allThingsEvalCosted M fun y' =>
     allWorldsEvalCosted M fun w =>
-      Complexity.Costed.iff (genericFunctionalDependenceCosted M x' y' w) fun _ =>
-        genericFunctionalDependenceCosted M x' y' w
+      -- Both sides use the same predicate at the same coordinates. Bind its
+      -- result here so the search contributes its cost once. The bind stays
+      -- inside the quantifiers and preserves their traversal order.
+      Complexity.Costed.bind (genericFunctionalDependenceCosted M x' y' w) fun answer =>
+        Complexity.Costed.iff (Complexity.Costed.pure answer) fun _ =>
+          Complexity.Costed.pure answer
 
 def checkAx53 (M : FiniteModel4) : Bool := (checkAx53Costed M).value
 
@@ -3655,7 +3833,7 @@ theorem checkAx53_eq_legacy (M : FiniteModel4) :
   rw [allThingsEvalCosted_value]; congr 1; funext x'
   rw [allThingsEvalCosted_value]; congr 1; funext y'
   rw [allWorldsEvalCosted_value]; congr 1; funext w
-  rw [Complexity.Costed.iff_value]
+  rw [Complexity.Costed.bind_value, Complexity.Costed.iff_value]
   unfold genericFunctionalDependenceB
   simp [iffB]
 
@@ -3675,17 +3853,17 @@ theorem checkAx53Costed_cost_le (M : FiniteModel4) :
     (2 * genericFunctionalDependenceBound M + 2)
   intro w
   have hl := genericFunctionalDependenceCosted_cost_le M x' y' w
-  have hr := genericFunctionalDependenceCosted_cost_le M x' y' w
   cases h : (genericFunctionalDependenceCosted M x' y' w).value <;>
-    simp [Complexity.Costed.iff, h] <;> omega
+    simp [Complexity.Costed.bind_cost, Complexity.Costed.iff,
+      Complexity.Costed.pure, h] <;> omega
 
 def checkAx54Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allThingsEvalCosted M fun x' =>
     allThingsEvalCosted M fun y => allThingsEvalCosted M fun y' =>
       allWorldsEvalCosted M fun w =>
-        Complexity.Costed.iff
-          (individualFunctionalDependenceCosted M x x' y y' w) fun _ =>
-          individualFunctionalDependenceCosted M x x' y y' w
+        Complexity.Costed.bind (individualFunctionalDependenceCosted M x x' y y' w) fun answer =>
+          Complexity.Costed.iff (Complexity.Costed.pure answer) fun _ =>
+            Complexity.Costed.pure answer
 
 def checkAx54 (M : FiniteModel4) : Bool := (checkAx54Costed M).value
 
@@ -3700,7 +3878,7 @@ theorem checkAx54_eq_legacy (M : FiniteModel4) :
   rw [allThingsEvalCosted_value]; congr 1; funext y
   rw [allThingsEvalCosted_value]; congr 1; funext y'
   rw [allWorldsEvalCosted_value]; congr 1; funext w
-  rw [Complexity.Costed.iff_value]
+  rw [Complexity.Costed.bind_value, Complexity.Costed.iff_value]
   unfold individualFunctionalDependenceB
   simp [iffB]
 
@@ -3729,14 +3907,14 @@ theorem checkAx54Costed_cost_le (M : FiniteModel4) :
     (2 * individualFunctionalDependenceBound M + 2)
   intro w
   have hl := individualFunctionalDependenceCosted_cost_le M x x' y y' w
-  have hr := individualFunctionalDependenceCosted_cost_le M x x' y y' w
   cases h : (individualFunctionalDependenceCosted M x x' y y' w).value <;>
-    simp [Complexity.Costed.iff, h] <;> omega
+    simp [Complexity.Costed.bind_cost, Complexity.Costed.iff,
+      Complexity.Costed.pure, h] <;> omega
 
 def functionalComponentCosted (M : FiniteModel4)
     (x x' y y' : Fin M.thingCount) (w : Fin M.worldCount) :
     Complexity.Costed Bool :=
-  Complexity.Costed.andThen (Complexity.Costed.tick (M.properPart x y w) 1) fun _ =>
+  Complexity.Costed.andThen (Complexity.Costed.tick (M.properPart x y w) 11) fun _ =>
     individualFunctionalDependenceCosted M x x' y y' w
 
 theorem functionalComponentCosted_value (M : FiniteModel4)
@@ -3747,7 +3925,7 @@ theorem functionalComponentCosted_value (M : FiniteModel4)
     individualFunctionalDependenceB]
 
 def functionalComponentBound (M : FiniteModel4) : Nat :=
-  individualFunctionalDependenceBound M + 2
+  individualFunctionalDependenceBound M + 12
 
 theorem functionalComponentCosted_cost_le (M : FiniteModel4)
     (x x' y y' : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -3761,8 +3939,9 @@ def checkAx55Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allThingsEvalCosted M fun x' =>
     allThingsEvalCosted M fun y => allThingsEvalCosted M fun y' =>
       allWorldsEvalCosted M fun w =>
-        Complexity.Costed.iff (functionalComponentCosted M x x' y y' w) fun _ =>
-          functionalComponentCosted M x x' y y' w
+        Complexity.Costed.bind (functionalComponentCosted M x x' y y' w) fun answer =>
+          Complexity.Costed.iff (Complexity.Costed.pure answer) fun _ =>
+            Complexity.Costed.pure answer
 
 def checkAx55 (M : FiniteModel4) : Bool := (checkAx55Costed M).value
 
@@ -3778,7 +3957,7 @@ theorem checkAx55_eq_legacy (M : FiniteModel4) :
   rw [allThingsEvalCosted_value]; congr 1; funext y
   rw [allThingsEvalCosted_value]; congr 1; funext y'
   rw [allWorldsEvalCosted_value]; congr 1; funext w
-  rw [Complexity.Costed.iff_value, functionalComponentCosted_value]
+  rw [Complexity.Costed.bind_value, Complexity.Costed.iff_value, Complexity.Costed.pure_value, functionalComponentCosted_value]
   cases hp : M.properPart x y w <;>
     cases hi : individualFunctionalDependenceB M x x' y y' w <;> simp [iffB]
 
@@ -3805,17 +3984,32 @@ theorem checkAx55Costed_cost_le (M : FiniteModel4) :
   apply allWorldsEvalCosted_cost_le M _ (2 * functionalComponentBound M + 2)
   intro w
   have hl := functionalComponentCosted_cost_le M x x' y y' w
-  have hr := functionalComponentCosted_cost_le M x x' y y' w
   cases h : (functionalComponentCosted M x x' y y' w).value <;>
-    simp [Complexity.Costed.iff, h] <;> omega
+    simp [Complexity.Costed.bind_cost, Complexity.Costed.iff,
+      Complexity.Costed.pure, h] <;> omega
+
+/-!
+## Constitution
+
+Constitution uses the direct constituted-by and instantiation tables, while
+classification and existence queries use unary tables. Their compiled costs
+are eleven and eight operations. The generic dependence search visits each
+source instance before searching its constituting witness. The individual
+constitution check tests both instance fields before that generic search.
+These orders matter when a failed premise skips later work.
+
+The local bounds compose those query costs with loop and Boolean operations,
+following Haslbeck's time-bound rules. The full counted correspondences in
+`Complexity/Queries.lean` connect them to the compiler's verified tables.
+-/
 
 def constitutedSortAgreementCosted (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
   Complexity.Costed.andThen
-    (Complexity.Costed.iff (Complexity.Costed.tick (M.endurant x w) 1) fun _ =>
-      Complexity.Costed.tick (M.endurant y w) 1) fun _ =>
-    Complexity.Costed.iff (Complexity.Costed.tick (M.perdurant x w) 1) fun _ =>
-      Complexity.Costed.tick (M.perdurant y w) 1
+    (Complexity.Costed.iff (Complexity.Costed.tick (M.endurant x w) 8) fun _ =>
+      Complexity.Costed.tick (M.endurant y w) 8) fun _ =>
+    Complexity.Costed.iff (Complexity.Costed.tick (M.perdurant x w) 8) fun _ =>
+      Complexity.Costed.tick (M.perdurant y w) 8
 
 theorem constitutedSortAgreementCosted_value (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -3830,7 +4024,7 @@ theorem constitutedSortAgreementCosted_value (M : FiniteModel4)
 
 theorem constitutedSortAgreementCosted_cost_le (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) :
-    (constitutedSortAgreementCosted M x y w).cost ≤ 9 := by
+    (constitutedSortAgreementCosted M x y w).cost ≤ 37 := by
   unfold constitutedSortAgreementCosted
   cases he : M.endurant x w <;> cases hey : M.endurant y w <;>
     cases hp : M.perdurant x w <;>
@@ -3840,7 +4034,7 @@ def checkAx56Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allThingsEvalCosted M fun y =>
     allWorldsEvalCosted M fun w =>
       Complexity.Costed.implies
-        (Complexity.Costed.tick (M.constitutedBy x y w) 1) fun _ =>
+        (Complexity.Costed.tick (M.constitutedBy x y w) 11) fun _ =>
         constitutedSortAgreementCosted M x y w
 
 def checkAx56 (M : FiniteModel4) : Bool := (checkAx56Costed M).value
@@ -3859,14 +4053,14 @@ theorem checkAx56_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx56Costed_cost_le (M : FiniteModel4) :
     (checkAx56Costed M).cost ≤
-      M.thingCount * (M.thingCount * (M.worldCount * 14 + 2) + 2) := by
+      M.thingCount * (M.thingCount * (M.worldCount * 52 + 2) + 2) := by
   unfold checkAx56Costed
   apply allThingsEvalCosted_cost_le M _
-    (M.thingCount * (M.worldCount * 14 + 2))
+    (M.thingCount * (M.worldCount * 52 + 2))
   intro x
-  apply allThingsEvalCosted_cost_le M _ (M.worldCount * 14)
+  apply allThingsEvalCosted_cost_le M _ (M.worldCount * 52)
   intro y
-  apply allWorldsEvalCosted_cost_le M _ 12
+  apply allWorldsEvalCosted_cost_le M _ 50
   intro w
   have hc := constitutedSortAgreementCosted_cost_le M x y w
   cases h : M.constitutedBy x y w <;>
@@ -3875,11 +4069,11 @@ theorem checkAx56Costed_cost_le (M : FiniteModel4) :
 
 def constitutedKindsAntecedentCosted (M : FiniteModel4)
     (x y x' y' : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
-  Complexity.Costed.andThen (Complexity.Costed.tick (M.constitutedBy x y w) 1) fun _ =>
-    Complexity.Costed.andThen (Complexity.Costed.tick (M.inst x x' w) 1) fun _ =>
-      Complexity.Costed.andThen (Complexity.Costed.tick (M.inst y y' w) 1) fun _ =>
-        Complexity.Costed.andThen (Complexity.Costed.tick (M.kind x' w) 1) fun _ =>
-          Complexity.Costed.tick (M.kind y' w) 1
+  Complexity.Costed.andThen (Complexity.Costed.tick (M.constitutedBy x y w) 11) fun _ =>
+    Complexity.Costed.andThen (Complexity.Costed.tick (M.inst x x' w) 11) fun _ =>
+      Complexity.Costed.andThen (Complexity.Costed.tick (M.inst y y' w) 11) fun _ =>
+        Complexity.Costed.andThen (Complexity.Costed.tick (M.kind x' w) 8) fun _ =>
+          Complexity.Costed.tick (M.kind y' w) 8
 
 theorem constitutedKindsAntecedentCosted_value (M : FiniteModel4)
     (x y x' y' : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -3891,7 +4085,7 @@ theorem constitutedKindsAntecedentCosted_value (M : FiniteModel4)
 
 theorem constitutedKindsAntecedentCosted_cost_le (M : FiniteModel4)
     (x y x' y' : Fin M.thingCount) (w : Fin M.worldCount) :
-    (constitutedKindsAntecedentCosted M x y x' y' w).cost ≤ 9 := by
+    (constitutedKindsAntecedentCosted M x y x' y' w).cost ≤ 53 := by
   unfold constitutedKindsAntecedentCosted
   cases h1 : M.constitutedBy x y w <;> cases h2 : M.inst x x' w <;>
     cases h3 : M.inst y y' w <;> cases h4 : M.kind x' w <;>
@@ -3922,20 +4116,20 @@ theorem checkAx57_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx57Costed_cost_le (M : FiniteModel4) :
     (checkAx57Costed M).cost ≤ M.thingCount * (M.thingCount *
-      (M.thingCount * (M.thingCount * (M.worldCount * 14 + 2) + 2) + 2) + 2) := by
+      (M.thingCount * (M.thingCount * (M.worldCount * 58 + 2) + 2) + 2) + 2) := by
   unfold checkAx57Costed
   apply allThingsEvalCosted_cost_le M _
-    (M.thingCount * (M.thingCount * (M.thingCount * (M.worldCount * 14 + 2) + 2) + 2))
+    (M.thingCount * (M.thingCount * (M.thingCount * (M.worldCount * 58 + 2) + 2) + 2))
   intro x
   apply allThingsEvalCosted_cost_le M _
-    (M.thingCount * (M.thingCount * (M.worldCount * 14 + 2) + 2))
+    (M.thingCount * (M.thingCount * (M.worldCount * 58 + 2) + 2))
   intro y
   apply allThingsEvalCosted_cost_le M _
-    (M.thingCount * (M.worldCount * 14 + 2))
+    (M.thingCount * (M.worldCount * 58 + 2))
   intro x'
-  apply allThingsEvalCosted_cost_le M _ (M.worldCount * 14)
+  apply allThingsEvalCosted_cost_le M _ (M.worldCount * 58)
   intro y'
-  apply allWorldsEvalCosted_cost_le M _ 12
+  apply allWorldsEvalCosted_cost_le M _ 56
   intro w
   have ha := constitutedKindsAntecedentCosted_cost_le M x y x' y' w
   cases h : (constitutedKindsAntecedentCosted M x y x' y' w).value <;>
@@ -3945,8 +4139,8 @@ theorem checkAx57Costed_cost_le (M : FiniteModel4) :
 def constitutionalWitnessCosted (M : FiniteModel4) (x y' : Fin M.thingCount)
     (w : Fin M.worldCount) : Complexity.Costed Bool :=
   anyThingsEvalCosted M fun y =>
-    Complexity.Costed.andThen (Complexity.Costed.tick (M.inst y y' w) 1) fun _ =>
-      Complexity.Costed.tick (M.constitutedBy x y w) 1
+    Complexity.Costed.andThen (Complexity.Costed.tick (M.inst y y' w) 11) fun _ =>
+      Complexity.Costed.tick (M.constitutedBy x y w) 11
 
 theorem constitutionalWitnessCosted_value (M : FiniteModel4)
     (x y' : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -3958,9 +4152,9 @@ theorem constitutionalWitnessCosted_value (M : FiniteModel4)
 
 theorem constitutionalWitnessCosted_cost_le (M : FiniteModel4)
     (x y' : Fin M.thingCount) (w : Fin M.worldCount) :
-    (constitutionalWitnessCosted M x y' w).cost ≤ M.thingCount * 5 := by
+    (constitutionalWitnessCosted M x y' w).cost ≤ M.thingCount * 25 := by
   unfold constitutionalWitnessCosted
-  apply anyThingsEvalCosted_cost_le M _ 3
+  apply anyThingsEvalCosted_cost_le M _ 23
   intro y
   cases h : M.inst y y' w <;> simp [Complexity.Costed.andThen]
 
@@ -3968,7 +4162,7 @@ def genericConstitutionalDependenceCosted
     (M : FiniteModel4) (x' y' : Fin M.thingCount) (w : Fin M.worldCount) :
     Complexity.Costed Bool :=
   allThingsEvalCosted M fun x =>
-    Complexity.Costed.implies (Complexity.Costed.tick (M.inst x x' w) 1) fun _ =>
+    Complexity.Costed.implies (Complexity.Costed.tick (M.inst x x' w) 11) fun _ =>
       constitutionalWitnessCosted M x y' w
 
 def genericConstitutionalDependenceB
@@ -3985,14 +4179,14 @@ theorem genericConstitutionalDependenceB_eq_legacy (M : FiniteModel4)
   simp [Complexity.Costed.implies_value, constitutionalWitnessCosted_value, impliesB]
 
 def genericConstitutionalDependenceBound (M : FiniteModel4) : Nat :=
-  M.thingCount * (M.thingCount * 5 + 5)
+  M.thingCount * (M.thingCount * 25 + 15)
 
 theorem genericConstitutionalDependenceCosted_cost_le (M : FiniteModel4)
     (x' y' : Fin M.thingCount) (w : Fin M.worldCount) :
     (genericConstitutionalDependenceCosted M x' y' w).cost ≤
       genericConstitutionalDependenceBound M := by
   unfold genericConstitutionalDependenceCosted genericConstitutionalDependenceBound
-  apply allThingsEvalCosted_cost_le M _ (M.thingCount * 5 + 3)
+  apply allThingsEvalCosted_cost_le M _ (M.thingCount * 25 + 13)
   intro x
   have hw := constitutionalWitnessCosted_cost_le M x y' w
   cases h : M.inst x x' w <;>
@@ -4003,10 +4197,10 @@ def constitutionCosted
     (M : FiniteModel4)
     (x x' y y' : Fin M.thingCount) (w : Fin M.worldCount) :
     Complexity.Costed Bool :=
-  Complexity.Costed.andThen (Complexity.Costed.tick (M.inst x x' w) 1) fun _ =>
-    Complexity.Costed.andThen (Complexity.Costed.tick (M.inst y y' w) 1) fun _ =>
+  Complexity.Costed.andThen (Complexity.Costed.tick (M.inst x x' w) 11) fun _ =>
+    Complexity.Costed.andThen (Complexity.Costed.tick (M.inst y y' w) 11) fun _ =>
       Complexity.Costed.andThen (genericConstitutionalDependenceCosted M x' y' w) fun _ =>
-        Complexity.Costed.tick (M.constitutedBy x y w) 1
+        Complexity.Costed.tick (M.constitutedBy x y w) 11
 
 def constitutionB
     (M : FiniteModel4)
@@ -4022,7 +4216,7 @@ theorem constitutionB_eq_legacy (M : FiniteModel4)
   simp [Complexity.Costed.andThen_value, Bool.and_assoc]
 
 def constitutionBound (M : FiniteModel4) : Nat :=
-  genericConstitutionalDependenceBound M + 6
+  genericConstitutionalDependenceBound M + 36
 
 theorem constitutionCosted_cost_le (M : FiniteModel4)
     (x x' y y' : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -4036,8 +4230,9 @@ theorem constitutionCosted_cost_le (M : FiniteModel4)
 def checkAx58Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x' => allThingsEvalCosted M fun y' =>
     allWorldsEvalCosted M fun w =>
-      Complexity.Costed.iff (genericConstitutionalDependenceCosted M x' y' w) fun _ =>
-        genericConstitutionalDependenceCosted M x' y' w
+      Complexity.Costed.bind (genericConstitutionalDependenceCosted M x' y' w) fun answer =>
+        Complexity.Costed.iff (Complexity.Costed.pure answer) fun _ =>
+          Complexity.Costed.pure answer
 
 def checkAx58 (M : FiniteModel4) : Bool := (checkAx58Costed M).value
 
@@ -4049,7 +4244,7 @@ theorem checkAx58_eq_legacy (M : FiniteModel4) :
   rw [allThingsEvalCosted_value]; congr 1; funext x'
   rw [allThingsEvalCosted_value]; congr 1; funext y'
   rw [allWorldsEvalCosted_value]; congr 1; funext w
-  rw [Complexity.Costed.iff_value]
+  rw [Complexity.Costed.bind_value, Complexity.Costed.iff_value]
   unfold genericConstitutionalDependenceB
   simp [iffB]
 
@@ -4069,16 +4264,17 @@ theorem checkAx58Costed_cost_le (M : FiniteModel4) :
     (2 * genericConstitutionalDependenceBound M + 2)
   intro w
   have hl := genericConstitutionalDependenceCosted_cost_le M x' y' w
-  have hr := genericConstitutionalDependenceCosted_cost_le M x' y' w
   cases h : (genericConstitutionalDependenceCosted M x' y' w).value <;>
-    simp [Complexity.Costed.iff, h] <;> omega
+    simp [Complexity.Costed.bind_cost, Complexity.Costed.iff,
+      Complexity.Costed.pure, h] <;> omega
 
 def checkAx59Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allThingsEvalCosted M fun x' =>
     allThingsEvalCosted M fun y => allThingsEvalCosted M fun y' =>
       allWorldsEvalCosted M fun w =>
-        Complexity.Costed.iff (constitutionCosted M x x' y y' w) fun _ =>
-          constitutionCosted M x x' y y' w
+        Complexity.Costed.bind (constitutionCosted M x x' y y' w) fun answer =>
+          Complexity.Costed.iff (Complexity.Costed.pure answer) fun _ =>
+            Complexity.Costed.pure answer
 
 def checkAx59 (M : FiniteModel4) : Bool := (checkAx59Costed M).value
 
@@ -4092,7 +4288,7 @@ theorem checkAx59_eq_legacy (M : FiniteModel4) :
   rw [allThingsEvalCosted_value]; congr 1; funext y
   rw [allThingsEvalCosted_value]; congr 1; funext y'
   rw [allWorldsEvalCosted_value]; congr 1; funext w
-  rw [Complexity.Costed.iff_value]
+  rw [Complexity.Costed.bind_value, Complexity.Costed.iff_value]
   unfold constitutionB
   simp [iffB]
 
@@ -4118,15 +4314,15 @@ theorem checkAx59Costed_cost_le (M : FiniteModel4) :
   apply allWorldsEvalCosted_cost_le M _ (2 * constitutionBound M + 2)
   intro w
   have hl := constitutionCosted_cost_le M x x' y y' w
-  have hr := constitutionCosted_cost_le M x x' y y' w
   cases h : (constitutionCosted M x x' y y' w).value <;>
-    simp [Complexity.Costed.iff, h] <;> omega
+    simp [Complexity.Costed.bind_cost, Complexity.Costed.iff,
+      Complexity.Costed.pure, h] <;> omega
 
 def constitutionPersistenceCosted (M : FiniteModel4)
     (x y : Fin M.thingCount) : Complexity.Costed Bool :=
   allWorldsEvalCosted M fun v =>
-    Complexity.Costed.implies (Complexity.Costed.tick (M.ex x v) 1) fun _ =>
-      Complexity.Costed.tick (M.constitutedBy x y v) 1
+    Complexity.Costed.implies (Complexity.Costed.tick (M.ex x v) 8) fun _ =>
+      Complexity.Costed.tick (M.constitutedBy x y v) 11
 
 theorem constitutionPersistenceCosted_value (M : FiniteModel4)
     (x y : Fin M.thingCount) :
@@ -4138,9 +4334,9 @@ theorem constitutionPersistenceCosted_value (M : FiniteModel4)
 
 theorem constitutionPersistenceCosted_cost_le (M : FiniteModel4)
     (x y : Fin M.thingCount) :
-    (constitutionPersistenceCosted M x y).cost ≤ M.worldCount * 6 := by
+    (constitutionPersistenceCosted M x y).cost ≤ M.worldCount * 23 := by
   unfold constitutionPersistenceCosted
-  apply allWorldsEvalCosted_cost_le M _ 4
+  apply allWorldsEvalCosted_cost_le M _ 21
   intro v
   cases h : M.ex x v <;>
     simp [Complexity.Costed.implies, Complexity.Costed.orElse,
@@ -4150,8 +4346,8 @@ def checkAx60Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allThingsEvalCosted M fun y =>
     allWorldsEvalCosted M fun w =>
       Complexity.Costed.implies
-        (Complexity.Costed.andThen (Complexity.Costed.tick (M.perdurant x w) 1) fun _ =>
-          Complexity.Costed.tick (M.constitutedBy x y w) 1) fun _ =>
+        (Complexity.Costed.andThen (Complexity.Costed.tick (M.perdurant x w) 8) fun _ =>
+          Complexity.Costed.tick (M.constitutedBy x y w) 11) fun _ =>
         constitutionPersistenceCosted M x y
 
 def checkAx60 (M : FiniteModel4) : Bool := (checkAx60Costed M).value
@@ -4169,15 +4365,15 @@ theorem checkAx60_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx60Costed_cost_le (M : FiniteModel4) :
     (checkAx60Costed M).cost ≤ M.thingCount *
-      (M.thingCount * (M.worldCount * (M.worldCount * 6 + 7) + 2) + 2) := by
+      (M.thingCount * (M.worldCount * (M.worldCount * 23 + 24) + 2) + 2) := by
   unfold checkAx60Costed
   apply allThingsEvalCosted_cost_le M _
-    (M.thingCount * (M.worldCount * (M.worldCount * 6 + 7) + 2))
+    (M.thingCount * (M.worldCount * (M.worldCount * 23 + 24) + 2))
   intro x
   apply allThingsEvalCosted_cost_le M _
-    (M.worldCount * (M.worldCount * 6 + 7))
+    (M.worldCount * (M.worldCount * 23 + 24))
   intro y
-  apply allWorldsEvalCosted_cost_le M _ (M.worldCount * 6 + 5)
+  apply allWorldsEvalCosted_cost_le M _ (M.worldCount * 23 + 22)
   intro w
   have hp := constitutionPersistenceCosted_cost_le M x y
   cases hper : M.perdurant x w <;> cases hc : M.constitutedBy x y w <;>
@@ -4188,8 +4384,8 @@ def checkAx61Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allThingsEvalCosted M fun y =>
     allWorldsEvalCosted M fun w =>
       Complexity.Costed.implies
-        (Complexity.Costed.tick (M.constitutedBy x y w) 1) fun _ =>
-        (Complexity.Costed.tick (M.constitutedBy y x w) 1).not
+        (Complexity.Costed.tick (M.constitutedBy x y w) 11) fun _ =>
+        (Complexity.Costed.tick (M.constitutedBy y x w) 11).not
 
 def checkAx61 (M : FiniteModel4) : Bool := (checkAx61Costed M).value
 
@@ -4205,14 +4401,14 @@ theorem checkAx61_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx61Costed_cost_le (M : FiniteModel4) :
     (checkAx61Costed M).cost ≤
-      M.thingCount * (M.thingCount * (M.worldCount * 7 + 2) + 2) := by
+      M.thingCount * (M.thingCount * (M.worldCount * 27 + 2) + 2) := by
   unfold checkAx61Costed
   apply allThingsEvalCosted_cost_le M _
-    (M.thingCount * (M.worldCount * 7 + 2))
+    (M.thingCount * (M.worldCount * 27 + 2))
   intro x
-  apply allThingsEvalCosted_cost_le M _ (M.worldCount * 7)
+  apply allThingsEvalCosted_cost_le M _ (M.worldCount * 27)
   intro y
-  apply allWorldsEvalCosted_cost_le M _ 5
+  apply allWorldsEvalCosted_cost_le M _ 25
   intro w
   cases h : M.constitutedBy x y w <;>
     simp [Complexity.Costed.implies, Complexity.Costed.orElse,
@@ -4242,12 +4438,25 @@ theorem checkAx62Costed_cost_le (M : FiniteModel4) :
   intro w
   simp
 
+/-!
+Existential dependence means that every world with x also has y. The supplied
+current-world argument does not restrict that scan. Independence requires a
+counterexample in each direction, so it skips the reverse scan when the first
+dependence test succeeds. Existence reads cost eight operations in the compiled
+unary evaluator. Inherence reads below cost eleven in the binary evaluator.
+The table-correspondence proofs expand those charges into executed operations,
+following the compositional cost method of Niu et al. (POPL 2022).
+
+Definition checks 63 and 64 bind their predicate once per assignment and reuse
+its answer. The two directional searches inside independence remain distinct.
+-/
+
 def existentialDependenceCosted
     (M : FiniteModel4) (x y : Fin M.thingCount) (_w : Fin M.worldCount) :
     Complexity.Costed Bool :=
   allWorldsEvalCosted M fun v =>
-    Complexity.Costed.implies (Complexity.Costed.tick (M.ex x v) 1) fun _ =>
-      Complexity.Costed.tick (M.ex y v) 1
+    Complexity.Costed.implies (Complexity.Costed.tick (M.ex x v) 8) fun _ =>
+      Complexity.Costed.tick (M.ex y v) 8
 
 def existentialDependenceB
     (M : FiniteModel4) (x y : Fin M.thingCount) (w : Fin M.worldCount) : Bool :=
@@ -4261,13 +4470,13 @@ theorem existentialDependenceB_eq_legacy (M : FiniteModel4)
   rw [allWorldsEvalCosted_value]
   simp [Complexity.Costed.implies_value, impliesB]
 
-def existentialDependenceBound (M : FiniteModel4) : Nat := M.worldCount * 6
+def existentialDependenceBound (M : FiniteModel4) : Nat := M.worldCount * 20
 
 theorem existentialDependenceCosted_cost_le (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) :
     (existentialDependenceCosted M x y w).cost ≤ existentialDependenceBound M := by
   unfold existentialDependenceCosted existentialDependenceBound
-  apply allWorldsEvalCosted_cost_le M _ 4
+  apply allWorldsEvalCosted_cost_le M _ 18
   intro v
   cases h : M.ex x v <;>
     simp [Complexity.Costed.implies, Complexity.Costed.orElse,
@@ -4307,8 +4516,9 @@ theorem existentialIndependenceCosted_cost_le (M : FiniteModel4)
 def checkAx63Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allThingsEvalCosted M fun y =>
     allWorldsEvalCosted M fun w =>
-      Complexity.Costed.iff (existentialDependenceCosted M x y w) fun _ =>
-        existentialDependenceCosted M x y w
+      Complexity.Costed.bind (existentialDependenceCosted M x y w) fun answer =>
+        Complexity.Costed.iff (Complexity.Costed.pure answer) fun _ =>
+          Complexity.Costed.pure answer
 
 def checkAx63 (M : FiniteModel4) : Bool := (checkAx63Costed M).value
 
@@ -4320,7 +4530,7 @@ theorem checkAx63_eq_legacy (M : FiniteModel4) :
   rw [allThingsEvalCosted_value]; congr 1; funext x
   rw [allThingsEvalCosted_value]; congr 1; funext y
   rw [allWorldsEvalCosted_value]; congr 1; funext w
-  rw [Complexity.Costed.iff_value]
+  rw [Complexity.Costed.bind_value, Complexity.Costed.iff_value]
   unfold existentialDependenceB
   simp [iffB]
 
@@ -4339,15 +4549,16 @@ theorem checkAx63Costed_cost_le (M : FiniteModel4) :
   apply allWorldsEvalCosted_cost_le M _ (2 * existentialDependenceBound M + 2)
   intro w
   have hl := existentialDependenceCosted_cost_le M x y w
-  have hr := existentialDependenceCosted_cost_le M x y w
   cases h : (existentialDependenceCosted M x y w).value <;>
-    simp [Complexity.Costed.iff, h] <;> omega
+    simp [Complexity.Costed.bind_cost, Complexity.Costed.iff,
+      Complexity.Costed.pure, h] <;> omega
 
 def checkAx64Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allThingsEvalCosted M fun y =>
     allWorldsEvalCosted M fun w =>
-      Complexity.Costed.iff (existentialIndependenceCosted M x y w) fun _ =>
-        existentialIndependenceCosted M x y w
+      Complexity.Costed.bind (existentialIndependenceCosted M x y w) fun answer =>
+        Complexity.Costed.iff (Complexity.Costed.pure answer) fun _ =>
+          Complexity.Costed.pure answer
 
 def checkAx64 (M : FiniteModel4) : Bool := (checkAx64Costed M).value
 
@@ -4359,7 +4570,7 @@ theorem checkAx64_eq_legacy (M : FiniteModel4) :
   rw [allThingsEvalCosted_value]; congr 1; funext x
   rw [allThingsEvalCosted_value]; congr 1; funext y
   rw [allWorldsEvalCosted_value]; congr 1; funext w
-  rw [Complexity.Costed.iff_value]
+  rw [Complexity.Costed.bind_value, Complexity.Costed.iff_value]
   unfold existentialIndependenceB
   simp [iffB]
 
@@ -4378,14 +4589,14 @@ theorem checkAx64Costed_cost_le (M : FiniteModel4) :
   apply allWorldsEvalCosted_cost_le M _ (2 * existentialIndependenceBound M + 2)
   intro w
   have hl := existentialIndependenceCosted_cost_le M x y w
-  have hr := existentialIndependenceCosted_cost_le M x y w
   cases h : (existentialIndependenceCosted M x y w).value <;>
-    simp [Complexity.Costed.iff, h] <;> omega
+    simp [Complexity.Costed.bind_cost, Complexity.Costed.iff,
+      Complexity.Costed.pure, h] <;> omega
 
 def checkAx65Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allThingsEvalCosted M fun y =>
     allWorldsEvalCosted M fun w =>
-      Complexity.Costed.implies (Complexity.Costed.tick (M.inheresIn x y w) 1) fun _ =>
+      Complexity.Costed.implies (Complexity.Costed.tick (M.inheresIn x y w) 11) fun _ =>
         existentialDependenceCosted M x y w
 
 def checkAx65 (M : FiniteModel4) : Bool := (checkAx65Costed M).value
@@ -4402,15 +4613,15 @@ theorem checkAx65_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx65Costed_cost_le (M : FiniteModel4) :
     (checkAx65Costed M).cost ≤ M.thingCount *
-      (M.thingCount * (M.worldCount * (existentialDependenceBound M + 5) + 2) + 2) := by
+      (M.thingCount * (M.worldCount * (existentialDependenceBound M + 15) + 2) + 2) := by
   unfold checkAx65Costed
   apply allThingsEvalCosted_cost_le M _
-    (M.thingCount * (M.worldCount * (existentialDependenceBound M + 5) + 2))
+    (M.thingCount * (M.worldCount * (existentialDependenceBound M + 15) + 2))
   intro x
   apply allThingsEvalCosted_cost_le M _
-    (M.worldCount * (existentialDependenceBound M + 5))
+    (M.worldCount * (existentialDependenceBound M + 15))
   intro y
-  apply allWorldsEvalCosted_cost_le M _ (existentialDependenceBound M + 3)
+  apply allWorldsEvalCosted_cost_le M _ (existentialDependenceBound M + 13)
   intro w
   have hd := existentialDependenceCosted_cost_le M x y w
   cases h : M.inheresIn x y w <;>
@@ -4419,9 +4630,9 @@ theorem checkAx65Costed_cost_le (M : FiniteModel4) :
 
 def ax66ConsequentCosted (M : FiniteModel4) (x y : Fin M.thingCount)
     (w : Fin M.worldCount) : Complexity.Costed Bool :=
-  Complexity.Costed.andThen (Complexity.Costed.tick (M.moment x w) 1) fun _ =>
+  Complexity.Costed.andThen (Complexity.Costed.tick (M.moment x w) 8) fun _ =>
     Complexity.Costed.orElse (typeBCosted M y w) fun _ =>
-      Complexity.Costed.tick (M.concreteIndividual y w) 1
+      Complexity.Costed.tick (M.concreteIndividual y w) 8
 
 theorem ax66ConsequentCosted_value (M : FiniteModel4) (x y : Fin M.thingCount)
     (w : Fin M.worldCount) :
@@ -4433,7 +4644,7 @@ theorem ax66ConsequentCosted_value (M : FiniteModel4) (x y : Fin M.thingCount)
 theorem ax66ConsequentCosted_cost_le (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) :
     (ax66ConsequentCosted M x y w).cost ≤
-      M.worldCount * (M.thingCount * 3 + 2) + 4 := by
+      M.worldCount * (M.thingCount * 13 + 2) + 18 := by
   have ht := typeBCosted_cost_le M y w
   cases hm : M.moment x w <;> cases hty : typeB M y w <;>
     simp [ax66ConsequentCosted, Complexity.Costed.andThen,
@@ -4442,7 +4653,7 @@ theorem ax66ConsequentCosted_cost_le (M : FiniteModel4)
 def checkAx66Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allThingsEvalCosted M fun y =>
     allWorldsEvalCosted M fun w =>
-      Complexity.Costed.implies (Complexity.Costed.tick (M.inheresIn x y w) 1) fun _ =>
+      Complexity.Costed.implies (Complexity.Costed.tick (M.inheresIn x y w) 11) fun _ =>
         ax66ConsequentCosted M x y w
 
 def checkAx66 (M : FiniteModel4) : Bool := (checkAx66Costed M).value
@@ -4459,17 +4670,17 @@ theorem checkAx66_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx66Costed_cost_le (M : FiniteModel4) :
     (checkAx66Costed M).cost ≤ M.thingCount * (M.thingCount *
-      (M.worldCount * (M.worldCount * (M.thingCount * 3 + 2) + 9) + 2) + 2) := by
+      (M.worldCount * (M.worldCount * (M.thingCount * 13 + 2) + 33) + 2) + 2) := by
   unfold checkAx66Costed
   apply allThingsEvalCosted_cost_le M _
     (M.thingCount *
-      (M.worldCount * (M.worldCount * (M.thingCount * 3 + 2) + 9) + 2))
+      (M.worldCount * (M.worldCount * (M.thingCount * 13 + 2) + 33) + 2))
   intro x
   apply allThingsEvalCosted_cost_le M _
-    (M.worldCount * (M.worldCount * (M.thingCount * 3 + 2) + 9))
+    (M.worldCount * (M.worldCount * (M.thingCount * 13 + 2) + 33))
   intro y
   apply allWorldsEvalCosted_cost_le M _
-    (M.worldCount * (M.thingCount * 3 + 2) + 7)
+    (M.worldCount * (M.thingCount * 13 + 2) + 31)
   intro w
   have hc := ax66ConsequentCosted_cost_le M x y w
   cases h : M.inheresIn x y w <;>
@@ -4478,8 +4689,9 @@ theorem checkAx66Costed_cost_le (M : FiniteModel4) :
 
 def checkAx67Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   checkThreeThingsWorldsImpCosted M
-    (fun x y _ w => M.inheresIn x y w) (fun x _ z w => M.inheresIn x z w)
-    (fun _ y z _ => decide (y = z))
+    (fun x y _ w => Complexity.Costed.tick (M.inheresIn x y w) 11)
+    (fun x _ z w => Complexity.Costed.tick (M.inheresIn x z w) 11)
+    (fun _ y z _ => Complexity.Costed.tick (decide (y = z)) 1)
 
 def checkAx67 (M : FiniteModel4) : Bool := (checkAx67Costed M).value
 
@@ -4491,93 +4703,146 @@ theorem checkAx67_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx67Costed_cost_le (M : FiniteModel4) :
     (checkAx67Costed M).cost ≤ M.thingCount * (M.thingCount *
-      (M.thingCount * (M.worldCount * 8 + 2) + 2) + 2) :=
-  checkThreeThingsWorldsImpCosted_cost_le M _ _ _
+      (M.thingCount * (M.worldCount * 28 + 2) + 2) + 2) :=
+  checkThreeThingsWorldsImpCosted_cost_le M _ _ _ 11 11 1
+    (by intros; rfl) (by intros; rfl) (by intros; rfl)
 
 /-!
-Axiom 68 is the first checker whose executable cost has two visibly distinct
-phases: verified Warshall closure construction and short-circuiting formula
-evaluation over the resulting matrices.  Keeping both phases in one counted
-core follows the cost-aware semantics discipline of Niu et al. (POPL 2022),
-while reusing one proved executable as the production definition follows the
-verified-DSL methodology exemplified by de Moura's `RadixExperiment`.  These
-are complementary guarantees: the former justifies the bound; the latter
-justifies that the bound applies to the checker we actually run.
+Axiom 68 reuses a proved closure cache or constructs a closure for an uncached
+model. Both paths run the same counted bearer search. Query costs compose with
+the search as in Niu et al.'s cost-aware semantics (POPL 2022). The cache's
+proof connects its answers to this model, following the pass-correspondence
+discipline illustrated by de Moura's `RadixExperiment`. Cost accounting and
+value correctness are separate obligations, both required for the executed
+checker. A false premise skips its consequent and the consequent's cost.
 -/
 
-def checkAx68WithClosuresCosted (M : FiniteModel4)
-    (closures : Vector (Complexity.BoolMatrix M.thingCount) M.worldCount) :
+def checkAx68WithReachabilityCosted (M : FiniteModel4) (reachable : ReachabilityQuery M) :
     Complexity.Costed Bool :=
   allThingsEvalCosted M fun m =>
     allWorldsEvalCosted M fun w =>
-      Complexity.Costed.implies (Complexity.Costed.tick (M.moment m w) 1) fun _ =>
-        existsUniqueUltimateBearerWarshallCosted M closures m w
+      Complexity.Costed.implies (Complexity.Costed.tick (M.moment m w) 8) fun _ =>
+        existsUniqueUltimateBearerCosted M reachable m w
 
-theorem checkAx68WithClosuresCosted_value (M : FiniteModel4) (closures) :
-    (checkAx68WithClosuresCosted M closures).value =
-      allThings M (fun m => allWorlds M (fun w =>
-        impliesB (M.moment m w)
-          (existsUniqueUltimateBearerWarshallB M closures m w))) := by
-  unfold checkAx68WithClosuresCosted
-  rw [allThingsEvalCosted_value]
-  congr 1
-  funext m
-  rw [allWorldsEvalCosted_value]
-  simp [Complexity.Costed.implies_value, existsUniqueUltimateBearerWarshallB,
-    impliesB]
+/-- Only query values enter the logical specification. The proof can therefore
+connect either matrix representation to the same recursive reachability. -/
+theorem existsUniqueUltimateBearerCosted_value (M : FiniteModel4) (reachable : ReachabilityQuery M)
+    (correct : ∀ m b w, (reachable m b w).value = reachableInheresInB M m b w)
+    (m : Fin M.thingCount) (w : Fin M.worldCount) :
+    (existsUniqueUltimateBearerCosted M reachable m w).value =
+      existsUniqueUltimateBearerB M m w := by
+  apply Bool.eq_iff_iff.mpr
+  unfold existsUniqueUltimateBearerCosted existsUniqueUltimateBearerB
+  rw [anyThingsEvalCosted_value, anyThings_eq_true_iff, decide_eq_true_iff]
+  simp [ultimateBearerWitnessCosted_value, allThings_eq_true_iff, impliesB,
+    correct, ultimateBearerOfB]
+  grind
 
-def checkAx68EvaluationBound (M : FiniteModel4) : Nat :=
+theorem checkAx68WithReachabilityCosted_value (M : FiniteModel4) (reachable : ReachabilityQuery M)
+    (correct : ∀ m b w, (reachable m b w).value = reachableInheresInB M m b w) :
+    (checkAx68WithReachabilityCosted M reachable).value = checkAx68Closure M := by
+  simp [checkAx68WithReachabilityCosted, checkAx68Closure,
+    allThingsEvalCosted_value, allWorldsEvalCosted_value, Complexity.Costed.implies_value,
+    existsUniqueUltimateBearerCosted_value M reachable correct, impliesB]
+
+def checkAx68EvaluationBound (M : FiniteModel4) (queryBound : Nat) : Nat :=
   M.thingCount *
-    (M.worldCount * (ultimateBearerUniquenessBound M + 5) + 2)
+    (M.worldCount * (ultimateBearerUniquenessBound M queryBound + 12) + 2)
 
-theorem checkAx68WithClosuresCosted_cost_le (M : FiniteModel4) (closures) :
-    (checkAx68WithClosuresCosted M closures).cost ≤ checkAx68EvaluationBound M := by
-  unfold checkAx68WithClosuresCosted checkAx68EvaluationBound
+theorem checkAx68WithReachabilityCosted_cost_le (M : FiniteModel4) (reachable : ReachabilityQuery M)
+    (queryBound : Nat) (bound : ∀ m b w, (reachable m b w).cost ≤ queryBound) :
+    (checkAx68WithReachabilityCosted M reachable).cost ≤ checkAx68EvaluationBound M queryBound := by
+  unfold checkAx68WithReachabilityCosted checkAx68EvaluationBound
   apply allThingsEvalCosted_cost_le M _
-    (M.worldCount * (ultimateBearerUniquenessBound M + 5))
+    (M.worldCount * (ultimateBearerUniquenessBound M queryBound + 12))
   intro m
-  apply allWorldsEvalCosted_cost_le M _ (ultimateBearerUniquenessBound M + 3)
+  apply allWorldsEvalCosted_cost_le M _ (ultimateBearerUniquenessBound M queryBound + 10)
   intro w
-  have hu := existsUniqueUltimateBearerWarshallCosted_cost_le M closures m w
+  have hu := existsUniqueUltimateBearerCosted_cost_le M reachable queryBound bound m w
   cases h : M.moment m w <;>
     simp [Complexity.Costed.implies, Complexity.Costed.orElse,
       Complexity.Costed.not] ; omega
 
+/-- A proved compiler cache is read directly. The uncached path builds nested
+matrices and uses their three-read query. Cache selection costs one operation;
+both paths then run the same bearer search and charge their actual queries. -/
 def checkAx68Costed (M : FiniteModel4) : Complexity.Costed Bool :=
-  Complexity.Costed.bind (inherenceMatricesCosted M) fun closures =>
-    checkAx68WithClosuresCosted M closures
+  Complexity.Costed.charge 1 <| match M.inherenceCache with
+  | some cache => checkAx68WithReachabilityCosted M (fun m b w =>
+      Complexity.closureLookupCosted cache.val M.thingCount w.val m.val b.val)
+  | none => Complexity.Costed.bind (inherenceMatricesCosted M) fun closures =>
+      checkAx68WithReachabilityCosted M (reachableInheresInWarshallCosted M closures)
 
 def checkAx68 (M : FiniteModel4) : Bool := (checkAx68Costed M).value
 
 theorem checkAx68_eq_warshall (M : FiniteModel4) :
     checkAx68 M = checkAx68Warshall M := by
+  rw [checkAx68Warshall_eq]
   unfold checkAx68 checkAx68Costed
-  rw [Complexity.Costed.bind_value, checkAx68WithClosuresCosted_value]
-  rfl
+  rw [Complexity.Costed.charge_value]
+  cases cached : M.inherenceCache with
+  | some cache =>
+      apply checkAx68WithReachabilityCosted_value
+      intro m b w
+      exact (cache.property m b w).trans
+        (reachableInheresInVia_eq_reachableVia M _ m b w).symm
+  | none =>
+      rw [Complexity.Costed.bind_value]
+      apply checkAx68WithReachabilityCosted_value
+      intro m b w
+      rw [reachableInheresInWarshallCosted_value, inherenceMatricesCosted_value,
+        reachableInheresInWarshallB_eq]
 
 def checkAx68CostBound (M : FiniteModel4) : Nat :=
-  M.worldCount * (7 * M.thingCount ^ 3 + 5 * M.thingCount ^ 2) +
-    checkAx68EvaluationBound M
+  M.worldCount * (10 * M.thingCount ^ 3 + 17 * M.thingCount ^ 2 + 3 * M.thingCount + 2) +
+    checkAx68EvaluationBound M 6 + 1
+
+/-- Cached evaluation needs no closure construction. Six operations bound each
+flat lookup, even for malformed optional cells; cache correctness is a separate
+proof carried by the model. -/
+theorem checkAx68Costed_cost_le_of_cached (M : FiniteModel4)
+    (cache) (cached : M.inherenceCache = some cache) :
+    (checkAx68Costed M).cost ≤ checkAx68EvaluationBound M 6 + 1 := by
+  have h := checkAx68WithReachabilityCosted_cost_le M
+    (fun m b w => Complexity.closureLookupCosted cache.val M.thingCount w.val m.val b.val)
+    6 (fun _ _ _ => Complexity.closureLookupCosted_cost_le _ _ _ _ _)
+  simpa [checkAx68Costed, cached, Complexity.Costed.charge_cost, Nat.add_comm] using
+    Nat.add_le_add_right h 1
 
 theorem checkAx68Costed_cost_le (M : FiniteModel4) :
     (checkAx68Costed M).cost ≤ checkAx68CostBound M := by
-  unfold checkAx68Costed checkAx68CostBound
-  rw [Complexity.Costed.bind_cost, inherenceMatricesCosted_cost]
-  exact Nat.add_le_add_left
-    (checkAx68WithClosuresCosted_cost_le M (inherenceMatricesCosted M).value) _
+  cases cached : M.inherenceCache with
+  | some cache =>
+      have h := checkAx68Costed_cost_le_of_cached M cache cached
+      unfold checkAx68CostBound
+      omega
+  | none =>
+      have hc := inherenceMatricesCosted_cost_le M
+      have he := checkAx68WithReachabilityCosted_cost_le M
+        (reachableInheresInWarshallCosted M (inherenceMatricesCosted M).value)
+        6 (by intros; simp)
+      have h := Nat.add_le_add_right (Nat.add_le_add hc he) 1
+      simpa [checkAx68Costed, cached, checkAx68CostBound,
+        Complexity.Costed.charge_cost, Complexity.Costed.bind_cost, Nat.add_comm,
+        Nat.add_left_comm, Nat.add_assoc] using h
 
 /-!
-External dependence was formerly computed by an opaque `decide` over nested
-quantifiers.  The following executable exposes those quantifiers and their
-short-circuit order.  This is essential for the explicit-input machine model:
-the theorem charges every inspected `ex` and `inheresIn` table cell.
+External dependence first checks dependence across worlds, then checks each
+bearer's separation from the proposed external object. Separation needs a world
+where each object exists without the other. Each scan stops when its answer is
+known; later scans run only when earlier conditions require them.
+Existence and mode reads cost eight source operations, and inherence reads cost
+eleven, as proved for the compiled table interfaces in `Complexity.Queries`.
+This compositional accounting follows Niu et al. (POPL 2022): child costs are
+included only when the executable branch evaluates the child. Definition
+checks 69 and 70 bind their shared predicate once per visited assignment.
 -/
 
 def existenceDifferenceCosted (M : FiniteModel4)
     (x y : Fin M.thingCount) : Complexity.Costed Bool :=
   anyWorldsEvalCosted M fun w =>
-    Complexity.Costed.andThen (Complexity.Costed.tick (M.ex x w) 1) fun _ =>
-      (Complexity.Costed.tick (M.ex y w) 1).not
+    Complexity.Costed.andThen (Complexity.Costed.tick (M.ex x w) 8) fun _ =>
+      (Complexity.Costed.tick (M.ex y w) 8).not
 
 theorem existenceDifferenceCosted_value (M : FiniteModel4)
     (x y : Fin M.thingCount) :
@@ -4587,20 +4852,20 @@ theorem existenceDifferenceCosted_value (M : FiniteModel4)
   rw [anyWorldsEvalCosted_value]
   simp [Complexity.Costed.andThen_value]
 
-def existenceDifferenceBound (M : FiniteModel4) : Nat := M.worldCount * 6
+def existenceDifferenceBound (M : FiniteModel4) : Nat := M.worldCount * 20
 
 theorem existenceDifferenceCosted_cost_le (M : FiniteModel4)
     (x y : Fin M.thingCount) :
     (existenceDifferenceCosted M x y).cost ≤ existenceDifferenceBound M := by
   unfold existenceDifferenceCosted existenceDifferenceBound
-  apply anyWorldsEvalCosted_cost_le M _ 4
+  apply anyWorldsEvalCosted_cost_le M _ 18
   intro w
   cases h : M.ex x w <;>
     simp [Complexity.Costed.andThen, Complexity.Costed.not]
 
 def externalSeparationCosted (M : FiniteModel4)
     (x y z : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
-  Complexity.Costed.implies (Complexity.Costed.tick (M.inheresIn x z w) 1) fun _ =>
+  Complexity.Costed.implies (Complexity.Costed.tick (M.inheresIn x z w) 11) fun _ =>
     Complexity.Costed.andThen (existenceDifferenceCosted M y z) fun _ =>
       existenceDifferenceCosted M z y
 
@@ -4614,7 +4879,7 @@ theorem externalSeparationCosted_value (M : FiniteModel4)
     Complexity.Costed.andThen_value, existenceDifferenceCosted_value, impliesB]
 
 def externalSeparationBound (M : FiniteModel4) : Nat :=
-  2 * existenceDifferenceBound M + 4
+  2 * existenceDifferenceBound M + 14
 
 theorem externalSeparationCosted_cost_le (M : FiniteModel4)
     (x y z : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -4668,8 +4933,9 @@ theorem externallyDependentCosted_cost_le (M : FiniteModel4)
 def checkAx69Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allThingsEvalCosted M fun y =>
     allWorldsEvalCosted M fun w =>
-      Complexity.Costed.iff (externallyDependentCosted M x y w) fun _ =>
-        externallyDependentCosted M x y w
+      Complexity.Costed.bind (externallyDependentCosted M x y w) fun answer =>
+        Complexity.Costed.iff (Complexity.Costed.pure answer) fun _ =>
+          Complexity.Costed.pure answer
 
 def checkAx69 (M : FiniteModel4) : Bool := (checkAx69Costed M).value
 
@@ -4696,13 +4962,13 @@ theorem checkAx69Costed_cost_le (M : FiniteModel4) :
   apply allWorldsEvalCosted_cost_le M _ (2 * externallyDependentBound M + 2)
   intro w
   have h₁ := externallyDependentCosted_cost_le M x y w
-  have h₂ := externallyDependentCosted_cost_le M x y w
   cases h : (externallyDependentCosted M x y w).value <;>
-    simp [Complexity.Costed.iff, h] <;> omega
+    simp [Complexity.Costed.bind_cost, Complexity.Costed.iff,
+      Complexity.Costed.pure, h] <;> omega
 
 def externallyDependentModeCosted (M : FiniteModel4)
     (x : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
-  Complexity.Costed.andThen (Complexity.Costed.tick (M.mode x w) 1) fun _ =>
+  Complexity.Costed.andThen (Complexity.Costed.tick (M.mode x w) 8) fun _ =>
     anyThingsEvalCosted M fun y => externallyDependentCosted M x y w
 
 theorem externallyDependentModeCosted_value (M : FiniteModel4)
@@ -4723,7 +4989,7 @@ theorem externallyDependentModeCosted_value (M : FiniteModel4)
     simpa [externallyDependentB] using hy
 
 def externallyDependentModeBound (M : FiniteModel4) : Nat :=
-  2 + M.thingCount * (externallyDependentBound M + 2)
+  9 + M.thingCount * (externallyDependentBound M + 2)
 
 theorem externallyDependentModeCosted_cost_le (M : FiniteModel4)
     (x : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -4739,8 +5005,9 @@ theorem externallyDependentModeCosted_cost_le (M : FiniteModel4)
 
 def checkAx70Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allWorldsEvalCosted M fun w =>
-    Complexity.Costed.iff (externallyDependentModeCosted M x w) fun _ =>
-      externallyDependentModeCosted M x w
+    Complexity.Costed.bind (externallyDependentModeCosted M x w) fun answer =>
+      Complexity.Costed.iff (Complexity.Costed.pure answer) fun _ =>
+        Complexity.Costed.pure answer
 
 def checkAx70 (M : FiniteModel4) : Bool := (checkAx70Costed M).value
 
@@ -4762,16 +5029,27 @@ theorem checkAx70Costed_cost_le (M : FiniteModel4) :
   apply allWorldsEvalCosted_cost_le M _ (2 * externallyDependentModeBound M + 2)
   intro w
   have h₁ := externallyDependentModeCosted_cost_le M x w
-  have h₂ := externallyDependentModeCosted_cost_le M x w
   cases h : (externallyDependentModeCosted M x w).value <;>
-    simp [Complexity.Costed.iff, h] <;> omega
+    simp [Complexity.Costed.bind_cost, Complexity.Costed.iff,
+      Complexity.Costed.pure, h] <;> omega
+
+/-!
+Foundation uniqueness searches for a candidate, then checks every possible
+foundation against it. A missing candidate skips that inner scan. Shared
+foundation searches also stop at the first match. Part queries include the
+compiled model's reflexive shortcut: equal coordinates cost two operations,
+while distinct coordinates require a thirteen-operation table query.
+The bounds compose these executed queries following Haslbeck's cost-aware
+Hoare-logic method (2018); the table equalities are in `Complexity.Queries`.
+Axiom 74 binds its qua-individual search once and reuses the Boolean answer.
+-/
 
 def ax71ConsequentCosted (M : FiniteModel4) (x y : Fin M.thingCount)
     (w : Fin M.worldCount) : Complexity.Costed Bool :=
   Complexity.Costed.andThen
     (Complexity.Costed.orElse (externallyDependentModeCosted M x w) fun _ =>
-      Complexity.Costed.tick (M.relator x w) 1) fun _ =>
-    Complexity.Costed.tick (M.perdurant y w) 1
+      Complexity.Costed.tick (M.relator x w) 8) fun _ =>
+    Complexity.Costed.tick (M.perdurant y w) 8
 
 theorem ax71ConsequentCosted_value (M : FiniteModel4) (x y : Fin M.thingCount)
     (w : Fin M.worldCount) :
@@ -4782,7 +5060,7 @@ theorem ax71ConsequentCosted_value (M : FiniteModel4) (x y : Fin M.thingCount)
 
 theorem ax71ConsequentCosted_cost_le (M : FiniteModel4) (x y : Fin M.thingCount)
     (w : Fin M.worldCount) :
-    (ax71ConsequentCosted M x y w).cost ≤ externallyDependentModeBound M + 4 := by
+    (ax71ConsequentCosted M x y w).cost ≤ externallyDependentModeBound M + 18 := by
   have hm := externallyDependentModeCosted_cost_le M x w
   cases he : (externallyDependentModeCosted M x w).value <;>
     cases hr : M.relator x w <;>
@@ -4792,7 +5070,7 @@ theorem ax71ConsequentCosted_cost_le (M : FiniteModel4) (x y : Fin M.thingCount)
 def checkAx71Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allThingsEvalCosted M fun y =>
     allWorldsEvalCosted M fun w =>
-      Complexity.Costed.implies (Complexity.Costed.tick (M.foundedBy x y w) 1) fun _ =>
+      Complexity.Costed.implies (Complexity.Costed.tick (M.foundedBy x y w) 11) fun _ =>
         ax71ConsequentCosted M x y w
 
 def checkAx71 (M : FiniteModel4) : Bool := (checkAx71Costed M).value
@@ -4809,15 +5087,15 @@ theorem checkAx71_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx71Costed_cost_le (M : FiniteModel4) :
     (checkAx71Costed M).cost ≤ M.thingCount * (M.thingCount *
-      (M.worldCount * (externallyDependentModeBound M + 9) + 2) + 2) := by
+      (M.worldCount * (externallyDependentModeBound M + 33) + 2) + 2) := by
   unfold checkAx71Costed
   apply allThingsEvalCosted_cost_le M _
-    (M.thingCount * (M.worldCount * (externallyDependentModeBound M + 9) + 2))
+    (M.thingCount * (M.worldCount * (externallyDependentModeBound M + 33) + 2))
   intro x
   apply allThingsEvalCosted_cost_le M _
-    (M.worldCount * (externallyDependentModeBound M + 9))
+    (M.worldCount * (externallyDependentModeBound M + 33))
   intro y
-  apply allWorldsEvalCosted_cost_le M _ (externallyDependentModeBound M + 7)
+  apply allWorldsEvalCosted_cost_le M _ (externallyDependentModeBound M + 31)
   intro w
   have hc := ax71ConsequentCosted_cost_le M x y w
   cases hf : M.foundedBy x y w <;>
@@ -4827,7 +5105,7 @@ theorem checkAx71Costed_cost_le (M : FiniteModel4) :
 def foundedByUniqueForCosted (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun z =>
-    Complexity.Costed.implies (Complexity.Costed.tick (M.foundedBy x z w) 1) fun _ =>
+    Complexity.Costed.implies (Complexity.Costed.tick (M.foundedBy x z w) 11) fun _ =>
       Complexity.Costed.tick (decide (z = y)) 1
 
 theorem foundedByUniqueForCosted_value (M : FiniteModel4)
@@ -4840,9 +5118,9 @@ theorem foundedByUniqueForCosted_value (M : FiniteModel4)
 
 theorem foundedByUniqueForCosted_cost_le (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) :
-    (foundedByUniqueForCosted M x y w).cost ≤ M.thingCount * 6 := by
+    (foundedByUniqueForCosted M x y w).cost ≤ M.thingCount * 16 := by
   unfold foundedByUniqueForCosted
-  apply allThingsEvalCosted_cost_le M _ 4
+  apply allThingsEvalCosted_cost_le M _ 14
   intro z
   cases h : M.foundedBy x z w <;>
     simp [Complexity.Costed.implies, Complexity.Costed.orElse,
@@ -4850,7 +5128,7 @@ theorem foundedByUniqueForCosted_cost_le (M : FiniteModel4)
 
 def foundedByWitnessCosted (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
-  Complexity.Costed.andThen (Complexity.Costed.tick (M.foundedBy x y w) 1) fun _ =>
+  Complexity.Costed.andThen (Complexity.Costed.tick (M.foundedBy x y w) 11) fun _ =>
     foundedByUniqueForCosted M x y w
 
 theorem foundedByWitnessCosted_value (M : FiniteModel4)
@@ -4863,7 +5141,7 @@ theorem foundedByWitnessCosted_value (M : FiniteModel4)
 
 theorem foundedByWitnessCosted_cost_le (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) :
-    (foundedByWitnessCosted M x y w).cost ≤ M.thingCount * 6 + 2 := by
+    (foundedByWitnessCosted M x y w).cost ≤ M.thingCount * 16 + 12 := by
   have hu := foundedByUniqueForCosted_cost_le M x y w
   cases h : M.foundedBy x y w <;>
     simp [foundedByWitnessCosted, Complexity.Costed.andThen, h] ; omega
@@ -4882,13 +5160,13 @@ theorem existsUniqueFoundedByCosted_value (M : FiniteModel4)
   grind
 
 def existsUniqueFoundedByBound (M : FiniteModel4) : Nat :=
-  M.thingCount * (M.thingCount * 6 + 4)
+  M.thingCount * (M.thingCount * 16 + 14)
 
 theorem existsUniqueFoundedByCosted_cost_le (M : FiniteModel4)
     (x : Fin M.thingCount) (w : Fin M.worldCount) :
     (existsUniqueFoundedByCosted M x w).cost ≤ existsUniqueFoundedByBound M := by
   unfold existsUniqueFoundedByCosted existsUniqueFoundedByBound
-  apply anyThingsEvalCosted_cost_le M _ (M.thingCount * 6 + 2)
+  apply anyThingsEvalCosted_cost_le M _ (M.thingCount * 16 + 12)
   intro y
   exact foundedByWitnessCosted_cost_le M x y w
 
@@ -4929,8 +5207,8 @@ theorem checkAx72Costed_cost_le (M : FiniteModel4) :
 def sameFoundationCosted (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
   anyThingsEvalCosted M fun u =>
-    Complexity.Costed.andThen (Complexity.Costed.tick (M.foundedBy x u w) 1) fun _ =>
-      Complexity.Costed.tick (M.foundedBy y u w) 1
+    Complexity.Costed.andThen (Complexity.Costed.tick (M.foundedBy x u w) 11) fun _ =>
+      Complexity.Costed.tick (M.foundedBy y u w) 11
 
 theorem sameFoundationCosted_value (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -4939,13 +5217,13 @@ theorem sameFoundationCosted_value (M : FiniteModel4)
   rw [anyThingsEvalCosted_value]
   simp [Complexity.Costed.andThen_value]
 
-def sameFoundationBound (M : FiniteModel4) : Nat := M.thingCount * 5
+def sameFoundationBound (M : FiniteModel4) : Nat := M.thingCount * 25
 
 theorem sameFoundationCosted_cost_le (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) :
     (sameFoundationCosted M x y w).cost ≤ sameFoundationBound M := by
   unfold sameFoundationCosted sameFoundationBound
-  apply anyThingsEvalCosted_cost_le M _ 3
+  apply anyThingsEvalCosted_cost_le M _ 23
   intro u
   cases h : M.foundedBy x u w <;>
     simp [Complexity.Costed.andThen]
@@ -4954,7 +5232,7 @@ def ax73ClassificationCosted (M : FiniteModel4)
     (x y z : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
   Complexity.Costed.andThen
     (Complexity.Costed.andThen (externallyDependentModeCosted M z w) fun _ =>
-      Complexity.Costed.tick (M.inheresIn z y w) 1) fun _ =>
+      Complexity.Costed.tick (M.inheresIn z y w) 11) fun _ =>
     sameFoundationCosted M z x w
 
 theorem ax73ClassificationCosted_value (M : FiniteModel4)
@@ -4966,7 +5244,7 @@ theorem ax73ClassificationCosted_value (M : FiniteModel4)
     externallyDependentModeCosted_value, sameFoundationCosted_value]
 
 def ax73ClassificationBound (M : FiniteModel4) : Nat :=
-  externallyDependentModeBound M + sameFoundationBound M + 3
+  externallyDependentModeBound M + sameFoundationBound M + 13
 
 theorem ax73ClassificationCosted_cost_le (M : FiniteModel4)
     (x y z : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -4981,7 +5259,7 @@ theorem ax73ClassificationCosted_cost_le (M : FiniteModel4)
 def ax73PartsCosted (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun z =>
-    Complexity.Costed.iff (Complexity.Costed.tick (M.part z x w) 1) fun _ =>
+    Complexity.Costed.iff (reflexiveBinaryQueryCosted M.part z x w) fun _ =>
       ax73ClassificationCosted M x y z w
 
 theorem ax73PartsCosted_value (M : FiniteModel4)
@@ -4993,28 +5271,32 @@ theorem ax73PartsCosted_value (M : FiniteModel4)
   rw [allThingsEvalCosted_value]
   congr 1
   funext z
-  rw [Complexity.Costed.iff_value, ax73ClassificationCosted_value]
+  rw [Complexity.Costed.iff_value, ax73ClassificationCosted_value,
+    reflexiveBinaryQueryCosted_value]
   cases hp : M.part z x w <;>
     cases hc : (externallyDependentModeB M z w && M.inheresIn z y w &&
       sameFoundationB M z x w) <;> rfl
 
 def ax73PartsBound (M : FiniteModel4) : Nat :=
-  M.thingCount * (ax73ClassificationBound M + 5)
+  M.thingCount * (ax73ClassificationBound M + 17)
 
 theorem ax73PartsCosted_cost_le (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) :
     (ax73PartsCosted M x y w).cost ≤ ax73PartsBound M := by
   unfold ax73PartsCosted ax73PartsBound
-  apply allThingsEvalCosted_cost_le M _ (ax73ClassificationBound M + 3)
+  apply allThingsEvalCosted_cost_le M _ (ax73ClassificationBound M + 15)
   intro z
   have hc := ax73ClassificationCosted_cost_le M x y z w
-  cases hp : M.part z x w <;>
-    simp [Complexity.Costed.iff] <;> omega
+  have h :=
+    Complexity.Costed.iff_cost_le (reflexiveBinaryQueryCosted M.part z x w)
+      (fun _ => ax73ClassificationCosted M x y z w) 13 (ax73ClassificationBound M)
+      (reflexiveBinaryQueryCosted_cost_le _ _ _ _) hc
+  omega
 
 def checkAx73Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allThingsEvalCosted M fun y =>
     allWorldsEvalCosted M fun w =>
-      Complexity.Costed.iff (Complexity.Costed.tick (M.quaIndividualOf x y w) 1) fun _ =>
+      Complexity.Costed.iff (Complexity.Costed.tick (M.quaIndividualOf x y w) 11) fun _ =>
         ax73PartsCosted M x y w
 
 def checkAx73 (M : FiniteModel4) : Bool := (checkAx73Costed M).value
@@ -5039,14 +5321,14 @@ theorem checkAx73_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx73Costed_cost_le (M : FiniteModel4) :
     (checkAx73Costed M).cost ≤ M.thingCount * (M.thingCount *
-      (M.worldCount * (ax73PartsBound M + 5) + 2) + 2) := by
+      (M.worldCount * (ax73PartsBound M + 15) + 2) + 2) := by
   unfold checkAx73Costed
   apply allThingsEvalCosted_cost_le M _
-    (M.thingCount * (M.worldCount * (ax73PartsBound M + 5) + 2))
+    (M.thingCount * (M.worldCount * (ax73PartsBound M + 15) + 2))
   intro x
-  apply allThingsEvalCosted_cost_le M _ (M.worldCount * (ax73PartsBound M + 5))
+  apply allThingsEvalCosted_cost_le M _ (M.worldCount * (ax73PartsBound M + 15))
   intro y
-  apply allWorldsEvalCosted_cost_le M _ (ax73PartsBound M + 3)
+  apply allWorldsEvalCosted_cost_le M _ (ax73PartsBound M + 13)
   intro w
   have hp := ax73PartsCosted_cost_le M x y w
   cases hq : M.quaIndividualOf x y w <;>
@@ -5054,7 +5336,7 @@ theorem checkAx73Costed_cost_le (M : FiniteModel4) :
 
 def checkAx77Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allWorldsEvalCosted M fun w =>
-    Complexity.Costed.implies (Complexity.Costed.tick (M.relator x w) 1) fun _ =>
+    Complexity.Costed.implies (Complexity.Costed.tick (M.relator x w) 8) fun _ =>
       existsUniqueFoundedByCosted M x w
 
 def checkAx77 (M : FiniteModel4) : Bool := (checkAx77Costed M).value
@@ -5069,12 +5351,12 @@ theorem checkAx77_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx77Costed_cost_le (M : FiniteModel4) :
     (checkAx77Costed M).cost ≤ M.thingCount *
-      (M.worldCount * (existsUniqueFoundedByBound M + 5) + 2) := by
+      (M.worldCount * (existsUniqueFoundedByBound M + 12) + 2) := by
   unfold checkAx77Costed
   apply allThingsEvalCosted_cost_le M _
-    (M.worldCount * (existsUniqueFoundedByBound M + 5))
+    (M.worldCount * (existsUniqueFoundedByBound M + 12))
   intro x
-  apply allWorldsEvalCosted_cost_le M _ (existsUniqueFoundedByBound M + 3)
+  apply allWorldsEvalCosted_cost_le M _ (existsUniqueFoundedByBound M + 10)
   intro w
   have hu := existsUniqueFoundedByCosted_cost_le M x w
   cases h : M.relator x w <;>
@@ -5083,7 +5365,7 @@ theorem checkAx77Costed_cost_le (M : FiniteModel4) :
 
 def quaIndividualExistsCosted (M : FiniteModel4)
     (x : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
-  anyThingsEvalCosted M fun y => Complexity.Costed.tick (M.quaIndividualOf x y w) 1
+  anyThingsEvalCosted M fun y => Complexity.Costed.tick (M.quaIndividualOf x y w) 11
 
 theorem quaIndividualExistsCosted_value (M : FiniteModel4)
     (x : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -5093,20 +5375,21 @@ theorem quaIndividualExistsCosted_value (M : FiniteModel4)
   rw [anyThingsEvalCosted_value]
   rfl
 
-def quaIndividualExistsBound (M : FiniteModel4) : Nat := M.thingCount * 3
+def quaIndividualExistsBound (M : FiniteModel4) : Nat := M.thingCount * 13
 
 theorem quaIndividualExistsCosted_cost_le (M : FiniteModel4)
     (x : Fin M.thingCount) (w : Fin M.worldCount) :
     (quaIndividualExistsCosted M x w).cost ≤ quaIndividualExistsBound M := by
   unfold quaIndividualExistsCosted quaIndividualExistsBound
-  apply anyThingsEvalCosted_cost_le M _ 1
+  apply anyThingsEvalCosted_cost_le M _ 11
   intro y
   simp
 
 def checkAx74Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allWorldsEvalCosted M fun w =>
-    Complexity.Costed.iff (quaIndividualExistsCosted M x w) fun _ =>
-      quaIndividualExistsCosted M x w
+    Complexity.Costed.bind (quaIndividualExistsCosted M x w) fun answer =>
+      Complexity.Costed.iff (Complexity.Costed.pure answer) fun _ =>
+        Complexity.Costed.pure answer
 
 def checkAx74 (M : FiniteModel4) : Bool := (checkAx74Costed M).value
 
@@ -5129,9 +5412,9 @@ theorem checkAx74Costed_cost_le (M : FiniteModel4) :
   apply allWorldsEvalCosted_cost_le M _ (2 * quaIndividualExistsBound M + 2)
   intro w
   have h₁ := quaIndividualExistsCosted_cost_le M x w
-  have h₂ := quaIndividualExistsCosted_cost_le M x w
   cases h : (quaIndividualExistsCosted M x w).value <;>
-    simp [Complexity.Costed.iff, h] <;> omega
+    simp [Complexity.Costed.bind_cost, Complexity.Costed.iff,
+      Complexity.Costed.pure, h] <;> omega
 
 def checkAx75Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allWorldsEvalCosted M fun w =>
@@ -5170,9 +5453,9 @@ theorem checkAx75Costed_cost_le (M : FiniteModel4) :
 
 def checkAx76Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   checkThreeThingsWorldsImpCosted M
-    (fun x y _ w => M.quaIndividualOf x y w)
-    (fun x _ y' w => M.quaIndividualOf x y' w)
-    (fun _ y y' _ => decide (y = y'))
+    (fun x y _ w => Complexity.Costed.tick (M.quaIndividualOf x y w) 11)
+    (fun x _ y' w => Complexity.Costed.tick (M.quaIndividualOf x y' w) 11)
+    (fun _ y y' _ => Complexity.Costed.tick (decide (y = y')) 1)
 
 def checkAx76 (M : FiniteModel4) : Bool := (checkAx76Costed M).value
 
@@ -5185,15 +5468,16 @@ theorem checkAx76_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx76Costed_cost_le (M : FiniteModel4) :
     (checkAx76Costed M).cost ≤ M.thingCount * (M.thingCount *
-      (M.thingCount * (M.worldCount * 8 + 2) + 2) + 2) :=
-  checkThreeThingsWorldsImpCosted_cost_le M _ _ _
+      (M.thingCount * (M.worldCount * 28 + 2) + 2) + 2) :=
+  checkThreeThingsWorldsImpCosted_cost_le M _ _ _ 11 11 1
+    (by intros; rfl) (by intros; rfl) (by intros; rfl)
 
 def checkAx78Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allThingsEvalCosted M fun y =>
     allWorldsEvalCosted M fun w =>
       Complexity.Costed.implies
-        (Complexity.Costed.andThen (Complexity.Costed.tick (M.relator x w) 1) fun _ =>
-          Complexity.Costed.tick (M.part y x w) 1) fun _ =>
+        (Complexity.Costed.andThen (Complexity.Costed.tick (M.relator x w) 8) fun _ =>
+          reflexiveBinaryQueryCosted M.part y x w) fun _ =>
         sameFoundationCosted M x y w
 
 def checkAx78 (M : FiniteModel4) : Bool := (checkAx78Costed M).value
@@ -5211,20 +5495,25 @@ theorem checkAx78_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx78Costed_cost_le (M : FiniteModel4) :
     (checkAx78Costed M).cost ≤ M.thingCount * (M.thingCount *
-      (M.worldCount * (sameFoundationBound M + 7) + 2) + 2) := by
+      (M.worldCount * (sameFoundationBound M + 26) + 2) + 2) := by
   unfold checkAx78Costed
   apply allThingsEvalCosted_cost_le M _
-    (M.thingCount * (M.worldCount * (sameFoundationBound M + 7) + 2))
+    (M.thingCount * (M.worldCount * (sameFoundationBound M + 26) + 2))
   intro x
   apply allThingsEvalCosted_cost_le M _
-    (M.worldCount * (sameFoundationBound M + 7))
+    (M.worldCount * (sameFoundationBound M + 26))
   intro y
-  apply allWorldsEvalCosted_cost_le M _ (sameFoundationBound M + 5)
+  apply allWorldsEvalCosted_cost_le M _ (sameFoundationBound M + 24)
   intro w
   have hs := sameFoundationCosted_cost_le M x y w
-  cases hr : M.relator x w <;> cases hp : M.part y x w <;>
-    simp [Complexity.Costed.implies, Complexity.Costed.orElse,
-      Complexity.Costed.andThen, Complexity.Costed.not] ; omega
+  have hp := reflexiveBinaryQueryCosted_cost_le M.part y x w
+  have ha := Complexity.Costed.andThen_cost_le
+    (Complexity.Costed.tick (M.relator x w) 8)
+    (fun _ => reflexiveBinaryQueryCosted M.part y x w) 8 13 (by simp) hp
+  have h :=
+    Complexity.Costed.implies_cost_le _ (fun _ => sameFoundationCosted M x y w)
+      22 (sameFoundationBound M) ha hs
+  omega
 
 def boxExImpCosted (M : FiniteModel4) (x y : Fin M.thingCount)
     (w : Fin M.worldCount) : Complexity.Costed Bool :=
@@ -5246,9 +5535,21 @@ theorem boxExImpCosted_cost_le (M : FiniteModel4) (x y : Fin M.thingCount)
     (boxExImpCosted M x y w).cost ≤ existentialDependenceBound M :=
   existentialDependenceCosted_cost_le M x y w
 
+/-!
+Relator characterization checks for a proper part before it tests compatibility
+of every pair and whether all compatible candidates are included as parts.
+Either early failure skips the remaining scans. Here "closure" means inclusion
+of those candidates, not the inherence transitive-closure algorithm.
+Mediation searches qua-individuals before part membership. Characterization of
+types checks both witness directions, with a separate uniqueness scan for each
+candidate bearer. These nested scans must contribute their returned costs.
+The local table correspondences follow the compositional method of Haslbeck
+(2018) and the cost/result separation of Niu et al. (POPL 2022).
+-/
+
 def properPartExistsCosted (M : FiniteModel4)
     (x : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
-  anyThingsEvalCosted M fun y => Complexity.Costed.tick (M.properPart y x w) 1
+  anyThingsEvalCosted M fun y => Complexity.Costed.tick (M.properPart y x w) 11
 
 theorem properPartExistsCosted_value (M : FiniteModel4)
     (x : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -5258,13 +5559,13 @@ theorem properPartExistsCosted_value (M : FiniteModel4)
   rw [anyThingsEvalCosted_value]
   rfl
 
-def properPartExistsBound (M : FiniteModel4) : Nat := M.thingCount * 3
+def properPartExistsBound (M : FiniteModel4) : Nat := M.thingCount * 13
 
 theorem properPartExistsCosted_cost_le (M : FiniteModel4)
     (x : Fin M.thingCount) (w : Fin M.worldCount) :
     (properPartExistsCosted M x w).cost ≤ properPartExistsBound M := by
   unfold properPartExistsCosted properPartExistsBound
-  apply anyThingsEvalCosted_cost_le M _ 1
+  apply anyThingsEvalCosted_cost_le M _ 11
   intro y
   simp
 
@@ -5308,8 +5609,8 @@ theorem ax79PairCompatibilityCosted_cost_le (M : FiniteModel4)
 def ax79PairConditionCosted (M : FiniteModel4)
     (x y z : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
   Complexity.Costed.implies
-    (Complexity.Costed.andThen (Complexity.Costed.tick (M.properPart y x w) 1) fun _ =>
-      Complexity.Costed.tick (M.properPart z x w) 1) fun _ =>
+    (Complexity.Costed.andThen (Complexity.Costed.tick (M.properPart y x w) 11) fun _ =>
+      Complexity.Costed.tick (M.properPart z x w) 11) fun _ =>
     ax79PairCompatibilityCosted M y z w
 
 theorem ax79PairConditionCosted_value (M : FiniteModel4)
@@ -5323,20 +5624,20 @@ theorem ax79PairConditionCosted_value (M : FiniteModel4)
     Complexity.Costed.andThen_value, ax79PairCompatibilityCosted_value, impliesB]
 
 def ax79PairConditionBound (M : FiniteModel4) : Nat :=
-  ax79PairCompatibilityBound M + 5
+  ax79PairCompatibilityBound M + 25
 
 theorem ax79PairConditionCosted_cost_le (M : FiniteModel4)
     (x y z : Fin M.thingCount) (w : Fin M.worldCount) :
     (ax79PairConditionCosted M x y z w).cost ≤ ax79PairConditionBound M := by
   have ha : (Complexity.Costed.andThen
-      (Complexity.Costed.tick (M.properPart y x w) 1) fun _ =>
-        Complexity.Costed.tick (M.properPart z x w) 1).cost ≤ 3 := by
-    apply Complexity.Costed.andThen_cost_le _ _ 1 1 <;> simp
+      (Complexity.Costed.tick (M.properPart y x w) 11) fun _ =>
+        Complexity.Costed.tick (M.properPart z x w) 11).cost ≤ 23 := by
+    apply Complexity.Costed.andThen_cost_le _ _ 11 11 <;> simp
   have hc := ax79PairCompatibilityCosted_cost_le M y z w
-  cases hy : M.properPart y x w <;> cases hz : M.properPart z x w <;>
-    simp [ax79PairConditionCosted, ax79PairConditionBound,
-      Complexity.Costed.implies, Complexity.Costed.orElse,
-      Complexity.Costed.andThen, Complexity.Costed.not, hy, hz] ; omega
+  have h := Complexity.Costed.implies_cost_le _
+    (fun _ => ax79PairCompatibilityCosted M y z w) 23 (ax79PairCompatibilityBound M) ha hc
+  unfold ax79PairConditionCosted ax79PairConditionBound
+  omega
 
 def ax79PairwiseCosted (M : FiniteModel4)
     (x : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
@@ -5372,7 +5673,7 @@ theorem ax79PairwiseCosted_cost_le (M : FiniteModel4)
 
 def ax79ClosurePremiseCosted (M : FiniteModel4)
     (x y z : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
-  Complexity.Costed.andThen (Complexity.Costed.tick (M.properPart y x w) 1) fun _ =>
+  Complexity.Costed.andThen (Complexity.Costed.tick (M.properPart y x w) 11) fun _ =>
     Complexity.Costed.andThen (quaIndividualExistsCosted M z w) fun _ =>
       Complexity.Costed.andThen (sameFoundationCosted M y z w) fun _ =>
         Complexity.Costed.andThen (boxExImpCosted M y z w) fun _ =>
@@ -5390,7 +5691,7 @@ theorem ax79ClosurePremiseCosted_value (M : FiniteModel4)
 
 def ax79ClosurePremiseBound (M : FiniteModel4) : Nat :=
   quaIndividualExistsBound M + sameFoundationBound M +
-    2 * existentialDependenceBound M + 5
+    2 * existentialDependenceBound M + 15
 
 theorem ax79ClosurePremiseCosted_cost_le (M : FiniteModel4)
     (x y z : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -5409,7 +5710,7 @@ theorem ax79ClosurePremiseCosted_cost_le (M : FiniteModel4)
 def ax79ClosureConditionCosted (M : FiniteModel4)
     (x y z : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
   Complexity.Costed.implies (ax79ClosurePremiseCosted M x y z w) fun _ =>
-    Complexity.Costed.tick (M.properPart z x w) 1
+    Complexity.Costed.tick (M.properPart z x w) 11
 
 theorem ax79ClosureConditionCosted_value (M : FiniteModel4)
     (x y z : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -5423,7 +5724,7 @@ theorem ax79ClosureConditionCosted_value (M : FiniteModel4)
     ax79ClosurePremiseCosted_value, impliesB]
 
 def ax79ClosureConditionBound (M : FiniteModel4) : Nat :=
-  ax79ClosurePremiseBound M + 3
+  ax79ClosurePremiseBound M + 13
 
 theorem ax79ClosureConditionCosted_cost_le (M : FiniteModel4)
     (x y z : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -5508,7 +5809,7 @@ theorem ax79CharacterizationCosted_cost_le (M : FiniteModel4)
 
 def checkAx79Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allWorldsEvalCosted M fun w =>
-    Complexity.Costed.iff (Complexity.Costed.tick (M.relator x w) 1) fun _ =>
+    Complexity.Costed.iff (Complexity.Costed.tick (M.relator x w) 8) fun _ =>
       ax79CharacterizationCosted M x w
 
 def checkAx79 (M : FiniteModel4) : Bool := (checkAx79Costed M).value
@@ -5540,12 +5841,12 @@ theorem checkAx79_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx79Costed_cost_le (M : FiniteModel4) :
     (checkAx79Costed M).cost ≤ M.thingCount *
-      (M.worldCount * (ax79CharacterizationBound M + 5) + 2) := by
+      (M.worldCount * (ax79CharacterizationBound M + 12) + 2) := by
   unfold checkAx79Costed
   apply allThingsEvalCosted_cost_le M _
-    (M.worldCount * (ax79CharacterizationBound M + 5))
+    (M.worldCount * (ax79CharacterizationBound M + 12))
   intro x
-  apply allWorldsEvalCosted_cost_le M _ (ax79CharacterizationBound M + 3)
+  apply allWorldsEvalCosted_cost_le M _ (ax79CharacterizationBound M + 10)
   intro w
   have hc := ax79CharacterizationCosted_cost_le M x w
   cases h : M.relator x w <;>
@@ -5554,8 +5855,8 @@ theorem checkAx79Costed_cost_le (M : FiniteModel4) :
 def mediationWitnessCosted (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
   anyThingsEvalCosted M fun z =>
-    Complexity.Costed.andThen (Complexity.Costed.tick (M.quaIndividualOf z y w) 1) fun _ =>
-      Complexity.Costed.tick (M.part z x w) 1
+    Complexity.Costed.andThen (Complexity.Costed.tick (M.quaIndividualOf z y w) 11) fun _ =>
+      reflexiveBinaryQueryCosted M.part z x w
 
 theorem mediationWitnessCosted_value (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -5565,22 +5866,23 @@ theorem mediationWitnessCosted_value (M : FiniteModel4)
   rw [anyThingsEvalCosted_value]
   simp [Complexity.Costed.andThen_value]
 
-def mediationWitnessBound (M : FiniteModel4) : Nat := M.thingCount * 5
+def mediationWitnessBound (M : FiniteModel4) : Nat := M.thingCount * 27
 
 theorem mediationWitnessCosted_cost_le (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) :
     (mediationWitnessCosted M x y w).cost ≤ mediationWitnessBound M := by
   unfold mediationWitnessCosted mediationWitnessBound
-  apply anyThingsEvalCosted_cost_le M _ 3
+  apply anyThingsEvalCosted_cost_le M _ 25
   intro z
-  cases h : M.quaIndividualOf z y w <;>
-    simp [Complexity.Costed.andThen]
+  exact Complexity.Costed.andThen_cost_le _
+    (fun _ => reflexiveBinaryQueryCosted M.part z x w) 11 13 (by simp)
+    (reflexiveBinaryQueryCosted_cost_le _ _ _ _)
 
 def ax80CharacterizationCosted (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
   Complexity.Costed.andThen
-    (Complexity.Costed.andThen (Complexity.Costed.tick (M.relator x w) 1) fun _ =>
-      Complexity.Costed.tick (M.endurant y w) 1) fun _ =>
+    (Complexity.Costed.andThen (Complexity.Costed.tick (M.relator x w) 8) fun _ =>
+      Complexity.Costed.tick (M.endurant y w) 8) fun _ =>
     mediationWitnessCosted M x y w
 
 theorem ax80CharacterizationCosted_value (M : FiniteModel4)
@@ -5592,7 +5894,7 @@ theorem ax80CharacterizationCosted_value (M : FiniteModel4)
     mediationWitnessCosted_value]
 
 def ax80CharacterizationBound (M : FiniteModel4) : Nat :=
-  mediationWitnessBound M + 4
+  mediationWitnessBound M + 18
 
 theorem ax80CharacterizationCosted_cost_le (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -5605,7 +5907,7 @@ theorem ax80CharacterizationCosted_cost_le (M : FiniteModel4)
 def checkAx80Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allThingsEvalCosted M fun y =>
     allWorldsEvalCosted M fun w =>
-      Complexity.Costed.iff (Complexity.Costed.tick (M.mediates x y w) 1) fun _ =>
+      Complexity.Costed.iff (Complexity.Costed.tick (M.mediates x y w) 11) fun _ =>
         ax80CharacterizationCosted M x y w
 
 def checkAx80 (M : FiniteModel4) : Bool := (checkAx80Costed M).value
@@ -5628,15 +5930,15 @@ theorem checkAx80_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx80Costed_cost_le (M : FiniteModel4) :
     (checkAx80Costed M).cost ≤ M.thingCount * (M.thingCount *
-      (M.worldCount * (ax80CharacterizationBound M + 5) + 2) + 2) := by
+      (M.worldCount * (ax80CharacterizationBound M + 15) + 2) + 2) := by
   unfold checkAx80Costed
   apply allThingsEvalCosted_cost_le M _
-    (M.thingCount * (M.worldCount * (ax80CharacterizationBound M + 5) + 2))
+    (M.thingCount * (M.worldCount * (ax80CharacterizationBound M + 15) + 2))
   intro x
   apply allThingsEvalCosted_cost_le M _
-    (M.worldCount * (ax80CharacterizationBound M + 5))
+    (M.worldCount * (ax80CharacterizationBound M + 15))
   intro y
-  apply allWorldsEvalCosted_cost_le M _ (ax80CharacterizationBound M + 3)
+  apply allWorldsEvalCosted_cost_le M _ (ax80CharacterizationBound M + 13)
   intro w
   have hc := ax80CharacterizationCosted_cost_le M x y w
   cases hm : M.mediates x y w <;>
@@ -5645,8 +5947,8 @@ theorem checkAx80Costed_cost_le (M : FiniteModel4) :
 def checkAxQuaIndividualOfEndurantCosted (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allThingsEvalCosted M fun y =>
     allWorldsEvalCosted M fun w =>
-      Complexity.Costed.implies (Complexity.Costed.tick (M.quaIndividualOf x y w) 1) fun _ =>
-        Complexity.Costed.tick (M.endurant y w) 1
+      Complexity.Costed.implies (Complexity.Costed.tick (M.quaIndividualOf x y w) 11) fun _ =>
+        Complexity.Costed.tick (M.endurant y w) 8
 
 def checkAxQuaIndividualOfEndurant (M : FiniteModel4) : Bool :=
   (checkAxQuaIndividualOfEndurantCosted M).value
@@ -5663,11 +5965,11 @@ theorem checkAxQuaIndividualOfEndurant_eq_legacy (M : FiniteModel4) :
 
 theorem checkAxQuaIndividualOfEndurantCosted_cost_le (M : FiniteModel4) :
     (checkAxQuaIndividualOfEndurantCosted M).cost ≤
-      M.thingCount * (M.thingCount * (M.worldCount * 6 + 2) + 2) := by
+      M.thingCount * (M.thingCount * (M.worldCount * 23 + 2) + 2) := by
   unfold checkAxQuaIndividualOfEndurantCosted
   apply allThingsEvalCosted_cost_le M _ _; intro x
   apply allThingsEvalCosted_cost_le M _ _; intro y
-  apply allWorldsEvalCosted_cost_le M _ 4; intro w
+  apply allWorldsEvalCosted_cost_le M _ 21; intro w
   cases hq : M.quaIndividualOf x y w <;>
     simp [Complexity.Costed.implies, Complexity.Costed.orElse, Complexity.Costed.not]
 
@@ -5675,8 +5977,8 @@ def instInheresUniqueForCosted (M : FiniteModel4)
     (z t y : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun y' =>
     Complexity.Costed.implies
-      (Complexity.Costed.andThen (Complexity.Costed.tick (M.inst y' t w) 1) fun _ =>
-        Complexity.Costed.tick (M.inheresIn z y' w) 1) fun _ =>
+      (Complexity.Costed.andThen (Complexity.Costed.tick (M.inst y' t w) 11) fun _ =>
+        Complexity.Costed.tick (M.inheresIn z y' w) 11) fun _ =>
       Complexity.Costed.tick (decide (y' = y)) 1
 
 theorem instInheresUniqueForCosted_value (M : FiniteModel4)
@@ -5689,9 +5991,9 @@ theorem instInheresUniqueForCosted_value (M : FiniteModel4)
 
 theorem instInheresUniqueForCosted_cost_le (M : FiniteModel4)
     (z t y : Fin M.thingCount) (w : Fin M.worldCount) :
-    (instInheresUniqueForCosted M z t y w).cost ≤ M.thingCount * 8 := by
+    (instInheresUniqueForCosted M z t y w).cost ≤ M.thingCount * 28 := by
   unfold instInheresUniqueForCosted
-  apply allThingsEvalCosted_cost_le M _ 6
+  apply allThingsEvalCosted_cost_le M _ 26
   intro y'
   cases hi : M.inst y' t w <;> cases hh : M.inheresIn z y' w <;>
     simp [Complexity.Costed.implies, Complexity.Costed.orElse,
@@ -5699,8 +6001,8 @@ theorem instInheresUniqueForCosted_cost_le (M : FiniteModel4)
 
 def instInheresWitnessCosted (M : FiniteModel4)
     (z t y : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
-  Complexity.Costed.andThen (Complexity.Costed.tick (M.inst y t w) 1) fun _ =>
-    Complexity.Costed.andThen (Complexity.Costed.tick (M.inheresIn z y w) 1) fun _ =>
+  Complexity.Costed.andThen (Complexity.Costed.tick (M.inst y t w) 11) fun _ =>
+    Complexity.Costed.andThen (Complexity.Costed.tick (M.inheresIn z y w) 11) fun _ =>
       instInheresUniqueForCosted M z t y w
 
 theorem instInheresWitnessCosted_value (M : FiniteModel4)
@@ -5713,7 +6015,7 @@ theorem instInheresWitnessCosted_value (M : FiniteModel4)
 
 theorem instInheresWitnessCosted_cost_le (M : FiniteModel4)
     (z t y : Fin M.thingCount) (w : Fin M.worldCount) :
-    (instInheresWitnessCosted M z t y w).cost ≤ M.thingCount * 8 + 4 := by
+    (instInheresWitnessCosted M z t y w).cost ≤ M.thingCount * 28 + 24 := by
   have hu := instInheresUniqueForCosted_cost_le M z t y w
   cases hi : M.inst y t w <;> cases hh : M.inheresIn z y w <;>
     simp [instInheresWitnessCosted, Complexity.Costed.andThen, hi, hh] ; omega
@@ -5732,20 +6034,20 @@ theorem existsUniqueInstInheresCosted_value (M : FiniteModel4)
   grind
 
 def existsUniqueInstInheresBound (M : FiniteModel4) : Nat :=
-  M.thingCount * (M.thingCount * 8 + 6)
+  M.thingCount * (M.thingCount * 28 + 26)
 
 theorem existsUniqueInstInheresCosted_cost_le (M : FiniteModel4)
     (z t : Fin M.thingCount) (w : Fin M.worldCount) :
     (existsUniqueInstInheresCosted M z t w).cost ≤ existsUniqueInstInheresBound M := by
   unfold existsUniqueInstInheresCosted existsUniqueInstInheresBound
-  apply anyThingsEvalCosted_cost_le M _ (M.thingCount * 8 + 4)
+  apply anyThingsEvalCosted_cost_le M _ (M.thingCount * 28 + 24)
   intro y
   exact instInheresWitnessCosted_cost_le M z t y w
 
 def ax82InstancesCosted (M : FiniteModel4)
     (t q : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x =>
-    Complexity.Costed.implies (Complexity.Costed.tick (M.inst x q w) 1) fun _ =>
+    Complexity.Costed.implies (Complexity.Costed.tick (M.inst x q w) 11) fun _ =>
       existsUniqueInstInheresCosted M x t w
 
 theorem ax82InstancesCosted_value (M : FiniteModel4)
@@ -5758,13 +6060,13 @@ theorem ax82InstancesCosted_value (M : FiniteModel4)
     impliesB]
 
 def ax82InstancesBound (M : FiniteModel4) : Nat :=
-  M.thingCount * (existsUniqueInstInheresBound M + 5)
+  M.thingCount * (existsUniqueInstInheresBound M + 15)
 
 theorem ax82InstancesCosted_cost_le (M : FiniteModel4)
     (t q : Fin M.thingCount) (w : Fin M.worldCount) :
     (ax82InstancesCosted M t q w).cost ≤ ax82InstancesBound M := by
   unfold ax82InstancesCosted ax82InstancesBound
-  apply allThingsEvalCosted_cost_le M _ (existsUniqueInstInheresBound M + 3)
+  apply allThingsEvalCosted_cost_le M _ (existsUniqueInstInheresBound M + 13)
   intro x
   have hu := existsUniqueInstInheresCosted_cost_le M x t w
   cases h : M.inst x q w <;>
@@ -5774,8 +6076,8 @@ theorem ax82InstancesCosted_cost_le (M : FiniteModel4)
 def ax81MomentWitnessCosted (M : FiniteModel4)
     (m x : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
   anyThingsEvalCosted M fun y =>
-    Complexity.Costed.andThen (Complexity.Costed.tick (M.inst y m w) 1) fun _ =>
-      Complexity.Costed.tick (M.inheresIn y x w) 1
+    Complexity.Costed.andThen (Complexity.Costed.tick (M.inst y m w) 11) fun _ =>
+      Complexity.Costed.tick (M.inheresIn y x w) 11
 
 theorem ax81MomentWitnessCosted_value (M : FiniteModel4)
     (m x : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -5785,20 +6087,20 @@ theorem ax81MomentWitnessCosted_value (M : FiniteModel4)
   rw [anyThingsEvalCosted_value]
   simp [Complexity.Costed.andThen_value]
 
-def ax81MomentWitnessBound (M : FiniteModel4) : Nat := M.thingCount * 5
+def ax81MomentWitnessBound (M : FiniteModel4) : Nat := M.thingCount * 25
 
 theorem ax81MomentWitnessCosted_cost_le (M : FiniteModel4)
     (m x : Fin M.thingCount) (w : Fin M.worldCount) :
     (ax81MomentWitnessCosted M m x w).cost ≤ ax81MomentWitnessBound M := by
   unfold ax81MomentWitnessCosted ax81MomentWitnessBound
-  apply anyThingsEvalCosted_cost_le M _ 3
+  apply anyThingsEvalCosted_cost_le M _ 23
   intro y
   cases h : M.inst y m w <;> simp [Complexity.Costed.andThen]
 
 def ax81TypeInstancesCosted (M : FiniteModel4)
     (t m : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x =>
-    Complexity.Costed.implies (Complexity.Costed.tick (M.inst x t w) 1) fun _ =>
+    Complexity.Costed.implies (Complexity.Costed.tick (M.inst x t w) 11) fun _ =>
       ax81MomentWitnessCosted M m x w
 
 theorem ax81TypeInstancesCosted_value (M : FiniteModel4)
@@ -5811,13 +6113,13 @@ theorem ax81TypeInstancesCosted_value (M : FiniteModel4)
   simp [Complexity.Costed.implies_value, ax81MomentWitnessCosted_value, impliesB]
 
 def ax81TypeInstancesBound (M : FiniteModel4) : Nat :=
-  M.thingCount * (ax81MomentWitnessBound M + 5)
+  M.thingCount * (ax81MomentWitnessBound M + 15)
 
 theorem ax81TypeInstancesCosted_cost_le (M : FiniteModel4)
     (t m : Fin M.thingCount) (w : Fin M.worldCount) :
     (ax81TypeInstancesCosted M t m w).cost ≤ ax81TypeInstancesBound M := by
   unfold ax81TypeInstancesCosted ax81TypeInstancesBound
-  apply allThingsEvalCosted_cost_le M _ (ax81MomentWitnessBound M + 3)
+  apply allThingsEvalCosted_cost_le M _ (ax81MomentWitnessBound M + 13)
   intro x
   have hw := ax81MomentWitnessCosted_cost_le M m x w
   cases h : M.inst x t w <;>
@@ -5826,8 +6128,8 @@ theorem ax81TypeInstancesCosted_cost_le (M : FiniteModel4)
 
 def ax81ConsequentCosted (M : FiniteModel4)
     (t m : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
-  Complexity.Costed.andThen (Complexity.Costed.tick (M.endurantType t w) 1) fun _ =>
-    Complexity.Costed.andThen (Complexity.Costed.tick (M.momentType m w) 1) fun _ =>
+  Complexity.Costed.andThen (Complexity.Costed.tick (M.endurantType t w) 8) fun _ =>
+    Complexity.Costed.andThen (Complexity.Costed.tick (M.momentType m w) 8) fun _ =>
       Complexity.Costed.andThen (ax81TypeInstancesCosted M t m w) fun _ =>
         ax82InstancesCosted M t m w
 
@@ -5843,7 +6145,7 @@ theorem ax81ConsequentCosted_value (M : FiniteModel4)
     ax81TypeInstancesCosted_value, ax82InstancesCosted_value, Bool.and_assoc]
 
 def ax81ConsequentBound (M : FiniteModel4) : Nat :=
-  ax81TypeInstancesBound M + ax82InstancesBound M + 5
+  ax81TypeInstancesBound M + ax82InstancesBound M + 19
 
 theorem ax81ConsequentCosted_cost_le (M : FiniteModel4)
     (t m : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -5859,7 +6161,7 @@ def checkAx81Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun t => allThingsEvalCosted M fun m =>
     allWorldsEvalCosted M fun w =>
       Complexity.Costed.implies
-        (Complexity.Costed.tick (M.characterization t m w) 1) fun _ =>
+        (Complexity.Costed.tick (M.characterization t m w) 11) fun _ =>
         ax81ConsequentCosted M t m w
 
 def checkAx81 (M : FiniteModel4) : Bool := (checkAx81Costed M).value
@@ -5880,14 +6182,14 @@ theorem checkAx81_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx81Costed_cost_le (M : FiniteModel4) :
     (checkAx81Costed M).cost ≤ M.thingCount * (M.thingCount *
-      (M.worldCount * (ax81ConsequentBound M + 5) + 2) + 2) := by
+      (M.worldCount * (ax81ConsequentBound M + 15) + 2) + 2) := by
   unfold checkAx81Costed
   apply allThingsEvalCosted_cost_le M _
-    (M.thingCount * (M.worldCount * (ax81ConsequentBound M + 5) + 2))
+    (M.thingCount * (M.worldCount * (ax81ConsequentBound M + 15) + 2))
   intro t
-  apply allThingsEvalCosted_cost_le M _ (M.worldCount * (ax81ConsequentBound M + 5))
+  apply allThingsEvalCosted_cost_le M _ (M.worldCount * (ax81ConsequentBound M + 15))
   intro m
-  apply allWorldsEvalCosted_cost_le M _ (ax81ConsequentBound M + 3)
+  apply allWorldsEvalCosted_cost_le M _ (ax81ConsequentBound M + 13)
   intro w
   have hc := ax81ConsequentCosted_cost_le M t m w
   cases h : M.characterization t m w <;>
@@ -5898,8 +6200,8 @@ def checkAx82Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun t => allThingsEvalCosted M fun q =>
     allWorldsEvalCosted M fun w =>
       Complexity.Costed.implies
-        (Complexity.Costed.andThen (Complexity.Costed.tick (M.characterization t q w) 1)
-          fun _ => Complexity.Costed.tick (M.qualityType q w) 1) fun _ =>
+        (Complexity.Costed.andThen (Complexity.Costed.tick (M.characterization t q w) 11)
+          fun _ => Complexity.Costed.tick (M.qualityType q w) 8) fun _ =>
         ax82InstancesCosted M t q w
 
 def checkAx82 (M : FiniteModel4) : Bool := (checkAx82Costed M).value
@@ -5918,14 +6220,14 @@ theorem checkAx82_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx82Costed_cost_le (M : FiniteModel4) :
     (checkAx82Costed M).cost ≤ M.thingCount * (M.thingCount *
-      (M.worldCount * (ax82InstancesBound M + 7) + 2) + 2) := by
+      (M.worldCount * (ax82InstancesBound M + 24) + 2) + 2) := by
   unfold checkAx82Costed
   apply allThingsEvalCosted_cost_le M _
-    (M.thingCount * (M.worldCount * (ax82InstancesBound M + 7) + 2))
+    (M.thingCount * (M.worldCount * (ax82InstancesBound M + 24) + 2))
   intro t
-  apply allThingsEvalCosted_cost_le M _ (M.worldCount * (ax82InstancesBound M + 7))
+  apply allThingsEvalCosted_cost_le M _ (M.worldCount * (ax82InstancesBound M + 24))
   intro q
-  apply allWorldsEvalCosted_cost_le M _ (ax82InstancesBound M + 5)
+  apply allWorldsEvalCosted_cost_le M _ (ax82InstancesBound M + 22)
   intro w
   have hi := ax82InstancesCosted_cost_le M t q w
   cases hc : M.characterization t q w <;> cases hq : M.qualityType q w <;>
@@ -5943,7 +6245,7 @@ theorem checkAx83_eq_legacy (M : FiniteModel4) :
   checkUnaryTableImplicationCosted_value M M.quale M.abstractIndividual
 
 theorem checkAx83Costed_cost_le (M : FiniteModel4) :
-    (checkAx83Costed M).cost ≤ M.thingCount * (M.worldCount * 6 + 2) :=
+    (checkAx83Costed M).cost ≤ M.thingCount * (M.worldCount * 20 + 2) :=
   checkUnaryTableImplicationCosted_cost_le M M.quale M.abstractIndividual
 
 def checkAx84Costed (M : FiniteModel4) : Complexity.Costed Bool :=
@@ -5957,7 +6259,7 @@ theorem checkAx84_eq_legacy (M : FiniteModel4) :
   checkUnaryTableImplicationCosted_value M M.set_ M.abstractIndividual
 
 theorem checkAx84Costed_cost_le (M : FiniteModel4) :
-    (checkAx84Costed M).cost ≤ M.thingCount * (M.worldCount * 6 + 2) :=
+    (checkAx84Costed M).cost ≤ M.thingCount * (M.worldCount * 20 + 2) :=
   checkUnaryTableImplicationCosted_cost_le M M.set_ M.abstractIndividual
 
 def checkAx85Costed (M : FiniteModel4) : Complexity.Costed Bool :=
@@ -5971,13 +6273,24 @@ theorem checkAx85_eq_legacy (M : FiniteModel4) :
   checkWorldFirstDisjointCosted_value M M.quale M.set_
 
 theorem checkAx85Costed_cost_le (M : FiniteModel4) :
-    (checkAx85Costed M).cost ≤ M.worldCount * (M.thingCount * 6 + 2) :=
+    (checkAx85Costed M).cost ≤ M.worldCount * (M.thingCount * 20 + 2) :=
   checkWorldFirstDisjointCosted_cost_le M M.quale M.set_
+
+/-!
+A quality structure has exactly one associated quality type. Checking whether
+a quale belongs to exactly one structure nests this uniqueness search inside
+another. The type-to-structure query also repeats the structure search for each
+candidate. Every repeated search contributes its returned cost; no cache is
+assumed. Quality-type reads cost eight operations, and association and membership
+reads cost eleven. `Complexity.Queries` proves these blocks equal to the
+compiled table computations, using the compositional cost method of Haslbeck
+(2018) and Niu et al. (POPL 2022).
+-/
 
 def qualityStructureCandidateCosted (M : FiniteModel4)
     (x t : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
-  Complexity.Costed.andThen (Complexity.Costed.tick (M.qualityType t w) 1) fun _ =>
-    Complexity.Costed.tick (M.associatedWith x t w) 1
+  Complexity.Costed.andThen (Complexity.Costed.tick (M.qualityType t w) 8) fun _ =>
+    Complexity.Costed.tick (M.associatedWith x t w) 11
 
 theorem qualityStructureCandidateCosted_value (M : FiniteModel4)
     (x t : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -5987,7 +6300,7 @@ theorem qualityStructureCandidateCosted_value (M : FiniteModel4)
 
 theorem qualityStructureCandidateCosted_cost_le (M : FiniteModel4)
     (x t : Fin M.thingCount) (w : Fin M.worldCount) :
-    (qualityStructureCandidateCosted M x t w).cost ≤ 3 := by
+    (qualityStructureCandidateCosted M x t w).cost ≤ 20 := by
   cases h : M.qualityType t w <;>
     simp [qualityStructureCandidateCosted, Complexity.Costed.andThen, h]
 
@@ -6007,9 +6320,9 @@ theorem qualityStructureUniqueForCosted_value (M : FiniteModel4)
 
 theorem qualityStructureUniqueForCosted_cost_le (M : FiniteModel4)
     (x t : Fin M.thingCount) (w : Fin M.worldCount) :
-    (qualityStructureUniqueForCosted M x t w).cost ≤ M.thingCount * 8 := by
+    (qualityStructureUniqueForCosted M x t w).cost ≤ M.thingCount * 25 := by
   unfold qualityStructureUniqueForCosted
-  apply allThingsEvalCosted_cost_le M _ 6
+  apply allThingsEvalCosted_cost_le M _ 23
   intro t'
   have hc := qualityStructureCandidateCosted_cost_le M x t' w
   cases h : (qualityStructureCandidateCosted M x t' w).value <;>
@@ -6031,7 +6344,7 @@ theorem qualityStructureWitnessCosted_value (M : FiniteModel4)
 
 theorem qualityStructureWitnessCosted_cost_le (M : FiniteModel4)
     (x t : Fin M.thingCount) (w : Fin M.worldCount) :
-    (qualityStructureWitnessCosted M x t w).cost ≤ M.thingCount * 8 + 4 := by
+    (qualityStructureWitnessCosted M x t w).cost ≤ M.thingCount * 25 + 21 := by
   have hc := qualityStructureCandidateCosted_cost_le M x t w
   have hu := qualityStructureUniqueForCosted_cost_le M x t w
   cases h : (qualityStructureCandidateCosted M x t w).value <;>
@@ -6051,19 +6364,19 @@ theorem qualityStructureCosted_value (M : FiniteModel4)
   grind
 
 def qualityStructureBound (M : FiniteModel4) : Nat :=
-  M.thingCount * (M.thingCount * 8 + 6)
+  M.thingCount * (M.thingCount * 25 + 23)
 
 theorem qualityStructureCosted_cost_le (M : FiniteModel4)
     (x : Fin M.thingCount) (w : Fin M.worldCount) :
     (qualityStructureCosted M x w).cost ≤ qualityStructureBound M := by
   unfold qualityStructureCosted qualityStructureBound
-  apply anyThingsEvalCosted_cost_le M _ (M.thingCount * 8 + 4)
+  apply anyThingsEvalCosted_cost_le M _ (M.thingCount * 25 + 21)
   intro t
   exact qualityStructureWitnessCosted_cost_le M x t w
 
 def nonEmptySetCosted (M : FiniteModel4)
     (s : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
-  anyThingsEvalCosted M fun x => Complexity.Costed.tick (M.memberOf x s w) 1
+  anyThingsEvalCosted M fun x => Complexity.Costed.tick (M.memberOf x s w) 11
 
 theorem nonEmptySetCosted_value (M : FiniteModel4)
     (s : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -6072,19 +6385,19 @@ theorem nonEmptySetCosted_value (M : FiniteModel4)
   rw [anyThingsEvalCosted_value]
   rfl
 
-def nonEmptySetBound (M : FiniteModel4) : Nat := M.thingCount * 3
+def nonEmptySetBound (M : FiniteModel4) : Nat := M.thingCount * 13
 
 theorem nonEmptySetCosted_cost_le (M : FiniteModel4)
     (s : Fin M.thingCount) (w : Fin M.worldCount) :
     (nonEmptySetCosted M s w).cost ≤ nonEmptySetBound M := by
   unfold nonEmptySetCosted nonEmptySetBound
-  apply anyThingsEvalCosted_cost_le M _ 1
+  apply anyThingsEvalCosted_cost_le M _ 11
   intro x
   simp
 
 def ax86ConsequentCosted (M : FiniteModel4)
     (x : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
-  Complexity.Costed.andThen (Complexity.Costed.tick (M.set_ x w) 1) fun _ =>
+  Complexity.Costed.andThen (Complexity.Costed.tick (M.set_ x w) 8) fun _ =>
     nonEmptySetCosted M x w
 
 theorem ax86ConsequentCosted_value (M : FiniteModel4)
@@ -6110,13 +6423,13 @@ theorem checkAx86_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx86Costed_cost_le (M : FiniteModel4) :
     (checkAx86Costed M).cost ≤ M.thingCount *
-      (M.worldCount * (qualityStructureBound M + nonEmptySetBound M + 6) + 2) := by
+      (M.worldCount * (qualityStructureBound M + nonEmptySetBound M + 13) + 2) := by
   unfold checkAx86Costed
   apply allThingsEvalCosted_cost_le M _
-    (M.worldCount * (qualityStructureBound M + nonEmptySetBound M + 6))
+    (M.worldCount * (qualityStructureBound M + nonEmptySetBound M + 13))
   intro x
   apply allWorldsEvalCosted_cost_le M _
-    (qualityStructureBound M + nonEmptySetBound M + 4)
+    (qualityStructureBound M + nonEmptySetBound M + 11)
   intro w
   have hq := qualityStructureCosted_cost_le M x w
   have hn := nonEmptySetCosted_cost_le M x w
@@ -6128,7 +6441,7 @@ theorem checkAx86Costed_cost_le (M : FiniteModel4) :
 def qualityStructureMemberCandidateCosted (M : FiniteModel4)
     (x s : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
   Complexity.Costed.andThen (qualityStructureCosted M s w) fun _ =>
-    Complexity.Costed.tick (M.memberOf x s w) 1
+    Complexity.Costed.tick (M.memberOf x s w) 11
 
 theorem qualityStructureMemberCandidateCosted_value (M : FiniteModel4)
     (x s : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -6139,7 +6452,7 @@ theorem qualityStructureMemberCandidateCosted_value (M : FiniteModel4)
 
 theorem qualityStructureMemberCandidateCosted_cost_le (M : FiniteModel4)
     (x s : Fin M.thingCount) (w : Fin M.worldCount) :
-    (qualityStructureMemberCandidateCosted M x s w).cost ≤ qualityStructureBound M + 2 := by
+    (qualityStructureMemberCandidateCosted M x s w).cost ≤ qualityStructureBound M + 12 := by
   have hq := qualityStructureCosted_cost_le M s w
   cases h : (qualityStructureCosted M s w).value <;>
     simp [qualityStructureMemberCandidateCosted, Complexity.Costed.andThen, h] <;> omega
@@ -6151,7 +6464,7 @@ def qualityStructureMemberUniqueForCosted (M : FiniteModel4)
       Complexity.Costed.tick (decide (s' = s)) 1
 
 def qualityStructureMemberUniqueForBound (M : FiniteModel4) : Nat :=
-  M.thingCount * (qualityStructureBound M + 7)
+  M.thingCount * (qualityStructureBound M + 17)
 
 theorem qualityStructureMemberUniqueForCosted_value (M : FiniteModel4)
     (x s : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -6167,7 +6480,7 @@ theorem qualityStructureMemberUniqueForCosted_cost_le (M : FiniteModel4)
     (qualityStructureMemberUniqueForCosted M x s w).cost ≤
       qualityStructureMemberUniqueForBound M := by
   unfold qualityStructureMemberUniqueForCosted qualityStructureMemberUniqueForBound
-  apply allThingsEvalCosted_cost_le M _ (qualityStructureBound M + 5)
+  apply allThingsEvalCosted_cost_le M _ (qualityStructureBound M + 15)
   intro s'
   have hc := qualityStructureMemberCandidateCosted_cost_le M x s' w
   cases h : (qualityStructureMemberCandidateCosted M x s' w).value <;>
@@ -6191,7 +6504,7 @@ theorem qualityStructureMemberWitnessCosted_value (M : FiniteModel4)
 theorem qualityStructureMemberWitnessCosted_cost_le (M : FiniteModel4)
     (x s : Fin M.thingCount) (w : Fin M.worldCount) :
     (qualityStructureMemberWitnessCosted M x s w).cost ≤
-      qualityStructureBound M + qualityStructureMemberUniqueForBound M + 3 := by
+      qualityStructureBound M + qualityStructureMemberUniqueForBound M + 13 := by
   have hc := qualityStructureMemberCandidateCosted_cost_le M x s w
   have hu := qualityStructureMemberUniqueForCosted_cost_le M x s w
   cases h : (qualityStructureMemberCandidateCosted M x s w).value <;>
@@ -6203,7 +6516,7 @@ def existsUniqueQualityStructureMemberCosted (M : FiniteModel4)
 
 def existsUniqueQualityStructureMemberBound (M : FiniteModel4) : Nat :=
   M.thingCount * (qualityStructureBound M +
-    qualityStructureMemberUniqueForBound M + 5)
+    qualityStructureMemberUniqueForBound M + 15)
 
 theorem existsUniqueQualityStructureMemberCosted_value (M : FiniteModel4)
     (x : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -6221,13 +6534,13 @@ theorem existsUniqueQualityStructureMemberCosted_cost_le (M : FiniteModel4)
       existsUniqueQualityStructureMemberBound M := by
   unfold existsUniqueQualityStructureMemberCosted existsUniqueQualityStructureMemberBound
   apply anyThingsEvalCosted_cost_le M _
-    (qualityStructureBound M + qualityStructureMemberUniqueForBound M + 3)
+    (qualityStructureBound M + qualityStructureMemberUniqueForBound M + 13)
   intro s
   exact qualityStructureMemberWitnessCosted_cost_le M x s w
 
 def checkAx87Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allWorldsEvalCosted M fun w =>
-    Complexity.Costed.iff (Complexity.Costed.tick (M.quale x w) 1) fun _ =>
+    Complexity.Costed.iff (Complexity.Costed.tick (M.quale x w) 8) fun _ =>
       existsUniqueQualityStructureMemberCosted M x w
 
 def checkAx87 (M : FiniteModel4) : Bool := (checkAx87Costed M).value
@@ -6247,13 +6560,13 @@ theorem checkAx87_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx87Costed_cost_le (M : FiniteModel4) :
     (checkAx87Costed M).cost ≤ M.thingCount *
-      (M.worldCount * (existsUniqueQualityStructureMemberBound M + 5) + 2) := by
+      (M.worldCount * (existsUniqueQualityStructureMemberBound M + 12) + 2) := by
   unfold checkAx87Costed
   apply allThingsEvalCosted_cost_le M _
-    (M.worldCount * (existsUniqueQualityStructureMemberBound M + 5))
+    (M.worldCount * (existsUniqueQualityStructureMemberBound M + 12))
   intro x
   apply allWorldsEvalCosted_cost_le M _
-    (existsUniqueQualityStructureMemberBound M + 3)
+    (existsUniqueQualityStructureMemberBound M + 10)
   intro w
   have hu := existsUniqueQualityStructureMemberCosted_cost_le M x w
   cases h : M.quale x w <;> simp [Complexity.Costed.iff] <;> omega
@@ -6261,8 +6574,8 @@ theorem checkAx87Costed_cost_le (M : FiniteModel4) :
 def checkAx88Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allWorldsEvalCosted M fun w =>
     Complexity.Costed.iff (qualityStructureCosted M x w) fun _ =>
-      Complexity.Costed.orElse (Complexity.Costed.tick (M.qualityDomain x w) 1) fun _ =>
-        Complexity.Costed.tick (M.qualityDimension x w) 1
+      Complexity.Costed.orElse (Complexity.Costed.tick (M.qualityDomain x w) 8) fun _ =>
+        Complexity.Costed.tick (M.qualityDimension x w) 8
 
 def checkAx88 (M : FiniteModel4) : Bool := (checkAx88Costed M).value
 
@@ -6283,12 +6596,12 @@ theorem checkAx88_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx88Costed_cost_le (M : FiniteModel4) :
     (checkAx88Costed M).cost ≤ M.thingCount *
-      (M.worldCount * (qualityStructureBound M + 7) + 2) := by
+      (M.worldCount * (qualityStructureBound M + 21) + 2) := by
   unfold checkAx88Costed
   apply allThingsEvalCosted_cost_le M _
-    (M.worldCount * (qualityStructureBound M + 7))
+    (M.worldCount * (qualityStructureBound M + 21))
   intro x
-  apply allWorldsEvalCosted_cost_le M _ (qualityStructureBound M + 5)
+  apply allWorldsEvalCosted_cost_le M _ (qualityStructureBound M + 19)
   intro w
   have hq := qualityStructureCosted_cost_le M x w
   cases hs : (qualityStructureCosted M x w).value <;>
@@ -6306,32 +6619,30 @@ theorem checkAx89_eq_legacy (M : FiniteModel4) :
   checkUnaryTableDisjointCosted_value M M.qualityDomain M.qualityDimension
 
 theorem checkAx89Costed_cost_le (M : FiniteModel4) :
-    (checkAx89Costed M).cost ≤ M.thingCount * (M.worldCount * 7 + 2) :=
+    (checkAx89Costed M).cost ≤ M.thingCount * (M.worldCount * 21 + 2) :=
   checkUnaryTableDisjointCosted_cost_le M M.qualityDomain M.qualityDimension
 
 /-!
-Axiom 90 is the first quality-space law whose consequent performs two complete
-membership scans.  We expose both scans instead of assigning a cost to the
-already-decided `properSubsetB`.  This is the same executable-interpreter
-discipline used throughout this file: the production value is the erasure of
-the instrumented computation (cf. RadixExperiment), while the compositional
-cost accounting follows Niu et al. and Haslbeck.  See
-`docs/dsl/complexity.md` for the distinct roles of those references.
+Axiom 90 checks containment before searching for a member of the larger set
+that is absent from the smaller set. A failed containment test skips the
+difference scan. Both scans stop when their answer is known. Their counted
+erasure supplies the production result. The cost proof follows the same
+compositional method as the quality-structure queries above.
 -/
 
 def properSubsetContainedCosted (M : FiniteModel4) (s t : Fin M.thingCount)
     (w : Fin M.worldCount) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x =>
     Complexity.Costed.implies
-      (Complexity.Costed.tick (M.memberOf x s w) 1) fun _ =>
-      Complexity.Costed.tick (M.memberOf x t w) 1
+      (Complexity.Costed.tick (M.memberOf x s w) 11) fun _ =>
+      Complexity.Costed.tick (M.memberOf x t w) 11
 
 def properSubsetDifferenceCosted (M : FiniteModel4) (s t : Fin M.thingCount)
     (w : Fin M.worldCount) : Complexity.Costed Bool :=
   anyThingsEvalCosted M fun x =>
     Complexity.Costed.andThen
-      (Complexity.Costed.tick (M.memberOf x t w) 1) fun _ =>
-      (Complexity.Costed.tick (M.memberOf x s w) 1).not
+      (Complexity.Costed.tick (M.memberOf x t w) 11) fun _ =>
+      (Complexity.Costed.tick (M.memberOf x s w) 11).not
 
 def properSubsetCosted (M : FiniteModel4) (s t : Fin M.thingCount)
     (w : Fin M.worldCount) : Complexity.Costed Bool :=
@@ -6349,9 +6660,9 @@ theorem properSubsetCosted_value (M : FiniteModel4) (s t : Fin M.thingCount)
 
 theorem properSubsetContainedCosted_cost_le (M : FiniteModel4)
     (s t : Fin M.thingCount) (w : Fin M.worldCount) :
-    (properSubsetContainedCosted M s t w).cost ≤ M.thingCount * 6 := by
+    (properSubsetContainedCosted M s t w).cost ≤ M.thingCount * 26 := by
   unfold properSubsetContainedCosted
-  apply allThingsEvalCosted_cost_le M _ 4
+  apply allThingsEvalCosted_cost_le M _ 24
   intro x
   cases h : M.memberOf x s w <;>
     simp [Complexity.Costed.implies, Complexity.Costed.orElse,
@@ -6359,16 +6670,16 @@ theorem properSubsetContainedCosted_cost_le (M : FiniteModel4)
 
 theorem properSubsetDifferenceCosted_cost_le (M : FiniteModel4)
     (s t : Fin M.thingCount) (w : Fin M.worldCount) :
-    (properSubsetDifferenceCosted M s t w).cost ≤ M.thingCount * 6 := by
+    (properSubsetDifferenceCosted M s t w).cost ≤ M.thingCount * 26 := by
   unfold properSubsetDifferenceCosted
-  apply anyThingsEvalCosted_cost_le M _ 4
+  apply anyThingsEvalCosted_cost_le M _ 24
   intro x
   cases h : M.memberOf x t w <;>
     simp [Complexity.Costed.andThen, Complexity.Costed.not]
 
 theorem properSubsetCosted_cost_le (M : FiniteModel4) (s t : Fin M.thingCount)
     (w : Fin M.worldCount) :
-    (properSubsetCosted M s t w).cost ≤ 12 * M.thingCount + 1 := by
+    (properSubsetCosted M s t w).cost ≤ 52 * M.thingCount + 1 := by
   have hc := properSubsetContainedCosted_cost_le M s t w
   have hd := properSubsetDifferenceCosted_cost_le M s t w
   cases h : (properSubsetContainedCosted M s t w).value <;>
@@ -6376,10 +6687,10 @@ theorem properSubsetCosted_cost_le (M : FiniteModel4) (s t : Fin M.thingCount)
 
 def ax90AntecedentCosted (M : FiniteModel4) (s t s' t' : Fin M.thingCount)
     (w : Fin M.worldCount) : Complexity.Costed Bool :=
-  Complexity.Costed.andThen (Complexity.Costed.tick (M.associatedWith s t w) 1) fun _ =>
-    Complexity.Costed.andThen (Complexity.Costed.tick (M.associatedWith s' t' w) 1) fun _ =>
-      Complexity.Costed.andThen (Complexity.Costed.tick (M.sub t' t w) 1) fun _ =>
-        (Complexity.Costed.tick (M.sub t t' w) 1).not
+  Complexity.Costed.andThen (Complexity.Costed.tick (M.associatedWith s t w) 11) fun _ =>
+    Complexity.Costed.andThen (Complexity.Costed.tick (M.associatedWith s' t' w) 11) fun _ =>
+      Complexity.Costed.andThen (Complexity.Costed.tick (M.sub t' t w) 11) fun _ =>
+        (Complexity.Costed.tick (M.sub t t' w) 11).not
 
 theorem ax90AntecedentCosted_value (M : FiniteModel4) (s t s' t' : Fin M.thingCount)
     (w : Fin M.worldCount) :
@@ -6390,7 +6701,7 @@ theorem ax90AntecedentCosted_value (M : FiniteModel4) (s t s' t' : Fin M.thingCo
 
 theorem ax90AntecedentCosted_cost_le (M : FiniteModel4)
     (s t s' t' : Fin M.thingCount) (w : Fin M.worldCount) :
-    (ax90AntecedentCosted M s t s' t' w).cost ≤ 8 := by
+    (ax90AntecedentCosted M s t s' t' w).cost ≤ 48 := by
   unfold ax90AntecedentCosted
   cases h₁ : M.associatedWith s t w <;>
     cases h₂ : M.associatedWith s' t' w <;>
@@ -6424,7 +6735,7 @@ theorem checkAx90_eq_legacy (M : FiniteModel4) :
 
 def checkAx90Bound (M : FiniteModel4) : Nat :=
   M.thingCount * (M.thingCount * (M.thingCount * (M.thingCount *
-    (M.worldCount * (12 * M.thingCount + 13) + 2) + 2) + 2) + 2)
+    (M.worldCount * (52 * M.thingCount + 53) + 2) + 2) + 2) + 2)
 
 theorem checkAx90Costed_cost_le (M : FiniteModel4) :
     (checkAx90Costed M).cost ≤ checkAx90Bound M := by
@@ -6437,10 +6748,10 @@ theorem checkAx90Costed_cost_le (M : FiniteModel4) :
   intro s'
   apply allThingsEvalCosted_cost_le M _ _
   intro t'
-  apply allWorldsEvalCosted_cost_le M _ (12 * M.thingCount + 11)
+  apply allWorldsEvalCosted_cost_le M _ (52 * M.thingCount + 51)
   intro w
   have h := Complexity.Costed.implies_cost_le _
-    (fun _ => properSubsetCosted M s' s w) 8 (12 * M.thingCount + 1)
+    (fun _ => properSubsetCosted M s' s w) 48 (52 * M.thingCount + 1)
     (ax90AntecedentCosted_cost_le M s t s' t' w)
     (properSubsetCosted_cost_le M s' s w)
   omega
@@ -6448,7 +6759,7 @@ theorem checkAx90Costed_cost_le (M : FiniteModel4) :
 def qualityStructureForTypeCandidateCosted (M : FiniteModel4)
     (t x : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
   Complexity.Costed.andThen (qualityStructureCosted M x w) fun _ =>
-    Complexity.Costed.tick (M.associatedWith x t w) 1
+    Complexity.Costed.tick (M.associatedWith x t w) 11
 
 theorem qualityStructureForTypeCandidateCosted_value (M : FiniteModel4)
     (t x : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -6459,7 +6770,7 @@ theorem qualityStructureForTypeCandidateCosted_value (M : FiniteModel4)
 
 theorem qualityStructureForTypeCandidateCosted_cost_le (M : FiniteModel4)
     (t x : Fin M.thingCount) (w : Fin M.worldCount) :
-    (qualityStructureForTypeCandidateCosted M t x w).cost ≤ qualityStructureBound M + 2 := by
+    (qualityStructureForTypeCandidateCosted M t x w).cost ≤ qualityStructureBound M + 12 := by
   have hq := qualityStructureCosted_cost_le M x w
   cases h : (qualityStructureCosted M x w).value <;>
     simp [qualityStructureForTypeCandidateCosted, Complexity.Costed.andThen, h] <;> omega
@@ -6471,7 +6782,7 @@ def qualityStructureForTypeUniqueCosted (M : FiniteModel4)
       Complexity.Costed.tick (decide (x' = x)) 1
 
 def qualityStructureForTypeUniqueBound (M : FiniteModel4) : Nat :=
-  M.thingCount * (qualityStructureBound M + 7)
+  M.thingCount * (qualityStructureBound M + 17)
 
 theorem qualityStructureForTypeUniqueCosted_value (M : FiniteModel4)
     (t x : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -6488,7 +6799,7 @@ theorem qualityStructureForTypeUniqueCosted_cost_le (M : FiniteModel4)
     (qualityStructureForTypeUniqueCosted M t x w).cost ≤
       qualityStructureForTypeUniqueBound M := by
   unfold qualityStructureForTypeUniqueCosted qualityStructureForTypeUniqueBound
-  apply allThingsEvalCosted_cost_le M _ (qualityStructureBound M + 5)
+  apply allThingsEvalCosted_cost_le M _ (qualityStructureBound M + 15)
   intro x'
   have hc := qualityStructureForTypeCandidateCosted_cost_le M t x' w
   cases h : (qualityStructureForTypeCandidateCosted M t x' w).value <;>
@@ -6513,7 +6824,7 @@ theorem qualityStructureForTypeWitnessCosted_value (M : FiniteModel4)
 theorem qualityStructureForTypeWitnessCosted_cost_le (M : FiniteModel4)
     (t x : Fin M.thingCount) (w : Fin M.worldCount) :
     (qualityStructureForTypeWitnessCosted M t x w).cost ≤
-      qualityStructureBound M + qualityStructureForTypeUniqueBound M + 3 := by
+      qualityStructureBound M + qualityStructureForTypeUniqueBound M + 13 := by
   have hc := qualityStructureForTypeCandidateCosted_cost_le M t x w
   have hu := qualityStructureForTypeUniqueCosted_cost_le M t x w
   cases h : (qualityStructureForTypeCandidateCosted M t x w).value <;>
@@ -6525,7 +6836,7 @@ def existsUniqueQualityStructureForTypeCosted (M : FiniteModel4)
 
 def existsUniqueQualityStructureForTypeBound (M : FiniteModel4) : Nat :=
   M.thingCount * (qualityStructureBound M +
-    qualityStructureForTypeUniqueBound M + 5)
+    qualityStructureForTypeUniqueBound M + 15)
 
 theorem existsUniqueQualityStructureForTypeCosted_value (M : FiniteModel4)
     (t : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -6546,18 +6857,18 @@ theorem existsUniqueQualityStructureForTypeCosted_cost_le (M : FiniteModel4)
       existsUniqueQualityStructureForTypeBound M := by
   unfold existsUniqueQualityStructureForTypeCosted existsUniqueQualityStructureForTypeBound
   apply anyThingsEvalCosted_cost_le M _
-    (qualityStructureBound M + qualityStructureForTypeUniqueBound M + 3)
+    (qualityStructureBound M + qualityStructureForTypeUniqueBound M + 13)
   intro x
   exact qualityStructureForTypeWitnessCosted_cost_le M t x w
 
 def ax91ConsequentCosted (M : FiniteModel4) (t : Fin M.thingCount)
     (w : Fin M.worldCount) : Complexity.Costed Bool :=
-  Complexity.Costed.andThen (Complexity.Costed.tick (M.intrinsicMomentType t w) 1) fun _ =>
+  Complexity.Costed.andThen (Complexity.Costed.tick (M.intrinsicMomentType t w) 8) fun _ =>
     existsUniqueQualityStructureForTypeCosted M t w
 
 def checkAx91Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun t => allWorldsEvalCosted M fun w =>
-    Complexity.Costed.iff (Complexity.Costed.tick (M.qualityType t w) 1) fun _ =>
+    Complexity.Costed.iff (Complexity.Costed.tick (M.qualityType t w) 8) fun _ =>
       ax91ConsequentCosted M t w
 
 def checkAx91 (M : FiniteModel4) : Bool := (checkAx91Costed M).value
@@ -6585,28 +6896,38 @@ theorem checkAx91_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx91Costed_cost_le (M : FiniteModel4) :
     (checkAx91Costed M).cost ≤ M.thingCount *
-      (M.worldCount * (existsUniqueQualityStructureForTypeBound M + 7) + 2) := by
+      (M.worldCount * (existsUniqueQualityStructureForTypeBound M + 21) + 2) := by
   unfold checkAx91Costed
   apply allThingsEvalCosted_cost_le M _
-    (M.worldCount * (existsUniqueQualityStructureForTypeBound M + 7))
+    (M.worldCount * (existsUniqueQualityStructureForTypeBound M + 21))
   intro t
   apply allWorldsEvalCosted_cost_le M _
-    (existsUniqueQualityStructureForTypeBound M + 5)
+    (existsUniqueQualityStructureForTypeBound M + 19)
   intro w
   have he := existsUniqueQualityStructureForTypeCosted_cost_le M t w
   cases hq : M.qualityType t w <;> cases hi : M.intrinsicMomentType t w <;>
     simp [ax91ConsequentCosted, Complexity.Costed.iff,
       Complexity.Costed.andThen, hi] <;> omega
 
+/-!
+Quality-value checks use eight-operation unary reads and eleven-operation
+binary reads. Axiom 92 checks quality before reading quale classification.
+Axiom 93 tests a proposed value before scanning for a different value.
+Axiom 94 searches types before quality spaces and stops at its first witness.
+The counted-table equalities in `Complexity/Queries.lean` justify these charges.
+They compose local costs as in Haslbeck, *Hoare Logics for Time Bounds* (2018),
+without changing Boolean results or assuming that skipped reads execute.
+-/
+
 def ax92ConsequentCosted (M : FiniteModel4) (x y : Fin M.thingCount)
     (w : Fin M.worldCount) : Complexity.Costed Bool :=
   Complexity.Costed.andThen (qualityBCosted M x w) fun _ =>
-    Complexity.Costed.tick (M.quale y w) 1
+    Complexity.Costed.tick (M.quale y w) 8
 
 def checkAx92Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allThingsEvalCosted M fun y =>
     allWorldsEvalCosted M fun w =>
-      Complexity.Costed.implies (Complexity.Costed.tick (M.hasValue x y w) 1) fun _ =>
+      Complexity.Costed.implies (Complexity.Costed.tick (M.hasValue x y w) 11) fun _ =>
         ax92ConsequentCosted M x y w
 
 def checkAx92 (M : FiniteModel4) : Bool := (checkAx92Costed M).value
@@ -6622,17 +6943,17 @@ theorem checkAx92_eq_legacy (M : FiniteModel4) :
     qualityB, impliesB]
 
 def qualityBound (M : FiniteModel4) : Nat :=
-  M.thingCount * (M.thingCount * 8 + 6)
+  M.thingCount * (M.thingCount * 25 + 23)
 
 theorem checkAx92Costed_cost_le (M : FiniteModel4) :
     (checkAx92Costed M).cost ≤ M.thingCount *
-      (M.thingCount * (M.worldCount * (qualityBound M + 7) + 2) + 2) := by
+      (M.thingCount * (M.worldCount * (qualityBound M + 24) + 2) + 2) := by
   unfold checkAx92Costed
   apply allThingsEvalCosted_cost_le M _ _
   intro x
   apply allThingsEvalCosted_cost_le M _ _
   intro y
-  apply allWorldsEvalCosted_cost_le M _ (qualityBound M + 5)
+  apply allWorldsEvalCosted_cost_le M _ (qualityBound M + 22)
   intro w
   have hq := qualityBCosted_cost_le M x w
   unfold qualityBound
@@ -6644,7 +6965,7 @@ theorem checkAx92Costed_cost_le (M : FiniteModel4) :
 def hasValueUniqueForCosted (M : FiniteModel4) (x y : Fin M.thingCount)
     (w : Fin M.worldCount) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun y' =>
-    Complexity.Costed.implies (Complexity.Costed.tick (M.hasValue x y' w) 1) fun _ =>
+    Complexity.Costed.implies (Complexity.Costed.tick (M.hasValue x y' w) 11) fun _ =>
       Complexity.Costed.tick (decide (y' = y)) 1
 
 theorem hasValueUniqueForCosted_value (M : FiniteModel4) (x y : Fin M.thingCount)
@@ -6657,9 +6978,9 @@ theorem hasValueUniqueForCosted_value (M : FiniteModel4) (x y : Fin M.thingCount
 
 theorem hasValueUniqueForCosted_cost_le (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) :
-    (hasValueUniqueForCosted M x y w).cost ≤ M.thingCount * 6 := by
+    (hasValueUniqueForCosted M x y w).cost ≤ M.thingCount * 16 := by
   unfold hasValueUniqueForCosted
-  apply allThingsEvalCosted_cost_le M _ 4
+  apply allThingsEvalCosted_cost_le M _ 14
   intro y'
   cases h : M.hasValue x y' w <;>
     simp [Complexity.Costed.implies, Complexity.Costed.orElse,
@@ -6667,7 +6988,7 @@ theorem hasValueUniqueForCosted_cost_le (M : FiniteModel4)
 
 def hasValueWitnessCosted (M : FiniteModel4) (x y : Fin M.thingCount)
     (w : Fin M.worldCount) : Complexity.Costed Bool :=
-  Complexity.Costed.andThen (Complexity.Costed.tick (M.hasValue x y w) 1) fun _ =>
+  Complexity.Costed.andThen (Complexity.Costed.tick (M.hasValue x y w) 11) fun _ =>
     hasValueUniqueForCosted M x y w
 
 theorem hasValueWitnessCosted_value (M : FiniteModel4) (x y : Fin M.thingCount)
@@ -6680,7 +7001,7 @@ theorem hasValueWitnessCosted_value (M : FiniteModel4) (x y : Fin M.thingCount)
 
 theorem hasValueWitnessCosted_cost_le (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) :
-    (hasValueWitnessCosted M x y w).cost ≤ M.thingCount * 6 + 2 := by
+    (hasValueWitnessCosted M x y w).cost ≤ M.thingCount * 16 + 12 := by
   have hu := hasValueUniqueForCosted_cost_le M x y w
   cases h : M.hasValue x y w <;>
     simp [hasValueWitnessCosted, Complexity.Costed.andThen, h] ; omega
@@ -6690,7 +7011,7 @@ def existsUniqueHasValueCosted (M : FiniteModel4) (x : Fin M.thingCount)
   anyThingsEvalCosted M fun y => hasValueWitnessCosted M x y w
 
 def existsUniqueHasValueBound (M : FiniteModel4) : Nat :=
-  M.thingCount * (M.thingCount * 6 + 4)
+  M.thingCount * (M.thingCount * 16 + 14)
 
 theorem existsUniqueHasValueCosted_value (M : FiniteModel4) (x : Fin M.thingCount)
     (w : Fin M.worldCount) :
@@ -6705,7 +7026,7 @@ theorem existsUniqueHasValueCosted_cost_le (M : FiniteModel4)
     (x : Fin M.thingCount) (w : Fin M.worldCount) :
     (existsUniqueHasValueCosted M x w).cost ≤ existsUniqueHasValueBound M := by
   unfold existsUniqueHasValueCosted existsUniqueHasValueBound
-  apply anyThingsEvalCosted_cost_le M _ (M.thingCount * 6 + 2)
+  apply anyThingsEvalCosted_cost_le M _ (M.thingCount * 16 + 12)
   intro y
   exact hasValueWitnessCosted_cost_le M x y w
 
@@ -6744,9 +7065,9 @@ theorem checkAx93Costed_cost_le (M : FiniteModel4) :
 def ax94WitnessCandidateCosted (M : FiniteModel4)
     (x y t s : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
   Complexity.Costed.andThen
-    (Complexity.Costed.andThen (Complexity.Costed.tick (M.inst x t w) 1) fun _ =>
-      Complexity.Costed.tick (M.associatedWith s t w) 1) fun _ =>
-    Complexity.Costed.tick (M.memberOf y s w) 1
+    (Complexity.Costed.andThen (Complexity.Costed.tick (M.inst x t w) 11) fun _ =>
+      Complexity.Costed.tick (M.associatedWith s t w) 11) fun _ =>
+    Complexity.Costed.tick (M.memberOf y s w) 11
 
 theorem ax94WitnessCandidateCosted_value (M : FiniteModel4)
     (x y t s : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -6756,7 +7077,7 @@ theorem ax94WitnessCandidateCosted_value (M : FiniteModel4)
 
 theorem ax94WitnessCandidateCosted_cost_le (M : FiniteModel4)
     (x y t s : Fin M.thingCount) (w : Fin M.worldCount) :
-    (ax94WitnessCandidateCosted M x y t s w).cost ≤ 5 := by
+    (ax94WitnessCandidateCosted M x y t s w).cost ≤ 35 := by
   unfold ax94WitnessCandidateCosted
   cases hi : M.inst x t w <;> cases ha : M.associatedWith s t w <;>
     simp [Complexity.Costed.andThen]
@@ -6767,7 +7088,7 @@ def ax94WitnessCosted (M : FiniteModel4) (x y : Fin M.thingCount)
     ax94WitnessCandidateCosted M x y t s w
 
 def ax94WitnessBound (M : FiniteModel4) : Nat :=
-  M.thingCount * (M.thingCount * 7 + 2)
+  M.thingCount * (M.thingCount * 37 + 2)
 
 theorem ax94WitnessCosted_value (M : FiniteModel4) (x y : Fin M.thingCount)
     (w : Fin M.worldCount) :
@@ -6782,16 +7103,16 @@ theorem ax94WitnessCosted_cost_le (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) :
     (ax94WitnessCosted M x y w).cost ≤ ax94WitnessBound M := by
   unfold ax94WitnessCosted ax94WitnessBound
-  apply anyThingsEvalCosted_cost_le M _ (M.thingCount * 7)
+  apply anyThingsEvalCosted_cost_le M _ (M.thingCount * 37)
   intro t
-  apply anyThingsEvalCosted_cost_le M _ 5
+  apply anyThingsEvalCosted_cost_le M _ 35
   intro s
   exact ax94WitnessCandidateCosted_cost_le M x y t s w
 
 def checkAx94Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allThingsEvalCosted M fun y =>
     allWorldsEvalCosted M fun w =>
-      Complexity.Costed.implies (Complexity.Costed.tick (M.hasValue x y w) 1) fun _ =>
+      Complexity.Costed.implies (Complexity.Costed.tick (M.hasValue x y w) 11) fun _ =>
         ax94WitnessCosted M x y w
 
 def checkAx94 (M : FiniteModel4) : Bool := (checkAx94Costed M).value
@@ -6808,13 +7129,13 @@ theorem checkAx94_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx94Costed_cost_le (M : FiniteModel4) :
     (checkAx94Costed M).cost ≤ M.thingCount *
-      (M.thingCount * (M.worldCount * (ax94WitnessBound M + 5) + 2) + 2) := by
+      (M.thingCount * (M.worldCount * (ax94WitnessBound M + 15) + 2) + 2) := by
   unfold checkAx94Costed
   apply allThingsEvalCosted_cost_le M _ _
   intro x
   apply allThingsEvalCosted_cost_le M _ _
   intro y
-  apply allWorldsEvalCosted_cost_le M _ (ax94WitnessBound M + 3)
+  apply allWorldsEvalCosted_cost_le M _ (ax94WitnessBound M + 13)
   intro w
   have hw := ax94WitnessCosted_cost_le M x y w
   cases h : M.hasValue x y w <;>
@@ -6822,17 +7143,21 @@ theorem checkAx94Costed_cost_le (M : FiniteModel4) :
       Complexity.Costed.not] ; omega
 
 /-!
-The simple/complex quality predicates below retain the production
-evaluation order, including the repeated quality computation inside
-`complexQualityB`.  A cache could reduce that work, but it would need its own
-construction charge and equivalence theorem; the present result therefore
-describes what is concretely computed today.
+A simple quality has no inhering things. A complex quality passes the quality
+test and fails the simple-quality test. The latter repeats quality classification
+in the source definition. Counts retain that repetition; they do not assert that
+native compilation preserves identical calls (AMB-004 in the behavior contract).
+
+Unary classification reads cost eight and binary instance/inherence reads eleven.
+A failed quality test skips inherence search. The table correspondences in
+`Complexity/Queries.lean` compose those charges through the visited branches,
+following Haslbeck, *Hoare Logics for Time Bounds* (2018).
 -/
 
 def noInheringThingsCosted (M : FiniteModel4) (x : Fin M.thingCount)
     (w : Fin M.worldCount) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun y =>
-    (Complexity.Costed.tick (M.inheresIn y x w) 1).not
+    (Complexity.Costed.tick (M.inheresIn y x w) 11).not
 
 theorem noInheringThingsCosted_value (M : FiniteModel4) (x : Fin M.thingCount)
     (w : Fin M.worldCount) :
@@ -6844,9 +7169,9 @@ theorem noInheringThingsCosted_value (M : FiniteModel4) (x : Fin M.thingCount)
 
 theorem noInheringThingsCosted_cost_le (M : FiniteModel4)
     (x : Fin M.thingCount) (w : Fin M.worldCount) :
-    (noInheringThingsCosted M x w).cost ≤ M.thingCount * 4 := by
+    (noInheringThingsCosted M x w).cost ≤ M.thingCount * 14 := by
   unfold noInheringThingsCosted
-  apply allThingsEvalCosted_cost_le M _ 2
+  apply allThingsEvalCosted_cost_le M _ 12
   intro y
   simp
 
@@ -6856,7 +7181,7 @@ def simpleQualityCosted (M : FiniteModel4) (x : Fin M.thingCount)
     noInheringThingsCosted M x w
 
 def simpleQualityBound (M : FiniteModel4) : Nat :=
-  qualityBound M + M.thingCount * 4 + 1
+  qualityBound M + M.thingCount * 14 + 1
 
 theorem simpleQualityCosted_value (M : FiniteModel4) (x : Fin M.thingCount)
     (w : Fin M.worldCount) :
@@ -6900,13 +7225,13 @@ theorem complexQualityCosted_cost_le (M : FiniteModel4)
 
 def simpleQualityTypeCosted (M : FiniteModel4) (t : Fin M.thingCount)
     (w : Fin M.worldCount) : Complexity.Costed Bool :=
-  Complexity.Costed.andThen (Complexity.Costed.tick (M.qualityType t w) 1) fun _ =>
+  Complexity.Costed.andThen (Complexity.Costed.tick (M.qualityType t w) 8) fun _ =>
     allThingsEvalCosted M fun x =>
-      Complexity.Costed.implies (Complexity.Costed.tick (M.inst x t w) 1) fun _ =>
+      Complexity.Costed.implies (Complexity.Costed.tick (M.inst x t w) 11) fun _ =>
         simpleQualityCosted M x w
 
 def simpleQualityTypeBound (M : FiniteModel4) : Nat :=
-  M.thingCount * (simpleQualityBound M + 5) + 2
+  M.thingCount * (simpleQualityBound M + 15) + 9
 
 theorem simpleQualityTypeCosted_value (M : FiniteModel4) (t : Fin M.thingCount)
     (w : Fin M.worldCount) :
@@ -6924,10 +7249,10 @@ theorem simpleQualityTypeCosted_cost_le (M : FiniteModel4)
   · simp only [Complexity.Costed.andThen, Complexity.Costed.tick_value,
       Complexity.Costed.tick_cost, ↓reduceIte]
     have hall : (allThingsEvalCosted M fun x =>
-        Complexity.Costed.implies (Complexity.Costed.tick (M.inst x t w) 1) fun _ =>
+        Complexity.Costed.implies (Complexity.Costed.tick (M.inst x t w) 11) fun _ =>
           simpleQualityCosted M x w).cost ≤
-        M.thingCount * (simpleQualityBound M + 5) := by
-      apply allThingsEvalCosted_cost_le M _ (simpleQualityBound M + 3)
+        M.thingCount * (simpleQualityBound M + 15) := by
+      apply allThingsEvalCosted_cost_le M _ (simpleQualityBound M + 13)
       intro x
       have hs := simpleQualityCosted_cost_le M x w
       cases hi : M.inst x t w <;>
@@ -6938,8 +7263,8 @@ theorem simpleQualityTypeCosted_cost_le (M : FiniteModel4)
 def checkAx95Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allThingsEvalCosted M fun y =>
     allWorldsEvalCosted M fun w =>
-      Complexity.Costed.implies (Complexity.Costed.tick (M.associatedWith x y w) 1) fun _ =>
-        Complexity.Costed.iff (Complexity.Costed.tick (M.qualityDimension x w) 1) fun _ =>
+      Complexity.Costed.implies (Complexity.Costed.tick (M.associatedWith x y w) 11) fun _ =>
+        Complexity.Costed.iff (Complexity.Costed.tick (M.qualityDimension x w) 8) fun _ =>
           simpleQualityTypeCosted M y w
 
 def checkAx95 (M : FiniteModel4) : Bool := (checkAx95Costed M).value
@@ -6959,13 +7284,13 @@ theorem checkAx95_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx95Costed_cost_le (M : FiniteModel4) :
     (checkAx95Costed M).cost ≤ M.thingCount *
-      (M.thingCount * (M.worldCount * (simpleQualityTypeBound M + 8) + 2) + 2) := by
+      (M.thingCount * (M.worldCount * (simpleQualityTypeBound M + 25) + 2) + 2) := by
   unfold checkAx95Costed
   apply allThingsEvalCosted_cost_le M _ _
   intro x
   apply allThingsEvalCosted_cost_le M _ _
   intro y
-  apply allWorldsEvalCosted_cost_le M _ (simpleQualityTypeBound M + 6)
+  apply allWorldsEvalCosted_cost_le M _ (simpleQualityTypeBound M + 23)
   intro w
   have hs := simpleQualityTypeCosted_cost_le M y w
   cases ha : M.associatedWith x y w <;> cases hd : M.qualityDimension x w <;>
@@ -6974,13 +7299,13 @@ theorem checkAx95Costed_cost_le (M : FiniteModel4) :
 
 def complexQualityTypeCosted (M : FiniteModel4) (t : Fin M.thingCount)
     (w : Fin M.worldCount) : Complexity.Costed Bool :=
-  Complexity.Costed.andThen (Complexity.Costed.tick (M.qualityType t w) 1) fun _ =>
+  Complexity.Costed.andThen (Complexity.Costed.tick (M.qualityType t w) 8) fun _ =>
     allThingsEvalCosted M fun x =>
-      Complexity.Costed.implies (Complexity.Costed.tick (M.inst x t w) 1) fun _ =>
+      Complexity.Costed.implies (Complexity.Costed.tick (M.inst x t w) 11) fun _ =>
         complexQualityCosted M x w
 
 def complexQualityTypeBound (M : FiniteModel4) : Nat :=
-  M.thingCount * (complexQualityBound M + 5) + 2
+  M.thingCount * (complexQualityBound M + 15) + 9
 
 theorem complexQualityTypeCosted_value (M : FiniteModel4) (t : Fin M.thingCount)
     (w : Fin M.worldCount) :
@@ -6998,10 +7323,10 @@ theorem complexQualityTypeCosted_cost_le (M : FiniteModel4)
   · simp only [Complexity.Costed.andThen, Complexity.Costed.tick_value,
       Complexity.Costed.tick_cost, ↓reduceIte]
     have hall : (allThingsEvalCosted M fun x =>
-        Complexity.Costed.implies (Complexity.Costed.tick (M.inst x t w) 1) fun _ =>
+        Complexity.Costed.implies (Complexity.Costed.tick (M.inst x t w) 11) fun _ =>
           complexQualityCosted M x w).cost ≤
-        M.thingCount * (complexQualityBound M + 5) := by
-      apply allThingsEvalCosted_cost_le M _ (complexQualityBound M + 3)
+        M.thingCount * (complexQualityBound M + 15) := by
+      apply allThingsEvalCosted_cost_le M _ (complexQualityBound M + 13)
       intro x
       have hc := complexQualityCosted_cost_le M x w
       cases hi : M.inst x t w <;>
@@ -7012,8 +7337,8 @@ theorem complexQualityTypeCosted_cost_le (M : FiniteModel4)
 def checkAx96Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allThingsEvalCosted M fun y =>
     allWorldsEvalCosted M fun w =>
-      Complexity.Costed.implies (Complexity.Costed.tick (M.associatedWith x y w) 1) fun _ =>
-        Complexity.Costed.iff (Complexity.Costed.tick (M.qualityDomain x w) 1) fun _ =>
+      Complexity.Costed.implies (Complexity.Costed.tick (M.associatedWith x y w) 11) fun _ =>
+        Complexity.Costed.iff (Complexity.Costed.tick (M.qualityDomain x w) 8) fun _ =>
           complexQualityTypeCosted M y w
 
 def checkAx96 (M : FiniteModel4) : Bool := (checkAx96Costed M).value
@@ -7033,13 +7358,13 @@ theorem checkAx96_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx96Costed_cost_le (M : FiniteModel4) :
     (checkAx96Costed M).cost ≤ M.thingCount *
-      (M.thingCount * (M.worldCount * (complexQualityTypeBound M + 8) + 2) + 2) := by
+      (M.thingCount * (M.worldCount * (complexQualityTypeBound M + 25) + 2) + 2) := by
   unfold checkAx96Costed
   apply allThingsEvalCosted_cost_le M _ _
   intro x
   apply allThingsEvalCosted_cost_le M _ _
   intro y
-  apply allWorldsEvalCosted_cost_le M _ (complexQualityTypeBound M + 6)
+  apply allWorldsEvalCosted_cost_le M _ (complexQualityTypeBound M + 23)
   intro w
   have hc := complexQualityTypeCosted_cost_le M y w
   cases ha : M.associatedWith x y w <;> cases hd : M.qualityDomain x w <;>
@@ -7053,10 +7378,10 @@ def ax97AntecedentCosted (M : FiniteModel4)
       (Complexity.Costed.andThen
         (Complexity.Costed.andThen
           (Complexity.Costed.andThen (complexQualityCosted M x w) fun _ =>
-            Complexity.Costed.tick (M.inst y Y w) 1) fun _ =>
-          Complexity.Costed.tick (M.inst z Z w) 1) fun _ =>
-        Complexity.Costed.tick (M.inheresIn y x w) 1) fun _ =>
-      Complexity.Costed.tick (M.inheresIn z x w) 1) fun _ =>
+            Complexity.Costed.tick (M.inst y Y w) 11) fun _ =>
+          Complexity.Costed.tick (M.inst z Z w) 11) fun _ =>
+        Complexity.Costed.tick (M.inheresIn y x w) 11) fun _ =>
+      Complexity.Costed.tick (M.inheresIn z x w) 11) fun _ =>
     Complexity.Costed.tick (decide (Y = Z)) 1
 
 theorem ax97AntecedentCosted_value (M : FiniteModel4)
@@ -7069,7 +7394,7 @@ theorem ax97AntecedentCosted_value (M : FiniteModel4)
 
 theorem ax97AntecedentCosted_cost_le (M : FiniteModel4)
     (x y z Y Z : Fin M.thingCount) (w : Fin M.worldCount) :
-    (ax97AntecedentCosted M x y z Y Z w).cost ≤ complexQualityBound M + 10 := by
+    (ax97AntecedentCosted M x y z Y Z w).cost ≤ complexQualityBound M + 50 := by
   have hc := complexQualityCosted_cost_le M x w
   cases hq : (complexQualityCosted M x w).value <;>
     cases hy : M.inst y Y w <;> cases hz : M.inst z Z w <;>
@@ -7103,7 +7428,7 @@ theorem checkAx97_eq_legacy (M : FiniteModel4) :
 
 def checkAx97Bound (M : FiniteModel4) : Nat :=
   M.thingCount * (M.thingCount * (M.thingCount * (M.thingCount * (M.thingCount *
-    (M.worldCount * (complexQualityBound M + 15) + 2) + 2) + 2) + 2) + 2)
+    (M.worldCount * (complexQualityBound M + 55) + 2) + 2) + 2) + 2) + 2)
 
 theorem checkAx97Costed_cost_le (M : FiniteModel4) :
     (checkAx97Costed M).cost ≤ checkAx97Bound M := by
@@ -7118,23 +7443,23 @@ theorem checkAx97Costed_cost_le (M : FiniteModel4) :
   intro Y
   apply allThingsEvalCosted_cost_le M _ _
   intro Z
-  apply allWorldsEvalCosted_cost_le M _ (complexQualityBound M + 13)
+  apply allWorldsEvalCosted_cost_le M _ (complexQualityBound M + 53)
   intro w
   have h := Complexity.Costed.implies_cost_le
     (ax97AntecedentCosted M x y z Y Z w)
     (fun _ => Complexity.Costed.tick (decide (y = z)) 1)
-    (complexQualityBound M + 10) 1
+    (complexQualityBound M + 50) 1
     (ax97AntecedentCosted_cost_le M x y z Y Z w) (by simp)
   omega
 
 def ax98PartsCosted (M : FiniteModel4) (x : Fin M.thingCount)
     (w : Fin M.worldCount) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun y =>
-    Complexity.Costed.implies (Complexity.Costed.tick (M.inheresIn y x w) 1) fun _ =>
+    Complexity.Costed.implies (Complexity.Costed.tick (M.inheresIn y x w) 11) fun _ =>
       simpleQualityCosted M y w
 
 def ax98PartsBound (M : FiniteModel4) : Nat :=
-  M.thingCount * (simpleQualityBound M + 5)
+  M.thingCount * (simpleQualityBound M + 15)
 
 theorem ax98PartsCosted_value (M : FiniteModel4) (x : Fin M.thingCount)
     (w : Fin M.worldCount) :
@@ -7148,7 +7473,7 @@ theorem ax98PartsCosted_cost_le (M : FiniteModel4)
     (x : Fin M.thingCount) (w : Fin M.worldCount) :
     (ax98PartsCosted M x w).cost ≤ ax98PartsBound M := by
   unfold ax98PartsCosted ax98PartsBound
-  apply allThingsEvalCosted_cost_le M _ (simpleQualityBound M + 3)
+  apply allThingsEvalCosted_cost_le M _ (simpleQualityBound M + 13)
   intro y
   have hs := simpleQualityCosted_cost_le M y w
   cases hi : M.inheresIn y x w <;>
@@ -7263,12 +7588,13 @@ def productFamilyProjectionRowsCosted
     (M : FiniteModel4) (pf : ProductFamilyWitness M.thingCount M.worldCount)
     (x : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun p =>
-    Complexity.Costed.implies (Complexity.Costed.tick (M.memberOf p x w) 1) fun _ =>
-      allFinEvalCosted pf.dimensionThings.size fun i =>
-        /- One dimension-array read, one tuple-projection lookup, and one
-        membership-table lookup. -/
-        Complexity.Costed.tick
-          (M.memberOf (M.tupleProjection p i w) (productFamilyDimensions pf i) w) 3
+    Complexity.Costed.implies (Complexity.Costed.tick (M.memberOf p x w) 11) fun _ =>
+      allFinEvalCosted pf.dimensionThings.size fun i => do
+        /- Preserve argument evaluation order and the selected projection path.
+        A returned tuple alone cannot determine the lookup's operation count. -/
+        let component ← M.tupleProjectionCosted p i w
+        let dimension ← Complexity.Costed.tick (productFamilyDimensions pf i) 1
+        Complexity.Costed.tick (M.memberOf component dimension w) 11
 
 def productFamilyAssociationRowsCosted
     (M : FiniteModel4) (pf : ProductFamilyWitness M.thingCount M.worldCount)
@@ -7277,16 +7603,16 @@ def productFamilyAssociationRowsCosted
     Complexity.Costed.andThen
       /- Dimension and type array reads plus the association lookup. -/
       (Complexity.Costed.tick
-        (M.associatedWith (productFamilyDimensions pf i) (productFamilyTypes pf i) w) 3)
+        (M.associatedWith (productFamilyDimensions pf i) (productFamilyTypes pf i) w) 13)
       fun _ =>
         /- The source expression reads the type slot again for characterization. -/
-        Complexity.Costed.tick (M.characterization t (productFamilyTypes pf i) w) 2
+        Complexity.Costed.tick (M.characterization t (productFamilyTypes pf i) w) 12
 
 def productFamilyCoverageRowsCosted
     (M : FiniteModel4) (pf : ProductFamilyWitness M.thingCount M.worldCount)
     (t : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun u =>
-    Complexity.Costed.implies (Complexity.Costed.tick (M.characterization t u w) 1) fun _ =>
+    Complexity.Costed.implies (Complexity.Costed.tick (M.characterization t u w) 11) fun _ =>
       anyFinEvalCosted pf.dimensionThings.size fun i =>
         Complexity.Costed.tick (decide (u = productFamilyTypes pf i)) 2
 
@@ -7301,7 +7627,8 @@ theorem productFamilyProjectionRowsCosted_value
   congr 1
   funext p
   simp [Complexity.Costed.implies_value, allFinEvalCosted_value,
-    allProductFamilyIndices, impliesB]
+    allProductFamilyIndices, impliesB, FiniteModel4.tupleProjection,
+    Bind.bind, Complexity.Costed.bind, Complexity.Costed.tick]
   rfl
 
 theorem productFamilyAssociationRowsCosted_value
@@ -7330,17 +7657,20 @@ theorem productFamilyProjectionRowsCosted_cost_le
     (M : FiniteModel4) (pf : ProductFamilyWitness M.thingCount M.worldCount)
     (x : Fin M.thingCount) (w : Fin M.worldCount) :
     (productFamilyProjectionRowsCosted M pf x w).cost ≤
-      M.thingCount * (5 * pf.dimensionThings.size + 5) := by
+      M.thingCount * (25 * pf.dimensionThings.size + 15) := by
   unfold productFamilyProjectionRowsCosted
-  apply allThingsEvalCosted_cost_le M _ (5 * pf.dimensionThings.size + 3)
+  apply allThingsEvalCosted_cost_le M _ (25 * pf.dimensionThings.size + 13)
   intro p
-  have hi : (allFinEvalCosted pf.dimensionThings.size fun i =>
-      Complexity.Costed.tick
-        (M.memberOf (M.tupleProjection p i w) (productFamilyDimensions pf i) w) 3).cost ≤
-      pf.dimensionThings.size * 5 := by
-    apply allFinEvalCosted_cost_le _ _ 3
+  have hi : (allFinEvalCosted pf.dimensionThings.size fun i => do
+      let component ← M.tupleProjectionCosted p i w
+      let dimension ← Complexity.Costed.tick (productFamilyDimensions pf i) 1
+      Complexity.Costed.tick (M.memberOf component dimension w) 11).cost ≤
+      pf.dimensionThings.size * 25 := by
+    apply allFinEvalCosted_cost_le _ _ 23
     intro i
-    simp
+    have hp := M.tupleProjectionCost_le p i w
+    simp only [Bind.bind, Complexity.Costed.bind, Complexity.Costed.tick]
+    omega
   cases h : M.memberOf p x w <;>
     simp [Complexity.Costed.implies, Complexity.Costed.orElse,
       Complexity.Costed.not] ; omega
@@ -7349,9 +7679,9 @@ theorem productFamilyAssociationRowsCosted_cost_le
     (M : FiniteModel4) (pf : ProductFamilyWitness M.thingCount M.worldCount)
     (t : Fin M.thingCount) (w : Fin M.worldCount) :
     (productFamilyAssociationRowsCosted M pf t w).cost ≤
-      pf.dimensionThings.size * 8 := by
+      pf.dimensionThings.size * 28 := by
   unfold productFamilyAssociationRowsCosted
-  apply allFinEvalCosted_cost_le _ _ 6
+  apply allFinEvalCosted_cost_le _ _ 26
   intro i
   cases h : M.associatedWith (productFamilyDimensions pf i)
       (productFamilyTypes pf i) w <;>
@@ -7361,9 +7691,9 @@ theorem productFamilyCoverageRowsCosted_cost_le
     (M : FiniteModel4) (pf : ProductFamilyWitness M.thingCount M.worldCount)
     (t : Fin M.thingCount) (w : Fin M.worldCount) :
     (productFamilyCoverageRowsCosted M pf t w).cost ≤
-      M.thingCount * (4 * pf.dimensionThings.size + 5) := by
+      M.thingCount * (4 * pf.dimensionThings.size + 15) := by
   unfold productFamilyCoverageRowsCosted
-  apply allThingsEvalCosted_cost_le M _ (4 * pf.dimensionThings.size + 3)
+  apply allThingsEvalCosted_cost_le M _ (4 * pf.dimensionThings.size + 13)
   intro u
   have hi : (anyFinEvalCosted pf.dimensionThings.size fun i =>
       Complexity.Costed.tick (decide (u = productFamilyTypes pf i)) 2).cost ≤
@@ -7395,9 +7725,9 @@ def productFamilyWitnessCosted
 
 def productFamilyWitnessBound
     (M : FiniteModel4) (pf : ProductFamilyWitness M.thingCount M.worldCount) : Nat :=
-  8 + M.thingCount * (5 * pf.dimensionThings.size + 5) +
-    pf.dimensionThings.size * 8 +
-    M.thingCount * (4 * pf.dimensionThings.size + 5)
+  8 + M.thingCount * (25 * pf.dimensionThings.size + 15) +
+    pf.dimensionThings.size * 28 +
+    M.thingCount * (4 * pf.dimensionThings.size + 15)
 
 theorem productFamilyWitnessCosted_value
     (M : FiniteModel4) (pf : ProductFamilyWitness M.thingCount M.worldCount)
@@ -7432,11 +7762,13 @@ def ax99Finite (M : FiniteModel4) : Prop :=
 def productFamilySearchCosted (M : FiniteModel4) (x t : Fin M.thingCount)
     (w : Fin M.worldCount) : Complexity.Costed Bool :=
   anyFinEvalCosted M.productFamilies.size fun i =>
-    productFamilyWitnessCosted M M.productFamilies[i] x t w
+    /- The family-array read precedes validation even for a wrong header.
+    The loop's two operations are charged separately by `anyFinEvalCosted`. -/
+    Complexity.Costed.charge 1 (productFamilyWitnessCosted M M.productFamilies[i] x t w)
 
 def productFamilySearchBound (M : FiniteModel4) : Nat :=
   ((List.finRange M.productFamilies.size).map fun i =>
-    productFamilyWitnessBound M M.productFamilies[i] + 2).sum
+    productFamilyWitnessBound M M.productFamilies[i] + 3).sum
 
 theorem productFamilySearchCosted_value (M : FiniteModel4)
     (x t : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -7450,14 +7782,20 @@ theorem productFamilySearchCosted_cost_le (M : FiniteModel4)
     (x t : Fin M.thingCount) (w : Fin M.worldCount) :
     (productFamilySearchCosted M x t w).cost ≤ productFamilySearchBound M := by
   unfold productFamilySearchCosted productFamilySearchBound
-  apply anyFinEvalCosted_cost_le_sum
+  have h := anyFinEvalCosted_cost_le_sum M.productFamilies.size
+    (fun i => Complexity.Costed.charge 1
+      (productFamilyWitnessCosted M M.productFamilies[i] x t w))
+    (fun i => productFamilyWitnessBound M M.productFamilies[i] + 1) ?_
+  · simpa [Nat.add_assoc] using h
   intro i
-  exact productFamilyWitnessCosted_cost_le M M.productFamilies[i] x t w
+  have h := productFamilyWitnessCosted_cost_le M M.productFamilies[i] x t w
+  simp only [Complexity.Costed.charge_cost]
+  omega
 
 def ax99AntecedentCosted (M : FiniteModel4) (x t : Fin M.thingCount)
     (w : Fin M.worldCount) : Complexity.Costed Bool :=
-  Complexity.Costed.andThen (Complexity.Costed.tick (M.qualityDomain x w) 1) fun _ =>
-    Complexity.Costed.tick (M.associatedWith x t w) 1
+  Complexity.Costed.andThen (Complexity.Costed.tick (M.qualityDomain x w) 8) fun _ =>
+    Complexity.Costed.tick (M.associatedWith x t w) 11
 
 def checkAx99Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allThingsEvalCosted M fun t =>
@@ -7480,13 +7818,13 @@ theorem checkAx99_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx99Costed_cost_le (M : FiniteModel4) :
     (checkAx99Costed M).cost ≤ M.thingCount *
-      (M.thingCount * (M.worldCount * (productFamilySearchBound M + 7) + 2) + 2) := by
+      (M.thingCount * (M.worldCount * (productFamilySearchBound M + 24) + 2) + 2) := by
   unfold checkAx99Costed
   apply allThingsEvalCosted_cost_le M _ _
   intro x
   apply allThingsEvalCosted_cost_le M _ _
   intro t
-  apply allWorldsEvalCosted_cost_le M _ (productFamilySearchBound M + 5)
+  apply allWorldsEvalCosted_cost_le M _ (productFamilySearchBound M + 22)
   intro w
   have hs := productFamilySearchCosted_cost_le M x t w
   cases hd : M.qualityDomain x w <;> cases ha : M.associatedWith x t w <;>
@@ -7497,8 +7835,8 @@ theorem checkAx99Costed_cost_le (M : FiniteModel4) :
 def commonQualityStructureCosted (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
   anyThingsEvalCosted M fun z =>
-    Complexity.Costed.andThen (Complexity.Costed.tick (M.memberOf x z w) 1) fun _ =>
-      Complexity.Costed.tick (M.memberOf y z w) 1
+    Complexity.Costed.andThen (Complexity.Costed.tick (M.memberOf x z w) 11) fun _ =>
+      Complexity.Costed.tick (M.memberOf y z w) 11
 
 theorem commonQualityStructureCosted_value (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -7510,9 +7848,9 @@ theorem commonQualityStructureCosted_value (M : FiniteModel4)
 
 theorem commonQualityStructureCosted_cost_le (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) :
-    (commonQualityStructureCosted M x y w).cost ≤ M.thingCount * 5 := by
+    (commonQualityStructureCosted M x y w).cost ≤ M.thingCount * 25 := by
   unfold commonQualityStructureCosted
-  apply anyThingsEvalCosted_cost_le M _ 3
+  apply anyThingsEvalCosted_cost_le M _ 23
   intro z
   cases h : M.memberOf x z w <;>
     simp [Complexity.Costed.andThen]
@@ -7520,14 +7858,14 @@ theorem commonQualityStructureCosted_cost_le (M : FiniteModel4)
 def ax100ConsequentCosted (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
   Complexity.Costed.andThen
-    (Complexity.Costed.andThen (Complexity.Costed.tick (M.quale x w) 1) fun _ =>
-      Complexity.Costed.tick (M.quale y w) 1) fun _ =>
+    (Complexity.Costed.andThen (Complexity.Costed.tick (M.quale x w) 8) fun _ =>
+      Complexity.Costed.tick (M.quale y w) 8) fun _ =>
     commonQualityStructureCosted M x y w
 
 def checkAx100Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allThingsEvalCosted M fun y =>
     allThingsEvalCosted M fun r => allWorldsEvalCosted M fun w =>
-      Complexity.Costed.implies (Complexity.Costed.tick (M.distance x y r w) 1) fun _ =>
+      Complexity.Costed.implies (Complexity.Costed.tick (M.distance x y r w) 14) fun _ =>
         ax100ConsequentCosted M x y w
 
 def checkAx100 (M : FiniteModel4) : Bool := (checkAx100Costed M).value
@@ -7547,7 +7885,7 @@ theorem checkAx100_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx100Costed_cost_le (M : FiniteModel4) :
     (checkAx100Costed M).cost ≤ M.thingCount * (M.thingCount *
-      (M.thingCount * (M.worldCount * (5 * M.thingCount + 9) + 2) + 2) + 2) := by
+      (M.thingCount * (M.worldCount * (25 * M.thingCount + 36) + 2) + 2) + 2) := by
   unfold checkAx100Costed
   apply allThingsEvalCosted_cost_le M _ _
   intro x
@@ -7555,7 +7893,7 @@ theorem checkAx100Costed_cost_le (M : FiniteModel4) :
   intro y
   apply allThingsEvalCosted_cost_le M _ _
   intro r
-  apply allWorldsEvalCosted_cost_le M _ (5 * M.thingCount + 7)
+  apply allWorldsEvalCosted_cost_le M _ (25 * M.thingCount + 34)
   intro w
   have hc := commonQualityStructureCosted_cost_le M x y w
   cases hd : M.distance x y r w <;> cases hx : M.quale x w <;>
@@ -7567,7 +7905,7 @@ theorem checkAx100Costed_cost_le (M : FiniteModel4) :
 def distanceUniqueForCosted (M : FiniteModel4)
     (x y r : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun r' =>
-    Complexity.Costed.implies (Complexity.Costed.tick (M.distance x y r' w) 1) fun _ =>
+    Complexity.Costed.implies (Complexity.Costed.tick (M.distance x y r' w) 14) fun _ =>
       Complexity.Costed.tick (decide (r' = r)) 1
 
 theorem distanceUniqueForCosted_value (M : FiniteModel4)
@@ -7580,9 +7918,9 @@ theorem distanceUniqueForCosted_value (M : FiniteModel4)
 
 theorem distanceUniqueForCosted_cost_le (M : FiniteModel4)
     (x y r : Fin M.thingCount) (w : Fin M.worldCount) :
-    (distanceUniqueForCosted M x y r w).cost ≤ M.thingCount * 6 := by
+    (distanceUniqueForCosted M x y r w).cost ≤ M.thingCount * 19 := by
   unfold distanceUniqueForCosted
-  apply allThingsEvalCosted_cost_le M _ 4
+  apply allThingsEvalCosted_cost_le M _ 17
   intro r'
   cases h : M.distance x y r' w <;>
     simp [Complexity.Costed.implies, Complexity.Costed.orElse,
@@ -7590,7 +7928,7 @@ theorem distanceUniqueForCosted_cost_le (M : FiniteModel4)
 
 def distanceWitnessCosted (M : FiniteModel4)
     (x y r : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
-  Complexity.Costed.andThen (Complexity.Costed.tick (M.distance x y r w) 1) fun _ =>
+  Complexity.Costed.andThen (Complexity.Costed.tick (M.distance x y r w) 14) fun _ =>
     distanceUniqueForCosted M x y r w
 
 theorem distanceWitnessCosted_value (M : FiniteModel4)
@@ -7603,7 +7941,7 @@ theorem distanceWitnessCosted_value (M : FiniteModel4)
 
 theorem distanceWitnessCosted_cost_le (M : FiniteModel4)
     (x y r : Fin M.thingCount) (w : Fin M.worldCount) :
-    (distanceWitnessCosted M x y r w).cost ≤ M.thingCount * 6 + 2 := by
+    (distanceWitnessCosted M x y r w).cost ≤ M.thingCount * 19 + 15 := by
   have hu := distanceUniqueForCosted_cost_le M x y r w
   cases h : M.distance x y r w <;>
     simp [distanceWitnessCosted, Complexity.Costed.andThen, h] ; omega
@@ -7613,7 +7951,7 @@ def existsUniqueDistanceCosted (M : FiniteModel4)
   anyThingsEvalCosted M fun r => distanceWitnessCosted M x y r w
 
 def existsUniqueDistanceBound (M : FiniteModel4) : Nat :=
-  M.thingCount * (M.thingCount * 6 + 4)
+  M.thingCount * (M.thingCount * 19 + 17)
 
 theorem existsUniqueDistanceCosted_value (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -7631,14 +7969,14 @@ theorem existsUniqueDistanceCosted_cost_le (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) :
     (existsUniqueDistanceCosted M x y w).cost ≤ existsUniqueDistanceBound M := by
   unfold existsUniqueDistanceCosted existsUniqueDistanceBound
-  apply anyThingsEvalCosted_cost_le M _ (M.thingCount * 6 + 2)
+  apply anyThingsEvalCosted_cost_le M _ (M.thingCount * 19 + 15)
   intro r
   exact distanceWitnessCosted_cost_le M x y r w
 
 def ax101AntecedentCosted (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
-  Complexity.Costed.andThen (Complexity.Costed.tick (M.quale x w) 1) fun _ =>
-    Complexity.Costed.tick (M.quale y w) 1
+  Complexity.Costed.andThen (Complexity.Costed.tick (M.quale x w) 8) fun _ =>
+    Complexity.Costed.tick (M.quale y w) 8
 
 def checkAx101Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allThingsEvalCosted M fun y =>
@@ -7662,13 +8000,13 @@ theorem checkAx101_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx101Costed_cost_le (M : FiniteModel4) :
     (checkAx101Costed M).cost ≤ M.thingCount *
-      (M.thingCount * (M.worldCount * (existsUniqueDistanceBound M + 7) + 2) + 2) := by
+      (M.thingCount * (M.worldCount * (existsUniqueDistanceBound M + 21) + 2) + 2) := by
   unfold checkAx101Costed
   apply allThingsEvalCosted_cost_le M _ _
   intro x
   apply allThingsEvalCosted_cost_le M _ _
   intro y
-  apply allWorldsEvalCosted_cost_le M _ (existsUniqueDistanceBound M + 5)
+  apply allWorldsEvalCosted_cost_le M _ (existsUniqueDistanceBound M + 19)
   intro w
   have he := existsUniqueDistanceCosted_cost_le M x y w
   cases hx : M.quale x w <;> cases hy : M.quale y w <;>
@@ -7676,14 +8014,19 @@ theorem checkAx101Costed_cost_le (M : FiniteModel4) :
       Complexity.Costed.implies, Complexity.Costed.orElse,
       Complexity.Costed.not, hx, hy] ; omega
 
+/-- Domain/range checks read the relation first, then the two classifications.
+The verified compiler uses an eleven-operation binary read and eight-operation
+unary reads. `Complexity/Queries.lean` proves equality with those evaluators,
+including skipped reads. Other Boolean-function inputs require their own
+implementation correspondence. -/
 def checkBinaryRelationToUnaryPairCosted (M : FiniteModel4)
     (relation : Fin M.thingCount → Fin M.thingCount → Fin M.worldCount → Bool)
     (left right : Fin M.thingCount → Fin M.worldCount → Bool) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allThingsEvalCosted M fun y =>
     allWorldsEvalCosted M fun w =>
-      Complexity.Costed.implies (Complexity.Costed.tick (relation x y w) 1) fun _ =>
-        Complexity.Costed.andThen (Complexity.Costed.tick (left x w) 1) fun _ =>
-          Complexity.Costed.tick (right y w) 1
+      Complexity.Costed.implies (Complexity.Costed.tick (relation x y w) 11) fun _ =>
+        Complexity.Costed.andThen (Complexity.Costed.tick (left x w) 8) fun _ =>
+          Complexity.Costed.tick (right y w) 8
 
 theorem checkBinaryRelationToUnaryPairCosted_value (M : FiniteModel4)
     (relation left right) :
@@ -7699,13 +8042,13 @@ theorem checkBinaryRelationToUnaryPairCosted_value (M : FiniteModel4)
 theorem checkBinaryRelationToUnaryPairCosted_cost_le (M : FiniteModel4)
     (relation left right) :
     (checkBinaryRelationToUnaryPairCosted M relation left right).cost ≤
-      M.thingCount * (M.thingCount * (M.worldCount * 8 + 2) + 2) := by
+      M.thingCount * (M.thingCount * (M.worldCount * 32 + 2) + 2) := by
   unfold checkBinaryRelationToUnaryPairCosted
   apply allThingsEvalCosted_cost_le M _ _
   intro x
   apply allThingsEvalCosted_cost_le M _ _
   intro y
-  apply allWorldsEvalCosted_cost_le M _ 6
+  apply allWorldsEvalCosted_cost_le M _ 30
   intro w
   cases hr : relation x y w <;> cases hl : left x w <;>
     simp [Complexity.Costed.implies, Complexity.Costed.orElse,
@@ -7723,15 +8066,15 @@ theorem checkAx102_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx102Costed_cost_le (M : FiniteModel4) :
     (checkAx102Costed M).cost ≤
-      M.thingCount * (M.thingCount * (M.worldCount * 8 + 2) + 2) :=
+      M.thingCount * (M.thingCount * (M.worldCount * 32 + 2) + 2) :=
   checkBinaryRelationToUnaryPairCosted_cost_le M M.manifests M.perdurant M.endurant
 
 def ax103OverlapRowsCosted (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun z =>
-    Complexity.Costed.iff (Complexity.Costed.tick (M.overlap z x w) 1) fun _ =>
-      Complexity.Costed.andThen (Complexity.Costed.tick (M.perdurant z w) 1) fun _ =>
-        Complexity.Costed.tick (M.manifests z y w) 1
+    Complexity.Costed.iff (reflexiveBinaryQueryCosted M.overlap z x w) fun _ =>
+      Complexity.Costed.andThen (Complexity.Costed.tick (M.perdurant z w) 8) fun _ =>
+        Complexity.Costed.tick (M.manifests z y w) 11
 
 theorem ax103OverlapRowsCosted_value (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -7739,30 +8082,32 @@ theorem ax103OverlapRowsCosted_value (M : FiniteModel4)
       iffB (M.overlap z x w) (M.perdurant z w && M.manifests z y w)) := by
   unfold ax103OverlapRowsCosted
   rw [allThingsEvalCosted_value]; congr 1; funext z
-  rw [Complexity.Costed.iff_value, Complexity.Costed.andThen_value]
+  rw [Complexity.Costed.iff_value, reflexiveBinaryQueryCosted_value,
+    Complexity.Costed.andThen_value]
   cases ho : M.overlap z x w <;> cases hp : M.perdurant z w <;>
     cases hm : M.manifests z y w <;> rfl
 
 theorem ax103OverlapRowsCosted_cost_le (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) :
-    (ax103OverlapRowsCosted M x y w).cost ≤ M.thingCount * 8 := by
+    (ax103OverlapRowsCosted M x y w).cost ≤ M.thingCount * 37 := by
   unfold ax103OverlapRowsCosted
-  apply allThingsEvalCosted_cost_le M _ 6
+  apply allThingsEvalCosted_cost_le M _ 35
   intro z
-  cases ho : M.overlap z x w <;> cases hp : M.perdurant z w <;>
-    simp [Complexity.Costed.iff, Complexity.Costed.andThen]
+  apply Complexity.Costed.iff_cost_le _ _ 13 20
+    (reflexiveBinaryQueryCosted_cost_le _ _ _ _)
+  cases hp : M.perdurant z w <;> simp [Complexity.Costed.andThen]
 
 def ax103ConsequentCosted (M : FiniteModel4)
     (x y : Fin M.thingCount) (w : Fin M.worldCount) : Complexity.Costed Bool :=
   Complexity.Costed.andThen
-    (Complexity.Costed.andThen (Complexity.Costed.tick (M.perdurant x w) 1) fun _ =>
-      Complexity.Costed.tick (M.endurant y w) 1) fun _ =>
+    (Complexity.Costed.andThen (Complexity.Costed.tick (M.perdurant x w) 8) fun _ =>
+      Complexity.Costed.tick (M.endurant y w) 8) fun _ =>
     ax103OverlapRowsCosted M x y w
 
 def checkAx103Costed (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allThingsEvalCosted M fun y =>
     allWorldsEvalCosted M fun w =>
-      Complexity.Costed.iff (Complexity.Costed.tick (M.lifeOf x y w) 1) fun _ =>
+      Complexity.Costed.iff (Complexity.Costed.tick (M.lifeOf x y w) 11) fun _ =>
         ax103ConsequentCosted M x y w
 
 def checkAx103 (M : FiniteModel4) : Bool := (checkAx103Costed M).value
@@ -7783,13 +8128,13 @@ theorem checkAx103_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx103Costed_cost_le (M : FiniteModel4) :
     (checkAx103Costed M).cost ≤ M.thingCount *
-      (M.thingCount * (M.worldCount * (M.thingCount * 8 + 9) + 2) + 2) := by
+      (M.thingCount * (M.worldCount * (M.thingCount * 37 + 33) + 2) + 2) := by
   unfold checkAx103Costed
   apply allThingsEvalCosted_cost_le M _ _
   intro x
   apply allThingsEvalCosted_cost_le M _ _
   intro y
-  apply allWorldsEvalCosted_cost_le M _ (M.thingCount * 8 + 7)
+  apply allWorldsEvalCosted_cost_le M _ (M.thingCount * 37 + 31)
   intro w
   have hr := ax103OverlapRowsCosted_cost_le M x y w
   cases hl : M.lifeOf x y w <;> cases hp : M.perdurant x w <;>
@@ -7809,9 +8154,13 @@ theorem checkAx104_eq_legacy (M : FiniteModel4) :
 
 theorem checkAx104Costed_cost_le (M : FiniteModel4) :
     (checkAx104Costed M).cost ≤
-      M.thingCount * (M.thingCount * (M.worldCount * 8 + 2) + 2) :=
+      M.thingCount * (M.thingCount * (M.worldCount * 32 + 2) + 2) :=
   checkBinaryRelationToUnaryPairCosted_cost_le M M.meet M.perdurant M.perdurant
 
+/- The signature defines disjointness, coverage, partitioning, and
+categorization by axioms 105–108's right-hand sides. Their soundness theorems
+justify these constant checks without table queries. Registry traversal and
+validation of user-written derived assertions are charged separately. -/
 def checkAx105Costed (_M : FiniteModel4) : Complexity.Costed Bool := .pure true
 def checkAx105 (M : FiniteModel4) : Bool := (checkAx105Costed M).value
 theorem checkAx105Costed_cost (M : FiniteModel4) : (checkAx105Costed M).cost = 0 := rfl
@@ -7836,13 +8185,21 @@ theorem checkAx108Costed_cost (M : FiniteModel4) : (checkAx108Costed M).cost = 0
 theorem checkAx108Costed_cost_le (M : FiniteModel4) : (checkAx108Costed M).cost ≤ 0 :=
   Nat.le_of_eq (checkAx108Costed_cost M)
 
+/-!
+The distance extensions use the compiler's unary, binary, and ternary tables.
+Their charges expand to those evaluators in `Complexity/Queries.lean`, following
+Haslbeck's composition of local time bounds. Equality of whole counted results
+preserves execution order as well as the Boolean answer. Identity skips distance
+reads at unequal coordinates; symmetry reads the reverse edge only after true.
+-/
+
 def checkAxDistanceIdentityCosted (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allThingsEvalCosted M fun y =>
     allThingsEvalCosted M fun r => allWorldsEvalCosted M fun w =>
       Complexity.Costed.implies
         (Complexity.Costed.andThen (Complexity.Costed.tick (decide (x = y)) 1) fun _ =>
-          Complexity.Costed.tick (M.distance x y r w) 1) fun _ =>
-        Complexity.Costed.tick (M.distanceZero r w) 1
+          Complexity.Costed.tick (M.distance x y r w) 14) fun _ =>
+        Complexity.Costed.tick (M.distanceZero r w) 8
 
 def checkAxDistanceIdentity (M : FiniteModel4) : Bool :=
   (checkAxDistanceIdentityCosted M).value
@@ -7861,12 +8218,12 @@ theorem checkAxDistanceIdentity_eq_legacy (M : FiniteModel4) :
 
 theorem checkAxDistanceIdentityCosted_cost_le (M : FiniteModel4) :
     (checkAxDistanceIdentityCosted M).cost ≤ M.thingCount *
-      (M.thingCount * (M.thingCount * (M.worldCount * 8 + 2) + 2) + 2) := by
+      (M.thingCount * (M.thingCount * (M.worldCount * 28 + 2) + 2) + 2) := by
   unfold checkAxDistanceIdentityCosted
   apply allThingsEvalCosted_cost_le M _ _; intro x
   apply allThingsEvalCosted_cost_le M _ _; intro y
   apply allThingsEvalCosted_cost_le M _ _; intro r
-  apply allWorldsEvalCosted_cost_le M _ 6; intro w
+  apply allWorldsEvalCosted_cost_le M _ 26; intro w
   cases heq : decide (x = y) <;> cases hd : M.distance x y r w <;>
     simp [Complexity.Costed.implies, Complexity.Costed.orElse,
       Complexity.Costed.not, Complexity.Costed.andThen]
@@ -7874,8 +8231,8 @@ theorem checkAxDistanceIdentityCosted_cost_le (M : FiniteModel4) :
 def checkAxDistanceSymmetryCosted (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allThingsEvalCosted M fun y =>
     allThingsEvalCosted M fun r => allWorldsEvalCosted M fun w =>
-      Complexity.Costed.implies (Complexity.Costed.tick (M.distance x y r w) 1) fun _ =>
-        Complexity.Costed.tick (M.distance y x r w) 1
+      Complexity.Costed.implies (Complexity.Costed.tick (M.distance x y r w) 14) fun _ =>
+        Complexity.Costed.tick (M.distance y x r w) 14
 
 def checkAxDistanceSymmetry (M : FiniteModel4) : Bool :=
   (checkAxDistanceSymmetryCosted M).value
@@ -7894,25 +8251,28 @@ theorem checkAxDistanceSymmetry_eq_legacy (M : FiniteModel4) :
 
 theorem checkAxDistanceSymmetryCosted_cost_le (M : FiniteModel4) :
     (checkAxDistanceSymmetryCosted M).cost ≤ M.thingCount *
-      (M.thingCount * (M.thingCount * (M.worldCount * 6 + 2) + 2) + 2) := by
+      (M.thingCount * (M.thingCount * (M.worldCount * 32 + 2) + 2) + 2) := by
   unfold checkAxDistanceSymmetryCosted
   apply allThingsEvalCosted_cost_le M _ _; intro x
   apply allThingsEvalCosted_cost_le M _ _; intro y
   apply allThingsEvalCosted_cost_le M _ _; intro r
-  apply allWorldsEvalCosted_cost_le M _ 4; intro w
+  apply allWorldsEvalCosted_cost_le M _ 30; intro w
   cases hd : M.distance x y r w <;>
     simp [Complexity.Costed.implies, Complexity.Costed.orElse,
       Complexity.Costed.not]
 
+/-- Left-associated conjunction retains all three enclosing branch tests after
+an early false answer. Only the later table reads are skipped. At most four
+ternary reads run, giving the bound 4*14+3=59. -/
 def distanceTriangleAntecedentCosted (M : FiniteModel4)
     (x y z r0 r1 r2 s : Fin M.thingCount) (w : Fin M.worldCount) :
     Complexity.Costed Bool :=
   Complexity.Costed.andThen
     (Complexity.Costed.andThen
-      (Complexity.Costed.andThen (Complexity.Costed.tick (M.distance x y r0 w) 1) fun _ =>
-        Complexity.Costed.tick (M.distance y z r1 w) 1) fun _ =>
-      Complexity.Costed.tick (M.distance x z r2 w) 1) fun _ =>
-    Complexity.Costed.tick (M.distanceSum r0 r1 s w) 1
+      (Complexity.Costed.andThen (Complexity.Costed.tick (M.distance x y r0 w) 14) fun _ =>
+        Complexity.Costed.tick (M.distance y z r1 w) 14) fun _ =>
+      Complexity.Costed.tick (M.distance x z r2 w) 14) fun _ =>
+    Complexity.Costed.tick (M.distanceSum r0 r1 s w) 14
 
 def checkAxDistanceTriangleCosted (M : FiniteModel4) : Complexity.Costed Bool :=
   allThingsEvalCosted M fun x => allThingsEvalCosted M fun y =>
@@ -7921,7 +8281,7 @@ def checkAxDistanceTriangleCosted (M : FiniteModel4) : Complexity.Costed Bool :=
         allThingsEvalCosted M fun s => allWorldsEvalCosted M fun w =>
           Complexity.Costed.implies
             (distanceTriangleAntecedentCosted M x y z r0 r1 r2 s w) fun _ =>
-            Complexity.Costed.tick (M.distanceGreaterEq s r2 w) 1
+            Complexity.Costed.tick (M.distanceGreaterEq s r2 w) 11
 
 def checkAxDistanceTriangle (M : FiniteModel4) : Bool :=
   (checkAxDistanceTriangleCosted M).value
@@ -7955,7 +8315,7 @@ theorem checkAxDistanceTriangle_eq_legacy (M : FiniteModel4) :
 
 theorem distanceTriangleAntecedentCosted_cost_le (M : FiniteModel4)
     (x y z r0 r1 r2 s : Fin M.thingCount) (w : Fin M.worldCount) :
-    (distanceTriangleAntecedentCosted M x y z r0 r1 r2 s w).cost ≤ 7 := by
+    (distanceTriangleAntecedentCosted M x y z r0 r1 r2 s w).cost ≤ 59 := by
   cases h0 : M.distance x y r0 w <;> cases h1 : M.distance y z r1 w <;>
     cases h2 : M.distance x z r2 w <;>
       simp [distanceTriangleAntecedentCosted, Complexity.Costed.andThen, h0, h1, h2]
@@ -7963,7 +8323,7 @@ theorem distanceTriangleAntecedentCosted_cost_le (M : FiniteModel4)
 theorem checkAxDistanceTriangleCosted_cost_le (M : FiniteModel4) :
     (checkAxDistanceTriangleCosted M).cost ≤ M.thingCount *
       (M.thingCount * (M.thingCount * (M.thingCount * (M.thingCount *
-        (M.thingCount * (M.thingCount * (M.worldCount * 12 + 2) + 2) + 2) + 2) + 2) + 2) + 2) := by
+        (M.thingCount * (M.thingCount * (M.worldCount * 74 + 2) + 2) + 2) + 2) + 2) + 2) + 2) := by
   unfold checkAxDistanceTriangleCosted
   apply allThingsEvalCosted_cost_le M _ _; intro x
   apply allThingsEvalCosted_cost_le M _ _; intro y
@@ -7972,11 +8332,10 @@ theorem checkAxDistanceTriangleCosted_cost_le (M : FiniteModel4) :
   apply allThingsEvalCosted_cost_le M _ _; intro r1
   apply allThingsEvalCosted_cost_le M _ _; intro r2
   apply allThingsEvalCosted_cost_le M _ _; intro s
-  apply allWorldsEvalCosted_cost_le M _ 10; intro w
-  apply Complexity.Costed.implies_cost_le _ _ 7 1
+  apply allWorldsEvalCosted_cost_le M _ 72; intro w
+  apply Complexity.Costed.implies_cost_le _ _ 59 11
   · exact distanceTriangleAntecedentCosted_cost_le M x y z r0 r1 r2 s w
   · simp
-
 
 def checkAxioms4Checks (M : FiniteModel4) : List Bool := [
   checkAx1 M, checkAx2 M, checkAx3 M, checkAx4 M, checkAx5 M,

@@ -41,7 +41,11 @@ the explanation, but it cannot change the certificate result.
 ## Failure minimization
 
 The following sections describe `Diagnostic/AxiomAnalysis.lean`.
-`Diagnostic/Analysis.lean` is the aggregate import.
+`Diagnostic/Analysis.lean` integrates the analyzers and selects the report after
+a proof probe. Its production selector erases `certificationFailureReportCosted`.
+The selector preserves the confirmed/unconfirmed distinction, scans timeout
+messages once, and charges the selected analyzer and surrounding rows.
+`Complexity/Frontend.lean` proves output equivalence and the composed bound.
 
 `minimizeFailure` returns the value of `minimizeFailureCosted`. It selects a
 failed subformula and keeps successful context that explains why the obligation
@@ -217,9 +221,12 @@ before field selection.
 The default precheck cap is nine rows, enough for every current report by a
 size theorem. Smaller budgets retain a deterministic prefix after construction.
 Budget zero therefore still pays for finding and explaining the failure.
-`derivedAssertionFailure?` and the editor's `derivedAssertionAnalysis` erase
-their counted producers. The latter adds its one-row fallback only when no
-failed assertion was retained. The [complexity guide](complexity.md) gives the
+`derivedAssertionFailure?` erases its counted producer. The editor retains
+that result during semantic proof elaboration. If the proof fails, it uses
+`derivedAssertionFailureReportCosted` to select the report without scanning
+the facts again. Selection costs one operation for a retained report or four
+for the one-row fallback when no false assertion was found. The
+[complexity guide](complexity.md) gives the
 complete bounds and their representation assumptions.
 
 The external-mode required-missing explanation also has complete counting

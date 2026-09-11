@@ -8651,23 +8651,57 @@ theorem derivedAssertionFailureCosted_cost_le
         ((derivedAssertionFailure? worldNames thingNames namedFacts scopedFacts tables).getD #[]).size tables :=
   derivedAssertionFailureBudgetedCosted_cost_le 9 worldNames thingNames namedFacts scopedFacts tables
 
-/-- The UI fallback is constructed only when no failing assertion was retained.
+/-- Select the report from an already computed assertion result. The frontend
+retains that result while Lean attempts the semantic proof, so proof failure
+does not require another source scan. No failing assertion means only that the
+structured checker found none, not that Lean accepted the semantic proof.
+
+The UI fallback is constructed only when no failing assertion was retained.
 Its single row costs one initialization and two write/emission operations;
-the option match costs one in either branch. -/
-def derivedAssertionAnalysisCosted
-    (worldNames thingNames : Array Name) (namedFacts : Array NamedScopedFact)
-    (scopedFacts : Array ScopedCompiledFact) (tables : FactTables) :
-    Complexity.Costed (Array String) := do
-  let failure ← derivedAssertionFailureCosted worldNames thingNames namedFacts scopedFacts tables
+the option match costs one in either branch. Inlining lets the frontend's
+value projection discard the cost record. -/
+@[inline] def derivedAssertionFailureReportCosted (failure : Option (Array String)) :
+    Complexity.Costed (Array String) :=
   Complexity.Costed.charge 1 <| match failure with
   | some rows => .pure rows
   | none => .tick
       #["A user-written derived relation assertion failed, but the structured checker could not isolate a false asserted derived fact."] 3
 
-def derivedAssertionAnalysis
+theorem derivedAssertionFailureReportCosted_value (failure : Option (Array String)) :
+    (derivedAssertionFailureReportCosted failure).value = failure.getD
+      #["A user-written derived relation assertion failed, but the structured checker could not isolate a false asserted derived fact."] := by
+  cases failure <;> rfl
+
+theorem derivedAssertionFailureReportCosted_cost (failure : Option (Array String)) :
+    (derivedAssertionFailureReportCosted failure).cost =
+      if failure.isSome then 1 else 4 := by
+  cases failure <;> rfl
+
+theorem derivedAssertionFailureReportCosted_cost_le (failure : Option (Array String)) :
+    (derivedAssertionFailureReportCosted failure).cost ≤ 4 := by
+  rw [derivedAssertionFailureReportCosted_cost]
+  split <;> omega
+
+/-- Compose one assertion scan with report selection. The frontend separates
+these operations with a Lean proof attempt when the scan returns no failure.
+This composition counts their pure computation, excluding proof elaboration.
+The report selector receives the saved value and never repeats the scan. -/
+def derivedAssertionAnalysisCosted
     (worldNames thingNames : Array Name) (namedFacts : Array NamedScopedFact)
-    (scopedFacts : Array ScopedCompiledFact) (tables : FactTables) : Array String :=
-  (derivedAssertionAnalysisCosted worldNames thingNames namedFacts scopedFacts tables).value
+    (scopedFacts : Array ScopedCompiledFact) (tables : FactTables) :
+    Complexity.Costed (Array String) := do
+  let failure ← derivedAssertionFailureCosted worldNames thingNames namedFacts scopedFacts tables
+  derivedAssertionFailureReportCosted failure
+
+/-- The saved-result path and the composed analyzer return the same report
+and incur the same combined cost. This is equality of both record fields,
+not only of the displayed text. -/
+theorem derivedAssertionAnalysisCosted_eq_bind
+    (worldNames thingNames : Array Name) (namedFacts : Array NamedScopedFact)
+    (scopedFacts : Array ScopedCompiledFact) (tables : FactTables) :
+    derivedAssertionAnalysisCosted worldNames thingNames namedFacts scopedFacts tables =
+      (derivedAssertionFailureCosted worldNames thingNames namedFacts scopedFacts tables).bind
+        derivedAssertionFailureReportCosted := rfl
 
 theorem derivedAssertionAnalysisCosted_value
     (worldNames thingNames : Array Name) (namedFacts : Array NamedScopedFact)
@@ -8676,8 +8710,8 @@ theorem derivedAssertionAnalysisCosted_value
       (derivedAssertionFailure? worldNames thingNames namedFacts scopedFacts tables).getD
         #["A user-written derived relation assertion failed, but the structured checker could not isolate a false asserted derived fact."] := by
   unfold derivedAssertionAnalysisCosted derivedAssertionFailure?
-  simp only [Bind.bind, Complexity.Costed.bind_value, Complexity.Costed.charge_value]
-  cases (derivedAssertionFailureCosted worldNames thingNames namedFacts scopedFacts tables).value <;> rfl
+  simp only [Bind.bind, Complexity.Costed.bind_value,
+    derivedAssertionFailureReportCosted_value]
 
 theorem derivedAssertionAnalysisCosted_cost_le
     (worldNames thingNames : Array Name) (namedFacts : Array NamedScopedFact)
@@ -8685,10 +8719,21 @@ theorem derivedAssertionAnalysisCosted_cost_le
     (derivedAssertionAnalysisCosted worldNames thingNames namedFacts scopedFacts tables).cost ≤
       (derivedAssertionFailureCosted worldNames thingNames namedFacts scopedFacts tables).cost + 4 := by
   unfold derivedAssertionAnalysisCosted
-  simp only [Bind.bind, Complexity.Costed.bind_cost, Complexity.Costed.charge_cost]
-  cases (derivedAssertionFailureCosted worldNames thingNames namedFacts scopedFacts tables).value
-  all_goals dsimp only [Complexity.Costed.pure, Complexity.Costed.tick]
-  all_goals omega
+  simp only [Bind.bind, Complexity.Costed.bind_cost]
+  exact Nat.add_le_add_left (derivedAssertionFailureReportCosted_cost_le _) _
+
+/-- Reusing the precheck result preserves both branches of the frontend's
+report choice, including the proof-failure fallback after a successful scan. -/
+theorem derivedAssertionFailureReportCosted_precheck_value
+    (worldNames thingNames : Array Name) (namedFacts : Array NamedScopedFact)
+    (scopedFacts : Array ScopedCompiledFact) (tables : FactTables) :
+    (derivedAssertionFailureReportCosted
+      (derivedAssertionFailure? worldNames thingNames namedFacts scopedFacts tables)).value =
+      match derivedAssertionFailure? worldNames thingNames namedFacts scopedFacts tables with
+      | some rows => rows
+      | none => (derivedAssertionAnalysisCosted worldNames thingNames namedFacts scopedFacts tables).value := by
+  rw [derivedAssertionFailureReportCosted_value, derivedAssertionAnalysisCosted_value]
+  cases derivedAssertionFailure? worldNames thingNames namedFacts scopedFacts tables <;> rfl
 
 /-- Complete UI-analyzer bound, including its fallback. E counts the rows
 returned to the caller; it is one when the UI fallback is used. -/
@@ -8697,13 +8742,12 @@ theorem derivedAssertionAnalysisCosted_cost_le_bound
     (scopedFacts : Array ScopedCompiledFact) (tables : FactTables) :
     (derivedAssertionAnalysisCosted worldNames thingNames namedFacts scopedFacts tables).cost ≤
       derivedAssertionFailureCostBound worldNames.size thingNames.size namedFacts.size
-        (derivedAssertionAnalysis worldNames thingNames namedFacts scopedFacts tables).size tables + 4 := by
+        (derivedAssertionAnalysisCosted worldNames thingNames namedFacts scopedFacts tables).value.size tables + 4 := by
   have h0 := derivedAssertionAnalysisCosted_cost_le worldNames thingNames namedFacts scopedFacts tables
   have h1 := derivedAssertionFailureCosted_cost_le worldNames thingNames namedFacts scopedFacts tables
   have he :
       ((derivedAssertionFailure? worldNames thingNames namedFacts scopedFacts tables).getD #[]).size ≤
-        (derivedAssertionAnalysis worldNames thingNames namedFacts scopedFacts tables).size := by
-    unfold derivedAssertionAnalysis
+        (derivedAssertionAnalysisCosted worldNames thingNames namedFacts scopedFacts tables).value.size := by
     rw [derivedAssertionAnalysisCosted_value]
     cases (derivedAssertionFailure? worldNames thingNames namedFacts scopedFacts tables) <;> simp
   unfold derivedAssertionFailureCostBound at h1 ⊢

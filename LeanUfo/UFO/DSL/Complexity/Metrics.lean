@@ -121,13 +121,13 @@ def SourceMetrics.inputSize (m : SourceMetrics) : Nat :=
 /-- Sum of stages after successful name/reference resolution. The final two
 units test the materialization and projection-validation results. -/
 def SourceMetrics.resolvedCompilerCostBound (m : SourceMetrics) : Nat :=
-  (3 * m.expandedFacts + 4 * m.facts) +
+  (31 * m.expandedFacts + 4 * m.facts) +
     229 * m.expandedFacts +
     m.taxonomyFacts * (3 * m.worlds + 8) +
     (2 * m.projectionCells + 18 * m.specializationFactsUpper) +
     (28 * m.specializationFactsUpper + 3 * m.productFamilies +
       2 * m.relationCells + 2 * m.projectionCells +
-      m.worlds * (23 * m.things ^ 3 + 28 * m.things ^ 2 + 5 * m.things + 3) + 11) + 2
+      m.worlds * (23 * m.things ^ 3 + 48 * m.things ^ 2 + 5 * m.things + 3) + 11) + 2
 
 /-!
 The scalar corollary comes after the multivariate formula: it is obtained by
@@ -140,7 +140,7 @@ multivariate expression above remains substantially more informative.
 in the complete explicit source size. -/
 theorem SourceMetrics.resolvedCompilerCostBound_le_inputSize_pow4
     (m : SourceMetrics) :
-    m.resolvedCompilerCostBound ≤ 399 * m.inputSize ^ 4 := by
+    m.resolvedCompilerCostBound ≤ 447 * m.inputSize ^ 4 := by
   let n := m.inputSize
   have hn : 1 ≤ n := by
     simp only [n, SourceMetrics.inputSize]
@@ -176,18 +176,18 @@ theorem SourceMetrics.resolvedCompilerCostBound_le_inputSize_pow4
       m.taxonomyFacts * (3 * m.worlds + 8) ≤ n * (3 * n + 8) := by
     exact Nat.mul_le_mul htaxonomy (Nat.add_le_add_right (Nat.mul_le_mul_left 3 hworlds) 8)
   have hClosure :
-      m.worlds * (23 * m.things ^ 3 + 28 * m.things ^ 2 + 5 * m.things + 3) ≤
-        n * (23 * n ^ 3 + 28 * n ^ 2 + 5 * n + 3) := by
+      m.worlds * (23 * m.things ^ 3 + 48 * m.things ^ 2 + 5 * m.things + 3) ≤
+        n * (23 * n ^ 3 + 48 * n ^ 2 + 5 * n + 3) := by
     apply Nat.mul_le_mul hworlds
     apply Nat.add_le_add
     · apply Nat.add_le_add
       · apply Nat.add_le_add
         · exact Nat.mul_le_mul_left 23 (Nat.pow_le_pow_left hthings 3)
-        · exact Nat.mul_le_mul_left 28 (Nat.pow_le_pow_left hthings 2)
+        · exact Nat.mul_le_mul_left 48 (Nat.pow_le_pow_left hthings 2)
       · exact Nat.mul_le_mul_left 5 hthings
     · rfl
   unfold SourceMetrics.resolvedCompilerCostBound
-  change _ ≤ 399 * n ^ 4
+  change _ ≤ 447 * n ^ 4
   have hn2 : n ≤ n ^ 2 := by
     calc
       n = n * 1 := by omega
@@ -213,13 +213,13 @@ theorem SourceMetrics.resolvedCompilerCostBound_le_inputSize_pow4
     rw [hTaxonomyExpansion]
     omega
   have hClosureExpansion :
-      n * (23 * n ^ 3 + 28 * n ^ 2 + 5 * n + 3) =
-        23 * n ^ 4 + 28 * n ^ 3 + 5 * n ^ 2 + 3 * n := by
+      n * (23 * n ^ 3 + 48 * n ^ 2 + 5 * n + 3) =
+        23 * n ^ 4 + 48 * n ^ 3 + 5 * n ^ 2 + 3 * n := by
     simp [Nat.mul_add, Nat.pow_succ, Nat.mul_comm,
       Nat.mul_left_comm]
   have hClosureScalar :
-      m.worlds * (23 * m.things ^ 3 + 28 * m.things ^ 2 + 5 * m.things + 3) ≤
-        59 * n ^ 4 := by
+      m.worlds * (23 * m.things ^ 3 + 48 * m.things ^ 2 + 5 * m.things + 3) ≤
+        79 * n ^ 4 := by
     apply hClosure.trans
     rw [hClosureExpansion]
     omega
@@ -252,11 +252,19 @@ def checkerRelationCells (M : FiniteModel4) : Nat :=
     BinaryField.count * M.thingCount ^ 2 * M.worldCount +
     TernaryField.count * M.thingCount ^ 3 * M.worldCount
 
+/-- Count the optional cache's world slots and stored cells, including unused
+extra rows or cells in a hand-built valid cache. Logical validity alone does
+not restrict that storage to the smallest possible encoding. -/
+def checkerCacheSize (M : FiniteModel4) : Nat :=
+  match M.inherenceCache with
+  | none => 0
+  | some cache => cache.val.size + (cache.val.toList.map Array.size).sum
+
 /-- Complete scalar size used by the fixed-registry data-complexity corollary.
 The trailing one makes the size positive even for the empty finite model. -/
 def checkerInputSize (M : FiniteModel4) : Nat :=
   M.worldCount + M.thingCount + checkerRelationCells M +
-    M.productFamilies.size + checkerProductFamilySlots M + 1
+    M.productFamilies.size + checkerProductFamilySlots M + checkerCacheSize M + 1
 
 theorem checkerInputSize_pos (M : FiniteModel4) : 0 < checkerInputSize M := by
   unfold checkerInputSize
@@ -365,21 +373,22 @@ theorem resolved_expansion_size_eq_sourceMetrics
     source.worlds.size worlds things source.facts resolved h
   simpa [sourceMetrics] using weights.1
 
-/-- Exact source-metric charge of scope expansion after successful resolution. -/
-theorem resolved_expansion_cost_eq_sourceMetrics
+/-- Source-metric scope bound, including at most 28 rendering operations per
+expanded derived assertion. Primitive facts need no proposition rendering. -/
+theorem resolved_expansion_cost_le_sourceMetrics
     (source : ModelSource) (worlds things : NameIndex)
     (resolved : Array ScopedCompiledFact)
     (h : (mapArrayExceptCosted source.facts
       (resolveNamedFactIndexedCosted worlds things)).value = .ok resolved) :
-    (expandScopedFactsCosted source.worlds.size resolved).cost =
-      3 * (sourceMetrics source).expandedFacts + 4 * (sourceMetrics source).facts := by
-  rw [expandScopedFactsCosted_cost]
+    (expandScopedFactsCosted source.worlds.size resolved).cost ≤
+      31 * (sourceMetrics source).expandedFacts + 4 * (sourceMetrics source).facts := by
+  have cost := expandScopedFactsCosted_cost_le_expansionWeight source.worlds.size resolved
   have weights := resolveNamedFactsIndexed_preserves_weights
     source.worlds.size worlds things source.facts resolved h
   have sizeEq := mapArrayExceptCosted_ok_size source.facts
     (resolveNamedFactIndexedCosted worlds things) resolved h
-  rw [weights.1, sizeEq]
-  rfl
+  rw [weights.1, sizeEq] at cost
+  exact cost
 
 /--
 On successful resolution, the source taxonomy metric is exactly the number of
@@ -542,7 +551,7 @@ theorem resolved_explicitCompilationCost_le_sourceMetrics
         2 * (sourceMetrics source).relationCells +
         2 * (sourceMetrics source).projectionCells +
         source.worlds.size *
-          (23 * source.things.size ^ 3 + 28 * source.things.size ^ 2 + 5 * source.things.size + 3) + 11 := by
+          (23 * source.things.size ^ 3 + 48 * source.things.size ^ 2 + 5 * source.things.size + 3) + 11 := by
   dsimp
   apply (compileExplicitModelASTCosted_cost_polynomial _).trans
   have size := resolved_specialization_size_le_sourceMetrics
@@ -570,7 +579,7 @@ theorem resolved_explicitCompilationCost_le_sourceMetrics
               (addTaxonomyFacts (expandScopedFacts source.worlds.size resolved))) *
           source.worlds.size) +
         source.worlds.size *
-          (23 * source.things.size ^ 3 + 28 * source.things.size ^ 2 + 5 * source.things.size + 3) + 11 ≤
+          (23 * source.things.size ^ 3 + 48 * source.things.size ^ 2 + 5 * source.things.size + 3) + 11 ≤
       28 * (sourceMetrics source).specializationFactsUpper +
         3 * source.productFamilies.size +
         2 * (UnaryField.count * source.things.size * source.worlds.size +
@@ -580,14 +589,14 @@ theorem resolved_explicitCompilationCost_le_sourceMetrics
         source.things.size * (sourceMetrics source).maxProjectionArity *
           source.worlds.size) +
         source.worlds.size *
-          (23 * source.things.size ^ 3 + 28 * source.things.size ^ 2 + 5 * source.things.size + 3) + 11 := by
+          (23 * source.things.size ^ 3 + 48 * source.things.size ^ 2 + 5 * source.things.size + 3) + 11 := by
       omega
     _ = 28 * (sourceMetrics source).specializationFactsUpper +
         3 * (sourceMetrics source).productFamilies +
         2 * (sourceMetrics source).relationCells +
         2 * (sourceMetrics source).projectionCells +
         source.worlds.size *
-          (23 * source.things.size ^ 3 + 28 * source.things.size ^ 2 + 5 * source.things.size + 3) + 11 := by
+          (23 * source.things.size ^ 3 + 48 * source.things.size ^ 2 + 5 * source.things.size + 3) + 11 := by
       simp [sourceMetrics, Nat.pow_succ, Nat.mul_assoc, Nat.add_assoc, Nat.mul_add]
 
 theorem materializeResolvedFactsCosted_cost_le_sourceMetrics
@@ -595,11 +604,11 @@ theorem materializeResolvedFactsCosted_cost_le_sourceMetrics
     (resolved : Array ScopedCompiledFact)
     (hFacts : (resolveSourceFactsCosted source worlds things).value = .ok resolved)
     : (materializeResolvedFactsCosted source resolved).cost ≤
-      3 * (sourceMetrics source).expandedFacts + 4 * (sourceMetrics source).facts +
+      31 * (sourceMetrics source).expandedFacts + 4 * (sourceMetrics source).facts +
       229 * (sourceMetrics source).expandedFacts +
       (sourceMetrics source).taxonomyFacts * (3 * (sourceMetrics source).worlds + 8) := by
   rw [materializeResolvedFactsCosted_cost]
-  have scopeCost := resolved_expansion_cost_eq_sourceMetrics
+  have scopeCost := resolved_expansion_cost_le_sourceMetrics
     source worlds things resolved hFacts
   have taxonomyCost := resolved_taxonomy_cost_le_sourceMetrics
     source worlds things resolved hFacts
@@ -662,10 +671,10 @@ theorem compileResolvedSourceCosted_cost_le_sourceMetrics
       dsimp [materializeResolvedFactsCosted] at validationCost
       dsimp [materializeResolvedFactsCosted] at explicitCost
       have closureEq : source.worlds.size *
-            (23 * source.things.size ^ 3 + 28 * source.things.size ^ 2 + 5 * source.things.size + 3) =
+            (23 * source.things.size ^ 3 + 48 * source.things.size ^ 2 + 5 * source.things.size + 3) =
           (sourceMetrics source).worlds *
             (23 * (sourceMetrics source).things ^ 3 +
-              28 * (sourceMetrics source).things ^ 2 +
+              48 * (sourceMetrics source).things ^ 2 +
               5 * (sourceMetrics source).things + 3) := by
         simp [sourceMetrics]
       rw [closureEq] at explicitCost
