@@ -47,10 +47,6 @@ def nameLast? : Name → Option String
   | .num _ n => some (toString n)
   | .anonymous => none
 
-def jsonNullOrString : Option String → Json
-  | none => Json.null
-  | some value => Json.str value
-
 def addExportMetadata
     (manifest : LeanUfo.UFO.DSL.CertificateManifest)
     (gitCommit gitTag sourceDigest finiteModelDigest : Option String) :
@@ -168,9 +164,6 @@ def modelDigestsViaLean (moduleString modelString : String) :
   let sourceDigest ← sha256OfString sourceText
   let finiteModelDigest ← sha256OfString tablesText
   pure (sourceDigest, finiteModelDigest)
-
-def parseModuleName (s : String) : Name :=
-  s.toName
 
 unsafe def loadModule (module : Name) : IO Environment := do
   unsafe enableInitializersExecution

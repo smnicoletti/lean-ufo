@@ -523,6 +523,9 @@ path requires `--module`. It rebuilds the named module, compares every row and
 generated provenance field with the rebuilt Lean manifest, checks every named
 theorem declaration, and recomputes the SHA-256 digests. The two final theorem
 declarations are also checked at their expected certificate types.
+Git commit and tag strings record the export context. Validation checks their
+JSON types but does not authenticate the recorded Git history. The imported
+Lean module is trusted executable input, not sandboxed manifest data.
 
 What Lean proves:
 
@@ -613,8 +616,8 @@ results operationally, but they remain useful local proof structure.
 
 Axioms 3–6 also have individual operational erasure and bound theorems. In
 particular, `subDefB` evaluates its instance-subsumption condition with
-counted finite world/thing quantifiers; the old proposition-level `decide (∀…)`
-is retained only in the proved value-correspondence statement. Axiom 6 counts
+counted finite world/thing quantifiers. The proposition-level `decide (∀…)`
+specifies its value in the correspondence theorem. Axiom 6 counts
 its antecedent and its distinct upper- and lower-taxonomy witness searches.
 The ordered `checkAxioms1To17Costed` computation covers the whole first
 block, stops at the first failure, erases to its production Boolean, and has the

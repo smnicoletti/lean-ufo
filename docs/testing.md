@@ -1127,6 +1127,9 @@ lake exe validate-certificate certificates/CarWithWindow.certificate.json --modu
 
 `LeanUfo/Test/Certificates/ManifestValidation.lean` checks complete manifests
 and rejects missing, malformed, duplicate, and altered certificate rows.
+It alters both theorem-name columns in every row, checks status/reuse-source
+consistency, rejects non-hexadecimal digests, and requires unique rows in the
+rebuilt manifest as well as the exported JSON.
 `LeanUfo/Test/Certificates/InputSafety.lean` tests identifier parsing in the fast
 profile. The full profile also injects commands into final and per-field
 theorem names and checks that validation rejects them without creating a marker
@@ -1135,6 +1138,8 @@ The ordinary export and proof-recheck cases remain the successful controls.
 `ExportDiscoveryMarked.lean` checks namespaced marked selection, comments, and
 import ownership. `ExportDiscoveryFallback.lean` checks the no-marker rule: all
 and only manifests owned by that module are exported.
+`NamespacedParent.lean` certifies an extension whose nearer parent is imported.
+A different cached root parent must not change that namespace resolution.
 
 Release automation uses the same commands after setting the manifest artifact
 version in the runner workspace with:

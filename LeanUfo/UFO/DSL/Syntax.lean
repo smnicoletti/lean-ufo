@@ -682,9 +682,10 @@ private unsafe def resolveParentModelSource (parent : Name) :
     if namespaceParent == parent then #[parent] else #[namespaceParent, parent]
   let cache ← modelSourceCache.get
   for candidate in candidates do
+    -- Namespace precedence must not depend on whether the parent is cached
+    -- from this module or recovered from an imported declaration.
     if let some cached := cache.get? candidate then
       return cached
-  for candidate in candidates do
     if let some cached ← cachedModelSourceFromEnv? candidate then
       return cached
   throwError

@@ -4,9 +4,10 @@ import LeanUfo.CertificateCli
 # Certificate identifier boundary tests
 
 The CLI treats JSON names as identifiers, not Lean expressions or commands.
-These tests cover the shared parser, direct digest callers, and all three
-manifest name fields. Marker files detect execution even if a later digest or
-type check rejects the manifest. Each test owns a fresh temporary directory.
+These tests cover the shared parser, direct digest callers, final theorem
+names, per-field theorem names, and reuse sources. Marker files detect execution
+even if a later digest or type check rejects the manifest. Each test owns a
+fresh temporary directory.
 -/
 
 namespace LeanUfo.Test.Certificates

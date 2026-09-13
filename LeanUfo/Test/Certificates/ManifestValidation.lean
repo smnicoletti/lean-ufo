@@ -52,6 +52,10 @@ private def replaceCertificates (json : Json) (rows : Array Json) : Json :=
 def checkManifestCompleteness : IO Unit := do
   let baseline := baselineManifest.toJson
   require (validateJson baseline).isOk "valid complete manifest was rejected"
+  let invalidDigest := "sha256:" ++ String.ofList (List.replicate 64 'g')
+  requireErrorContains
+    (validateJson (baseline.setObjVal! "sourceDigest" (.str invalidDigest)))
+    "not a SHA-256 digest" "non-hexadecimal digest was accepted"
   require (compareRebuiltManifest baseline baselineManifest).isOk
     "valid manifest did not match its rebuilt provenance"
   let rows ←
@@ -76,5 +80,31 @@ def checkManifestCompleteness : IO Unit := do
   let altered := replaceCertificates baseline (rows.set! 0 alteredRow)
   requireErrorContains (compareRebuiltManifest altered baselineManifest) "Lean theorem"
     "manifest with altered certificate provenance matched the rebuilt module"
+
+  for key in #["model", "artifact", "artifactVersion", "leanVersion", "ufoAxiomPackage",
+      "sourceFingerprint", "finiteModelFingerprint", "sourceHash", "finiteModelHash"] do
+    requireErrorContains
+      (compareRebuiltManifest (baseline.setObjVal! key (.str "altered")) baselineManifest)
+      "mismatch" s!"altered provenance `{key}` was accepted"
+  for key in #["name", "version"] do
+    let checker := baseline.getObjValD "checker" |>.setObjVal! key (.str "altered")
+    requireErrorContains
+      (compareRebuiltManifest (baseline.setObjVal! "checker" checker) baselineManifest)
+      "mismatch" s!"altered checker `{key}` was accepted"
+  for index in [:rows.size] do
+    for key in #["leanTheorem", "checkTheorem"] do
+      let changed := rows.set! index (rows[index]!.setObjVal! key (.str "TestModel.wrong"))
+      requireErrorContains (compareRebuiltManifest (replaceCertificates baseline changed)
+        baselineManifest) "mismatch" s!"altered `{key}` in row {index} was accepted"
+  let reused := rows[0]!.setObjVal! "status" (.str "reused")
+  requireErrorContains (validateJson (replaceCertificates baseline (rows.set! 0 reused)))
+    "no `reusedFrom`" "reused row without provenance was accepted"
+  let unexpectedReuse := rows[0]!.setObjVal! "reusedFrom" (.str "Parent.checked_ax1")
+  requireErrorContains (validateJson (replaceCertificates baseline (rows.set! 0 unexpectedReuse)))
+    "fresh but" "fresh row with reuse provenance was accepted"
+  let duplicateRebuilt := { baselineManifest with
+    fields := baselineManifest.fields.set! 115 baselineManifest.fields[0]! }
+  requireErrorContains (compareRebuiltManifest baseline duplicateRebuilt) "duplicated"
+    "duplicate rebuilt rows concealed missing provenance"
 
 end LeanUfo.Test.Certificates

@@ -607,6 +607,8 @@ def checkCertificateDiscoveryWorkflow : IO (Array String) :=
       #["build", markedModule])
     failures := failures ++ (← checkCommand "fallback discovery fixture build" "lake"
       #["build", fallbackModule])
+    failures := failures ++ (← checkCommand "namespaced imported parent" "lake"
+      #["build", "LeanUfo.Test.Certificates.NamespacedParent"])
     failures := failures ++ (← checkCommand "marked manifest discovery" "lake"
       #["exe", "export-certificates", "--module", markedModule, "--out", markedDir.toString])
     failures := failures ++ (← checkCommand "fallback manifest discovery" "lake"

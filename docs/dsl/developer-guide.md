@@ -174,6 +174,8 @@ each parsed name component before generating source. Unicode and
 escaped components remain supported. Expressions, extra commands, and comments
 outside escaped components are rejected. The original theorem-name strings
 remain unchanged for manifest comparisons.
+The module itself must be trusted: importing it can run Lean initializers.
+Git metadata records export context, not authenticated historical provenance.
 
 Generated scripts use private temporary directories, and digest inputs use
 secure temporary files. Both are removed after use, including on errors.

@@ -18,9 +18,6 @@ def positionalArgs : List String → List String
   | List.cons "--module" (List.cons _ xs) => positionalArgs xs
   | List.cons x xs => List.cons x (positionalArgs xs)
 
-def getString (json : Json) (field : String) : Except String String :=
-  requireString json field
-
 private def compareDigest (label manifestValue rebuiltValue : String) : Except String Unit := do
   if manifestValue == rebuiltValue then
     pure ()
@@ -29,7 +26,7 @@ private def compareDigest (label manifestValue rebuiltValue : String) : Except S
 
 unsafe def recheckWithModule (json : Json) (moduleString : String) : IO (Except String Unit) := do
   let modelName ←
-    match getString json "model" with
+    match requireString json "model" with
     | .ok value => pure value
     | .error err => return .error err
   let finals ←
@@ -68,24 +65,12 @@ unsafe def recheckWithModule (json : Json) (moduleString : String) : IO (Except 
   let build ← IO.Process.output { cmd := "lake", args := #["build", moduleString] }
   if build.exitCode != 0 then
     return .error s!"lake build {moduleString} failed:\n{build.stderr}"
-  let sourceHash ←
-    match getString json "sourceHash" with
-    | .ok value => pure value
-    | .error err => return .error err
-  let finiteModelHash ←
-    match getString json "finiteModelHash" with
-    | .ok value => pure value
-    | .error err => return .error err
   let sourceDigest ←
     match requireSha256Digest json "sourceDigest" with
     | .ok value => pure value
     | .error err => return .error err
   let finiteModelDigest ←
     match requireSha256Digest json "finiteModelDigest" with
-    | .ok value => pure value
-    | .error err => return .error err
-  let axiomPackage ←
-    match getString json "ufoAxiomPackage" with
     | .ok value => pure value
     | .error err => return .error err
   let rebuiltDigests ←
@@ -118,11 +103,6 @@ unsafe def recheckWithModule (json : Json) (moduleString : String) : IO (Except 
     s!"import {moduleSource}\n" ++
     s!"#check ({certifiedSource} : UFOAxioms4 {modelSource}.sig)\n" ++
     s!"#check ({certifiedModelSource} : LeanUfo.UFO.DSL.FiniteModel4.Certified {modelSource}.data)\n" ++
-    s!"example : {modelSource}.certificateManifest.sourceHash = {reprStr sourceHash} := by native_decide\n" ++
-    s!"example : {modelSource}.certificateManifest.finiteModelHash = {reprStr finiteModelHash} := by native_decide\n" ++
-    s!"example : {modelSource}.certificateManifest.certifiedTheorem = {reprStr certifiedName} := by native_decide\n" ++
-    s!"example : {modelSource}.certificateManifest.certifiedModelTheorem = {reprStr certifiedModelName} := by native_decide\n" ++
-    s!"example : {modelSource}.certificateManifest.axiomPackage = {reprStr axiomPackage} := by native_decide\n" ++
     rowChecks
   let out ← runLeanScript script
   if out.exitCode == 0 then

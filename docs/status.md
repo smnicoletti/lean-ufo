@@ -126,8 +126,10 @@ contract is in [Formal guarantees](guarantees.md).
   separate costs. `lake exe complexity-benchmarks` exercises sparse, dense,
   cyclic, product-family, and projection-heavy inputs.
 - Fixes 6 and 7 validate complete manifest provenance and discover exports
-  from module-owned Lean declarations. Their focused workflows pass. The final
-  cross-stage review and all-inclusive profile remain pending.
+  from module-owned Lean declarations. The final cross-stage review and single
+  all-inclusive profile passed on 2026-09-13, including the user-facing examples
+  and Relator. The [review record](dsl/behavior-contract.md#final-cross-stage-review--2026-09-13)
+  lists the closing repairs, evidence, and remaining trust assumptions.
 - The diagnostic interpreter has a formula-size cost theorem. Its bound
   includes node count, quantifier depth, domain sizes, environment size, and
   atomic-query costs. The exponent grows with quantifier depth, so this does
