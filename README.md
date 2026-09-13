@@ -55,7 +55,7 @@ Technical highlights:
    elaborate to ordinary Lean declarations, including one theorem per registered
    axiom, stored Boolean check theorems (`checked_axN`), reusable model source
    data, a certificate manifest, and a final `UFOAxioms4` certificate. The
-   reflective checker now covers all registered axiom fields through §4. In
+   reflective checker covers all registered axiom fields through §4. In
    particular, `ax68` uses a proved bounded finite closure checker for
    `MomentOf`, and `ax99` uses explicit finite product-family witnesses.
 5. **Axiom diagnosis and relator repair.** The mechanization exposes
@@ -64,10 +64,10 @@ Technical highlights:
    guard insufficient and equivalent under the background axioms, records why
    guarded-overlap (a73) does not preserve original (t31), selects a part-based
    (a73), preserves (t31)-(t33), and constructs a finite nonempty-relator model.
-   The part-based formula is now active in the core `UFOAxioms3_10` package. The
+   The core `UFOAxioms3_10` package uses the part-based formula. The
    printed formula, failed distinctness guard, guarded-overlap comparison, and
    countermodel remain available as historical analysis evidence. The finite
-   DSL checker now implements the same part-based formula, with a certified
+   DSL checker implements the same part-based formula, with a certified
    nonempty-relator example that also refutes the printed formula.
 6. **DSL-level diagnostics.** Failed models report whether Lean confirmed a
    finite counterexample, hit a timeout-style counterexample-probe limit, or
@@ -153,7 +153,7 @@ export_certificate CarWithWindow
 ```
 
 Ordinary `certify` may reuse any parent per-axiom checks whose registered
-finite-table footprint is unchanged; fields affected by the new objects or
+finite-table footprint is unchanged. Fields affected by the new objects or
 mereology facts are checked freshly.
 
 Use `certify_fresh` when you want to bypass reuse and regenerate all checker
@@ -180,7 +180,7 @@ ufo_model CarWithWindowFresh : UFO extends CarBase : UFO where
   certify_fresh
 ```
 
-Reuse is not a trusted cache hit. The generated child theorem first proves that
+Reuse always requires a Lean-checked equality. The generated child theorem first proves that
 the child checker result equals the parent checker result, and only then uses
 the parent's `checked_axN` theorem. If that equality proof fails, the generator
 falls back to a fresh check.
@@ -297,8 +297,7 @@ LEANUFO_AXIOMS=ax65,ax66,ax67,ax68 lake test
 LEANUFO_AXIOMS=ax69,ax70,ax71,ax72,ax73,ax74,ax75,ax76,ax77,ax78,ax79,ax80,axQuaIndividualOfEndurant lake test
 ```
 
-The stricter direct-negative audit is not part of the green fast
-profile yet:
+Run the stricter direct-negative audit separately:
 
 ```bash
 LEANUFO_REQUIRE_DIRECT_WITNESSES=1 lake test

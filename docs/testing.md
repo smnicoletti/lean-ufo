@@ -144,7 +144,7 @@ compiler array mapping and scope expansion. Name-index tests also cover
 100,000 distinct names. The standalone linear name scan has million-entry
 early-success and full-failure cases. Small cases check empty input, exact error-prefix
 costs, first-error order, and fact/world ordering. These tests guard against
-cost accumulation causing stack-depth failures; they are not wall-clock benchmarks.
+cost accumulation causing stack-depth failures. They make no wall-clock claim.
 `Complexity/Resolution.lean` checks exact source-resolution costs and which
 error wins when several references are invalid. It covers scope selection,
 product-family lengths and witness slots, duplicate world/thing names, and
@@ -336,7 +336,7 @@ when it reads both tables. Disjointness costs 23 when it reads and negates the
 right answer. Two-world/two-thing cases check world-first traversal within each
 thing and stopping at the first failure, with costs 34 and 48. A general source
 test derives all table/cache premises from successful compilation and compares
-the full counted computation, not only its Boolean value.
+the Boolean value together with the recorded cost.
 
 Seven classification truth tables cover 64 Boolean combinations. Each case
 compares both the answer and exact cost, including skipped reads and the
@@ -618,7 +618,7 @@ first match in six operations. A full domain-mismatch scan costs five million.
 These counts exclude construction of the input arrays. A one-world, two-thing
 regression checks that an unregistered quality-domain association is rejected
 by ax99 and reported as missing registration, even without characterization
-targets. It does not establish that the other 115 axioms hold.
+targets. The other 115 axioms lie outside this test's claim.
 
 Declared-family tests compare the diagnostic with ax99 on valid witnesses,
 missing associations, missing characterization facts, projection failures,

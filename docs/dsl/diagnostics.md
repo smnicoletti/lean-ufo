@@ -11,14 +11,15 @@ from a timeout or an unclassified proof failure.
 The reports come from searches over the compiled finite model. Their meaning
 rests on the [encoded UFO semantics](../theory.md) and
 [certificate guarantees](../guarantees.md), not on the widget itself.
-This guide explains how to read the output. The
+The sections below explain how to read the output. The
 [internals guide](diagnostics-internals.md) covers evidence selection and its
 counted algorithms.
 
 The DSL frontend saves a VS Code diagnostics widget for each
 `ufo_model ... certify` command. It also emits terminal errors for failed
 commands. The widget is saved when the command reaches a terminal success or
-failure path; it is presentation data, not proof evidence.
+failure path. It presents results while the Lean declarations carry proof
+evidence.
 
 ## What the widget shows
 
@@ -62,7 +63,7 @@ the semantic-failure case: Lean has checked a proof of `¬ axN` for the generate
 finite signature.
 
 If the negation probe also fails, the diagnostic says that no counterexample
-proof was found. That branch is not a semantic counterexample. It is classified
+proof was found. It is classified
 as either a heartbeat/timeout-style counterexample-probe limit when Lean reports
 one, or as an unclassified probe failure when no timeout marker is recognized.
 
@@ -148,7 +149,7 @@ The child extension reuses many early checks from its base model, then fails at
 
 ## Suggestions and evidence
 
-Suggestions use layout-neutral wording such as "this counterexample", so the
+Suggestions use layout-neutral wording, including "this counterexample", so the
 same text works in the VS Code widget and terminal output.
 
 Evidence lines show the finite DSL facts that made the obligation apply.

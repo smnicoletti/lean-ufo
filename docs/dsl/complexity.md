@@ -17,7 +17,7 @@ Madelaine–Martin ground the fixed-formula versus variable-formula distinction.
 Niu and Haslbeck inform compositional operation counts. Verified-algorithm
 work by Nipkow and colleagues informs correctness with cost proofs.
 RadixExperiment informs the organization of implementation proofs.
-These are methodological foundations, not imported proofs of Lean UFO.
+The cited work supplies the method. The repository contains the Lean UFO proofs.
 
 ## Claims
 
@@ -71,7 +71,7 @@ strings. Successful family resolution supplies the coordinate and length
 conditions needed by the readback proof below. Empty source domains compile
 successfully, so finite-model positivity remains a separate premise.
 
-These results connect the source to its compiled tables. The counted finite-model
+These theorems connect the source to its compiled tables. The counted finite-model
 constructor covers the next operation, and `Complexity/Queries.lean` supplies
 primitive-query value/cost correspondence. The workflow theorem below uses
 both results on the actual compiler output. By contrast,
@@ -92,11 +92,12 @@ branches.
 
 The arithmetic that accumulates the cost is instrumentation and is not itself
 charged. A value-erasure theorem proves that instrumentation cannot change the
-result; it does not prove that native execution removes all bookkeeping. The
+result. Native execution can still perform the bookkeeping. The
 generated name-conversion code, for example, still runs the counted fold before
 projecting its value. Runtime overhead remains a performance-testing obligation.
 
-These are selected source-level operations, not native function-call counts.
+The counts cover selected source-level operations. Native function calls lie
+outside this cost model.
 Definition checks 1, 53–55, 58–59, 63–64, 69–70, and 74 bind their shared
 predicate once per visited assignment. Both equivalence operands reuse its
 Boolean answer, and its search cost contributes once. Lean's native
@@ -188,7 +189,7 @@ The small `Costed` record operations and query definitions inline during
 native compilation. Inlining exposes the selected `value` to Lean's optimizer,
 which can remove unused cost fields. Inspection of the generated C confirms
 that all five query erasures contain no cost-helper calls or record/closure
-allocations. This is a generated-code check, not a wall-clock performance bound.
+allocations. This generated-code check gives no wall-clock performance bound.
 
 ### Table initialization and traversal
 
@@ -217,7 +218,7 @@ during traversal. They do not retain a pending addition for every visited
 entry. Their correspondence proofs preserve values and counts. The fast suite
 includes million-entry regressions for initialization, vector construction,
 successful folds, and an early-error fold. These tests check stack behavior
-and exact counts; they do not measure allocator or garbage-collector costs.
+and exact counts. Allocator and garbage-collector costs remain outside the model.
 
 `mapArrayExceptCosted` also works directly on arrays. If each callback costs
 at most `p`, mapping `N` inputs costs at most `N·(p + 4)`. A visited input
@@ -313,7 +314,7 @@ repeats for every world, so the bound includes `W · S`. Zero worlds skip all
 validation but retain the outer traversal cost. Thing count affects whether
 coordinates are valid, but does not increase the unit-cost upper bound.
 
-These results cover witness conversion. The product-family diagnostic theorem
+These theorems cover witness conversion. The product-family diagnostic theorem
 below connects the two registry searches across that conversion. The source-linked
 component bound includes conversion before one aggregate checker call.
 
@@ -379,16 +380,15 @@ binary field. Since N ≥ 1, the two linear contributions are each at most N².
 Hand-built caches can contain unused extra storage, which `checkerCacheSize`
 also counts; the source theorem uses the compiler's exact sized matrices.
 
-These results connect the source to the cached constructor's cost and output
+These theorems connect the source to the cached constructor's cost and output
 size. The registry's separate query-cost equalities cover the compiled model.
 
 ### Source-linked compiler/checker composition
 
 `source_linked_component_bound` charges successful source compilation, cached
 model construction, and one aggregate checker call on the constructed model.
-The model is determined by the compiler's returned tables. It is not an
-independent parameter. Successful compilation supplies lookup agreement,
-cache correctness, and matching table dimensions. Positive world and thing
+The compiler's returned tables determine the model. Successful compilation
+supplies lookup agreement, cache correctness, and matching table dimensions. Positive world and thing
 counts are separate premises because the source compiler accepts empty domains.
 
 For source metrics m and N = m.inputSize, the bound is:
@@ -407,8 +407,8 @@ and fixed setup and outer traversal contribute at most 6N².
 `source_linked_component_scalar_bound` gives `54,896,424·N¹⁶` for the same
 component sum. Its coefficient is `511 + 26 + 8367·3⁸`. The degree-sixteen
 corollary follows from the degree-eight checker bound and quadratic model-size
-bound. It is a derived upper bound, not an exact execution count or a claim
-that this exponent is tight.
+bound. It is a derived upper bound. It gives neither an exact execution count
+nor a claim that this exponent is tight.
 
 This result does not bound the complete `ufo_model` command. The frontend runs
 per-field preflight checks: it elaborates a trial proof before submitting the
@@ -526,8 +526,8 @@ callback costs. W and T count worlds and things. The bound reserves the
 closure search for every field, although execution selects it only for axiom
 68. The constant 33 combines six precheck operations, fifteen policy
 operations, five field-driver decisions, and seven outer-driver operations.
-This is a control-flow composition bound, not a polynomial claim about
-arbitrary proof callbacks or Lean elaboration.
+This theorem bounds the composed control flow. It makes no polynomial claim
+about arbitrary proof callbacks or Lean elaboration.
 
 Generated reuse proofs call `resultsAgree` on the ordinary child and parent
 checker results. This Boolean function erases `resultsAgreeCosted`.
@@ -918,7 +918,7 @@ and the option test. The eleven-operation total is proved for every input.
 The matrix-only Boolean-callback API omits first-hop construction and is bounded
 by `10T³ + 7T² + 3T` under its one-operation query premise.
 
-These are upper bounds, not exact costs assigned to each model. For two things,
+The formulas are upper bounds, not exact costs assigned to each model. For two things,
 the one-operation core records 188 operations with no edges and 160 with every
 edge present. Dense queries raise these counts to 228 and 200. The four input
 queries each contribute ten additional operations. Row-major conversion adds
@@ -1021,7 +1021,7 @@ precomputation, table reads, and checker control flow.
 Lean's kernel uses compact sparse definitions when it checks generated
 certificates. The sparse and dense implementations perform different
 operations. The correspondence theorems prove that they return the same value.
-They do not claim that both implementations take the same number of steps.
+The two implementations can take different numbers of steps.
 
 `toFiniteModel4Verified` requires a table-equality proof alongside the compiled
 tables. Lean checks the function equality used by compiler simplification
@@ -1064,7 +1064,7 @@ multivariate bound over all independently sized components.
 Here, “verified DSL” refers to the complete chain below. Its proof organization
 draws on RadixExperiment: relate the executable interpreter to its semantics,
 then prove preservation for each transformation. RadixExperiment supplies the
-organizational precedent, not a complexity result for Lean UFO.
+organizational precedent. It supplies no complexity result for Lean UFO.
 
 | Stage | Required theorem | Status |
 | --- | --- | --- |
@@ -1212,7 +1212,7 @@ costs on the compiled cached model.
 `Complexity/Queries.lean` connects 31 registry checks to loops over
 `unaryTypedTableCosted` on the compiler's cached model: axioms 9, 11–14, 17, 20,
 24–41, 45, 83–85, 89, and the kind-stability bridge.
-These are equalities of the complete `Costed Bool`, including the cost field.
+The equalities cover the complete `Costed Bool`, including the cost field.
 The compiler's sparse/dense agreement proof is required for the actual tables
 and dimensions. The cache does not change these unary fields.
 
@@ -1389,7 +1389,7 @@ For W worlds, the source-counter bounds are:
 
 Each definition check binds its predicate once and reuses the Boolean result.
 The existing upper bounds remain valid but retain slack for a second search.
-These formulas bound source operations, not native calls.
+The formulas bound source operations. Native calls lie outside their scope.
 
 For one thing and one world, axiom 53 costs 23 with no instance, 39 with a
 functioning instance but no distinct witness, and 34 with a non-functioning
@@ -1944,7 +1944,7 @@ For `E` environment entries, its exact cost is `4E+1`: each entry requires an
 iteration, a read, a name comparison, and a conditional selection. The final
 default selection costs one. An absent variable returns zero. The list-fold
 correspondence theorem and the appended-binding theorem establish this behavior
-for every environment, not only the regression examples.
+for every environment. The claim is not limited to the regression examples.
 
 Formula quantifiers and derived-predicate quantifiers visit numeric coordinates
 directly. They do not construct a range list before the first test. The shared
@@ -1963,7 +1963,7 @@ checks cost two operations each, followed by the existing 8-, 11-, or 14-operati
 table core. The resulting bounds are 12, 17, and 22. Invalid coordinates return
 false at the first failed guard. Sparse/dense agreement proves equal values for
 in-domain queries, and bounded explicit compilation supplies that agreement.
-This is value correspondence, not an equality between sparse and dense costs.
+This theorem proves value correspondence. Sparse and dense costs can differ.
 Field-index bounds and injectivity use kernel-checked finite proofs. The three
 compiled-query correspondence theorems depend only on Lean's standard
 `propext`, `Classical.choice`, and `Quot.sound` axioms, not native evaluation.
@@ -2068,7 +2068,7 @@ The assertion scan follows key construction and retains its `4D` bound.
 General value proofs preserve the exact key text. Known computed predicates
 skip both key construction and the assertion scan.
 
-These are counts of string-operation calls. Character traversal, decimal digit
+The results count string-operation calls. Character traversal, decimal digit
 work, and allocation remain outside the unit-cost theorem, so a call is not
 claimed to take constant wall-clock time.
 
@@ -2642,14 +2642,14 @@ matrix stops after two operations. A present matrix adds two index operations,
 a cell read, and the cell-option test. The lookup theorem preserves the
 explicit row width, including for raw tables whose stored width differs.
 Typed checker queries use the same counted core with the stored width.
-This lookup correspondence does not establish that the matrix represents
-inherence reachability or that the compiled widths agree.
+Separate closure and compilation theorems establish inherence reachability and
+agreement of the compiled widths.
 
 `evalNamedDerivedFactCosted` covers the complete evaluation of one named
 derived assertion. Its value theorem proves equality with
 `evalNamedDerivedFactSpec`, which fixes supported spellings, fallback results,
 and left-to-right argument resolution. The production failure search calls this
-counted evaluator. The specification is not a second executed evaluator.
+counted evaluator. Production executes only the counted evaluator.
 
 For unary and binary assertions, name resolution precedes field selection.
 An unknown name stops evaluation. Unknown ternary and quaternary predicates
@@ -2727,8 +2727,8 @@ nine. Its value theorem proves that this cap preserves the full report. The
 frontend keeps this precheck result during semantic proof elaboration. On
 failure, `derivedAssertionFailureReportCosted` selects the saved report at cost
 one, or constructs the one-row fallback at cost four. It does not scan the
-facts again. Finding no false assertion does not establish that Lean accepted
-the semantic proof, so that fallback remains necessary.
+facts again. After the scan finds no false assertion, Lean must still accept
+the semantic proof. The fallback therefore remains necessary.
 
 `derivedAssertionAnalysisCosted` composes one scan with this report selector.
 `derivedAssertionAnalysisCosted_eq_bind` proves equality of the combined value
@@ -2801,7 +2801,7 @@ costs at most 30 query operations, one match test, one retained-index write,
 and three loop controls. Array initialization adds one, giving `1 + 35T`.
 The resulting array contains at most `T` indices. Correspondence with sparse
 fact lookup requires table agreement and valid coordinates. These results
-cover candidate collection, not the later name rendering and text assembly.
+cover candidate collection. Later name rendering and text assembly have separate bounds.
 
 Quality-type checks and reports share `firstInvalidInstanceCosted`. It returns
 the first instance that violates the supplied condition, in declaration order.
@@ -2905,7 +2905,7 @@ functional evidence costs 394: 175 for the Boolean check, 181 for the separate
 search, and 38 for names, text, branch selection, and output. The tests check
 these exact counts, empty domains, early and late target witnesses, duplicate
 facts, field isolation, and the public report's row order. These are primitive
-operation counts, not wall-clock measurements.
+operation counts. They make no wall-clock claim.
 
 Each quality collector costs at most `35T+1` and returns `N ≤ T` indices. The two
 required-missing builders add at most `9N+18` and `9N+12` for rendering and
@@ -3139,10 +3139,10 @@ discovery and context traversal.
 
 Generic formula rendering costs at most `F·(20E+39)` primitive operations for
 `F` formula nodes and `E` environment bindings. The bound is monotone in both
-parameters. `F` counts syntax-tree occurrences, including repeated subtrees,
-not only distinct heap objects. Rendering follows formula syntax without
-enumerating thing or world domains. This theorem concerns formula text. Formula evaluation has
-separate, domain-dependent costs.
+parameters. `F` counts syntax-tree occurrences, so each repeated subtree counts
+again. It does not count distinct heap objects. Rendering follows formula syntax
+without enumerating thing or world domains. This theorem concerns formula text.
+Formula evaluation has separate, domain-dependent costs.
 
 Each variable reference scans the environment and renders one indexed name,
 at exact cost `4E+5`. Last-binding lookup and the `#n` fallback remain unchanged.
@@ -3387,7 +3387,7 @@ immediate children. All evaluations and copies remain in the executed counter.
 sE entries and its context by s² traces. A trace stores a successful subformula
 and its variable assignment. Failed disjunctions concatenate environments, so
 the returned environment can exceed E. The proof includes that concatenation.
-These are entry counts, not byte bounds or string-character costs.
+The results count entries. Byte and character costs lie outside these bounds.
 
 The evaluation and minimization bounds are monotone in their size parameters.
 The atomic bound also includes the stored derived-proposition count. Fixed s
@@ -3475,7 +3475,7 @@ witness-search cost. Only the selected recursive path contributes its cost.
 
 The structural recurrence `successTraceCostBound` bounds this counter for any
 formula and environment. The wrapper's bound adds one to that recurrence.
-These trace records are internal evidence, not emitted diagnostic strings.
+The trace records are internal evidence, not emitted diagnostic strings.
 
 Witness search traverses numeric coordinates in ascending order. Its value
 theorem preserves the first match specified by list `findSome?`, but execution
@@ -3695,7 +3695,7 @@ millisecond timing remains too coarse at these sizes for a scaling claim.
 | product | 9 | 23108 | 1336 | 119541 | family search | 234 |
 | projection | 9 | 24431 | 4 | 119541 | projection scan | 1314 |
 
-These rows are measurements, not theorems. In particular, every generated
+The rows report measurements. They provide no theorem. Every generated
 model fails early in the ordered registry, so its aggregate-checker cost does
 not measure the worst-case registry bound. The separate probes all pass.
 The unary scan costs 10n; the dense binary scan costs n(13n + 2), including
@@ -3753,8 +3753,9 @@ The latest all-inclusive run, on 2026-09-13, passed in 362.58 seconds with a
 1,656-job test dependency graph. It covered semantic fixtures, diagnostics,
 certificate export/revalidation, namespace discovery, all user-facing examples,
 and Relator. No suite or benchmark ran alongside it, and no resource limits
-were raised. This was an incremental verification run, not a clean-build
-speed comparison. Subsequent changes affected documentation and comments only.
+were raised. This was an incremental verification run. It provides no
+clean-build speed comparison. Subsequent changes affected documentation and
+comments only.
 
 The proof-facing/executable representation split is also checked against the
 last revision before this refactor (`6a21fd5`). These are wall-clock engineering
@@ -3808,7 +3809,7 @@ The recursive inherence definition remains as a specification; production
 closure and axiom 68 use the proved cubic matrix implementation.
 
 The concrete parser and declaration emitter are inside the documented trusted
-boundary. Lean validates the generated declarations and certificates, but this
-work does not prove the parser itself correct. The benchmark reports runtime
-measurements for comparison with the operational theorem; those measurements
-are not proof evidence.
+boundary. Lean validates the generated declarations and certificates. Parser
+correctness remains outside the proved result. The benchmark reports runtime
+measurements for comparison with the operational theorem. Proof claims do not
+depend on those measurements.

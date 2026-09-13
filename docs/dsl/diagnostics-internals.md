@@ -48,12 +48,12 @@ finite things and worlds. These formulas mirror selected axiom shapes closely
 enough to find a concrete counterexample assignment and render it in DSL
 vocabulary.
 
-These formulas do not replace the core axioms. An incorrect mirror can damage
+The core axioms determine certification. An incorrect formula mirror can damage
 the explanation, but it cannot change the certificate result.
 
 ## Failure minimization
 
-The following sections describe `Diagnostic/AxiomAnalysis.lean`.
+The remaining sections describe `Diagnostic/AxiomAnalysis.lean`.
 `Diagnostic/Analysis.lean` integrates the analyzers and selects the report after
 a proof probe. Its production selector erases `certificationFailureReportCosted`.
 The selector preserves the confirmed/unconfirmed distinction, scans timeout
@@ -65,7 +65,7 @@ failed subformula and keeps successful context that explains why the obligation
 applied. An implication retains its successful antecedent. A disjunction
 retains both failures and joins their assignments in left-to-right order.
 The value theorem proves equality with `minimizeFailureSpec`. This guarantees
-deterministic selection, not a globally smallest counterexample.
+deterministic selection. Global minimality is outside its guarantee.
 
 The count includes formula and branch tests, empty context initialization,
 child computations, and array joins. A join traverses its right operand, so
@@ -101,8 +101,8 @@ instantiated `QualityKind`. The precheck searches facts in source order and
 each fact's resolved worlds in scope order. It returns the first failure
 report, or no report when it finds no failure.
 
-A successful precheck is not a certificate. Lean must still accept the
-generated derived-assertion theorem and the axiom certificates. A failed
+After a precheck succeeds, Lean must still accept the generated
+derived-assertion theorem and the axiom certificates. A failed
 precheck supplies explanatory rows to the widget and stops certificate
 generation for that model.
 

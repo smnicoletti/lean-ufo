@@ -57,8 +57,8 @@ flowchart TD
   K -. "checker and diagnostics tests" .-> H
 ```
 
-The core formalization is the semantic target. The DSL does not define a
-separate ontology: it builds finite `UFOSignature4` interpretations and proves
+The core formalization is the semantic target. The DSL builds finite
+`UFOSignature4` interpretations of that ontology and proves
 that they satisfy the same `UFOAxioms4` package used by the rest of the
 repository.
 
@@ -88,7 +88,8 @@ semantic signature
 
 The consistency checkpoints are model-existence theorems. They establish joint
 satisfiability of the packaged semantic axioms relative to Lean's metatheory and
-the chosen S5 semantics. They are not proof-theoretic consistency results.
+the chosen S5 semantics. The repository contains no proof calculus whose
+proof-theoretic consistency these results could establish.
 
 ## Finite DSL layer
 
@@ -127,8 +128,8 @@ Example.certified : UFOAxioms4 Example.sig
 ```
 
 A successful DSL model leaves a Lean-checked theorem that its generated finite
-semantic signature satisfies the encoded UFO axioms. Acceptance by the command
-frontend alone is not the certificate.
+semantic signature satisfies the encoded UFO axioms. That theorem is the
+certificate.
 
 ## Certificates and diagnostics
 
@@ -201,7 +202,8 @@ The trusted boundary is explicit.
   metaprogramming.
 - After parsing, the main compiler pipeline is pure Lean data transformation.
 - Generated declarations are checked by the Lean kernel.
-- The diagnostics widget is presentation only; it is not proof evidence.
+- The diagnostics widget presents results. The checked Lean declarations carry
+  the proof evidence.
 
 The [DSL architecture](dsl/architecture.md) gives the more detailed trust
 boundary for each DSL transformation.
