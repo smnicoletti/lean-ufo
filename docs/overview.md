@@ -34,7 +34,7 @@ The repository has two layers:
 
 ## What counts as a certified DSL model
 
-A DSL command such as:
+For example, this DSL command:
 
 ```lean
 ufo_model PersonExample : UFO where

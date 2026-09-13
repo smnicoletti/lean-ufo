@@ -8,14 +8,13 @@ The DSL certifies finite models through UFO §4, with 116 registered checks.
 It also reports failures and supports certificate reuse for model extensions.
 All user-facing examples, including Relator, pass the final test profile.
 
-This inventory draws its evidence from Lean theorems and regression tests.
+Lean theorems and regression tests support this inventory.
 [Theoretical notes](theory.md) explain the ontology choices, and
 [Formal guarantees](guarantees.md) separates proved results from trusted code.
 The limits below include the explicit witness data required for axiom 99 and
 the work excluded from the complexity bound.
 
-This page records implemented coverage and known limits. The theorem-level
-contract is in [Formal guarantees](guarantees.md).
+The theorem-level details are in [Formal guarantees](guarantees.md).
 
 The 2026-09-13 local verification covers the compiler, checker, diagnostics,
 and certificate-tool repairs described here. Source checkouts use the development
@@ -159,7 +158,7 @@ release tag. Release notes record the corresponding GitHub Actions results.
   entry-count bounds. Generic reports have a composed formula-size bound for
   evidence, assignment search, registry selection, text, and retained output.
   Their selected report bound is included explicitly in the source-to-workflow
-  theorem; it is not folded into a uniform polynomial for arbitrary formulas.
+  theorem. Arbitrary formulas have no uniform polynomial claim.
 - Paths returned by diagnostic reconstruction from a successfully compiled
   source follow the produced model's inherence edges and end at the requested
   target. Reconstruction succeeds exactly for reachable pairs within the

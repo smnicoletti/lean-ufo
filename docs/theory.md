@@ -4,7 +4,7 @@
 
 ## Overview
 
-These notes explain what the encoded UFO axioms mean and what Lean proves
+These notes state what the encoded UFO axioms mean and what Lean proves
 about them. The method interprets objects and relations across possible worlds
 using constant-domain S5 semantics: accessible worlds form equivalence classes.
 
@@ -15,12 +15,12 @@ satisfiability witnesses, models that keep predicates nonempty, and a relator
 counterexample that motivates the selected part-based repair of axiom (a73).
 Any added assumptions are stated separately.
 
-These notes record the semantic choices, formal milestones, S5 consequences,
+The discussion records the semantic choices, formal milestones, S5 consequences,
 and structural assumptions made explicit by the Lean axiomatization.
 
 ## Semantic framework
 
-Lean UFO is a semantic formalization, not a proof calculus for UFO.
+Lean UFO formalizes UFO semantics. It does not define a UFO proof calculus.
 
 The core development uses:
 
@@ -64,9 +64,9 @@ satisfying the packaged axioms.
 
 Each UFO fragment is represented by:
 
-- a semantic signature, such as `UFOSignature3_7`;
-- axiom propositions, such as `ax_a56` through `ax_a61`;
-- an axiom package typeclass, such as `UFOAxioms3_7`.
+- a semantic signature, for example `UFOSignature3_7`;
+- axiom propositions, for example `ax_a56` through `ax_a61`;
+- an axiom package typeclass, for example `UFOAxioms3_7`.
 
 A concrete model consists of a signature plus an instance of the relevant axiom
 package:
@@ -98,8 +98,8 @@ The intended reading is joint satisfiability relative to:
 - the chosen constant-domain S5 semantics;
 - the additional structural assumptions listed below.
 
-It is not a proof-theoretic claim about derivability from a
-syntactic UFO calculus.
+It makes no proof-theoretic claim about derivability from a syntactic UFO
+calculus.
 
 These checkpoints establish ordinary joint satisfiability. They do not require
 every primitive predicate to have a nonempty extension. The stronger and
@@ -227,7 +227,7 @@ paper's modal constraints inside S5.
 
 ## Formalization milestones
 
-The following inventory records the mechanized content section by section.
+The inventory below records the mechanized content section by section.
 
 ### Section 3.1: types, individuals, instantiation
 
@@ -551,7 +551,7 @@ no_relatorKinds  : forall t w, not (Sig.RelatorKind t w)
 
 The printed overlap-based (a73) therefore makes the relator branch empty when
 combined with the retained §3.10 background. This is a theorem about the
-historical package, not the active corrected `UFOAxioms3_10` package.
+historical package. The active corrected package is `UFOAxioms3_10`.
 
 #### First repair attempt: distinct proper parts
 
@@ -597,7 +597,7 @@ The distinctness guard alone cannot support a positive model with a nonempty
 relator. Under the existing mereology and reflexive existential
 dependence, `ax_a79_distinct_guard` and the original (a79) imply one another.
 The guard is therefore retained as a failed experiment and possible
-clarification of pairwise intent, not as a semantic repair.
+clarification of pairwise intent. It does not repair the semantics.
 
 #### Selected repair: part-based (a73)
 
@@ -833,7 +833,7 @@ def ax_instEndurant_of_EndurantType : Prop :=
 
 Intended reading: an instance of an endurant type is an endurant.
 
-This typing principle is used by results such as `th_t16` and by the Section
+This typing principle is used by `th_t16` and by the Section
 3.4 endurant-type taxonomy results.
 
 ### Subtypes of kinds are sortals
@@ -925,7 +925,7 @@ ModelName.certified : UFOAxioms4 ModelName.sig
 ModelName.certifiedModel : FiniteModel4.Certified ModelName.data
 ```
 
-The DSL does not change the semantic target. It is an interface for building
+The DSL builds finite models for the same semantic target. It is an interface for building
 finite signatures and producing certificates against the same core axiom
 packages described above.
 

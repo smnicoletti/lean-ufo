@@ -5,8 +5,9 @@
 ## Overview
 
 Changes to the DSL must preserve both model meaning and usable certification.
-This guide identifies the files to change, the proof boundaries to maintain,
-and the tests to run. It also covers certificate export and validation.
+The sections below identify the files to change, the proof boundaries to
+maintain, and the tests to run. They also cover certificate export and
+validation.
 
 The working method is to keep one executable implementation, prove its
 connection to the specification, and test representative successes and failures.
@@ -80,8 +81,8 @@ Frontend/SurfaceSyntax grammar
 
 `Syntax.lean` is allowed to use metaprogramming because it is the command
 frontend. Keep the middle of the pipeline as pure Lean data transformation when
-possible; this makes it testable and permits proofs that do not depend on
-elaborator state.
+possible. Pure transformations are testable and support proofs that do not
+depend on elaborator state.
 
 ## Diagnostics versus certification
 
@@ -129,8 +130,8 @@ Model.certificateManifest : CertificateManifest
 ```
 
 `Model.source` is the parsed, reusable source artifact before name resolution.
-`Model.certificateManifest` is provenance/export metadata. It is not proof
-evidence; the proof evidence remains the generated Lean theorems.
+`Model.certificateManifest` is provenance and export metadata. The generated
+Lean theorems remain the proof evidence.
 
 Exact-source extension aliases may reuse a parent's `checked_axN` theorem under
 ordinary `certify`. `certify_fresh` disables that reuse and regenerates the
@@ -154,8 +155,8 @@ CertificateReuse.reused_aggregate_checker_certified_sound
 CertificateReuse.certificateReuseSource_fresh_none
 ```
 
-Footprints are planning metadata. They do not prove
-an axiom and they are not trusted as cache hits. Reuse remains correct because
+Footprints are planning metadata. They neither prove an axiom nor act as trusted
+cache hits. Reuse remains correct because
 Lean checks the concrete Boolean equality needed to transport a parent
 `checked_axN` theorem to the child.
 
@@ -197,7 +198,8 @@ escaped components remain supported. Expressions, extra commands, and comments
 outside escaped components are rejected. The original theorem-name strings
 remain unchanged for manifest comparisons.
 The module itself must be trusted: importing it can run Lean initializers.
-Git metadata records export context, not authenticated historical provenance.
+Git metadata records export context. It does not authenticate historical
+provenance.
 
 Generated scripts use private temporary directories, and digest inputs use
 secure temporary files. Both are removed after use, including on errors.
@@ -270,14 +272,14 @@ completeness and direct negative-probe routing when the checker is equivalent to
 the core axiom without extra representation assumptions.
 
 When touching model-extension code, keep `extendModelSource` as the only merge
-point. It currently rejects child-added worlds so parent `everywhere` facts keep
+point. It rejects child-added worlds so parent `everywhere` facts keep
 their original expansion. Do not add implicit re-expansion in the frontend until
 the scoping semantics is explicitly decided.
 
 The §3.12 checker-backed fields include membership-dependent obligations
 whose finite content is available through `FiniteModel4.memberOf`. The semantic
 `SetExtension` field is derived from that table, so `MemberOf` and
-`NonEmptySet` proofs can be related back to executable Boolean scans. This now
+`NonEmptySet` proofs can be related back to executable Boolean scans. The code
 covers the proper-subset obligation in `ax90` and the simple/complex
 quality-type obligations in `ax95`-`ax98`.
 
@@ -390,11 +392,10 @@ using completeness.
 
 The proof has two limits:
 
-- The closure checker proves semantic finite-model correctness, not a wall-clock
-  runtime bound for Lean, Lake, or compiled native code.
-- The generic generated simplifier is not the right proof path for hard
-  checker-backed counterexamples such as transitive closure. Prefer a
-  checker-aware negative probe whenever a direct completeness theorem is
+- The closure checker proves semantic finite-model correctness. Wall-clock
+  runtime for Lean, Lake, and compiled native code lies outside the result.
+- Hard checker-backed counterexamples, including transitive closure, require a
+  dedicated proof path. Prefer a checker-aware negative probe whenever a direct completeness theorem is
   available.
 
 Use these commands for targeted performance work:

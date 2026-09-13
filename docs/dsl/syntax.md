@@ -177,8 +177,8 @@ export_certificate CarBase
 ```
 
 The marker emits `CarBase.exportRequested : Bool := true`. It is metadata for
-the Lake exporter, not proof evidence. The exporter reads this declaration from
-the compiled module. Comments that resemble markers have no effect, and a
+the Lake exporter. Proof evidence remains in the checked Lean theorems. The
+exporter reads this declaration from the compiled module. Comments that resemble markers have no effect, and a
 namespaced model keeps its full Lean name.
 
 Export and validation are ordinary Lake workflows:
@@ -291,7 +291,7 @@ Current supported derived assertions include:
 - `ComponentOf(x, y, t, u)`
 - `Constitution(x, y, t, u)`
 
-The compiler also computes definition-like predicates such as `Type` and
+The compiler also computes definition-like predicates, including `Type` and
 `Individual`, but those are not surface assertions.
 
 ## Quality and distance primitives

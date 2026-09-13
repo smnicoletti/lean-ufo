@@ -11,11 +11,12 @@ The directory map assigns each step one owner.
 The design uses proved links between representations and counts attached to
 executable operations. Its [research grounding](complexity.md#references)
 includes cost-aware semantics and verified algorithms. RadixExperiment informs
-the organization of implementation-correctness proofs, not the complexity result.
+the organization of implementation-correctness proofs. Lean UFO proves its own
+complexity result.
 The outcome is a certificate for the encoded UFO axioms and a separate bound
 on selected algorithmic work, with frontend and Lean-processing limits.
 
-This guide traces a finite UFO model from surface syntax to Lean-checked
+This page traces a finite UFO model from surface syntax to Lean-checked
 certificates and diagnostics. It also records module ownership and the formal
 guarantees available at each boundary.
 
@@ -40,8 +41,9 @@ LeanUfo/UFO/DSL/
   Complexity.lean    aggregate import for complexity results
 ```
 
-An aggregate file contains imports and orientation, not another implementation.
-In particular, `Checker.lean` and `Complexity.lean` do not duplicate their
+An aggregate file contains imports and orientation. Implementations remain in
+the imported modules.
+`Checker.lean` and `Complexity.lean` do not duplicate their
 subdirectories. `Certification.lean` supplies decidability for packaged finite
 axioms, whereas `Certificate/` emits and reuses concrete theorem declarations;
 the similar names describe different stages.
@@ -258,8 +260,8 @@ The compiler performs:
 - **scope expansion**: expands `given everywhere:` into one fact per declared
   world;
 - **taxonomy expansion**: adds encoded UFO taxonomy ancestors implied by
-  classifications such as `ObjectKind(Person)`;
-- **reflexive specialization insertion**: adds facts such as `Person ⊑ Person`
+  classifications, including `ObjectKind(Person)`;
+- **reflexive specialization insertion**: adds facts including `Person ⊑ Person`
   where the encoded specialization axioms require them;
 - **table compilation**: builds Boolean finite tables for unary predicates,
   binary relations, ternary relations, membership, tuple projection, distance,
@@ -393,7 +395,7 @@ flowchart TD
 
 Checker code is divided among:
 
-- `Checker/Basic.lean`: shared finite scans such as all-world and all-thing
+- `Checker/Basic.lean`: shared finite scans, including all-world and all-thing
   loops;
 - `Checker/Axioms.lean`: executable axiom checkers;
 - `Checker/Soundness.lean`: soundness and completeness theorems;
@@ -480,8 +482,8 @@ Each certified model also emits:
 Model.certificateManifest : CertificateManifest
 ```
 
-The manifest is provenance and export metadata, not proof evidence. It records
-the model name, Lean version, axiom package, checker name, source and finite
+The manifest records provenance and export metadata: the model name, Lean
+version, axiom package, checker name, source and finite
 model fingerprints, per-field theorem names, and whether a field was checked
 fresh or reused. The Lean theorem declarations remain the authoritative
 certificate. The Lean declaration stores compact structural fingerprints and
@@ -534,7 +536,7 @@ It also connects reconstruction to the checker on the returned model. Field
 names are resolved by the emitter, not by a new runtime dispatch table. Costs
 remain outside generated proof goals to keep kernel reduction compact.
 
-A registry row is a reuse plan, not proof evidence. Once the planner selects a
+A registry row records a reuse plan. Once the planner selects a
 parent, the generator emits a child `checked_axN` theorem that proves by computation:
 
 ```lean
@@ -547,7 +549,7 @@ falls back to a fresh `checked_axN` proof for the child. The manifest records
 the actual result after this fallback, so a field is marked `reused` only when a
 Lean-checked reuse theorem was really emitted.
 
-Reuse is a Lean proof, not a trusted cache lookup. The
+Reuse requires a Lean proof. The
 formal proof pattern is recorded in `Guarantees.lean`:
 
 ```lean
@@ -600,8 +602,8 @@ ordinary Lean theorem in the environment.
 
 ## Negative certificates and diagnostics
 
-Negative certification is not part of the success path. It is a diagnostic
-probe used after a model fails.
+The frontend runs the negative diagnostic probe only after positive
+certification fails.
 
 ```mermaid
 flowchart TD
