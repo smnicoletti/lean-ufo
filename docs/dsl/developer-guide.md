@@ -2,6 +2,20 @@
 
 [Docs home](../README.md) · [Project README](../../README.md)
 
+## Overview
+
+Changes to the DSL must preserve both model meaning and usable certification.
+This guide identifies the files to change, the proof boundaries to maintain,
+and the tests to run. It also covers certificate export and validation.
+
+The working method is to keep one executable implementation, prove its
+connection to the specification, and test representative successes and failures.
+[Formal guarantees](../guarantees.md) supplies the required results.
+The [complexity guide](complexity.md#references) explains the cost-aware semantics
+and verified-algorithm literature behind the accounting. These checks help
+prevent a correct-looking refactor from changing answers or making models
+uncertifiable.
+
 Use this guide when changing the finite UFO DSL internals. Read the
 [DSL architecture](architecture.md) first for the conceptual pipeline.
 For theorem statements and what they guarantee, use

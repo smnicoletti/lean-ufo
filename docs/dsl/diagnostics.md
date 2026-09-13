@@ -2,6 +2,19 @@
 
 [Docs home](../README.md) · [Project README](../../README.md)
 
+## Overview
+
+The diagnostics tell you whether a model certified, which check failed, and
+which facts help explain the failure. They distinguish a proved counterexample
+from a timeout or an unclassified proof failure.
+
+The reports come from searches over the compiled finite model. Their meaning
+rests on the [encoded UFO semantics](../theory.md) and
+[certificate guarantees](../guarantees.md), not on the widget itself.
+This guide explains how to read the output. The
+[internals guide](diagnostics-internals.md) covers evidence selection and its
+counted algorithms.
+
 The DSL frontend saves a VS Code diagnostics widget for each
 `ufo_model ... certify` command. It also emits terminal errors for failed
 commands. The widget is saved when the command reaches a terminal success or

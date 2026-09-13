@@ -2,6 +2,19 @@
 
 [Docs home](../README.md) · [Project README](../../README.md)
 
+## Overview
+
+Diagnostics turn a failed check into named objects, relations, and missing
+witnesses that a model author can inspect. The implementation searches finite
+tables, selects evidence in a fixed order, and limits the displayed output.
+
+A Lean proof of the failed axiom's negation confirms a semantic counterexample.
+A failed proof attempt alone does not. Operation counts cover the selected
+searches and report construction, following the compositional cost method
+described in the [complexity guide](complexity.md#references), including Niu
+and colleagues' cost-aware semantics. The bounds and output limits are
+separate from the correctness of a generated counterexample theorem.
+
 Diagnostics explain rejected derived claims and failed generated certificates.
 They reconstruct source-level evidence from compiled finite tables. Their
 explanations do not replace Lean's checks of generated theorem declarations.

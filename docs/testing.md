@@ -2,6 +2,19 @@
 
 [Docs home](README.md) · [Project README](../README.md)
 
+## Overview
+
+The tests check answers, operation counts, and whether examples still certify.
+Small fixtures expose individual errors. End-to-end fixtures exercise the
+compiler, checker, diagnostics, and certificate tools together.
+
+The expected results come from the [formal guarantees](guarantees.md) and
+the [counted algorithms](dsl/complexity.md), whose guide includes the research
+sources. Tests catch regressions; the Lean theorems establish general claims.
+For a final DSL check, `LEANUFO_PERFORMANCE_TESTS=1 lake test` runs the full
+profile, including every user-facing example and Relator. Timings need matched
+build conditions before they can establish a speedup.
+
 The test driver is:
 
 ```text
@@ -207,8 +220,8 @@ An expensive reachability callback verifies that a moment candidate skips it.
 Existence-scan tests exhaust all sixteen two-world existence patterns.
 Exact counts distinguish a first-world counterexample (20) from a second-world
 counterexample after a false premise (32). Opposite-direction counterexamples
-cost 55 for independence. Definition checks 63 and 64 retain both source
-occurrences in their counts, subject to AMB-004.
+cost 55 for independence. Definition checks 63 and 64 compute their shared
+predicate once and charge its search once per assignment.
 Inherence tests cover skipped implications, failed dependence, missing moment
 classification, successful instance search, concrete-individual fallback, and
 two distinct bearers. Shared-caller tests check the external-dependence early
@@ -383,9 +396,8 @@ target witnesses, absent source instances, failed functions-as reads, and
 world isolation. A 32-case truth table checks the generic predicate.
 Constitution tests exercise classification agreement, kind restrictions,
 witness order, and persistence across two worlds. Sixteen classification
-combinations check axiom 56. Exact tests for axioms 53–55 and 58–59 describe
-the source counter, which charges both predicate occurrences. Native
-compilation currently shares those identical calls; AMB-004 remains open.
+combinations check axiom 56. Exact tests for axioms 53–55 and 58–59 require
+one computation and one charge for each shared predicate per assignment.
 The query module has 220 examples.
 
 `Complexity/Reports.lean` checks the composed generic-report bounds through the

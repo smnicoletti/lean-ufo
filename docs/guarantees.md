@@ -2,6 +2,18 @@
 
 [Docs home](README.md) · [Project README](../README.md)
 
+## Overview
+
+A certified model comes with a Lean theorem that it satisfies the encoded UFO
+axioms. Separate proofs connect compiled tables to their meaning and bound
+the algorithmic work of checking them. Those are different guarantees.
+
+The methods combine semantic proofs, finite Boolean checks, and operation
+counts attached to executable algorithms. The [theoretical notes](theory.md)
+ground the ontology claims. The [complexity references](dsl/complexity.md#references)
+explain the cost-aware and verified-algorithm methods. Parsing, Lean's native
+evaluator, and proof processing have explicit trust or cost limits below.
+
 This page maps Lean UFO's guarantees to their theorem statements. It keeps
 three boundaries separate:
 
@@ -9,12 +21,11 @@ three boundaries separate:
 - what the executable DSL compiler and checker compute;
 - what remains trusted frontend or diagnostic presentation code.
 
-The [DSL behavior contract](dsl/behavior-contract.md) records open repair
-obligations. The source-linked workflow theorem now composes the compiler,
+The source-linked workflow theorem composes the compiler,
 derived assertions, scheduled native checks, and selected failure analysis.
 Its [scope and assumptions](dsl/complexity.md#source-to-workflow-composition)
-exclude Lean proof work and code emission. Fix 5 passed its final regression,
-performance, axiom-audit, and review checks; the contract records the evidence.
+exclude Lean proof work and code emission. The [testing guide](testing.md)
+describes the regression tests and proof-dependency audits.
 
 The relevant theorem files are:
 
@@ -741,8 +752,8 @@ and ternary reads cost eight, eleven, and fourteen operations, respectively.
 Compiled part and overlap queries first test coordinate equality. Equal
 coordinates cost two operations and skip the table read; unequal coordinates
 cost thirteen.
-These are source-level cost equalities. The eleven checks identified
-in AMB-004 bind their shared predicate once and charge it once per assignment.
+These are source-level cost equalities. Checks 1, 53–55, 58–59, 63–64,
+69–70, and 74 bind their shared predicate once and charge it once per assignment.
 Further native optimization is outside this operational model. The
 [workflow theorem](dsl/complexity.md#source-to-workflow-composition) composes
 source compilation, native proof requests, retries, and selected reports.

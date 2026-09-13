@@ -2,6 +2,19 @@
 
 [Docs home](../README.md) · [Developer guide](developer-guide.md) · [Project README](../../README.md)
 
+## Overview
+
+A model moves from named facts to finite tables, Boolean checks, and Lean
+certificates. When a check fails, diagnostics inspect those same tables.
+The directory map assigns each step one owner.
+
+The design uses proved links between representations and counts attached to
+executable operations. Its [research grounding](complexity.md#references)
+includes cost-aware semantics and verified algorithms. RadixExperiment informs
+the organization of implementation-correctness proofs, not the complexity result.
+The outcome is a certificate for the encoded UFO axioms and a separate bound
+on selected algorithmic work, with frontend and Lean-processing limits.
+
 This guide traces a finite UFO model from surface syntax to Lean-checked
 certificates and diagnostics. It also records module ownership and the formal
 guarantees available at each boundary.

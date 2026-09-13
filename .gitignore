@@ -28,3 +28,4 @@ build/
 
 # Local Codex repository instructions
 /AGENTS.md
+/docs/dsl/behavior-contract.md

@@ -1,11 +1,23 @@
 # Concrete complexity and the verified-DSL boundary
 
-This guide maps the DSL's counted computations to their bounds and intended
-execution model. `Complexity/Certification.lean` now composes source compilation,
-derived assertions, scheduled native checks, and selected failure analysis.
-The [behavior contract](behavior-contract.md) records verification evidence
-and remaining repository repairs. The result concerns the
-source-level algorithmic work defined here, not all work performed by Lean.
+## Overview
+
+The main result bounds the algorithmic work of certifying an explicitly stored
+finite UFO model. The compiler builds indexed tables and a reachability matrix.
+The checker stops when an answer is known. Diagnostics count their searches
+and the evidence they produce. Proofs connect these computations to the
+production workflow and show that adding counters cannot change their answers.
+
+For the fixed 116-check registry, the bound is polynomial in source size.
+Arbitrary formulas have a separate bound that depends on their nesting depth.
+Neither result bounds Lean proof processing or elapsed time.
+
+The [research sources](#references) have distinct roles: Vardi and
+Madelaine–Martin ground the fixed-formula versus variable-formula distinction.
+Niu and Haslbeck inform compositional operation counts. Verified-algorithm
+work by Nipkow and colleagues informs correctness with cost proofs.
+RadixExperiment informs the organization of implementation proofs.
+These are methodological foundations, not imported proofs of Lean UFO.
 
 ## Claims
 
@@ -87,8 +99,7 @@ projecting its value. Runtime overhead remains a performance-testing obligation.
 These are selected source-level operations, not native function-call counts.
 Definition checks 1, 53–55, 58–59, 63–64, 69–70, and 74 bind their shared
 predicate once per visited assignment. Both equivalence operands reuse its
-Boolean answer, and its search cost contributes once. AMB-004 in the
-[behavior contract](behavior-contract.md) records this choice. Lean's native
+Boolean answer, and its search cost contributes once. Lean's native
 compiler can make further optimizations. Full counted correspondence does not
 imply equality with native call counts.
 
@@ -107,8 +118,8 @@ first coordinate. `allFinCosted_eq_list` and `anyFinCosted_eq_list` prove that
 these loops preserve both the result and the visited-prefix cost of the list
 specification. A first-item failure therefore takes the same recorded work
 for one candidate and one million candidates. Array quantifiers also use
-direct indices and charge each visited cell read. Other compiler traversals
-and their accounting repairs remain listed in the behavior contract.
+direct indices and charge each visited cell read. The compiler sections below
+give the costs of name resolution, fact expansion, and table construction.
 
 One array bounds check or access is a unit-cost primitive. Dense initialization
 is charged per cell. Source name indexing includes hash-map insertions and
@@ -170,9 +181,8 @@ six when it is present, including a cell that is itself absent.
 Each native query uses the counted core's erasure through an unconditional
 function equality. The proofs cover raw tables as well as well-formed compiled
 tables. They establish value correspondence, not equal runtime costs for
-sparse kernel reduction and dense native execution. Connecting these query
-costs to the checker's abstract atomic-call counters remains a pipeline proof
-obligation in the [behavior contract](behavior-contract.md).
+sparse kernel reduction and dense native execution. `Complexity/Queries.lean`
+connects concrete table-query costs to the registered checker computations.
 
 The small `Costed` record operations and query definitions inline during
 native compilation. Inlining exposes the selected `value` to Lean's optimizer,
@@ -1018,8 +1028,8 @@ tables. Lean checks the function equality used by compiler simplification
 so absent or stale dense storage cannot change its meaning. The public raw
 constructor `toFiniteModel4` keeps sparse lookup; generated DSL models use
 `toFiniteModel4Cached`, which adds proved closure reuse to the verified primitive
-constructor. See [the repair contract](behavior-contract.md) for
-the remaining operational-accounting obligations.
+constructor. The [workflow theorem](#source-to-workflow-composition) composes
+source compilation, model construction, checks, and selected reports.
 
 `ExplicitTableCorrespondence` packages the unary, binary, ternary, and tuple
 projection results. `explicitCompilationGuarantee` combines that package with
@@ -1678,7 +1688,8 @@ A simple quality has no inhering things: no candidate y has an `inheresIn y x`
 edge to that quality x. A complex quality passes quality classification and
 fails the simple-quality test. The source definition repeats classification
 inside that test. These counts retain both occurrences, subject to the
-native-sharing qualification in AMB-004. No cache is assumed.
+source-level cost model: native optimization can share more work than these
+definitions explicitly share. No cache is assumed.
 
 With T things, each visited inherence test costs fourteen, including negation
 and loop overhead. The search stops at the first edge. Let K = T(25T+23)

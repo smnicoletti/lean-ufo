@@ -2,6 +2,19 @@
 
 [Docs home](README.md) · [Project README](../README.md)
 
+## Overview
+
+These notes explain what the encoded UFO axioms mean and what Lean proves
+about them. The method interprets objects and relations across possible worlds
+using constant-domain S5 semantics: accessible worlds form equivalence classes.
+
+The starting materials are the UFO axioms and theorem statements discussed
+section by section below, together with Kripke possible-world semantics.
+Lean proofs and concrete models check their consequences. Results include
+satisfiability witnesses, models that keep predicates nonempty, and a relator
+counterexample that motivates the selected part-based repair of axiom (a73).
+Any added assumptions are stated separately.
+
 These notes record the semantic choices, formal milestones, S5 consequences,
 and structural assumptions made explicit by the Lean axiomatization.
 

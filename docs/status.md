@@ -2,6 +2,18 @@
 
 [Docs home](README.md) · [Project README](../README.md)
 
+## Overview
+
+The DSL certifies finite models through UFO §4, with 116 registered checks.
+It also reports failures and supports certificate reuse for model extensions.
+All user-facing examples, including Relator, pass the final test profile.
+
+This inventory draws its evidence from Lean theorems and regression tests.
+[Theoretical notes](theory.md) explain the ontology choices, and
+[Formal guarantees](guarantees.md) separates proved results from trusted code.
+The limits below include the explicit witness data required for axiom 99 and
+the work excluded from the complexity bound.
+
 This page records implemented coverage and known limits. The theorem-level
 contract is in [Formal guarantees](guarantees.md).
 
@@ -118,7 +130,8 @@ contract is in [Formal guarantees](guarantees.md).
   equal lookup values for well-bounded finite input, not equal step counts.
   Full value/cost equalities connect 112 checks to the concrete table
   evaluators; axioms 105–108 return `⟨true, 0⟩`. The eleven checks identified
-  in AMB-004 bind each shared predicate once and charge it once per assignment.
+  as 1, 53–55, 58–59, 63–64, 69–70, and 74 bind each shared predicate once
+  and charge it once per assignment.
 - Generated models carry a proved inherence cache. Compilation charges its
   construction, and axiom 68 reads its arrays directly. Source-to-model proofs
   also cover product-family conversion and the resulting model size.
@@ -128,8 +141,9 @@ contract is in [Formal guarantees](guarantees.md).
 - Fixes 6 and 7 validate complete manifest provenance and discover exports
   from module-owned Lean declarations. The final cross-stage review and single
   all-inclusive profile passed on 2026-09-13, including the user-facing examples
-  and Relator. The [review record](dsl/behavior-contract.md#final-cross-stage-review--2026-09-13)
-  lists the closing repairs, evidence, and remaining trust assumptions.
+  and Relator. The run took 362.58 seconds with an incremental build.
+  [Testing](testing.md) describes the profile, and
+  [Formal guarantees](guarantees.md) states the trust assumptions.
 - The diagnostic interpreter has a formula-size cost theorem. Its bound
   includes node count, quantifier depth, domain sizes, environment size, and
   atomic-query costs. The exponent grows with quantifier depth, so this does

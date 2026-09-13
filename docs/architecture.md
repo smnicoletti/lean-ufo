@@ -2,6 +2,17 @@
 
 [Docs home](README.md) · [Project README](../README.md)
 
+## Overview
+
+Lean UFO connects an ontology theory to a finite-model tool. The core states
+the UFO axioms in Lean. The DSL turns named facts into tables, checks them,
+and builds certificates for successful models.
+
+The [theoretical notes](theory.md) explain the UFO and possible-world semantics
+behind the core. The [complexity guide](dsl/complexity.md#references) records the
+research behind counted algorithms and implementation proofs. This page shows
+which layer owns each task and how a model reaches a checked theorem.
+
 Lean UFO has two connected layers:
 
 1. a semantic Lean formalization of UFO fragments;
