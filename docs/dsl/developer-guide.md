@@ -157,8 +157,10 @@ lake exe validate-certificate certificates/CarBase.certificate.json --module Lea
 ```
 
 Use `export_certificate ModelName` in a module to request export of selected
-models. If no export marker is present, the exporter attempts to export all
-certified models declared in the module source. `--structure-only` requires one
+models. If no export marker is present, the exporter exports all certified
+models owned by the compiled module. It does not scan source lines. Lean's
+module metadata preserves namespaces, ignores comments, and distinguishes local
+declarations from imported manifests. `--structure-only` requires one
 well-formed row for each registered certificate field. The default validation
 path requires `--module`. It rebuilds the Lean module, compares every row and
 generated provenance field, checks every named theorem declaration, and

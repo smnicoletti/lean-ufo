@@ -13,6 +13,7 @@ root = "LeanUfoTest"
 [[lean_exe]]
 name = "export-certificates"
 root = "LeanUfo.ExportCertificates"
+supportInterpreter = true
 
 [[lean_exe]]
 name = "validate-certificate"

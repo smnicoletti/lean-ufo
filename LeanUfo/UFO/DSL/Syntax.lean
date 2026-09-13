@@ -517,12 +517,13 @@ private def emitModel
     (scopedFacts : Array ScopedCompiledFact)
     (facts : Array CompiledFact) (productFamilies : Array ProductFamilySpec)
     (tables : FactTables) (reuseFor? : String → Option Name := fun _ => none) :
-    CommandElabM Unit := do
+    CommandElabM Name := do
   if worldNames.isEmpty then
     throwError "a UFO model must declare at least one world"
   if thingNames.isEmpty then
     throwError "a UFO model must declare at least one thing"
 
+  let declaredModel := (← getCurrNamespace) ++ model
   let modelIdent := mkIdent model
   let profileEnabled ← certProfileEnabled
   let initialErrors ← coreMessageErrorCount
@@ -632,11 +633,12 @@ private def emitModel
               actualReuse.findSome? fun row =>
                 if row.1 == field then row.2 else none
             profileStep profileEnabled s!"{model}.manifest" <|
-              elabCommandString (certificateManifestSource model source tables actualReuseFor?)
+              elabCommandString (certificateManifestSource declaredModel source tables actualReuseFor?)
             profileStep profileEnabled s!"{model}.widget" <|
               saveDiagnosticsWidget cmdStx model worldNames thingNames namedFacts scopedFacts facts tables
                 "certified" completed none none #[] actualReuse
   elabCommand (← `(command| end $modelIdent))
+  pure declaredModel
 
 private def parseBlocksAndFamilies
     (worldNames thingNames : Array Name)
@@ -675,15 +677,18 @@ private unsafe def cachedModelSourceFromEnv? (parent : Name) :
 
 private unsafe def resolveParentModelSource (parent : Name) :
     CommandElabM CachedModelSource := do
+  let namespaceParent := (← getCurrNamespace) ++ parent
+  let candidates :=
+    if namespaceParent == parent then #[parent] else #[namespaceParent, parent]
   let cache ← modelSourceCache.get
-  match cache.get? parent with
-  | some cached => pure cached
-  | none =>
-      match (← cachedModelSourceFromEnv? parent) with
-      | some cached => pure cached
-      | none =>
-          throwError
-            "unknown parent UFO model `{parent}` for extension; expected `{parent}.source` and `{parent}.tables` to be available from an earlier model or an imported module"
+  for candidate in candidates do
+    if let some cached := cache.get? candidate then
+      return cached
+  for candidate in candidates do
+    if let some cached ← cachedModelSourceFromEnv? candidate then
+      return cached
+  throwError
+    "unknown parent UFO model `{parent}` for extension; expected `{parent}.source` and `{parent}.tables` to be available from an earlier model or an imported module"
 
 private def makeReusePlan
     (parent? : Option CachedModelSource) (source : ModelSource) (childTables : FactTables)
@@ -703,11 +708,12 @@ private def emitCompiledModelSource
     match compileModelSource source with
     | .ok compiled => pure compiled
     | .error err => throwResolveError err
-  emitModel cmdStx model (namesFromStrings source.worlds) (namesFromStrings source.things)
-    source source.facts compiled.scopedFacts compiled.expandedFacts compiled.productFamilies
-    compiled.tables (makeReusePlan parent? source compiled.tables fresh)
+  let declaredModel ←
+    emitModel cmdStx model (namesFromStrings source.worlds) (namesFromStrings source.things)
+      source source.facts compiled.scopedFacts compiled.expandedFacts compiled.productFamilies
+      compiled.tables (makeReusePlan parent? source compiled.tables fresh)
   modelSourceCache.modify (fun cache =>
-    cache.insert model { source, tables := compiled.tables, declaredName := model })
+    cache.insert declaredModel { source, tables := compiled.tables, declaredName := declaredModel })
 
 elab_rules : command
   | `(ufo_model $model:ident : UFO where

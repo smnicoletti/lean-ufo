@@ -585,6 +585,48 @@ def checkCertificateExportWorkflow : IO (Array String) := do
   catch e => failures := failures.push s!"certificate name safety: {e.toString}"
   pure failures
 
+private def directoryFileNames (dir : System.FilePath) : IO (Array String) := do
+  let mut names := #[]
+  for entry in (← dir.readDir) do
+    names := names.push entry.fileName
+  pure names
+
+/--
+Check module ownership, namespaces, comments, and explicit selection through
+the public exporter. Each fixture imports other manifests, so an ownership bug
+would create extra files even though the selected local models are correct.
+-/
+def checkCertificateDiscoveryWorkflow : IO (Array String) :=
+  IO.FS.withTempDir fun root => do
+    let markedModule := "LeanUfo.Test.Certificates.ExportDiscoveryMarked"
+    let fallbackModule := "LeanUfo.Test.Certificates.ExportDiscoveryFallback"
+    let markedDir := root / "marked"
+    let fallbackDir := root / "fallback"
+    let mut failures := #[]
+    failures := failures ++ (← checkCommand "marked discovery fixture build" "lake"
+      #["build", markedModule])
+    failures := failures ++ (← checkCommand "fallback discovery fixture build" "lake"
+      #["build", fallbackModule])
+    failures := failures ++ (← checkCommand "marked manifest discovery" "lake"
+      #["exe", "export-certificates", "--module", markedModule, "--out", markedDir.toString])
+    failures := failures ++ (← checkCommand "fallback manifest discovery" "lake"
+      #["exe", "export-certificates", "--module", fallbackModule, "--out", fallbackDir.toString])
+    failures := failures ++ (← checkCommand "namespaced manifest recheck" "lake"
+      #["exe", "validate-certificate",
+        (markedDir / "ExportDiscoveryFixture.Selected.certificate.json").toString,
+        "--module", markedModule])
+    if failures.isEmpty then
+      let markedNames ← directoryFileNames markedDir
+      let fallbackNames ← directoryFileNames fallbackDir
+      unless markedNames.size == 1 &&
+          markedNames.contains "ExportDiscoveryFixture.Selected.certificate.json" do
+        failures := failures.push s!"marked discovery returned unexpected files: {markedNames}"
+      unless fallbackNames.size == 2 &&
+          fallbackNames.contains "ExportFallbackFixture.First.certificate.json" &&
+          fallbackNames.contains "ExportFallbackFixture.Second.certificate.json" do
+        failures := failures.push s!"fallback discovery returned unexpected files: {fallbackNames}"
+    pure failures
+
 /--
 Build the user-facing aggregate, which includes `RelatorProbe`, then build the
 Relator semantic fixture. Use equivalent clean build directories for
@@ -646,6 +688,7 @@ def main : IO UInt32 := do
         failures := failures ++ (← checkExpectedOutput test)
     if selected.isEmpty || selected.contains "all" then
       failures := failures ++ (← checkCertificateExportWorkflow)
+      failures := failures ++ (← checkCertificateDiscoveryWorkflow)
     if (← performanceTestsEnabled) then
       failures := failures ++ (← checkPerformanceFixtures)
   if failures.isEmpty then

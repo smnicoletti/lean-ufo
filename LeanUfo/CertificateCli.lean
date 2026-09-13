@@ -190,61 +190,36 @@ unsafe def evalExportRequested? (env : Environment) (modelName : Name) : IO Bool
   | .ok value => pure value
   | .error _ => pure false
 
-unsafe def moduleManifests (env : Environment) :
+/-!
+Manifest discovery reads declarations from the compiled Lean module. This
+avoids treating comments as commands and preserves the namespace that Lean
+assigned to each model. The module-index check excludes manifests imported
+from dependencies.
+-/
+unsafe def moduleManifests (env : Environment) (moduleName : Name) :
     IO (Array (Name × LeanUfo.UFO.DSL.CertificateManifest × Bool)) := do
+  let some moduleIdx := env.getModuleIdx? moduleName
+    | throw <| IO.userError s!"could not find loaded module `{moduleName}`"
   let mut out := #[]
   for (declName, _info) in env.constants.toList do
-    if nameLast? declName == some "certificateManifest" then
+    if env.getModuleIdxFor? declName == some moduleIdx &&
+        nameLast? declName == some "certificateManifest" then
       match nameParent? declName, (← evalManifest? env declName) with
       | some modelName, some manifest =>
           let requested ← evalExportRequested? env modelName
           out := out.push (modelName, manifest, requested)
       | _, _ => pure ()
-  pure out
-
-def moduleSourcePath (moduleName : Name) : System.FilePath :=
-  let rel := moduleName.toString.replace "." "/"
-  (rel ++ ".lean")
-
-private def firstIdentifierAfter (pfx line : String) : Option String :=
-  if !line.trimAscii.toString.startsWith pfx then
-    none
-  else
-    let rest := (line.trimAscii.toString.drop pfx.length).trimAscii.toString
-    rest.splitOn " " |>.head?
-
-def sourceExportMarkers (content : String) : Array String :=
-  content.splitOn "\n" |>.foldl (init := #[]) fun acc line =>
-    match firstIdentifierAfter "export_certificate " line with
-    | some name => acc.push name
-    | none => acc
-
-def sourceModelNames (content : String) : Array String :=
-  content.splitOn "\n" |>.foldl (init := #[]) fun acc line =>
-    match firstIdentifierAfter "ufo_model " line with
-    | some name => acc.push name
-    | none => acc
+  pure <| out.qsort fun left right => left.1.toString < right.1.toString
 
 unsafe def manifestByModel? (env : Environment) (model : Name) :
     IO (Option LeanUfo.UFO.DSL.CertificateManifest) :=
   evalManifest? env (Name.str model "certificateManifest")
 
-unsafe def moduleManifestsFromSource (env : Environment) (moduleName : Name) :
-    IO (Array (Name × LeanUfo.UFO.DSL.CertificateManifest × Bool)) := do
-  let path := moduleSourcePath moduleName
-  if !(← path.pathExists) then
-    pure #[]
-  else
-    let content ← IO.FS.readFile path
-    let markers := sourceExportMarkers content
-    let candidateNames := if markers.isEmpty then sourceModelNames content else markers
-    let mut out := #[]
-    for modelString in candidateNames do
-      let model := modelString.toName
-      match (← manifestByModel? env model) with
-      | some manifest => out := out.push (model, manifest, markers.contains modelString)
-      | none => pure ()
-    pure out
+def selectModuleManifests
+    (manifests : Array (Name × LeanUfo.UFO.DSL.CertificateManifest × Bool)) :
+    Array (Name × LeanUfo.UFO.DSL.CertificateManifest × Bool) :=
+  let requested := manifests.filter fun entry => entry.2.2
+  if requested.isEmpty then manifests else requested
 
 def usageExport : String :=
   "usage: lake exe export-certificates --module Module.Name --out certificates/"

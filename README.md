@@ -205,6 +205,11 @@ lake exe validate-certificate certificates/CarBase.certificate.json --structure-
 lake exe validate-certificate certificates/CarWithWindow.certificate.json --module LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension
 ```
 
+The exporter reads compiled Lean declarations. It honors namespaced
+`export_certificate` markers and excludes manifests imported from other
+modules. If the module has no marker, it exports all manifests owned by that
+module.
+
 `--structure-only` checks the JSON metadata and requires one well-formed entry
 for each of the 116 certificate fields. The default validation path requires
 `--module`. It rebuilds the Lean module, checks every theorem named by the

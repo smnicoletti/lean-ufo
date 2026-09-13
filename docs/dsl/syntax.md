@@ -164,7 +164,9 @@ export_certificate CarBase
 ```
 
 The marker emits `CarBase.exportRequested : Bool := true`. It is metadata for
-the Lake exporter, not proof evidence.
+the Lake exporter, not proof evidence. The exporter reads this declaration from
+the compiled module. Comments that resemble markers have no effect, and a
+namespaced model keeps its full Lean name.
 
 Export and validation are ordinary Lake workflows:
 

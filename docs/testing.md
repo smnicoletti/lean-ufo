@@ -1132,6 +1132,9 @@ profile. The full profile also injects commands into final and per-field
 theorem names and checks that validation rejects them without creating a marker
 file. Direct digest-helper tests cover callers that bypass the CLI wrapper.
 The ordinary export and proof-recheck cases remain the successful controls.
+`ExportDiscoveryMarked.lean` checks namespaced marked selection, comments, and
+import ownership. `ExportDiscoveryFallback.lean` checks the no-marker rule: all
+and only manifests owned by that module are exported.
 
 Release automation uses the same commands after setting the manifest artifact
 version in the runner workspace with:

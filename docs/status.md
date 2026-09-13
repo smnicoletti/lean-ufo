@@ -125,8 +125,9 @@ contract is in [Formal guarantees](guarantees.md).
   Diagnostic and checker family searches have proved equal answers, with
   separate costs. `lake exe complexity-benchmarks` exercises sparse, dense,
   cyclic, product-family, and projection-heavy inputs.
-  Fix 5 passed the all-inclusive performance profile and final review. Work
-  pauses before the remaining manifest and export-discovery repairs.
+- Fixes 6 and 7 validate complete manifest provenance and discover exports
+  from module-owned Lean declarations. Their focused workflows pass. The final
+  cross-stage review and all-inclusive profile remain pending.
 - The diagnostic interpreter has a formula-size cost theorem. Its bound
   includes node count, quantifier depth, domain sizes, environment size, and
   atomic-query costs. The exponent grows with quantifier depth, so this does
