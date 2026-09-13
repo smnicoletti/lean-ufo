@@ -4,10 +4,10 @@
 
 ## Overview
 
-Changes to the DSL must preserve both model meaning and usable certification.
-The sections below identify the files to change, the proof boundaries to
-maintain, and the tests to run. They also cover certificate export and
-validation.
+> [!IMPORTANT]
+> **Bottom line.** Change the module that owns the behavior, preserve the
+> executable/specification correspondence, and run the narrowest relevant test
+> before the final full certification profile.
 
 The working method is to keep one executable implementation, prove its
 connection to the specification, and test representative successes and failures.
@@ -22,6 +22,14 @@ Use this guide when changing the finite UFO DSL internals. Read the
 For theorem statements and what they guarantee, use
 [Formal guarantees](../guarantees.md). Examples live under
 `LeanUfo/UFO/DSL/ConcreteExamples` and are outside this guide's scope.
+
+| Change | Start here | Preserve |
+| --- | --- | --- |
+| Surface syntax | `Frontend/SurfaceSyntax.lean` | Existing accepted model syntax |
+| Source compilation | `Compiler.lean` | Source meaning, coordinate bounds, and table correspondence |
+| Axiom checker | `Checker/Axioms.lean` | Registry order, soundness, and cost theorem |
+| Certificate flow | `Certificate/` | Checked proof requests, fallback order, and reuse evidence |
+| Diagnostics | `Diagnostic/` | Certificate result and deterministic evidence order |
 
 ## File map
 

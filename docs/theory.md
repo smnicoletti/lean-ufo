@@ -4,19 +4,35 @@
 
 ## Overview
 
-These notes state what the encoded UFO axioms mean and what Lean proves
-about them. The method interprets objects and relations across possible worlds
-using constant-domain S5 semantics: accessible worlds form equivalence classes.
+> [!IMPORTANT]
+> **Bottom line.** Lean UFO gives the selected UFO fragments a precise
+> possible-world semantics and checks their consequences in Lean. Concrete
+> models establish satisfiability checkpoints. The relator analysis explains
+> why active axiom (a73) uses parthood instead of the printed overlap formula.
 
 The starting materials are the UFO axioms and theorem statements discussed
 section by section below, together with Kripke possible-world semantics.
-Lean proofs and concrete models check their consequences. Results include
-satisfiability witnesses, models that keep predicates nonempty, and a relator
-counterexample that motivates the selected part-based repair of axiom (a73).
-Any added assumptions are stated separately.
+Lean proofs and concrete models check their consequences. Any added assumptions
+are stated separately.
 
-The discussion records the semantic choices, formal milestones, S5 consequences,
-and structural assumptions made explicit by the Lean axiomatization.
+| Result family | What it establishes |
+| --- | --- |
+| Semantic encoding | UFO predicates and modal axioms have explicit Lean meanings |
+| Satisfiability checkpoints | A concrete interpretation satisfies each cumulative axiom package |
+| Anti-vacuity models | Primitive and selected derived predicates have witnesses together |
+| S5 consequences | Stability and modal consequences follow from the chosen frame semantics |
+| Relator analysis | The printed (a73) empties the intended relator branch. The active part-based formula preserves (t31)–(t33) |
+
+### Reading routes
+
+| Question | Section |
+| --- | --- |
+| What modal semantics does the project use? | [Semantic framework](#semantic-framework) |
+| Are the encoded fragments jointly satisfiable? | [Consistency checkpoints](#consistency-checkpoints) |
+| Do the models avoid empty predicates? | [Anti-vacuity analysis](#anti-vacuity-analysis) |
+| What does S5 add? | [S5-derived results](#s5-derived-results) |
+| What happened to axiom (a73)? | [Relators, qua individuals, and axiom (a73)](#relators-qua-individuals-and-axiom-a73) |
+| Which assumptions were added explicitly? | [Explicit bridge axioms](#explicit-bridge-axioms) |
 
 ## Semantic framework
 

@@ -4,9 +4,10 @@
 
 ## Overview
 
-A `ufo_model` command names the worlds and things in a finite model, states
-facts, and asks Lean to certify the result. Facts can apply to one world or
-every declared world. An extension can reuse an earlier model.
+> [!IMPORTANT]
+> **Bottom line.** Declare worlds and things, state primitive facts in a scope,
+> then use `certify` or `certify_fresh`. Derived assertions check computed
+> relations. They never insert primitive facts.
 
 The notation follows the UFO predicates and relations explained in the
 [theoretical notes](../theory.md). The compiler expands these declarations
@@ -14,6 +15,16 @@ into finite data and the checker supports a Lean certificate when the encoded
 axioms hold. This reference gives the accepted forms, including derived
 assertions and explicit product-family witnesses. The
 [guarantees](../guarantees.md) state what successful certification establishes.
+
+| Construct | Purpose |
+| --- | --- |
+| `worlds` | Declare the finite possible worlds |
+| `things` | Declare one flat namespace of UFO entities |
+| `given <world>:` | Add facts at one world |
+| `given everywhere:` | Expand facts to every declared world |
+| `derive_relations` | Enable the compiler's derived-relation stage |
+| `certify` | Permit checked parent-certificate reuse |
+| `certify_fresh` | Generate every checker proof again |
 
 ## Model command
 

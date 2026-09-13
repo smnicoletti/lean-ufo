@@ -2,8 +2,9 @@
 
 [Docs home](README.md) · [Project README](../README.md)
 
-Lean UFO remains research software. The work below is planned but not part of
-the current guarantees.
+> [!NOTE]
+> **Bottom line.** The current guarantees stop at the boundaries documented in
+> [Formal guarantees](guarantees.md). All items below are planned extensions.
 
 ## DSL surface
 

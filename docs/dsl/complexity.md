@@ -2,15 +2,66 @@
 
 ## Overview
 
-The main result bounds the algorithmic work of certifying an explicitly stored
-finite UFO model. The compiler builds indexed tables and a reachability matrix.
-The checker stops when an answer is known. Diagnostics count their searches
-and the evidence they produce. Proofs connect these computations to the
-production workflow and show that adding counters cannot change their answers.
+> [!IMPORTANT]
+> **Bottom line.** For the fixed 116 UFO checks, the algorithmic work of
+> certification is polynomial in the size of the explicitly stored model.
+> The proof covers the compiler, the executed checker calls, control flow, and
+> the selected diagnostic. Lean proof processing and elapsed time lie outside
+> its scope.
 
-For the fixed 116-check registry, the bound is polynomial in source size.
-Arbitrary formulas have a separate bound that depends on their nesting depth.
-Neither result bounds Lean proof processing or elapsed time.
+The compiler builds indexed tables and a reachability matrix. The checker reads
+those tables and stops as soon as it knows the result. If certification fails,
+the diagnostic searches the same finite model and produces bounded evidence.
+
+### Result map
+
+| Result | Proved upper bound | Plain meaning |
+| --- | ---: | --- |
+| Source compiler | `511 · N⁴` | Resolve names, expand facts, and build finite tables |
+| Inherence closure | `W · (23T³ + 48T² + 5T + 3)` | Compute reachability once for each world |
+| Fixed checker registry | `8367 · n⁸` | Run the ordered 116 checks on one compiled model |
+| Fixed source workflow | `51,054,982,757 · N¹⁶ + D` | Compile, prepare checker calls, traverse the registry, and construct the selected diagnostic |
+| Arbitrary diagnostic formula | Structural recurrence | Bound evaluation by formula size, nesting depth, domains, environments, and atomic-query cost |
+
+The large coefficients are safe proof bounds with no timing interpretation or
+tightness claim.
+
+### Size symbols used in the summary
+
+| Symbol | Meaning |
+| --- | --- |
+| `N` | Complete explicit DSL source size. In child/parent bounds, it is the larger of their two sizes |
+| `n` | Compiled checker-input size, including dense relation cells and product-family witness arrays |
+| `W` | Number of worlds |
+| `T` | Number of things |
+| `D` | Bound for the one diagnostic report selected after failure. `D = 0` after success |
+
+### What connects the proof to execution
+
+```mermaid
+flowchart LR
+  A[DSL source] --> B[Counted compiler]
+  B --> C[Dense finite tables]
+  C --> D[Counted checker calls]
+  D --> E{Result known?}
+  E -->|yes| F[Certificate path]
+  E -->|failure| G[Counted diagnostic]
+```
+
+Production uses the counted algorithms after discarding their cost field, or a
+proved native replacement with the same result. The complexity proof therefore
+describes the same algorithms that certification uses.
+
+> [!NOTE]
+> Lean uses compact sparse definitions while checking generated proofs and dense
+> arrays during native execution. The two forms can perform different work. A
+> correspondence theorem proves that they return the same values, and the cost
+> bounds apply to the dense executable path.
+
+> [!WARNING]
+> The unit-cost theorem excludes parsing, character-level string work, memory
+> allocation, garbage collection, native instructions, elaboration, proof
+> search, kernel checking, Lake overhead, and wall-clock time.
 
 The [research sources](#references) have distinct roles: Vardi and
 Madelaine–Martin ground the fixed-formula versus variable-formula distinction.
@@ -19,34 +70,54 @@ work by Nipkow and colleagues informs correctness with cost proofs.
 RadixExperiment informs the organization of implementation proofs.
 The cited work supplies the method. The repository contains the Lean UFO proofs.
 
-## Claims
+## Scope of the claims
 
-The primary result concerns **data complexity**: it measures growth when the UFO
-checker registry is fixed (currently 116 checks) and only the finite model grows.
-The secondary results concern **combined complexity**: growth when both
-the model and the registry or formula can grow. These are different results;
-the fixed-registry theorem must not be generalized silently to user-extensible
-registries.
+> [!IMPORTANT]
+> The headline theorem is a **data-complexity** result: the 116-check registry is
+> fixed and the finite model grows. No uniform polynomial result is claimed for
+> unrestricted formulas supplied as input.
+
+The secondary results concern **combined complexity**, where the model and the
+registry or formula can both grow. A user-extensible checker must provide a
+proved bound for each added check. The generic registry theorem then sums those
+bounds in execution order.
 
 Extensibility has two distinct contracts. An additional executable check must
 supply its own proved cost bound; the registry theorem then bounds their
 sequential execution. For the existing diagnostic formula interpreter, the
 bound must instead be derived from formula structure, including size and
 quantifier nesting, domain sizes, and atomic-operation costs. These are
-separate guarantees. Neither promises polynomial time in both an unrestricted
-formula and its model, and neither requires a new public formula-checking API.
+separate guarantees. The formula theorem makes no uniform polynomial claim for
+an unrestricted formula and model together.
 
-“Explicitly encoded” means every primitive relation cell, projection cell, and
-product-family slot is represented and included in the size metric. Opaque
-functions are not treated as constant-size relation inputs. The production
-compiler and checker use **cost erasure**, which discards the recorded cost
-and retains the computed value. Production uses that erasure directly or
-through a proved native substitution. The substitution authorizes Lean's
-compiler to execute the counted erasure while kernel proofs retain a compact
-definition. Mere equality to an unrelated counted implementation would not
-establish this execution connection.
+“Explicitly encoded” means that the size metric includes every primitive
+relation cell, projection cell, and product-family slot. Opaque functions must
+expose the size of the relation they represent.
+
+The production compiler and checker use **cost erasure**: they discard the
+recorded cost and retain the computed value. Some native paths use a proved
+substitution so that execution can use dense arrays while kernel reduction keeps
+a compact definition. This correspondence is the link between the algorithm we
+bound and the algorithm the DSL executes.
+
+### Reading routes
+
+| If you need to know... | Read... |
+| --- | --- |
+| The headline result and its limits | This overview and [Current limitations](#current-limitations) |
+| How source becomes the model used by the theorem | [Source-result consistency](#source-result-consistency-and-coordinate-bounds) |
+| What one counted operation means | [Unit-cost machine model](#unit-cost-machine-model) |
+| How the complete command path is composed | [Source-to-workflow composition](#source-to-workflow-composition) |
+| Why inherence closure is cubic | [Counted closure](#counted-closure) |
+| How all 116 checks are covered | [Registry and diagnostic bounds](#registry-and-diagnostic-bounds) |
+| How failure reports are bounded | [Derived-assertion prechecks](#derived-assertion-prechecks) and [Failure minimization](#failure-minimization) |
+| Which files contain the proofs | [Module layout](#module-layout) |
+| What was measured in practice | [Acceptance evidence](#acceptance-evidence) |
 
 ## Source-result consistency and coordinate bounds
+
+**Bottom line.** A successful compiler result supplies the exact tables, sizes,
+and coordinate facts used by the downstream complexity theorems.
 
 `compileModelSource_ok_constructionInvariant` connects a successful source
 compiler call to the record it actually returns. Its
@@ -79,6 +150,9 @@ both results on the actual compiler output. By contrast,
 inputs. That component theorem is not the source-to-workflow result.
 
 ## Unit-cost machine model
+
+**Bottom line.** The counter records source-level algorithmic operations in
+Lean's actual short-circuit order. CPU and wall-clock work lie outside the model.
 
 `Costed α` stores a computed `value` and a `Nat` cost. The model charges the
 operations named at their executable definitions: Boolean operations,
@@ -1046,6 +1120,9 @@ elaboration or kernel reduction.
 
 ## Input metrics
 
+**Bottom line.** Every independently growing source or model component appears
+in the multivariate metric before the proof derives a one-variable polynomial.
+
 `SourceMetrics` includes worlds, things, source facts, name references, facts
 after scope expansion, facts after deterministic taxonomy expansion, and an
 explicit upper-size component for reflexive specialization. It also includes
@@ -1060,6 +1137,9 @@ The final scalar polynomial corollary is derived only after proving a
 multivariate bound over all independently sized components.
 
 ## Verified-DSL theorem map
+
+**Bottom line.** Verification is a chain of local correspondence, correctness,
+and cost theorems. The table below shows the proved link at each stage.
 
 Here, “verified DSL” refers to the complete chain below. Its proof organization
 draws on RadixExperiment: relate the executable interpreter to its semantics,
@@ -3651,6 +3731,10 @@ source-linked workflow through the shared frontend drivers.
 
 ## Acceptance evidence
 
+**Bottom line.** Exact small counts, scaling families, semantic fixtures, and
+user-facing certification runs test the theorem connections and guard practical
+certifiability.
+
 Verification includes exact hand-checked counts on tiny examples;
 monotonicity tests; sparse, dense, cyclic, projection-heavy, and product-family
 generators; semantic regression fixtures; closure correctness and cubic
@@ -3792,6 +3876,10 @@ regressions through the optional performance profile.
 - Leonardo de Moura, [RadixExperiment](https://github.com/leodemoura/RadixExperiment), for verified-DSL proof organization: interpreter correspondence and pass-by-pass preservation.
 
 ## Current limitations
+
+**Bottom line.** The result bounds the named algorithms at a documented
+unit-cost level. Lean proof processing, machine instructions, memory behavior,
+and elapsed time require separate evidence.
 
 The theorem uses the unit-cost model defined above. It does not bound string
 characters, allocation, garbage collection, elaboration, kernel checking,

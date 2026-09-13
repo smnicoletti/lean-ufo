@@ -4,9 +4,11 @@
 
 ## Overview
 
-The DSL certifies finite models through UFO §4, with 116 registered checks.
-It also reports failures and supports certificate reuse for model extensions.
-All user-facing examples, including Relator, pass the final test profile.
+> [!IMPORTANT]
+> **Bottom line.** The finite DSL covers UFO through §4 with 116 checks. All
+> user-facing examples certify, including the nonempty Relator model. The main
+> remaining limits concern frontend verification, richer syntax, and direct
+> negative witnesses for a small set of axioms.
 
 Lean theorems and regression tests support this inventory.
 [Theoretical notes](theory.md) explain the ontology choices, and
@@ -20,6 +22,8 @@ The 2026-09-13 local verification covers the compiler, checker, diagnostics,
 and certificate-tool repairs described here. Source checkouts use the development
 artifact version `0.0.0-dev`; the release workflow sets that metadata to the
 release tag. Release notes record the corresponding GitHub Actions results.
+
+### Status at a glance
 
 | Area | Status |
 | --- | --- |

@@ -4,9 +4,10 @@
 
 ## Overview
 
-Diagnostics turn a failed check into named objects, relations, and missing
-witnesses that a model author can inspect. The implementation searches finite
-tables, selects evidence in a fixed order, and limits the displayed output.
+> [!IMPORTANT]
+> **Bottom line.** Diagnostics reuse the compiled model, search in a fixed
+> order, and cap their output. Their formulas select explanations. Generated
+> Lean negation theorems establish semantic counterexamples.
 
 A Lean proof of the failed axiom's negation confirms a semantic counterexample.
 A failed proof attempt alone does not. Operation counts cover the selected
@@ -24,6 +25,14 @@ confirmed-counterexample branch, where Lean checks a generated negation theorem
 for the failed field. A failed negative probe is classified as a
 timeout-style counterexample-probe limit only when Lean reports
 heartbeat/timeout wording; otherwise it remains an unclassified probe failure.
+
+| Component | Job | Guarantee |
+| --- | --- | --- |
+| Formula mirror | Find a failed assignment | Deterministic value correspondence |
+| Specialized analyzer | Recover axiom-specific evidence | Sound evidence for its supported relation |
+| Minimizer | Retain the failed part and useful context | Deterministic selection with no global-minimum claim |
+| Renderer | Produce bounded rows and text | Counted, output-sensitive construction |
+| Negation probe | Ask Lean to prove the failed axiom false | Semantic confirmation when Lean accepts it |
 
 ## Flow
 

@@ -1,5 +1,10 @@
 # Documentation
 
+> [!TIP]
+> Start with the [project overview](overview.md). To write a model immediately,
+> use the [DSL quickstart](dsl/quickstart.md). For theorem-backed claims, read
+> [formal guarantees](guarantees.md).
+
 Use this directory for the project overview, modeling guides, formal guarantees,
 diagnostics, tests, and implementation reference.
 

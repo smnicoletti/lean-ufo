@@ -4,16 +4,33 @@
 
 ## Overview
 
-The tests check answers, operation counts, and whether examples still certify.
-Small fixtures expose individual errors. End-to-end fixtures exercise the
-compiler, checker, diagnostics, and certificate tools together.
+> [!IMPORTANT]
+> **Bottom line.** Use `lake test` for ordinary work. Before release or after a
+> certification-sensitive change, use `LEANUFO_PERFORMANCE_TESTS=1 lake test`.
+> That profile includes every user-facing example and Relator.
 
 The expected results come from the [formal guarantees](guarantees.md) and
 the [counted algorithms](dsl/complexity.md), whose guide includes the research
 sources. Tests catch regressions; the Lean theorems establish general claims.
-For a final DSL check, `LEANUFO_PERFORMANCE_TESTS=1 lake test` runs the full
-profile, including every user-facing example and Relator. Timings need matched
-build conditions before they can establish a speedup.
+Tests catch regressions. Lean theorems establish general claims. Timings need
+matched build conditions before they can establish a speedup.
+
+| Need | Command | Coverage |
+| --- | --- | --- |
+| Routine regression check | `lake test` | Fast syntax, diagnostics, registry, and counted-operation fixtures |
+| One axiom family | `LEANUFO_AXIOMS=ax68 lake test` | Selected positive and negative semantic witnesses |
+| Final certification gate | `LEANUFO_PERFORMANCE_TESTS=1 lake test` | Full suite and every user-facing example |
+| Direct-negative audit | `LEANUFO_REQUIRE_DIRECT_WITNESSES=1 lake test` | Reports missing direct negative fixtures |
+
+### Reading routes
+
+| Task | Section |
+| --- | --- |
+| Run the routine suite | [Default tests](#default-tests) |
+| Run one axiom family | [Selected axiom tests](#selected-axiom-tests) |
+| Check exact operation counts | [Complexity regression tests](#complexity-regression-tests) |
+| Validate certificate exports | [Certificate manifests](#certificate-manifests) |
+| Run the final gate | [Full semantic profile](#full-semantic-profile) |
 
 The test driver is:
 
