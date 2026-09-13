@@ -36,7 +36,9 @@ the current guarantees.
 - Strengthen the current pipeline theorems into more extensional statements
   where useful, for example exactness properties of taxonomy closure and
   reflexive specialization insertion.
-- Consider replaying more of the frontend-produced `ModelAST` construction
-  inside Lean declarations to tighten the audit trail.
+- Extend verification to concrete syntax parsing and declaration emission.
+  Successful source compilation already has construction and coordinate-bound
+  proofs, and the workflow bound uses the resulting model. The remaining
+  frontend trust must not be confused with that proved source-to-model link.
 
 [Docs home](README.md) · [Project README](../README.md)

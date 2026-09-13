@@ -553,8 +553,9 @@ render the same script but remain separate attempts. These numbers count
 requested checker invocations, not unit-cost operations or observed execution.
 `script_prefix_checkerCalls_le` permits stopping before later requests. Axiom
 99's general counterexample tactic is excluded proof work, not a registered
-request. Connecting reached requests to their source-linked operation costs and
-the shared driver remains required. The Lean parser, emitter, and proof engine
+request. The source-linked preparation and workflow theorems below connect
+reached requests to their operation costs and the shared driver.
+The Lean parser, emitter, and proof engine
 remain outside the verified boundary.
 
 Here a prefix means the first zero or more requests, in order.
@@ -1152,10 +1153,10 @@ at most 37. The upper search runs first. The lower search runs only if the
 upper search finds no witness. Together they cost at most `74T+1`.
 The implication and world-loop overhead give the per-world bound `74T+54`.
 
-The larger type-scan bound also propagates to axioms 44 and 66. Their other
-primitive queries still need cost correspondence. The source-to-result theorem
-must compose these checker computations with their actual compilation and
-failure-report paths.
+The larger type-scan bound also propagates to axioms 44 and 66.
+`Complexity/Queries.lean` supplies full value/cost correspondence for their
+concrete table queries. The source-to-workflow theorem composes registered
+checks with actual compilation and selected failure reports.
 
 #### Modal classification and taxonomy bridges
 
@@ -3628,14 +3629,25 @@ LeanUfo/UFO/DSL/Complexity/
   Taxonomy.lean
   Compiler.lean
   Checker.lean
+  Queries.lean
+  Frontend.lean
+  Reuse.lean
   Diagnostics.lean
   Diagnostics/
+    Formula.lean
+    Paths.lean
     ProductFamily.lean
+    Reports.lean
+    Source.lean
+    Unique.lean
   Theorems.lean
+  Certification.lean
 ```
 
 `LeanUfo/UFO/DSL/Complexity.lean` is the aggregate import. Production entry
-points use the counted core directly.
+points erase counted cores directly or use proved native replacements that
+preserve compact kernel reduction. `Certification.lean` composes the
+source-linked workflow through the shared frontend drivers.
 
 ## Acceptance evidence
 
@@ -3704,7 +3716,7 @@ The review repairs are compared against their starting revision `ee87137`.
 The older comparison below remains visible so that changing the repair
 baseline does not erase earlier regressions.
 
-An isolated Fix 5 comparison exposed a certifiability regression:
+An isolated comparison during the workflow repair exposed a certifiability regression:
 `FlowerPropertyChange` passed at `ee87137` in 7.14 seconds but failed in the
 feature snapshot after 15.92 seconds. The failure occurred in the generated
 derived-assertion proof, where broad simplification exhausted its step limit.
@@ -3726,7 +3738,7 @@ The repaired branch passed these isolated checks with prebuilt dependencies:
 | `RedirectedWalk` | 7.13 s | 3.03 s | certifies |
 | `RelatorProbe` | 141.04 s | 125.88 s | certifies |
 
-The final `LEANUFO_PERFORMANCE_TESTS=1 lake test` passed in 437.39 seconds,
+The 2026-09-11 `LEANUFO_PERFORMANCE_TESTS=1 lake test` passed in 437.39 seconds,
 including 1,652 build jobs and the user-facing performance fixtures. That time
 includes rebuilds and is not comparable to the isolated file timings. The user
 accepted the earlier Company comparison (5.52–6.05 seconds versus 8.10–8.29
@@ -3736,6 +3748,13 @@ unexpected axioms. Both revisions used Lean 4.33.1 and the same dependency
 checkout. Each measurement ran `lake env lean` on the named example without
 another build or suite running. These are isolated file timings, not total
 clean-project build times.
+
+The latest all-inclusive run, on 2026-09-13, passed in 362.58 seconds with a
+1,656-job test dependency graph. It covered semantic fixtures, diagnostics,
+certificate export/revalidation, namespace discovery, all user-facing examples,
+and Relator. No suite or benchmark ran alongside it, and no resource limits
+were raised. This was an incremental verification run, not a clean-build
+speed comparison. Subsequent changes affected documentation and comments only.
 
 The proof-facing/executable representation split is also checked against the
 last revision before this refactor (`6a21fd5`). These are wall-clock engineering
@@ -3752,11 +3771,11 @@ directories with the same dependency checkout.
 | positive Relator probe | 3649.25 s | 205.06 s | certifies; 17.8 times faster |
 | full semantic test profile | 173.36 s | 170.54 s | passes; effectively unchanged |
 
-The four small examples are 27–43% slower and the smaller set is 36% slower,
-so proof elaboration has a measurable constant-factor regression. They
-remain well below the former heartbeat failure. The Relator probe, which is the
-dominant certification stress case, is substantially faster. Release checks
-must retain both views. The complete suite detects semantic regressions. The
+In that earlier representation-split snapshot, the four small examples were
+27–43% slower and the smaller set was 36% slower. Those measurements record
+the regression at that stage, not the later repaired branch's performance.
+The isolated repair comparison above and the latest full profile provide the
+subsequent evidence. The complete suite detects semantic regressions. The
 Examples aggregate includes Relator and detects proof-performance
 regressions through the optional performance profile.
 

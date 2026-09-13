@@ -178,7 +178,8 @@ Ultimate-bearer evidence counts both the bearer classification and path
 reconstruction from moment to bearer. A moment classification does not skip
 the path because the report displays both. The three-row size and linear
 cost bounds also hold for malformed next-hop tables. Path validity for the
-compiled model remains a separate proof obligation. External-mode evidence
+compiled model is proved separately in `Complexity/Diagnostics/Paths.lean`,
+including soundness and reconstruction completeness. External-mode evidence
 counts its two introductory rows, the complete mode-status report, and the
 copy of up to three status rows. Their component bounds exclude shared report
 work, which is included in the complete producer bound.

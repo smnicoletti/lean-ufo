@@ -145,9 +145,10 @@ flowchart TD
   F --> G
 ```
 
-Positive certification is the trusted success path. For registered axiom fields,
-the generated theorem calls a reusable checker soundness theorem and evaluates
-the finite model with `native_decide`.
+For registered axiom fields, the shared executor runs the requested Boolean
+checks through Lean's `nativeEqTrue` API and inserts the resulting proofs into
+generated declarations. Reusable soundness theorems connect those Boolean
+results to the UFO axioms. Lean's native evaluator is part of this trust boundary.
 
 Diagnostics are explanatory. A failed model is only a confirmed semantic
 counterexample when Lean checks a proof of the failed axiom's negation for the

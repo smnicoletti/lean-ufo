@@ -158,8 +158,9 @@ Evidence lines show the finite DSL facts that made the obligation apply.
 Checker-backed axioms with direct completeness theorems use a checker-aware
 negative probe. The probe proves `¬ axN` by contradiction: if
 the semantic axiom proposition held, `checkAxN_complete` would force the
-Boolean checker to return `true`; for the failing finite model,
-`native_decide` computes `checkAxN data = false`.
+Boolean checker to return `true`. For the failing finite model, the shared
+executor uses Lean's native evaluator to prepare a proof that
+`checkAxN data = false`. The generated negative proof combines these facts.
 
 `ax68` is the hardest covered example. It is checker-backed by the same bounded
 finite closure idea used by the diagnostic explanation: a moment must reach a

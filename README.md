@@ -12,15 +12,6 @@ Ontology (UFO) in Lean 4. It also provides a small modeling language for finite
 UFO examples: write a named model, ask Lean to certify it, and get structured
 feedback when the model violates an axiom.
 
-The core uses UFO axioms interpreted across possible worlds. The DSL compiles
-facts into finite tables and uses Boolean checks to support Lean proofs.
-Separate theorems bound selected algorithmic work. The
-[theoretical notes](docs/theory.md) explain the ontology grounding, and the
-[complexity guide](docs/dsl/complexity.md#references) identifies the cost-aware
-semantics and verified-algorithm literature behind the implementation proofs.
-Certification establishes the encoded axioms for a model. The complexity bound
-does not cover Lean proof processing or elapsed time.
-
 The project is aimed at researchers and modelers who want UFO axioms to be more
 than informal constraints: each successful DSL model produces an ordinary Lean
 certificate, and each confirmed failure is traced back to the finite model data.

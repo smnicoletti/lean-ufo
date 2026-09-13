@@ -17,6 +17,11 @@ the work excluded from the complexity bound.
 This page records implemented coverage and known limits. The theorem-level
 contract is in [Formal guarantees](guarantees.md).
 
+The 2026-09-13 verification covers the local repair branch. It has not been
+pushed, merged, or released. Local manifests use the development artifact
+version `0.0.0-dev`; the release workflow sets that metadata to the release tag.
+Configured GitHub Actions jobs are not evidence of a remote run for these repairs.
+
 | Area | Status |
 | --- | --- |
 | Core UFO fragments | Active mechanization with semantic witness models |
@@ -138,7 +143,7 @@ contract is in [Formal guarantees](guarantees.md).
   Diagnostic and checker family searches have proved equal answers, with
   separate costs. `lake exe complexity-benchmarks` exercises sparse, dense,
   cyclic, product-family, and projection-heavy inputs.
-- Fixes 6 and 7 validate complete manifest provenance and discover exports
+- Certificate tools validate complete manifest provenance and discover exports
   from module-owned Lean declarations. The final cross-stage review and single
   all-inclusive profile passed on 2026-09-13, including the user-facing examples
   and Relator. The run took 362.58 seconds with an incremental build.

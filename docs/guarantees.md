@@ -172,10 +172,11 @@ Model.certifiedModel      : FiniteModel4.Certified Model.data
 Model.certificateManifest : CertificateManifest
 ```
 
-What Lean proves:
+The boundary is:
 
-- the parser/emitter is trusted;
-- the emitted declarations are checked by Lean;
+- parsing and declaration emission remain trusted metaprogramming;
+- Lean checks the emitted declarations, with the documented native-evaluation
+  trust for prepared Boolean proofs;
 - proof evidence is the generated Lean theorem, not the diagnostics widget or
   certificate manifest.
 
@@ -272,9 +273,12 @@ explicit_model_pipeline
 ```
 
 These theorems record how explicit facts enter the compiled tables and how the
-main compiler pipeline is assembled. They are local engineering
-guarantees, not a full verified compiler theorem from concrete syntax to
-semantics.
+main compiler pipeline is assembled. `Compiler/VerifiedModel.lean` also proves
+that successful source compilation returns bounded coordinates and the tables
+constructed from its resolved facts. Those results supply the sparse/dense
+lookup agreement required by the generated model. The workflow theorem then
+uses that actual model, not an independently supplied one. Concrete syntax
+parsing and declaration emission remain outside these proofs.
 
 What Lean proves:
 
@@ -827,7 +831,8 @@ is bounded by `8878·(sourceSize+modelSize)⁸` for independent inputs.
 `source_linked_component_scalar_bound` instead uses the successful compiler's
 actual model and charges its construction before one aggregate checker call.
 That component sum is at most `54,896,424·sourceSize¹⁶`. The frontend's repeated
-per-field checks and diagnostic branches still need their own composition.
+per-field checks and selected diagnostic branches are composed separately by
+`sourceWorkflow_bound` in `Complexity/Certification.lean`.
 The complexity guide gives the metrics, derivation, and accounting limitations.
 
 ## Trusted boundary
@@ -835,6 +840,7 @@ The complexity guide gives the metrics, derivation, and accounting limitations.
 The current trusted boundary is:
 
 - Lean's kernel and the imported Lean/mathlib stack;
+- Lean's native evaluator used to prepare proofs of closed Boolean results;
 - the concrete DSL parser and declaration emitter in `Syntax.lean`;
 - the fact that generated source strings correspond to the intended emitted
   declarations;

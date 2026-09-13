@@ -398,7 +398,8 @@ Constitution tests exercise classification agreement, kind restrictions,
 witness order, and persistence across two worlds. Sixteen classification
 combinations check axiom 56. Exact tests for axioms 53–55 and 58–59 require
 one computation and one charge for each shared predicate per assignment.
-The query module has 220 examples.
+The query module also covers full value/cost correspondence for the registered
+table-using checks.
 
 `Complexity/Reports.lean` checks the composed generic-report bounds through the
 public aggregate. Exact cases cover a full three-assignment search (74
@@ -1063,10 +1064,13 @@ proofs and rebuilt-disjunction bound are separate from exact execution counts.
 
 GitHub Actions runs the default `lake test` profile on pull requests and pushes
 to `dev` or `main`.
+Those jobs also build `LeanUfo.UFO.DSL.Examples`, including Relator.
 
 The full semantic witness profile runs when the workflow is started manually.
 The nightly scheduled workflow checks `dev` and runs the full profile only when
 `dev` has received a commit in the previous 24 hours.
+The full-profile jobs also build the examples aggregate. These are the
+configured CI jobs, not evidence of a remote run for an unpublished branch.
 
 ## Full semantic witness tests
 

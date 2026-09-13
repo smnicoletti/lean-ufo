@@ -72,8 +72,9 @@ against the existing Prop-valued UFO axiom package.
 
 ## What failing models provide
 
-If certification fails, the diagnostics layer stops at the first failed axiom.
-It then runs a separate negative probe:
+Compilation errors and rejected derived assertions can stop a model before
+axiom certification. Once the axiom registry runs, it stops at the first failed
+field. The diagnostics layer can then run a separate negative probe:
 
 - if Lean proves the negation of the generated axiom for the finite model, the
   diagnostic reports a confirmed semantic counterexample;
