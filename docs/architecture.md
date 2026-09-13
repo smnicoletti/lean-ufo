@@ -2,6 +2,17 @@
 
 [Docs home](README.md) · [Project README](../README.md)
 
+## Overview
+
+Lean UFO connects an ontology theory to a finite-model tool. The core states
+the UFO axioms in Lean. The DSL turns named facts into tables, checks them,
+and builds certificates for successful models.
+
+The [theoretical notes](theory.md) explain the UFO and possible-world semantics
+behind the core. The [complexity guide](dsl/complexity.md#references) records the
+research behind counted algorithms and implementation proofs. This page shows
+which layer owns each task and how a model reaches a checked theorem.
+
 Lean UFO has two connected layers:
 
 1. a semantic Lean formalization of UFO fragments;
@@ -134,9 +145,10 @@ flowchart TD
   F --> G
 ```
 
-Positive certification is the trusted success path. For registered axiom fields,
-the generated theorem calls a reusable checker soundness theorem and evaluates
-the finite model with `native_decide`.
+For registered axiom fields, the shared executor runs the requested Boolean
+checks through Lean's `nativeEqTrue` API and inserts the resulting proofs into
+generated declarations. Reusable soundness theorems connect those Boolean
+results to the UFO axioms. Lean's native evaluator is part of this trust boundary.
 
 Diagnostics are explanatory. A failed model is only a confirmed semantic
 counterexample when Lean checks a proof of the failed axiom's negation for the
@@ -156,6 +168,15 @@ Lean theorems:
 - **checker soundness/completeness theorems** in `DSL/Checker/Soundness.lean`;
 - **operational compiler/checker complexity guarantees** under
   `DSL/Complexity/`, including the fixed 116-check heterogeneous bound.
+  `Complexity/Taxonomy.lean` owns the fixed unary parent graph and its counted,
+  duplicate-free ancestor traversal. Model-dependent inherence reachability
+  belongs to `Complexity/Closure.lean`. Counted validation of supplied axiom 99
+  witnesses is in `Complexity/Diagnostics/ProductFamily.lean`; diagnostic report
+  selection and rendering belong to `Diagnostic/AxiomAnalysis.lean`.
+  `Diagnostic/DerivedAssertions.lean` owns preliminary checks and reports for
+  user-written derived claims. `Diagnostic/Analysis.lean` aggregates both paths.
+  The [complexity guide](dsl/complexity.md)
+  states the remaining operational-accounting and pipeline obligations.
 
 The central DSL checker theorem is:
 

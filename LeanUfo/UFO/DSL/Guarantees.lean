@@ -301,11 +301,11 @@ theorem binary_at_expands_to_singleton
       #[CompiledFact.binary field x y w] :=
   rfl
 
-/-- A derived assertion scoped to one world expands by applying its proposition builder. -/
+/-- A derived assertion scoped to one world expands to its rendered proposition. -/
 theorem derived_at_expands_to_singleton
-    (worldCount : Nat) (propAtWorld : Nat → String) (w : Nat) :
-    expandScopedFact worldCount (.derived propAtWorld (.at w)) =
-      #[CompiledFact.derived (propAtWorld w)] :=
+    (worldCount : Nat) (assertion : ResolvedDerivedFact) (w : Nat) :
+    expandScopedFact worldCount (.derived assertion (.at w)) =
+      #[CompiledFact.derived (renderDerivedFact assertion w)] :=
   rfl
 
 /-- A ternary fact scoped to one world expands to exactly one world-indexed fact. -/
@@ -422,11 +422,11 @@ theorem taxonomy_expansion_pipeline (facts : Array CompiledFact) :
       (addTaxonomyFactsCosted facts).value :=
   rfl
 
-/-- Taxonomy materialization charges each input and emitted fact exactly. -/
-theorem taxonomy_expansion_cost (facts : Array CompiledFact) :
-    (addTaxonomyFactsCosted facts).cost =
-      facts.size + (addTaxonomyFacts facts).size :=
-  addTaxonomyFactsCosted_cost facts
+/-- The fixed taxonomy search and its output writes cost at most 229
+operations per input fact. This bound includes visited-field comparisons. -/
+theorem taxonomy_expansion_cost_le (facts : Array CompiledFact) :
+    (addTaxonomyFactsCosted facts).cost ≤ 229 * facts.size :=
+  addTaxonomyFactsCosted_cost_le facts
 
 /--
 Generated models make reflexive specialization sugar explicit before table
@@ -442,7 +442,7 @@ theorem reflexive_specialization_expansion_pipeline
 theorem reflexive_specialization_expansion_cost_le
     (worldCount : Nat) (facts : Array CompiledFact) :
     (addReflexiveSpecializationFactsCosted worldCount facts).cost ≤
-      facts.size * (worldCount + 2) :=
+      facts.size * (3 * worldCount + 8) :=
   addReflexiveSpecializationFactsCosted_cost_le worldCount facts
 
 /--
@@ -649,8 +649,7 @@ theorem certificateReuseSource_fresh_none
     (parentTables childTables : FactTables)
     (field : String) :
     certificateReuseSource? parentName parentSource childSource parentTables
-      childTables true field = none := by
-  simp [certificateReuseSource?]
+      childTables true field = none := rfl
 
 end CertificateReuse
 

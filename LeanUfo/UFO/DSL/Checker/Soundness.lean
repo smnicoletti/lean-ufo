@@ -3730,6 +3730,23 @@ private theorem productFamilyWitnessB_correct
   ⟨productFamilyWitnessB_sound M pf x t w,
    productFamilyWitnessB_complete M pf x t w⟩
 
+/-- The executed registry search succeeds exactly when a stored witness
+satisfies the finite product-family conditions. Array membership keeps this
+statement independent of the index used to retrieve a witness, so compiler
+conversion proofs can transport it without changing witness order or contents. -/
+theorem productFamilySearchCosted_eq_true_iff (M : FiniteModel4)
+    (x t : Fin M.thingCount) (w : Fin M.worldCount) :
+    (productFamilySearchCosted M x t w).value = true ↔
+      ∃ pf ∈ M.productFamilies, productFamilyWitnessProp M pf x t w := by
+  rw [productFamilySearchCosted_value]
+  simp only [anyProductFamilyWitness, decide_eq_true_eq, productFamilyWitnessB_correct]
+  constructor
+  · rintro ⟨i, valid⟩
+    exact ⟨M.productFamilies[i], Array.getElem_mem .., valid⟩
+  · rintro ⟨pf, member, valid⟩
+    obtain ⟨i, within, entry⟩ := Array.mem_iff_getElem.mp member
+    exact ⟨⟨i, within⟩, entry ▸ valid⟩
+
 theorem checkAx99_correct_finite (M : FiniteModel4) :
     checkAx99 M = true ↔ ax99Finite M := by
   constructor

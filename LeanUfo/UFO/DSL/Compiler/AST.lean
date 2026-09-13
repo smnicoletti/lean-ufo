@@ -31,18 +31,27 @@ inductive FactScope where
   | everywhere
   deriving Repr, Inhabited, DecidableEq
 
+/-- A derived assertion after name resolution. Explicit coordinates keep
+proposition construction finite and inspectable before world expansion. -/
+inductive ResolvedDerivedFact where
+  | unary (field : String) (thing : Nat)
+  | binary (field : String) (left right : Nat)
+  | ternary (field : String) (first second third : Nat)
+  | quaternary (field : String) (first second third fourth : Nat)
+  deriving Repr, Inhabited, DecidableEq
+
 /--
 Resolved facts before scope expansion.
 
-Derived assertions carry a world-indexed proposition builder because their
-generated Lean proposition mentions the concrete `Fin` world term.
+Derived assertions retain their resolved arguments. Scope expansion supplies
+the world coordinate to the counted proposition renderer.
 -/
 inductive ScopedCompiledFact where
   | unary (field : UnaryField) (thing : Nat) (scope : FactScope)
   | binary (field : BinaryField) (left right : Nat) (scope : FactScope)
   | ternary (field : TernaryField) (first second third : Nat) (scope : FactScope)
   | tupleProjection (tuple index result : Nat) (scope : FactScope)
-  | derived (propAtWorld : Nat → String) (scope : FactScope)
+  | derived (assertion : ResolvedDerivedFact) (scope : FactScope)
 
 @[simp] def ScopedCompiledFact.projectionArity : ScopedCompiledFact → Nat
   | .tupleProjection _ index _ _ => index + 1
@@ -106,6 +115,15 @@ structure ProductFamilySpec where
   dimensionThings : Array Nat
   typeThings : Array Nat
   deriving Repr, Inhabited, DecidableEq
+
+/-- The coordinate and length conditions needed to convert a resolved family
+without dropping it. They do not assert the semantic conditions of axiom 99. -/
+structure ProductFamilySpec.WellFormed (family : ProductFamilySpec) (thingCount : Nat) : Prop where
+  domain_lt : family.domain < thingCount
+  qualityType_lt : family.qualityType < thingCount
+  dimensions_lt : ∀ x ∈ family.dimensionThings, x < thingCount
+  types_lt : ∀ x ∈ family.typeThings, x < thingCount
+  sameSize : family.dimensionThings.size = family.typeThings.size
 
 /-- Errors that can arise during pure name resolution. -/
 inductive ResolveError where

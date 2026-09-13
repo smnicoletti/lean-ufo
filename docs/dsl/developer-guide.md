@@ -2,6 +2,20 @@
 
 [Docs home](../README.md) · [Project README](../../README.md)
 
+## Overview
+
+Changes to the DSL must preserve both model meaning and usable certification.
+This guide identifies the files to change, the proof boundaries to maintain,
+and the tests to run. It also covers certificate export and validation.
+
+The working method is to keep one executable implementation, prove its
+connection to the specification, and test representative successes and failures.
+[Formal guarantees](../guarantees.md) supplies the required results.
+The [complexity guide](complexity.md#references) explains the cost-aware semantics
+and verified-algorithm literature behind the accounting. These checks help
+prevent a correct-looking refactor from changing answers or making models
+uncertifiable.
+
 Use this guide when changing the finite UFO DSL internals. Read the
 [DSL architecture](architecture.md) first for the conceptual pipeline.
 For theorem statements and what they guarantee, use
@@ -16,12 +30,19 @@ For theorem statements and what they guarantee, use
 | `LeanUfo/UFO/DSL/Frontend/ModelText.lean` | Name translation and text rendering for DSL facts, generated `ModelSource`/`ModelAST` declarations, and diagnostics summaries. |
 | `LeanUfo/UFO/DSL/Certificate/Tactic.lean` | Shared simplification support used by derived-fact assertions, diagnostic probes, and fallback helper fragments. |
 | `LeanUfo/UFO/DSL/Certificate/Generation.lean` | Certificate registry, generated theorem source, checker-backed field selection, and certificate packaging source. |
+| `LeanUfo/UFO/DSL/Certificate/Checking.lean` | Shared assertion gate, checked-field retries, registry traversal, and report selection. |
+| `LeanUfo/UFO/DSL/Certificate/Execution.lean` | Ordered native proof requests and preparation of proofs for generated declarations. |
 | `LeanUfo/UFO/DSL/Certificate/Reuse.lean` | Conservative footprint registry for deciding when generated `checked_axN` theorems can reuse parent checks. |
 | `LeanUfo/UFO/DSL/Checker/` | Reflective Boolean checks and their semantic soundness and completeness proofs. |
 | `LeanUfo/UFO/DSL/Complexity/` | Counted compiler, checker, closure, table, and diagnostic computations with their operational bounds. |
-| `LeanUfo/UFO/DSL/Diagnostic/Analysis.lean` | Source-level counterexample reconstruction, diagnostic formula evaluation, evidence, suggestions, and derived-assertion analysis. |
+| `LeanUfo/UFO/DSL/Diagnostic/Analysis.lean` | Aggregate import for both diagnostic paths. |
+| `LeanUfo/UFO/DSL/Diagnostic/AxiomAnalysis.lean` | Registered-axiom counterexamples, formula evaluation, evidence, suggestions, and their cost proofs. |
+| `LeanUfo/UFO/DSL/Diagnostic/DerivedAssertions.lean` | Pre-certification checks and reports for user-written derived claims. |
 | `LeanUfo/UFO/DSL/Syntax.lean` | Command elaborator: parse grammar nodes, call the pure compiler, emit declarations, run generated certificate checks, and save diagnostics. |
 | `LeanUfo/UFO/DSL/Diagnostic/Widget.lean` | Editor-side Lean widget for displaying finite-model diagnostics in VS Code. |
+| `LeanUfo/CertificateCli.lean` | Safe identifier rendering, compiled-module discovery, digests, and subprocess helpers. |
+| `LeanUfo/CertificateValidation.lean` | Pure manifest completeness and rebuilt-provenance checks. |
+| `LeanUfo/ExportCertificates.lean`, `LeanUfo/ValidateCertificate.lean` | Command-line export and validation entry points. |
 | `LeanUfo/UFO/DSL/Compiler.lean` | Pure named-fact resolution, scope expansion, taxonomy closure, derived-fact bookkeeping, and finite table construction. |
 | `LeanUfo/UFO/DSL/Compiler/Fields.lean` | Primitive field enums and stable internal table-field names. |
 | `LeanUfo/UFO/DSL/Compiler/AST.lean` | Named and resolved DSL fact data structures shared by parser and compiler stages. |
@@ -83,13 +104,16 @@ checkAxN Model.data = true
 ```
 
 The public semantic theorem is named `certified_axN`. These public names
-are compatibility API and should not be renamed. The semantic theorem calls a
-reusable Boolean checker soundness theorem and evaluates the concrete model
-with `native_decide`.
+are compatibility API and should not be renamed. The shared executor prepares
+proofs of the requested Boolean results through Lean's `nativeEqTrue` API.
+The semantic theorem applies a reusable checker soundness theorem to those
+prepared results. Registered checks do not rely on generated native tactics
+to schedule their execution.
 
 `Checker/` owns the reflective Boolean checks and their soundness and
-completeness theorems. `Complexity/` owns the counted executable cores,
-concrete operational bounds, and their composition. It also separates
+completeness theorems. Counted cores stay with their executable components.
+`Complexity/` owns the shared cost model, concrete operational bounds, and
+their composition. It also separates
 fixed-registry data complexity from parameterized registry complexity.
 `Certificate/Tactic.lean` provides
 shared simplification support for derived-fact assertions, diagnostic probes,
@@ -155,12 +179,31 @@ lake exe validate-certificate certificates/CarBase.certificate.json --module Lea
 ```
 
 Use `export_certificate ModelName` in a module to request export of selected
-models. If no export marker is present, the exporter attempts to export all
-certified models declared in the module source. `--structure-only` checks only
-manifest structure. The default validation path requires `--module`; it
-rebuilds the Lean module, checks the theorem declarations at their expected
-types, and compares regenerated SHA-256 source/model digests. Do not treat the
-JSON as proof evidence.
+models. If no export marker is present, the exporter exports all certified
+models owned by the compiled module. It does not scan source lines. Lean's
+module metadata preserves namespaces, ignores comments, and distinguishes local
+declarations from imported manifests. `--structure-only` requires one
+well-formed row for each registered certificate field. The default validation
+path requires `--module`. It rebuilds the Lean module, compares every row and
+generated provenance field, checks every named theorem declaration, and
+recomputes the SHA-256 source/model digests. Do not treat the JSON as proof
+evidence.
+
+Before any recheck subprocess, the CLI parses all executable names as complete
+Lean identifiers. These names include the module, model, final theorems,
+per-field theorems, and reuse sources. The shared certificate helper escapes
+each parsed name component before generating source. Unicode and
+escaped components remain supported. Expressions, extra commands, and comments
+outside escaped components are rejected. The original theorem-name strings
+remain unchanged for manifest comparisons.
+The module itself must be trusted: importing it can run Lean initializers.
+Git metadata records export context, not authenticated historical provenance.
+
+Generated scripts use private temporary directories, and digest inputs use
+secure temporary files. Both are removed after use, including on errors.
+These controls keep manifest data out of executable syntax and isolate
+concurrent invocations. They do not sandbox the imported Lean module: export
+and recheck still require a trusted module.
 
 Version metadata comes from `LeanUfo/UFO/DSL/Version.lean`. Development builds
 use a `-dev` artifact version; release automation should replace it with the
@@ -217,8 +260,8 @@ footprint for `ax73` reads `part`, `mode`, `ex`, `inheresIn`, `foundedBy`, and
 
 The negative probe generator mirrors this shape. Direct-complete fields use
 `checkAxN_complete`; `ax73`, `ax78`, and `ax79` use prerequisite-aware
-completeness lemmas after first checking the required earlier fields with
-`native_decide`.
+completeness lemmas after the shared executor prepares the required
+prerequisite checker results.
 
 When adding a checker-backed axiom, keep the public `certified_axN` theorem name
 stable and add the counted Boolean checker, its operational bound, the
@@ -311,17 +354,19 @@ existsUniqueUltimateBearerB M m w
 checkAx68 M
 ```
 
-`reachableInheresInVia` is Warshall-style rather than depth-first search. It
-folds over the finite list of possible intermediate things. At each pivot it
-keeps the previously known reachability relation and adds all paths that go
-through that pivot. This form lets the proof follow
-the algorithm:
+`reachableInheresInVia` is the recursive specification used by the semantic
+proofs. Production builds Warshall matrices and stores the proved closure in
+the compiled model. Axiom 68 reads that cache. Models without a cache use the
+counted matrix constructor, not recursive path enumeration.
+
+At each pivot, Warshall keeps known reachability and adds paths through that
+pivot. The specification gives the proof structure:
 
 - the base relation contains the finite `InheresIn` table;
 - each pivot step is closed under composition through that pivot;
 - after all finite things have been used as pivots, every finite transitive
   closure path is represented;
-- the Boolean closure is also sound: every reported non-reflexive path gives a
+- the Boolean closure is also sound: every reported nonempty path gives a
   core `MomentOf` proof.
 
 `Checker/Soundness.lean` proves the semantic bridge:

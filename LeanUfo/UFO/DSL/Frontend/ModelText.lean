@@ -20,6 +20,35 @@ open Lean
 
 namespace LeanUfo.UFO.DSL
 
+/-- Convert stored source strings into single-component Lean names in order.
+This is name construction, not parsing: a dot remains part of one component.
+The output initialization costs one. Each entry costs an iteration, an array
+read, a `Name.mkSimple` construction, and an output write. String-character
+work and allocation are outside the unit-cost model. -/
+@[inline] def namesFromStringsCosted (xs : Array String) : Complexity.Costed (Array Name) :=
+  Complexity.Costed.charge 1 <|
+    Complexity.Costed.foldArray xs #[] fun out name =>
+      Complexity.Costed.tick (out.push (Name.mkSimple name)) 2
+
+@[simp] theorem namesFromStringsCosted_value (xs : Array String) :
+    (namesFromStringsCosted xs).value = xs.map Name.mkSimple := by
+  simp only [namesFromStringsCosted, Complexity.Costed.charge_value,
+    Complexity.Costed.foldArray_value, Complexity.Costed.tick_value]
+  simp
+
+@[simp] theorem namesFromStringsCosted_cost (xs : Array String) :
+    (namesFromStringsCosted xs).cost = 4 * xs.size + 1 := by
+  have count := Complexity.Costed.foldArray_cost_eq xs (#[] : Array Name)
+    (fun out name => Complexity.Costed.tick (out.push (Name.mkSimple name)) 2)
+    2 (by intros; rfl)
+  simp only [namesFromStringsCosted, Complexity.Costed.charge_cost]
+  omega
+
+/-- Production erasure of the counted conversion, shared by fresh models,
+extension parsing, and certification of an imported model source. -/
+@[inline] def namesFromStrings (xs : Array String) : Array Name :=
+  (namesFromStringsCosted xs).value
+
 def derivedUnaryField? (p : Name) : Option String :=
   match p.toString with
   | "Quality" => some "Quality"
@@ -403,18 +432,78 @@ def namedScopeSummary : NamedFactScope → String
   | .at world => world
   | .everywhere => "everywhere"
 
-def namedDerivedFactSummary : NamedDerivedFact → String
+/-- Declarative text formats used to verify the counted renderer. -/
+def namedDerivedFactSummarySpec : NamedDerivedFact → String
   | .unary field thing => s!"{field}({thing})"
   | .binary field left right => s!"{field}({left}, {right})"
   | .ternary field first second third => s!"{field}({first}, {second}, {third})"
   | .quaternary field first second third fourth =>
       s!"{field}({first}, {second}, {third}, {fourth})"
 
+/-- Scope selection costs one constructor test. -/
+def namedScopeSummaryCosted (scope : NamedFactScope) : Complexity.Costed String :=
+  .tick (namedScopeSummary scope) 1
+
+@[simp] theorem namedScopeSummaryCosted_value (scope : NamedFactScope) :
+    (namedScopeSummaryCosted scope).value = namedScopeSummary scope := rfl
+
+@[simp] theorem namedScopeSummaryCosted_cost (scope : NamedFactScope) :
+    (namedScopeSummaryCosted scope).cost = 1 := rfl
+
+/-- Count each concatenation and the arity test. Strings are unit-cost inputs;
+character copying remains outside the model. This compositional accounting
+follows the value/cost separation of Niu et al. (POPL 2022, doi:10.1145/3498670). -/
+def namedDerivedFactSummaryCosted : NamedDerivedFact → Complexity.Costed String
+  | .unary field thing => Complexity.Costed.charge 1 <|
+      let text := Complexity.Costed.pure field
+      let text := text.appendString (.pure "(")
+      let text := text.appendString (.pure thing)
+      text.appendString (.pure ")")
+  | .binary field left right => Complexity.Costed.charge 1 <|
+      let text := Complexity.Costed.pure field
+      let text := text.appendString (.pure "(")
+      let text := text.appendString (.pure left)
+      let text := text.appendString (.pure ", ")
+      let text := text.appendString (.pure right)
+      text.appendString (.pure ")")
+  | .ternary field first second third => Complexity.Costed.charge 1 <|
+      let text := Complexity.Costed.pure field
+      let text := text.appendString (.pure "(")
+      let text := text.appendString (.pure first)
+      let text := text.appendString (.pure ", ")
+      let text := text.appendString (.pure second)
+      let text := text.appendString (.pure ", ")
+      let text := text.appendString (.pure third)
+      text.appendString (.pure ")")
+  | .quaternary field first second third fourth => Complexity.Costed.charge 1 <|
+      let text := Complexity.Costed.pure field
+      let text := text.appendString (.pure "(")
+      let text := text.appendString (.pure first)
+      let text := text.appendString (.pure ", ")
+      let text := text.appendString (.pure second)
+      let text := text.appendString (.pure ", ")
+      let text := text.appendString (.pure third)
+      let text := text.appendString (.pure ", ")
+      let text := text.appendString (.pure fourth)
+      text.appendString (.pure ")")
+
+@[simp] theorem namedDerivedFactSummaryCosted_value (fact : NamedDerivedFact) :
+    (namedDerivedFactSummaryCosted fact).value = namedDerivedFactSummarySpec fact := by
+  cases fact <;> simp [namedDerivedFactSummaryCosted, namedDerivedFactSummarySpec] <;> rfl
+
+theorem namedDerivedFactSummaryCosted_cost_le (fact : NamedDerivedFact) :
+    (namedDerivedFactSummaryCosted fact).cost ≤ 10 := by
+  cases fact <;> simp [namedDerivedFactSummaryCosted]
+
+def namedDerivedFactSummary (fact : NamedDerivedFact) : String :=
+  (namedDerivedFactSummaryCosted fact).value
+
 def scopedWorldNames (worldNames : Array Name) : NamedFactScope → Array String
   | .at world => #[world]
   | .everywhere => worldNames.map (·.toString)
 
-def namedFactSummary : NamedScopedFact → String
+/-- Text specification for source facts, including the two infix field forms. -/
+def namedFactSummarySpec : NamedScopedFact → String
   | .unary field thing scope =>
       s!"[{namedScopeSummary scope}] {field.toSurfaceName}({thing})"
   | .binary .inst left right scope =>
@@ -430,6 +519,85 @@ def namedFactSummary : NamedScopedFact → String
   | .derived fact scope =>
       s!"[{namedScopeSummary scope}] [derived assertion] {namedDerivedFactSummary fact}"
 
+/-- Render a named fact with counted scope selection, field selection, and
+concatenation. The value theorem preserves the frontend's diagnostic text. -/
+def namedFactSummaryCosted : NamedScopedFact → Complexity.Costed String
+  | .unary field thing scope => Complexity.Costed.charge 1 <|
+      let text := Complexity.Costed.appendString (.pure "[") (namedScopeSummaryCosted scope)
+      let text := text.appendString (.pure "] ")
+      let text := text.appendString (.tick field.toSurfaceName 1)
+      let text := text.appendString (.pure "(")
+      let text := text.appendString (.pure thing)
+      text.appendString (.pure ")")
+  | .binary .inst left right scope => Complexity.Costed.charge 2 <|
+      let text := Complexity.Costed.appendString (.pure "[") (namedScopeSummaryCosted scope)
+      let text := text.appendString (.pure "] ")
+      let text := text.appendString (.pure left)
+      let text := text.appendString (.pure " :: ")
+      text.appendString (.pure right)
+  | .binary .sub left right scope => Complexity.Costed.charge 2 <|
+      let text := Complexity.Costed.appendString (.pure "[") (namedScopeSummaryCosted scope)
+      let text := text.appendString (.pure "] ")
+      let text := text.appendString (.pure left)
+      let text := text.appendString (.pure " ⊑ ")
+      text.appendString (.pure right)
+  | .binary field left right scope => Complexity.Costed.charge 2 <|
+      let text := Complexity.Costed.appendString (.pure "[") (namedScopeSummaryCosted scope)
+      let text := text.appendString (.pure "] ")
+      let text := text.appendString (.tick field.toSurfaceName 1)
+      let text := text.appendString (.pure "(")
+      let text := text.appendString (.pure left)
+      let text := text.appendString (.pure ", ")
+      let text := text.appendString (.pure right)
+      text.appendString (.pure ")")
+  | .ternary field first second third scope => Complexity.Costed.charge 1 <|
+      let text := Complexity.Costed.appendString (.pure "[") (namedScopeSummaryCosted scope)
+      let text := text.appendString (.pure "] ")
+      let text := text.appendString (.tick field.toSurfaceName 1)
+      let text := text.appendString (.pure "(")
+      let text := text.appendString (.pure first)
+      let text := text.appendString (.pure ", ")
+      let text := text.appendString (.pure second)
+      let text := text.appendString (.pure ", ")
+      let text := text.appendString (.pure third)
+      text.appendString (.pure ")")
+  | .tupleProjection tuple index result scope => Complexity.Costed.charge 1 <|
+      let text := Complexity.Costed.appendString (.pure "[") (namedScopeSummaryCosted scope)
+      let text := text.appendString (.pure "] TupleProjection(")
+      let text := text.appendString (.pure tuple)
+      let text := text.appendString (.pure ", ")
+      let text := text.appendString (.tick (toString index) 1)
+      let text := text.appendString (.pure ", ")
+      let text := text.appendString (.pure result)
+      text.appendString (.pure ")")
+  | .derived fact scope => Complexity.Costed.charge 1 <|
+      let text := Complexity.Costed.appendString (.pure "[") (namedScopeSummaryCosted scope)
+      let text := text.appendString (.pure "] [derived assertion] ")
+      text.appendString (namedDerivedFactSummaryCosted fact)
+
+@[simp] theorem namedFactSummaryCosted_value (fact : NamedScopedFact) :
+    (namedFactSummaryCosted fact).value = namedFactSummarySpec fact := by
+  cases fact with
+  | binary field left right scope =>
+      cases field <;> simp [namedFactSummaryCosted, namedFactSummarySpec] <;> rfl
+  | _ => simp [namedFactSummaryCosted, namedFactSummarySpec, namedDerivedFactSummary]; rfl
+
+theorem namedFactSummaryCosted_cost_le (fact : NamedScopedFact) :
+    (namedFactSummaryCosted fact).cost ≤ 15 := by
+  cases fact with
+  | binary field left right scope =>
+      cases field <;> simp [namedFactSummaryCosted]
+  | derived fact scope =>
+      have h := namedDerivedFactSummaryCosted_cost_le fact
+      simp only [namedFactSummaryCosted, Complexity.Costed.charge_cost,
+        Complexity.Costed.appendString_cost, Complexity.Costed.pure_cost,
+        namedScopeSummaryCosted_cost]
+      omega
+  | _ => simp [namedFactSummaryCosted]
+
+def namedFactSummary (fact : NamedScopedFact) : String :=
+  (namedFactSummaryCosted fact).value
+
 def derivedPropSummaryPairs
     (worldNames : Array Name)
     (namedFacts : Array NamedScopedFact)
@@ -438,7 +606,7 @@ def derivedPropSummaryPairs
     let mut out := #[]
     for i in [:namedFacts.size] do
       match namedFacts[i]?, scopedFacts[i]? with
-      | some (.derived named scope), some (.derived propAtWorld resolvedScope) =>
+      | some (.derived named scope), some (.derived assertion resolvedScope) =>
           let worldIdxs : Array Nat :=
             match resolvedScope with
             | .at w => #[w]
@@ -447,7 +615,7 @@ def derivedPropSummaryPairs
           for j in [:worldIdxs.size] do
             let w := worldIdxs[j]!
             let worldLabel := worldLabels[j]?.getD (indexedName worldNames w)
-            out := out.push (propAtWorld w, s!"[{worldLabel}] [derived assertion] {namedDerivedFactSummary named}")
+            out := out.push (renderDerivedFact assertion w, s!"[{worldLabel}] [derived assertion] {namedDerivedFactSummary named}")
       | _, _ => pure ()
     pure out
 

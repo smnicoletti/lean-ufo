@@ -2,6 +2,19 @@
 
 [Docs home](../README.md) · [Project README](../../README.md)
 
+## Overview
+
+The diagnostics tell you whether a model certified, which check failed, and
+which facts help explain the failure. They distinguish a proved counterexample
+from a timeout or an unclassified proof failure.
+
+The reports come from searches over the compiled finite model. Their meaning
+rests on the [encoded UFO semantics](../theory.md) and
+[certificate guarantees](../guarantees.md), not on the widget itself.
+This guide explains how to read the output. The
+[internals guide](diagnostics-internals.md) covers evidence selection and its
+counted algorithms.
+
 The DSL frontend saves a VS Code diagnostics widget for each
 `ufo_model ... certify` command. It also emits terminal errors for failed
 commands. The widget is saved when the command reaches a terminal success or
@@ -145,8 +158,9 @@ Evidence lines show the finite DSL facts that made the obligation apply.
 Checker-backed axioms with direct completeness theorems use a checker-aware
 negative probe. The probe proves `¬ axN` by contradiction: if
 the semantic axiom proposition held, `checkAxN_complete` would force the
-Boolean checker to return `true`; for the failing finite model,
-`native_decide` computes `checkAxN data = false`.
+Boolean checker to return `true`. For the failing finite model, the shared
+executor uses Lean's native evaluator to prepare a proof that
+`checkAxN data = false`. The generated negative proof combines these facts.
 
 `ax68` is the hardest covered example. It is checker-backed by the same bounded
 finite closure idea used by the diagnostic explanation: a moment must reach a

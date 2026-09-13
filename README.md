@@ -5,6 +5,8 @@
 [![Docs](https://img.shields.io/badge/docs-project%20guide-informational)](docs/README.md)
 [![Lean CI](https://github.com/smnicoletti/lean-ufo/actions/workflows/lean.yml/badge.svg?branch=dev)](https://github.com/smnicoletti/lean-ufo/actions/workflows/lean.yml?query=branch%3Adev)
 
+## Overview
+
 Lean UFO is a machine-checked formalization of the Unified Foundational
 Ontology (UFO) in Lean 4. It also provides a small modeling language for finite
 UFO examples: write a named model, ask Lean to certify it, and get structured
@@ -205,11 +207,17 @@ lake exe validate-certificate certificates/CarBase.certificate.json --structure-
 lake exe validate-certificate certificates/CarWithWindow.certificate.json --module LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension
 ```
 
-`--structure-only` checks just the JSON manifest shape. The default validation
-path requires `--module`: it rebuilds the Lean module, checks the named theorem
-declarations at their expected types, and compares regenerated SHA-256 digests
-for the source and finite model representations. The manifest is provenance
-metadata; the Lean theorems remain the proof artifact.
+The exporter reads compiled Lean declarations. It honors namespaced
+`export_certificate` markers and excludes manifests imported from other
+modules. If the module has no marker, it exports all manifests owned by that
+module.
+
+`--structure-only` checks the JSON metadata and requires one well-formed entry
+for each of the 116 certificate fields. The default validation path requires
+`--module`. It rebuilds the Lean module, checks every theorem named by the
+manifest, compares the generated provenance, and recomputes the SHA-256 source
+and finite-model digests. The manifest is provenance metadata. The Lean
+theorems remain the proof artifact.
 
 The concrete example collection also includes reuse examples for role extension
 and mode/inherence extension:
@@ -331,10 +339,14 @@ LeanUfo/
       Satisfiability/  -- ordinary ModelX and positive-relator model chains
     DSL/               -- finite DSL public entry point, backend, and examples
       Frontend/        -- surface grammar and text rendering
-      Compiler/        -- compiler vocabulary and AST support
-      Checker/         -- reflective Boolean checks and formal step bounds
-      Certificate/     -- generated certificate source and probe support
+      Compiler/        -- AST, proposition rendering, witness conversion, verified model boundary
+      Checker/         -- reflective Boolean checks and semantic correspondence
+      Certificate/     -- proof generation, attempt execution, and reuse planning
       Diagnostic/      -- source-level failure analysis and editor widget
+        Analysis.lean  -- aggregate diagnostic import
+        AxiomAnalysis.lean -- registered-axiom reports and their cost proofs
+        DerivedAssertions.lean -- checks and reports for user-written derived claims
+        Widget.lean    -- editor presentation
   Test/                -- DSL syntax, certification, diagnostics, and coverage tests
 docs/                  -- human-facing documentation
 LeanUfoTest.lean       -- executable lake test driver

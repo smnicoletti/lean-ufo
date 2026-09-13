@@ -60,6 +60,12 @@ example : TestExtensionAlias.certificateManifest.fields[0]!.status =
     CertificateReuseStatus.reused := by
   rfl
 
+-- The unchanged model exercises reuse for every registered field. This also
+-- rejects silent fresh fallbacks caused by a malformed generated reuse proof.
+example : TestExtensionAlias.certificateManifest.fields.all
+    (fun row => row.status == CertificateReuseStatus.reused) = true := by
+  native_decide
+
 example : TestExtensionAlias.certificateManifest.fields[0]!.reusedFrom =
     some "TestExtensionBase.checked_ax1" := by
   rfl

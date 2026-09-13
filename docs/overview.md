@@ -2,9 +2,18 @@
 
 [Docs home](README.md) · [Project README](../README.md)
 
+## Overview
+
 Lean UFO formalizes fragments of the Unified Foundational Ontology in Lean 4.
 Its finite DSL compiles small named models and asks Lean to certify them against
 the formalized axioms.
+
+The method combines possible-world semantics for UFO with finite tables and
+Lean-checked certificates. The [theoretical notes](theory.md) explain its
+ontology grounding. The [complexity guide](dsl/complexity.md#references)
+identifies the literature behind its counted algorithms and implementation
+proofs. A successful certificate establishes the encoded axioms for that model,
+not the correctness of the ontology for every real-world use.
 
 | Layer | Role |
 | --- | --- |
@@ -63,8 +72,9 @@ against the existing Prop-valued UFO axiom package.
 
 ## What failing models provide
 
-If certification fails, the diagnostics layer stops at the first failed axiom.
-It then runs a separate negative probe:
+Compilation errors and rejected derived assertions can stop a model before
+axiom certification. Once the axiom registry runs, it stops at the first failed
+field. The diagnostics layer can then run a separate negative probe:
 
 - if Lean proves the negation of the generated axiom for the finite model, the
   diagnostic reports a confirmed semantic counterexample;

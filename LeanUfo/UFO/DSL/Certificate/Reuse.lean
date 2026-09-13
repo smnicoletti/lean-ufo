@@ -5,13 +5,20 @@ import LeanUfo.UFO.DSL.Compiler
 # Certificate reuse footprints
 
 This module owns the conservative field-level reuse registry used by the DSL
-command frontend. Reuse here is syntactic and table-based: a
-field is reusable only when the finite tables read by its Boolean checker are
-unchanged between parent and child models.
+command frontend. It selects a candidate parent when source records are equal
+or the tables named by the field's footprint are unchanged. Equality preserves
+array order and duplicates. Each scan stops at the first mismatch.
 
 The registry is metadata for generated proof construction, not a trusted proof.
 Generated `checked_axN` declarations still ask Lean to prove that the child and
 parent checker results are equal before reusing a parent theorem.
+
+Production entry points erase costs from the counted comparisons below.
+`Complexity/Reuse.lean` proves value equivalence and bounds the visited source
+components, relation rows, and family slots. This composition follows the
+cost-aware semantics of Niu et al. (POPL 2022, doi:10.1145/3498670). String
+comparisons and map lookups use the documented abstract primitive interface;
+the theorem does not bound native hashing or character processing.
 -/
 
 open Lean
@@ -175,42 +182,172 @@ def reusableFieldFootprints : Array ReusableFieldFootprint :=
     { field := "ax108" }
   ]
 
+open Complexity
+
+private def pairEqCosted (first : α → α → Costed Bool) (second : β → β → Costed Bool)
+    (a b : α × β) : Costed Bool :=
+  (first a.1 b.1).andThen fun _ => second a.2 b.2
+
+private def natPairEqCosted : (Nat × Nat) → (Nat × Nat) → Costed Bool :=
+  pairEqCosted (fun a b => Costed.tick (a == b)) (fun a b => Costed.tick (a == b))
+
+private def natTripleEqCosted : (Nat × Nat × Nat) → (Nat × Nat × Nat) → Costed Bool :=
+  pairEqCosted (fun a b => Costed.tick (a == b)) natPairEqCosted
+
+private def natQuadEqCosted : (Nat × Nat × Nat × Nat) → (Nat × Nat × Nat × Nat) → Costed Bool :=
+  pairEqCosted (fun a b => Costed.tick (a == b)) natTripleEqCosted
+
+private def namedScopeEqCosted : NamedFactScope → NamedFactScope → Costed Bool
+  | .at a, .at b => Costed.charge 1 (Costed.tick (a == b))
+  | .everywhere, .everywhere => Costed.tick true
+  | _, _ => Costed.tick false
+
+private def namedDerivedEqCosted : NamedDerivedFact → NamedDerivedFact → Costed Bool
+  | .unary afield athing, .unary bfield bthing =>
+    Costed.charge 1 <| (Costed.tick (afield == bfield)).andThen fun _ =>
+    Costed.tick (athing == bthing)
+  | .binary afield aleft aright, .binary bfield bleft bright =>
+    Costed.charge 1 <| (Costed.tick (afield == bfield)).andThen fun _ =>
+    (Costed.tick (aleft == bleft)).andThen fun _ =>
+    Costed.tick (aright == bright)
+  | .ternary afield afirst asecond athird, .ternary bfield bfirst bsecond bthird =>
+    Costed.charge 1 <| (Costed.tick (afield == bfield)).andThen fun _ =>
+    (Costed.tick (afirst == bfirst)).andThen fun _ =>
+    (Costed.tick (asecond == bsecond)).andThen fun _ =>
+    Costed.tick (athird == bthird)
+  | .quaternary afield afirst asecond athird afourth, .quaternary bfield bfirst bsecond bthird bfourth =>
+    Costed.charge 1 <| (Costed.tick (afield == bfield)).andThen fun _ =>
+    (Costed.tick (afirst == bfirst)).andThen fun _ =>
+    (Costed.tick (asecond == bsecond)).andThen fun _ =>
+    (Costed.tick (athird == bthird)).andThen fun _ =>
+    Costed.tick (afourth == bfourth)
+  | _, _ => Costed.tick false
+
+private def namedFactEqCosted : NamedScopedFact → NamedScopedFact → Costed Bool
+  | .unary afield athing ascope, .unary bfield bthing bscope =>
+    Costed.charge 1 <| (Costed.tick (afield == bfield)).andThen fun _ =>
+    (Costed.tick (athing == bthing)).andThen fun _ =>
+    namedScopeEqCosted ascope bscope
+  | .binary afield aleft aright ascope, .binary bfield bleft bright bscope =>
+    Costed.charge 1 <| (Costed.tick (afield == bfield)).andThen fun _ =>
+    (Costed.tick (aleft == bleft)).andThen fun _ =>
+    (Costed.tick (aright == bright)).andThen fun _ =>
+    namedScopeEqCosted ascope bscope
+  | .ternary afield afirst asecond athird ascope, .ternary bfield bfirst bsecond bthird bscope =>
+    Costed.charge 1 <| (Costed.tick (afield == bfield)).andThen fun _ =>
+    (Costed.tick (afirst == bfirst)).andThen fun _ =>
+    (Costed.tick (asecond == bsecond)).andThen fun _ =>
+    (Costed.tick (athird == bthird)).andThen fun _ =>
+    namedScopeEqCosted ascope bscope
+  | .tupleProjection atuple aindex aresult ascope, .tupleProjection btuple bindex bresult bscope =>
+    Costed.charge 1 <| (Costed.tick (atuple == btuple)).andThen fun _ =>
+    (Costed.tick (aindex == bindex)).andThen fun _ =>
+    (Costed.tick (aresult == bresult)).andThen fun _ =>
+    namedScopeEqCosted ascope bscope
+  | .derived afact ascope, .derived bfact bscope =>
+    Costed.charge 1 <| (namedDerivedEqCosted afact bfact).andThen fun _ =>
+    namedScopeEqCosted ascope bscope
+  | _, _ => Costed.tick false
+
+private def namedFamilyEqCosted (a b : NamedProductFamily) : Costed Bool :=
+  (Costed.tick (a.domain == b.domain)).andThen fun _ =>
+  (Costed.tick (a.qualityType == b.qualityType)).andThen fun _ =>
+  (arrayEqCosted a.dimensionThings b.dimensionThings (fun x y => Costed.tick (x == y))).andThen fun _ =>
+  arrayEqCosted a.typeThings b.typeThings (fun x y => Costed.tick (x == y))
+
+private def familyEqCosted (a b : ProductFamilySpec) : Costed Bool :=
+  (Costed.tick (a.domain == b.domain)).andThen fun _ =>
+  (Costed.tick (a.qualityType == b.qualityType)).andThen fun _ =>
+  (arrayEqCosted a.dimensionThings b.dimensionThings (fun x y => Costed.tick (x == y))).andThen fun _ =>
+  arrayEqCosted a.typeThings b.typeThings (fun x y => Costed.tick (x == y))
+
+/-- Compare source components in declaration order. Arrays retain order and
+duplicates; unequal lengths and the first unequal item stop the comparison.
+Strings and field constructors are primitive comparisons. Families include
+both variable-length slot arrays. No whole-record comparison is a primitive. -/
+def modelSourceEqCosted (a b : ModelSource) : Costed Bool :=
+  (arrayEqCosted a.worlds b.worlds (fun x y => Costed.tick (x == y))).andThen fun _ =>
+  (arrayEqCosted a.things b.things (fun x y => Costed.tick (x == y))).andThen fun _ =>
+  (arrayEqCosted a.facts b.facts namedFactEqCosted).andThen fun _ =>
+  (arrayEqCosted a.productFamilies b.productFamilies namedFamilyEqCosted).andThen fun _ =>
+  Costed.tick (a.deriveRelations == b.deriveRelations)
+
+/-- Map operations use the compiler's abstract map interface. The cost is
+not a native hash-table bound. Relation rows are compared by coordinate,
+with both table lookups and all visited array cells included. -/
+private def sameTableFieldsCosted (fields : Array String)
+    (left right : Std.HashMap String (Array α)) (compare : α → α → Costed Bool) : Costed Bool :=
+  allArrayCosted fields fun field => do
+    let a ← Costed.tick (left.getD field #[])
+    let b ← Costed.tick (right.getD field #[])
+    arrayEqCosted a b compare
+
+def reusableFieldFootprintCosted (field : String) : Costed (Option ReusableFieldFootprint) :=
+  Costed.charge 1 <|
+    (Costed.foldArrayExcept reusableFieldFootprints () fun _ footprint =>
+      Costed.tick (if footprint.field == field then .error footprint else .ok ()) 2).map
+      (fun result => match result with | .error footprint => some footprint | .ok _ => none)
+
 def reusableFieldFootprint? (field : String) : Option ReusableFieldFootprint :=
-  reusableFieldFootprints.find? fun footprint => footprint.field == field
+  (reusableFieldFootprintCosted field).value
+
+def sameUnaryFootprintCosted (fields : Array String) (left right : FactTables) : Costed Bool :=
+  sameTableFieldsCosted fields left.unary right.unary natPairEqCosted
 
 def sameUnaryFootprint (fields : Array String) (left right : FactTables) : Bool :=
-  fields.all fun field => left.unary.getD field #[] == right.unary.getD field #[]
+  (sameUnaryFootprintCosted fields left right).value
+
+def sameBinaryFootprintCosted (fields : Array String) (left right : FactTables) : Costed Bool :=
+  sameTableFieldsCosted fields left.binary right.binary natTripleEqCosted
 
 def sameBinaryFootprint (fields : Array String) (left right : FactTables) : Bool :=
-  fields.all fun field => left.binary.getD field #[] == right.binary.getD field #[]
+  (sameBinaryFootprintCosted fields left right).value
+
+def sameTernaryFootprintCosted (fields : Array String) (left right : FactTables) : Costed Bool :=
+  sameTableFieldsCosted fields left.ternary right.ternary natQuadEqCosted
 
 def sameTernaryFootprint (fields : Array String) (left right : FactTables) : Bool :=
-  fields.all fun field => left.ternary.getD field #[] == right.ternary.getD field #[]
+  (sameTernaryFootprintCosted fields left right).value
 
-def footprintUnchanged
-    (footprint : ReusableFieldFootprint) (parentTables childTables : FactTables) :
-    Bool :=
-  sameUnaryFootprint footprint.unary parentTables childTables &&
-    sameBinaryFootprint footprint.binary parentTables childTables &&
-    sameTernaryFootprint footprint.ternary parentTables childTables &&
-    (!footprint.tupleProjection || parentTables.tupleProjection == childTables.tupleProjection) &&
-    (!footprint.productFamilies || parentTables.productFamilies == childTables.productFamilies)
+def footprintUnchangedCosted (footprint : ReusableFieldFootprint)
+    (parentTables childTables : FactTables) : Costed Bool :=
+  (sameUnaryFootprintCosted footprint.unary parentTables childTables).andThen fun _ =>
+  (sameBinaryFootprintCosted footprint.binary parentTables childTables).andThen fun _ =>
+  (sameTernaryFootprintCosted footprint.ternary parentTables childTables).andThen fun _ =>
+  (Costed.branch (Costed.pure footprint.tupleProjection)
+    (fun _ => arrayEqCosted parentTables.tupleProjection childTables.tupleProjection natQuadEqCosted)
+    (fun _ => Costed.pure true)).andThen fun _ =>
+    Costed.branch (Costed.pure footprint.productFamilies)
+      (fun _ => arrayEqCosted parentTables.productFamilies childTables.productFamilies familyEqCosted)
+      (fun _ => Costed.pure true)
+
+def footprintUnchanged (footprint : ReusableFieldFootprint)
+    (parentTables childTables : FactTables) : Bool :=
+  (footprintUnchangedCosted footprint parentTables childTables).value
+
+def fieldFootprintReusableCosted
+    (field : String) (parentTables childTables : FactTables) : Costed Bool := do
+  let found ← reusableFieldFootprintCosted field
+  match found with
+  | none => Costed.tick false
+  | some footprint => Costed.charge 1 (footprintUnchangedCosted footprint parentTables childTables)
 
 def fieldFootprintReusable
     (field : String) (parentTables childTables : FactTables) : Bool :=
-  match reusableFieldFootprint? field with
-  | none => false
-  | some footprint => footprintUnchanged footprint parentTables childTables
+  (fieldFootprintReusableCosted field parentTables childTables).value
+
+def certificateReuseSourceCosted
+    (parentName : Name) (parentSource childSource : ModelSource)
+    (parentTables childTables : FactTables) (fresh : Bool) (field : String) :
+    Costed (Option Name) :=
+  Costed.branch (Costed.pure fresh) (fun _ => Costed.pure none) fun _ => do
+    let reusable ← (modelSourceEqCosted childSource parentSource).orElse fun _ =>
+      fieldFootprintReusableCosted field parentTables childTables
+    Costed.tick (if reusable then some parentName else none)
 
 def certificateReuseSource?
     (parentName : Name) (parentSource childSource : ModelSource)
-    (parentTables childTables : FactTables) (fresh : Bool) (field : String) :
-    Option Name :=
-  if fresh then
-    none
-  else if childSource == parentSource || fieldFootprintReusable field parentTables childTables then
-    some parentName
-  else
-    none
+    (parentTables childTables : FactTables) (fresh : Bool) (field : String) : Option Name :=
+  (certificateReuseSourceCosted parentName parentSource childSource parentTables childTables fresh field).value
 
 end LeanUfo.UFO.DSL

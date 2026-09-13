@@ -17,53 +17,6 @@ is precedent for proof organization, not a source for our complexity theorem.
 
 namespace LeanUfo.UFO.DSL.Complexity
 
-structure FlatBoolTable where
-  fieldCount : Nat
-  coordinateCount : Nat
-  cells : Array Bool
-  cells_size : cells.size = fieldCount * coordinateCount
-deriving Repr
-
-namespace FlatBoolTable
-
-def empty (fieldCount coordinateCount : Nat) : FlatBoolTable :=
-  { fieldCount, coordinateCount
-    cells := Array.replicate (fieldCount * coordinateCount) false
-    cells_size := by simp }
-
-def index (table : FlatBoolTable) (field coordinate : Nat) : Nat :=
-  field * table.coordinateCount + coordinate
-
-/-- One charged bounds check plus one charged array access. -/
-def getCosted (table : FlatBoolTable) (field coordinate : Nat) : Costed Bool :=
-  .tick (table.cells[table.index field coordinate]?.getD false) 2
-
-def get (table : FlatBoolTable) (field coordinate : Nat) : Bool :=
-  (table.getCosted field coordinate).value
-
-/-- One bounds check, index calculation, and deterministic array write. -/
-def setCosted (table : FlatBoolTable) (field coordinate : Nat) : Costed FlatBoolTable :=
-  if hField : field < table.fieldCount then
-    if hCoordinate : coordinate < table.coordinateCount then
-      let idx := table.index field coordinate
-      let cells := table.cells.set! idx true
-      .tick
-        { table with cells := cells, cells_size := by simp [cells, table.cells_size] }
-        3
-    else .tick table 1
-  else .tick table 1
-
-def set (table : FlatBoolTable) (field coordinate : Nat) : FlatBoolTable :=
-  (table.setCosted field coordinate).value
-
-@[simp] theorem getCosted_value (table : FlatBoolTable) (field coordinate : Nat) :
-    (table.getCosted field coordinate).value = table.get field coordinate := rfl
-
-@[simp] theorem getCosted_cost (table : FlatBoolTable) (field coordinate : Nat) :
-    (table.getCosted field coordinate).cost = 2 := rfl
-
-end FlatBoolTable
-
 /-!
 ## Dense materialization correspondence core
 
@@ -260,6 +213,33 @@ theorem foldl_compileExplicitFact_binaryLookup
   rw [← Array.foldl_toList, ← Array.any_toList]
   exact foldl_compileExplicitFact_binaryLookup_list
     facts.toList tables field left right world
+
+/-- Explicit compilation can populate only declared primitive binary fields.
+Derived assertion text and product families do not introduce extra lookup
+fields. This also covers malformed coordinates: an unknown field is false
+independently of its arguments. -/
+theorem compileExplicitModelAST_binaryLookup_unknown
+    (ast : ModelAST) (name : String)
+    (unknown : ∀ field : BinaryField, name ≠ field.toTableField)
+    (x y w : Nat) :
+    (compileExplicitModelAST ast).binaryLookup name x y w = false := by
+  have facts (fs : List CompiledFact) (tables : FactTables) :
+      (fs.foldl compileExplicitFact tables).binaryLookup name x y w =
+        tables.binaryLookup name x y w := by
+    induction fs generalizing tables with
+    | nil => rfl
+    | cons fact fs ih =>
+        simp only [List.foldl_cons, ih]
+        cases fact <;>
+          simp [compileExplicitFact, addUnary, addBinary, addTernary,
+            addTupleProjection, addDerivedProp, unknown]
+  have families (fs : List ProductFamilySpec) (tables : FactTables) :
+      (fs.foldl addProductFamily tables).binaryLookup = tables.binaryLookup := by
+    induction fs generalizing tables with
+    | nil => rfl
+    | cons family fs ih => simpa [addProductFamily] using ih (addProductFamily tables family)
+  simp only [compileExplicitModelAST, FactTables.withDenseFacts_binaryLookup,
+    ← Array.foldl_toList, families, facts]
 
 def matchesTernaryFact (field : TernaryField)
     (first second third world : Nat) : CompiledFact → Bool
@@ -1273,8 +1253,8 @@ structure ExplicitTableCorrespondence
     tables.tupleProjectionTypedTable p slot w =
       tables.tupleProjectionTypedTableDense p slot w
 
-/-- Every bounded explicit model has the complete compact-to-dense table
-correspondence required by the `implemented_by` production lookups. -/
+/-- Every bounded explicit model has the compact-to-dense correspondence used
+by the proof-carrying native model constructor. -/
 theorem explicitFacts_typedTableCorrespondence
     (worldCount thingCount : Nat) (facts : Array CompiledFact)
     (hFacts : ∀ fact ∈ facts, factWellBounded worldCount thingCount fact) :
@@ -1318,79 +1298,5 @@ theorem explicitCompilationGuarantee
   lookupCorrespondence := explicitCompilationTableCorrespondence ast hBounded
 
 end Production
-
-structure ProjectionTable where
-  thingCount : Nat
-  worldCount : Nat
-  maxArity : Nat
-  cells : Array (Option Nat)
-  cells_size : cells.size = thingCount * maxArity * worldCount
-deriving Repr
-
-namespace ProjectionTable
-
-def empty (thingCount worldCount maxArity : Nat) : ProjectionTable :=
-  { thingCount, worldCount, maxArity
-    cells := Array.replicate (thingCount * maxArity * worldCount) none
-    cells_size := by simp }
-
-def index (table : ProjectionTable) (tuple slot world : Nat) : Nat :=
-  (tuple * table.maxArity + slot) * table.worldCount + world
-
-def lookup (table : ProjectionTable) (tuple slot world : Nat) : Option Nat :=
-  table.cells[table.index tuple slot world]?.join
-
-/-- Conflicting results are rejected; identical duplicate facts are idempotent. -/
-def insert (table : ProjectionTable) (tuple slot world result : Nat) :
-    Except Unit ProjectionTable := do
-  if !(tuple < table.thingCount && slot < table.maxArity && world < table.worldCount) then
-    throw ()
-  let idx := table.index tuple slot world
-  match table.cells[idx]? with
-  | some none =>
-      let cells := table.cells.set! idx (some result)
-      pure { table with cells := cells, cells_size := by simp [cells, table.cells_size] }
-  | some (some old) => if old = result then pure table else throw ()
-  | none => throw ()
-
-end ProjectionTable
-
-def unaryCells (fieldCount things worlds : Nat) : Nat :=
-  fieldCount * things * worlds
-
-def binaryCells (fieldCount things worlds : Nat) : Nat :=
-  fieldCount * things ^ 2 * worlds
-
-def ternaryCells (fieldCount things worlds : Nat) : Nat :=
-  fieldCount * things ^ 3 * worlds
-
-def projectionCells (things worlds maxArity : Nat) : Nat :=
-  things * maxArity * worlds
-
-def explicitTableCells
-    (unaryFieldCount binaryFieldCount ternaryFieldCount things worlds maxArity : Nat) : Nat :=
-  unaryCells unaryFieldCount things worlds +
-    binaryCells binaryFieldCount things worlds +
-    ternaryCells ternaryFieldCount things worlds +
-    projectionCells things worlds maxArity
-
-theorem unaryCells_polynomial (f t w : Nat) : unaryCells f t w = f * t * w := rfl
-theorem binaryCells_polynomial (f t w : Nat) : binaryCells f t w = f * t ^ 2 * w := rfl
-theorem ternaryCells_polynomial (f t w : Nat) : ternaryCells f t w = f * t ^ 3 * w := rfl
-
-example : (FlatBoolTable.empty 2 3).cells.size = 6 := by native_decide
-example : ((FlatBoolTable.empty 2 3).setCosted 1 2).cost = 3 := by native_decide
-
-example :
-    ((ProjectionTable.empty 2 1 2).insert 1 0 0 1 >>= fun table =>
-      table.insert 1 0 0 1).isOk := by native_decide
-
-private def projectionInsertFailed (result : Except Unit ProjectionTable) : Bool :=
-  match result with | .error _ => true | .ok _ => false
-
-example :
-    projectionInsertFailed
-      ((ProjectionTable.empty 2 1 2).insert 1 0 0 1 >>= fun table =>
-        table.insert 1 0 0 0) := by native_decide
 
 end LeanUfo.UFO.DSL.Complexity

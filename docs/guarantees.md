@@ -2,12 +2,30 @@
 
 [Docs home](README.md) · [Project README](../README.md)
 
+## Overview
+
+A certified model comes with a Lean theorem that it satisfies the encoded UFO
+axioms. Separate proofs connect compiled tables to their meaning and bound
+the algorithmic work of checking them. Those are different guarantees.
+
+The methods combine semantic proofs, finite Boolean checks, and operation
+counts attached to executable algorithms. The [theoretical notes](theory.md)
+ground the ontology claims. The [complexity references](dsl/complexity.md#references)
+explain the cost-aware and verified-algorithm methods. Parsing, Lean's native
+evaluator, and proof processing have explicit trust or cost limits below.
+
 This page maps Lean UFO's guarantees to their theorem statements. It keeps
 three boundaries separate:
 
 - what the Lean kernel checks as proof evidence;
 - what the executable DSL compiler and checker compute;
 - what remains trusted frontend or diagnostic presentation code.
+
+The source-linked workflow theorem composes the compiler,
+derived assertions, scheduled native checks, and selected failure analysis.
+Its [scope and assumptions](dsl/complexity.md#source-to-workflow-composition)
+exclude Lean proof work and code emission. The [testing guide](testing.md)
+describes the regression tests and proof-dependency audits.
 
 The relevant theorem files are:
 
@@ -154,10 +172,11 @@ Model.certifiedModel      : FiniteModel4.Certified Model.data
 Model.certificateManifest : CertificateManifest
 ```
 
-What Lean proves:
+The boundary is:
 
-- the parser/emitter is trusted;
-- the emitted declarations are checked by Lean;
+- parsing and declaration emission remain trusted metaprogramming;
+- Lean checks the emitted declarations, with the documented native-evaluation
+  trust for prepared Boolean proofs;
 - proof evidence is the generated Lean theorem, not the diagnostics widget or
   certificate manifest.
 
@@ -254,9 +273,12 @@ explicit_model_pipeline
 ```
 
 These theorems record how explicit facts enter the compiled tables and how the
-main compiler pipeline is assembled. They are local engineering
-guarantees, not a full verified compiler theorem from concrete syntax to
-semantics.
+main compiler pipeline is assembled. `Compiler/VerifiedModel.lean` also proves
+that successful source compilation returns bounded coordinates and the tables
+constructed from its resolved facts. Those results supply the sparse/dense
+lookup agreement required by the generated model. The workflow theorem then
+uses that actual model, not an independently supplied one. Concrete syntax
+parsing and declaration emission remain outside these proofs.
 
 What Lean proves:
 
@@ -357,15 +379,24 @@ checkAxioms4_sound :
   UFOAxioms4 M.toUFOSignature4
 ```
 
-This is the central certification theorem for successful DSL models. Generated
-certificate fields have the shape:
+This is the central certification theorem for successful DSL models. The
+frontend first proves `Model.checked_axN : checkAxN Model.data = true`.
+The semantic certificate reuses that result through the soundness bridge,
+with this representative proof shape:
 
 ```lean
 theorem Model.certified_axN : ax_aN Model.sig... :=
-  Checker.checkAxN_sound Model.data (by native_decide)
+  Checker.checkAxN_sound Model.data Model.checked_axN
 ```
 
-and the final generated theorem packages the per-field proofs:
+Axioms 73, 78, and 79 also require prerequisite results. Their semantic proofs
+reuse available checked theorems. Only later prerequisites still need
+evaluation: check 75 for axiom 73, and check 79 for axiom 78. This proof reuse
+does not establish the complete frontend cost bound. The
+[complexity guide](dsl/complexity.md#source-linked-compilerchecker-composition)
+records the remaining calls and scope.
+
+The final generated theorem packages the per-field proofs:
 
 ```lean
 Model.certified : UFOAxioms4 Model.sig
@@ -499,10 +530,17 @@ lake exe validate-certificate certificates/Model.certificate.json --module Modul
 
 `export_certificate Model` marks selected models for export. The exporter also
 adds local git commit/tag metadata and SHA-256 source/model digests when
-available. `--structure-only` checks manifest shape and required metadata
-fields. The default validation path requires `--module`; it rebuilds the named
-module, checks that the manifest's final theorem declarations have the expected
-certificate types, and compares regenerated SHA-256 digests and theorem names.
+available. It discovers manifests from declarations owned by the compiled
+module, so imported manifests and command-like comments do not change the
+selection. `--structure-only` checks the required metadata and one unique,
+well-formed row for each of the 116 certificate fields. The default validation
+path requires `--module`. It rebuilds the named module, compares every row and
+generated provenance field with the rebuilt Lean manifest, checks every named
+theorem declaration, and recomputes the SHA-256 digests. The two final theorem
+declarations are also checked at their expected certificate types.
+Git commit and tag strings record the export context. Validation checks their
+JSON types but does not authenticate the recorded Git history. The imported
+Lean module is trusted executable input, not sandboxed manifest data.
 
 What Lean proves:
 
@@ -573,19 +611,19 @@ theorem complements rather than replaces the semantic compiler guarantees.
 
 The same separation applies at the per-axiom checker level. The derived
 `typeB` and `individualB` predicates are production erasures with proved bounds
-`W * (3*T + 2)` and `W * (3*T + 2) + 1`. Axioms 1–2 and every axiom from 7
+`W * (13*T + 2)` and `W * (13*T + 2) + 1`. Axioms 1–2 and every axiom from 7
 through 17 have production Booleans obtained by erasing counted cores. Axiom 1
 evaluates and charges both syntactic sides; its semantic tautology is not
 used to replace the executable check. Axiom 2 separately charges its nested
 universal-over-existential computation. The pair has its own delayed registry,
 value theorem, and operational bound.
-Lean proves `T * (6 * W + 2)` bounds for the positive implications and
-`T * (7 * W + 2)` bounds for disjointness (the implementation writes the
+Lean proves `T * (20 * W + 2)` bounds for the positive implications and
+`T * (21 * W + 2)` bounds for disjointness (the implementation writes the
 products in the opposite associative order). Axiom 14's nested equivalence and
-disjunction costs at most `T * (8 * W + 2)`. Axioms 15–16 explicitly include
-the repeated derived scan and cost at most `T * (W * (W * (3*T+2) + 5) + 2)`.
+disjunction costs at most `T * (29 * W + 2)`. Axioms 15–16 explicitly include
+the repeated derived scan and cost at most `T * (W * (W * (13*T+2) + 12) + 2)`.
 Their delayed 11-check registry has the proved bound
-`11 * (T * (W * (W * (3*T+2) + 8) + 2) + 2)` and is proved equivalent to the
+`11 * (T * (W * (W * (13*T+2) + 29) + 2) + 3)` and is proved equivalent to the
 conjunction of axioms 7 through 17. Existing semantic
 soundness and completeness theorems separately connect each Boolean to its
 semantic axiom. The complete 116-check registry theorem subsumes these slice
@@ -593,83 +631,59 @@ results operationally, but they remain useful local proof structure.
 
 Axioms 3–6 also have individual operational erasure and bound theorems. In
 particular, `subDefB` evaluates its instance-subsumption condition with
-counted finite world/thing quantifiers; the old proposition-level `decide (∀…)`
-is retained only in the proved value-correspondence statement. Axiom 6 counts
+counted finite world/thing quantifiers. The proposition-level `decide (∀…)`
+specifies its value in the correspondence theorem. Axiom 6 counts
 its antecedent and its distinct upper- and lower-taxonomy witness searches.
 The ordered `checkAxioms1To17Costed` computation covers the whole first
 block, stops at the first failure, erases to its production Boolean, and has the
 explicit summed bound `axioms1To17CostBound`.
+Every entry in this block also has a full value/cost equality to concrete
+table-evaluator loops on the compiled model. These equalities retain repeated
+scans and the upper-before-lower witness order. The
+[complexity guide](dsl/complexity.md#instantiation-scans-and-axioms-117) derives
+the scan and per-entry bounds.
 
-Axiom 18 begins the modal-rigidity family. Its production Boolean is the
-erasure of `checkAx18Costed`. Lean separately proves value correspondence with
-the original rigidity condition, semantic soundness, and the operational bound
-`T * (W * (T * (6*W + 4) + 7) + 2)`. Keeping these statements separate is
-necessary because they establish different properties. The semantic theorem
-states what the DSL check means. The cost theorem bounds how the executable
-computes it.
-
-Axioms 19–20 continue that family as counted production erasures. Axiom 19
-separately charges the possible-instance and possible-absence searches and is
-bounded by `T * (W * (T * (7*W + 4) + 7) + 2)`. Axiom 20 uses direct typed-table
-reads and is bounded by `T * (12*W + 2)`. Explicit value-correspondence
-theorems preserve their existing semantic soundness and completeness results.
-The operational bounds do not replace those semantic proofs.
-
-Axiom 21 additionally makes the kind-witness computation concrete. For every
-candidate endurant and world it scans candidate kinds and, only after a kind
-match, scans worlds for necessary instantiation. Its counted production
-erasure is bounded by `T * (W * (T * (3*W + 4) + 5) + 2)` and retains the
-separate semantic soundness/completeness theorem through value correspondence.
-
-Axiom 22 makes uniqueness of kind classification operational. The counted core
-retains the original world-then-thing counterexample enumeration, charges each
-typed-table access and the finite-index `z ≠ k` comparison, and is bounded by
-`T * (T * (W * (W * (7*T + 2) + 8) + 2) + 2)`. Its semantic result remains the
-distinct `checkAx22_iff` theorem.
-
-Axiom 23 operationalizes the sortal kind-witness condition. Its candidate-kind
-search includes the concrete world-by-thing instance-subsumption computation
-and is bounded by `T * (W * (T * (W * (6*T + 2) + 4) + 7) + 2)`. The
-production result is an erasure of that counted computation; `checkAx23_iff`
-separately supplies its semantic meaning.
+Axioms 18–23 have full result-and-cost correspondence to table-evaluator loops
+on the compiled model. Rigidity and anti-rigidity preserve the separate
+possible-instance and necessary-instance or absence searches. Kind selection
+and uniqueness preserve candidate order, repeated world scans, and the
+finite-index disequality test. Axiom 23 shares axiom 5's instance-subsumption
+scan. Their semantic soundness and completeness theorems remain separate.
+The [modal-family derivation](dsl/complexity.md#modal-classification-and-taxonomy-bridges)
+states each bound and explains its operations.
 
 Axioms 24–33 form a direct classification-table family. Their production
 checks instantiate four shared counted cores without changing quantifier order:
-axioms 29–31 are bounded by `T * (8*W + 2)`, axiom 24 by `T * (9*W + 2)`,
-axioms 26/28/33 by `T * (10*W + 2)`, and the world-first disjointness checks
-25/27/32 by `W * (6*T + 2)`. Each has its own erasure theorem and existing
+axioms 29–31 are bounded by `T * (29*W + 2)`, axiom 24 by `T * (30*W + 2)`,
+axioms 26/28/33 by `T * (38*W + 2)`, and the world-first disjointness checks
+25/27/32 by `W * (20*T + 2)`. Each has its own erasure theorem and existing
 semantic `checkAxN_iff` theorem. Sharing the operational proof does not merge
 their UFO meanings.
 
 The counted axioms 18–33 are also composed as an actual delayed registry. Lean
 proves that the registry has 16 entries, stops at the first failure, succeeds
 exactly when all sixteen production checks succeed, and costs at most
-`16 * (axioms18To33PerCheckBound + 2)`. The factor and additive bookkeeping
-come from concrete registry traversal; they are not an unconnected envelope.
+`16 * (axioms18To33PerCheckBound + 3)`. The factor and additive bookkeeping
+come from concrete registry traversal.
 
 The four named bridge checks between axioms 33 and 34 are counted as well.
 Instantiation-to-endurant, subkind-to-sortal, and non-sortal upward propagation
-share the concrete bound `T * (T * (8*W + 2) + 2)`. Kind stability retains its
-thing/world/world order and is bounded by `T * (W * (6*W + 2) + 2)`. Their
+share the concrete bound `T * (T * (32*W + 2) + 2)`. Kind stability retains its
+thing/world/world order and is bounded by `T * (W * (20*W + 2) + 2)`. Their
 semantic bridge theorems remain independent of these operational results.
 
-The derived `qualityB` predicate no longer delegates existence and uniqueness
-to an opaque proposition-level `decide`. Its production computation searches
-quality-kind candidates, checks instantiation, scans every competing type, and
-charges finite-index equality. Lean proves equality with the former `∃!`
-condition and the concrete bound `T * (8*T + 6)` per thing/world pair. This
-value correspondence preserves the existing semantic proofs for downstream
-axioms 42–44. Numbered axiom 34 is also a counted erasure with bound
-`T * (8*W + 2)`.
+The derived `qualityB` predicate searches for exactly one matching quality kind.
+Its bound is K = T(25T+23) per thing/world pair. Full result-and-cost equality
+connects this search to the compiled table evaluators. The separate value
+theorem identifies its answer with unique existence.
 
-Axioms 35–43 are counted production erasures as well. The direct disjointness
-checks preserve world-first order. Axiom 36 charges its three-way
-classification. Axioms 42–43 compose the quadratic quality computation only
-on branches where `mode` does not short-circuit. Their bounds are
-`T * (W * (T * (8*T + 6) + 7) + 2)` and
-`W * (T * (T * (8*T + 6) + 5) + 2)`, respectively. These formulas describe
-the executable evaluation order, while the `checkAxN_iff` theorems separately
-describe the UFO semantics.
+Axioms 42 and 43 run the quality search only on the branch that needs it.
+Their bounds are T(W(K+21)+2) and W(T(K+12)+2), respectively. Axiom 44
+composes nine direct unary families and one quality family in registry order.
+Each has a proved concrete cost connection. The
+[quality-family derivation](dsl/complexity.md#quality-and-classification-by-instances)
+explains the repeated candidate scans, loop order, and per-family bounds.
+Their semantic `checkAxN_iff` theorems remain separate.
 
 The reflective checker is executable Lean code returning `Bool`, so the checker
 result is decidable by computation:
@@ -711,48 +725,122 @@ By definition, `checkAxioms4 M` is the value returned by
 value equals the conjunction of `checkAxioms4Checks M`.
 
 `checkAxioms4OperationalBound` definitionally unfolds to the heterogeneous
-sum of the 116 concrete per-check formulas plus two units of registry
-traversal and short-circuit bookkeeping per visited entry.
+sum of the 116 concrete per-check formulas plus three units per visited
+registry entry: one iteration, one array read, and one Boolean test.
 
-The fixed theorem is a data-complexity result: the UFO registry is fixed and
-the explicit finite model is input. Generic uniform and heterogeneous registry
-theorems state combined complexity when registry/formula costs are inputs.
-Table access is unit cost in the documented abstract machine. The counted
-lookups erase to the named dense functions used by native execution.
+The fixed-registry theorem gives a data-complexity counter bound under the
+checker's atomic-query interface. Generic registry theorems compose supplied
+per-check bounds; they do not derive a bound from arbitrary formula size.
+The separate `diagnosticFormula_cost_le_size` theorem bounds the diagnostic
+interpreter by formula-node count and quantifier depth, including atomic-query
+costs. Its exponent can grow with the formula. See the
+[complexity guide](dsl/complexity.md) for the parameters and derivation.
+`diagnosticFailureMinimize_cost_le_size` and
+`diagnosticSuccessTraces_cost_le_size` include the repeated evaluations,
+witness searches, and array copies used to select a failure and its context.
+`diagnosticGenericReport_cost_le_size` composes them with failing-atom discovery,
+source evidence, assignment search, registry selection, text, and output copying.
+It applies to the formula actually selected by the generic dispatcher and
+states formula, domain, source-fact, registry, and output sizes explicitly.
+Specialized analyzers retain separate bounds. These report results do not
+establish full source-to-result cost composition.
+Concrete dense-query bounds are proved separately, including index arithmetic
+and visited branches. On the compiled cached model, 112 registry checks have
+full value/cost equalities to concrete table-evaluator loops in
+`Complexity/Queries.lean`: axioms 1–104,
+the qua-individual/endurant typing check, the four named taxonomy bridges,
+and the three distance extensions. The four definition checks, axioms 105–108,
+return `⟨true, 0⟩`, justified by their semantic soundness proofs. This covers
+all 116 entries. Direct unary, binary,
+and ternary reads cost eight, eleven, and fourteen operations, respectively.
+Compiled part and overlap queries first test coordinate equality. Equal
+coordinates cost two operations and skip the table read; unequal coordinates
+cost thirteen.
+These are source-level cost equalities. Checks 1, 53–55, 58–59, 63–64,
+69–70, and 74 bind their shared predicate once and charge it once per assignment.
+Further native optimization is outside this operational model. The
+[workflow theorem](dsl/complexity.md#source-to-workflow-composition) composes
+source compilation, native proof requests, retries, and selected reports.
+The counted lookups erase to the named dense functions used by native execution.
 `ExplicitTableCorrespondence` proves equal lookup values for unary, binary,
 ternary, and projection tables. `explicitCompilationGuarantee` combines these
 results with counted-to-production compiler erasure. The correspondence needs
 a well-bounded finite AST.
 
-Kernel reduction uses compact sparse definitions so certificate proofs remain
-small. Sparse and dense lookup perform different operations. The formal cost
-bound applies to the dense native path, not the sparse kernel-facing path.
-Strings, allocation, elaboration, kernel checking, native instructions,
-diagnostics, and wall-clock runtime remain outside this theorem.
+Generated models pass their compiled tables to `toFiniteModel4Cached`.
+It uses `toFiniteModel4Verified` for primitive relations, whose native replacement
+requires sparse/dense equality for the actual tables and coordinate dimensions.
+The cached constructor also requires closure correctness for those tables.
+Lean checks the function equality used by compiler simplification (`csimp`).
+Raw `FactTables` lookup has no unproved native override. The constructor and
+its correspondence proof are in `Compiler/VerifiedModel.lean`.
 
-Diagnostics have a separate output-sensitive theorem. The theorem includes
-the evidence budget and emitted items because diagnostics construct output
-only after a checker failure.
+Kernel reduction uses compact sparse definitions so certificate proofs remain
+small. Sparse and dense lookup perform different operations. Concrete query
+bounds concern the dense native path. The checker counter bound still uses
+the atomic-query interface described above. String-character work, allocation,
+elaboration, kernel checking, native instructions, diagnostics, and wall-clock
+runtime remain outside that bound.
+
+Diagnostics have separate counter and output-size theorems, parameterized by
+the evidence budget and emitted items. The source-to-workflow theorem includes
+their selected report allowance explicitly, separate from the certification
+polynomial.
+Axiom reports follow checker failure. Derived-assertion reports can run before
+certification. The [complexity guide](dsl/complexity.md) gives the component
+derivations, workflow assumptions, and remaining verification gates.
+`compileModelSource_ok_modelPath_sound` proves that every returned inherence
+path follows edges in the actual source-produced model and ends at the requested
+target. `compileModelSource_ok_modelPath_exists_iff` proves that reconstruction
+succeeds exactly for reachable pairs within the existing traversal limit.
+
+Generated finite models also carry their closure arrays with a proof about
+the model's inherence relation. `checkAx68_eq_warshall` proves that cached and
+uncached axiom-68 execution agree with the same specification.
+`checkAx68Costed_cost_le_of_cached` bounds the cached path without closure
+construction. Both paths charge the reachability queries they execute.
+`compiledInherenceMatrices_eq_countedTables` connects uncached construction
+to eleven-operation dense inherence reads. Its bound is
+`W(10T³+17T²+3T+2)`, for W worlds and T things.
+`compiledAx68_eq_countedTables` connects the full cached checker call to its
+eight-operation classification reads and counted flat closure reads. Its bound
+is `T(W(T(21T+19)+12)+2)+1`, including cache selection.
+For a source of size N, `finiteModelInputSize_le_sourceInputSize_sq` bounds the
+cached model's checker-size metric by 3N². The separate constructor bound is
+`4 + W(7S + 20F) + 2F` for W worlds, F source families, and S witness slots.
+It includes cache installation and uses the actual source-derived registry.
+
+`productFamiliesDiagnosticCosted_eq_checker_of_compile` proves that successful
+source compilation gives the same product-family search result to diagnostics
+and the checker. The theorem uses the produced registry and cached model,
+including duplicate families. It establishes equal values, not equal costs.
 
 Source compilation additionally has a derived scalar result:
 
 ```lean
 source_compiler_scalar_polynomial_bound :
   compilerOperationalCost source ≤
-    80 * (sourceMetrics source).inputSize ^ 4
+    511 * (sourceMetrics source).inputSize ^ 4
 ```
 
 This quartic corollary is proved from the concrete multivariate compiler
 formula after every independently sized source component has been included.
 It is not used in place of that more precise operational bound. The checker
-corollary is `2940·checkerInputSize⁸`; compiler and checker compose to
-`3020·(sourceSize+modelSize)⁸`. The complexity guide gives the
-metric definitions and the corresponding theorem names.
+corollary is `8367·checkerInputSize⁸`. The sum of compiler and checker counters
+is bounded by `8878·(sourceSize+modelSize)⁸` for independent inputs.
+`source_linked_component_scalar_bound` instead uses the successful compiler's
+actual model and charges its construction before one aggregate checker call.
+That component sum is at most `54,896,424·sourceSize¹⁶`. The frontend's repeated
+per-field checks and selected diagnostic branches are composed separately by
+`sourceWorkflow_bound` in `Complexity/Certification.lean`.
+The complexity guide gives the metrics, derivation, and accounting limitations.
+
 ## Trusted boundary
 
 The current trusted boundary is:
 
 - Lean's kernel and the imported Lean/mathlib stack;
+- Lean's native evaluator used to prepare proofs of closed Boolean results;
 - the concrete DSL parser and declaration emitter in `Syntax.lean`;
 - the fact that generated source strings correspond to the intended emitted
   declarations;

@@ -1,5 +1,28 @@
 import LeanUfo.Test.Coverage.RegistryCheck
 import LeanUfo.Test.Diagnostics.Rendering
+import LeanUfo.Test.Syntax.TableCorrespondence
+import LeanUfo.Test.Certificates.InputSafety
+import LeanUfo.Test.Certificates.ManifestValidation
+import LeanUfo.Test.Certificates.Generation
+import LeanUfo.Test.Certificates.Execution
+import LeanUfo.Test.Certificates.DerivedReduction
+import LeanUfo.Test.Certificates.Reuse
+import LeanUfo.Test.Complexity.Traversal
+import LeanUfo.Test.Complexity.Resolution
+import LeanUfo.Test.Complexity.DerivedFactRendering
+import LeanUfo.Test.Complexity.SourceCorrespondence
+import LeanUfo.Test.Complexity.Certification
+import LeanUfo.Test.Complexity.ProductFamilyConversion
+import LeanUfo.Test.Complexity.Taxonomy
+import LeanUfo.Test.Complexity.Specialization
+import LeanUfo.Test.Complexity.Tables
+import LeanUfo.Test.Complexity.Diagnostics
+import LeanUfo.Test.Complexity.Formula
+import LeanUfo.Test.Complexity.Reports
+import LeanUfo.Test.Complexity.Queries
+import LeanUfo.Test.Complexity.Paths
+import LeanUfo.Test.Complexity.DerivedAssertions
+import LeanUfo.Test.Complexity.DerivedReportComposition
 import LeanUfo.CertificateCli
 
 /-!
@@ -538,7 +561,73 @@ def checkCertificateExportWorkflow : IO (Array String) := do
   failures := failures ++ (← checkCommand "certificate manifest proof recheck" "lake"
     #["exe", "validate-certificate", (outDir / "CarWithWindow.certificate.json").toString,
       "--module", moduleName])
+  try
+    LeanUfo.Test.Certificates.checkGeneratedNameSource
+    let content ← IO.FS.readFile (outDir / "CarBase.certificate.json")
+    match Lean.Json.parse content with
+    | .ok baseline =>
+        LeanUfo.Test.Certificates.checkManifestNameSafety baseline moduleName
+        let certificates ←
+          match baseline.getObjValD "certificates" |>.getArr? with
+          | .ok value => pure value
+          | .error error => throw <| IO.userError error
+        let alteredRow := certificates[0]!.setObjVal! "leanTheorem" (.str "CarBase.wrong")
+        let altered := baseline.setObjVal! "certificates"
+          (.arr (certificates.set! 0 alteredRow))
+        let alteredPath := outDir / "CarBase.altered.certificate.json"
+        IO.FS.writeFile alteredPath altered.pretty
+        let alteredResult ← IO.Process.output { cmd := "lake", args := #["exe",
+          "validate-certificate", alteredPath.toString, "--module", moduleName] }
+        unless alteredResult.exitCode != 0 &&
+            (alteredResult.stdout ++ alteredResult.stderr).contains "Lean theorem mismatch" do
+          throw <| IO.userError "altered certificate row matched rebuilt provenance"
+    | .error message => throw <| IO.userError message
+  catch e => failures := failures.push s!"certificate name safety: {e.toString}"
   pure failures
+
+private def directoryFileNames (dir : System.FilePath) : IO (Array String) := do
+  let mut names := #[]
+  for entry in (← dir.readDir) do
+    names := names.push entry.fileName
+  pure names
+
+/--
+Check module ownership, namespaces, comments, and explicit selection through
+the public exporter. Each fixture imports other manifests, so an ownership bug
+would create extra files even though the selected local models are correct.
+-/
+def checkCertificateDiscoveryWorkflow : IO (Array String) :=
+  IO.FS.withTempDir fun root => do
+    let markedModule := "LeanUfo.Test.Certificates.ExportDiscoveryMarked"
+    let fallbackModule := "LeanUfo.Test.Certificates.ExportDiscoveryFallback"
+    let markedDir := root / "marked"
+    let fallbackDir := root / "fallback"
+    let mut failures := #[]
+    failures := failures ++ (← checkCommand "marked discovery fixture build" "lake"
+      #["build", markedModule])
+    failures := failures ++ (← checkCommand "fallback discovery fixture build" "lake"
+      #["build", fallbackModule])
+    failures := failures ++ (← checkCommand "namespaced imported parent" "lake"
+      #["build", "LeanUfo.Test.Certificates.NamespacedParent"])
+    failures := failures ++ (← checkCommand "marked manifest discovery" "lake"
+      #["exe", "export-certificates", "--module", markedModule, "--out", markedDir.toString])
+    failures := failures ++ (← checkCommand "fallback manifest discovery" "lake"
+      #["exe", "export-certificates", "--module", fallbackModule, "--out", fallbackDir.toString])
+    failures := failures ++ (← checkCommand "namespaced manifest recheck" "lake"
+      #["exe", "validate-certificate",
+        (markedDir / "ExportDiscoveryFixture.Selected.certificate.json").toString,
+        "--module", markedModule])
+    if failures.isEmpty then
+      let markedNames ← directoryFileNames markedDir
+      let fallbackNames ← directoryFileNames fallbackDir
+      unless markedNames.size == 1 &&
+          markedNames.contains "ExportDiscoveryFixture.Selected.certificate.json" do
+        failures := failures.push s!"marked discovery returned unexpected files: {markedNames}"
+      unless fallbackNames.size == 2 &&
+          fallbackNames.contains "ExportFallbackFixture.First.certificate.json" &&
+          fallbackNames.contains "ExportFallbackFixture.Second.certificate.json" do
+        failures := failures.push s!"fallback discovery returned unexpected files: {fallbackNames}"
+    pure failures
 
 /--
 Build the user-facing aggregate, which includes `RelatorProbe`, then build the
@@ -570,6 +659,12 @@ def fullTestsEnabled : IO Bool := do
 
 def main : IO UInt32 := do
   let mut failures := #[]
+  try
+    LeanUfo.Test.Certificates.checkManifestCompleteness
+  catch e => failures := failures.push s!"certificate manifest completeness: {e.toString}"
+  try
+    LeanUfo.Test.Certificates.checkIdentifierParsing
+  catch e => failures := failures.push s!"certificate identifier parsing: {e.toString}"
   let selected ← selectedAxioms
   let negativeCategories ← negativeCoverageCategories
   failures := failures ++ (← checkCoverageManifest)
@@ -595,6 +690,7 @@ def main : IO UInt32 := do
         failures := failures ++ (← checkExpectedOutput test)
     if selected.isEmpty || selected.contains "all" then
       failures := failures ++ (← checkCertificateExportWorkflow)
+      failures := failures ++ (← checkCertificateDiscoveryWorkflow)
     if (← performanceTestsEnabled) then
       failures := failures ++ (← checkPerformanceFixtures)
   if failures.isEmpty then

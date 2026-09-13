@@ -1,8 +1,11 @@
 import Lean
+import LeanUfo.UFO.DSL.Certificate.Checking
+import LeanUfo.UFO.DSL.Certificate.Execution
 import LeanUfo.UFO.DSL.Certificate.Generation
 import LeanUfo.UFO.DSL.Certificate.Reuse
 import LeanUfo.UFO.DSL.Certificate.Tactic
 import LeanUfo.UFO.DSL.Compiler
+import LeanUfo.UFO.DSL.Compiler.VerifiedModel
 import LeanUfo.UFO.DSL.Complexity.Diagnostics
 import LeanUfo.UFO.DSL.Diagnostic.Analysis
 import LeanUfo.UFO.DSL.Diagnostic.Widget
@@ -294,9 +297,8 @@ private def saveFailedDiagnosticsWidget
     (completed : Array String) (failed? : Option String)
     (message : String) (failureAnalysis : Array String := #[])
     (actualReuse : Array (String × Option Name) := #[]) : CommandElabM Unit := do
-  -- Diagnostics run outside certification. Bound their emitted
-  -- evidence deterministically so a failed model cannot create unbounded UI
-  -- output; the production limiter is the erasure of `boundedEvidenceCosted`.
+  -- This boundary also accepts messages from outside the witness producer.
+  -- Use its shared counted prefix copy to keep widget output within 128 rows.
   let failureAnalysis :=
     (Complexity.boundedEvidence 128 failureAnalysis).items
   saveDiagnosticsWidget cmdStx model worldNames thingNames namedFacts scopedFacts expandedFacts tables
@@ -368,13 +370,10 @@ private structure ElabCheckResult where
   failed : Bool
   errors : Array String
 
-private def ElabCheckResult.timedOut (result : ElabCheckResult) : Bool :=
-  result.errors.any fun msg =>
-    let lower := msg.toLower
-    lower.contains "heartbeat" || lower.contains "timeout" ||
-      lower.contains "maximum number of"
-
-private def elabCommandStringWithReport (source : String) : CommandElabM ElabCheckResult := do
+/-- Build the source inside message capture: native preparation can fail before
+the remaining proof text is parsed. Its errors must follow the same fallback
+and diagnostic path as errors from elaborating that text. -/
+private def elabCommandStringWithReport (source : CommandElabM String) : CommandElabM ElabCheckResult := do
   let savedCommandMessages ← modifyGet fun st =>
     (st.messages, { st with messages := {} })
   let savedMessages ← liftCoreM <| modifyGetThe Core.State fun st =>
@@ -382,7 +381,7 @@ private def elabCommandStringWithReport (source : String) : CommandElabM ElabChe
   let mut threw := false
   let mut thrownErrors : Array String := #[]
   try
-    elabCommandString source
+    elabCommandString (← source)
   catch e =>
     threw := true
     thrownErrors := thrownErrors.push (← exceptionText e)
@@ -396,7 +395,7 @@ private def elabCommandStringWithReport (source : String) : CommandElabM ElabChe
   pure { failed := threw || messageErrorCount newMessages > 0 || messageErrorCount newCommandMessages > 0
          errors := errors }
 
-private def elabCommandStringWithErrorCheck (source : String) : CommandElabM Bool := do
+private def elabCommandStringWithErrorCheck (source : CommandElabM String) : CommandElabM Bool := do
   pure (← elabCommandStringWithReport source).failed
 
 /--
@@ -409,7 +408,7 @@ elaboration for large generated finite proofs.  See `useCommandCertificateProbe`
 for fields that skip this preflight and test the generated theorem command
 directly.
 -/
-private def elabTermStringWithReport (source : String) : CommandElabM ElabCheckResult := do
+private def elabTermStringWithReport (makeSource : CommandElabM String) : CommandElabM ElabCheckResult := do
   let savedCommandMessages ← modifyGet fun st =>
     (st.messages, { st with messages := {} })
   let savedMessages ← liftCoreM <| modifyGetThe Core.State fun st =>
@@ -417,6 +416,7 @@ private def elabTermStringWithReport (source : String) : CommandElabM ElabCheckR
   let mut threw := false
   let mut thrownErrors : Array String := #[]
   try
+    let source ← makeSource
     match Parser.runParserCategory (← getEnv) `term source with
     | .ok stx =>
         liftTermElabM <| Lean.Elab.Term.withoutErrToSorry do
@@ -437,10 +437,10 @@ private def elabTermStringWithReport (source : String) : CommandElabM ElabCheckR
   pure { failed := threw || messageErrorCount newMessages > 0 || messageErrorCount newCommandMessages > 0
          errors := errors }
 
-private def elabTermStringWithErrorCheck (source : String) : CommandElabM Bool := do
+private def elabTermStringWithErrorCheck (source : CommandElabM String) : CommandElabM Bool := do
   pure (← elabTermStringWithReport source).failed
 
-private def elabTermStringStrictWithReport (source : String) : CommandElabM ElabCheckResult := do
+private def elabTermStringStrictWithReport (makeSource : CommandElabM String) : CommandElabM ElabCheckResult := do
   let savedCommandMessages ← modifyGet fun st =>
     (st.messages, { st with messages := {} })
   let savedMessages ← liftCoreM <| modifyGetThe Core.State fun st =>
@@ -448,6 +448,7 @@ private def elabTermStringStrictWithReport (source : String) : CommandElabM Elab
   let mut threw := false
   let mut thrownErrors : Array String := #[]
   try
+    let source ← makeSource
     match Parser.runParserCategory (← getEnv) `term source with
     | .ok stx =>
         liftTermElabM do
@@ -468,7 +469,7 @@ private def elabTermStringStrictWithReport (source : String) : CommandElabM Elab
   pure { failed := threw || messageErrorCount newMessages > 0 || messageErrorCount newCommandMessages > 0
          errors := errors }
 
-private def elabTermStringStrictWithErrorCheck (source : String) : CommandElabM Bool := do
+private def elabTermStringStrictWithErrorCheck (source : CommandElabM String) : CommandElabM Bool := do
   pure (← elabTermStringStrictWithReport source).failed
 
 private def certificationFailureAnalysis
@@ -476,38 +477,10 @@ private def certificationFailureAnalysis
     (worldNames thingNames : Array Name) (namedFacts : Array NamedScopedFact)
     (tables : FactTables) (field : CertField) : CommandElabM (Array String) := do
   let counterexampleProbe ← profileStep profileEnabled s!"{model}.{field.field}.counterexample-probe" <|
-    elabTermStringWithReport (certAxiomCounterexampleCheck field)
-  if counterexampleProbe.failed then
-    if field.field == "ax99" then
-      pure <| #[
-        "Ax99 did not produce a confirmed semantic counterexample.",
-        "This axiom contains an existential product-family witness. The reflective checker can only inspect product-family witnesses that are explicitly stored in the finite model.",
-        "When the required witness data is missing, `checkAx99 = false` means that the finite representation is incomplete for this axiom; it does not by itself prove that the semantic axiom is false."
-      ] ++ diagnosticWitnesses worldNames thingNames namedFacts tables field.field
-    else
-      let probeReason :=
-        if counterexampleProbe.timedOut then
-          "The counterexample probe reported a heartbeat/timeout-style failure. This is an operational probe limit, not a semantic counterexample."
-        else
-          "The counterexample probe failed without a recognized timeout. This should be treated as an unclassified probe failure, not as a semantic counterexample."
-      let base := #[
-        s!"No counterexample proof was found for {field.field}.",
-        probeReason
-      ]
-      let probeErrors :=
-        if counterexampleProbe.timedOut then
-          #[]
-        else
-          counterexampleProbe.errors.map (fun msg => s!"Counterexample probe error: {msg}")
-      if field.field == "ax68" then
-        pure <| base ++ probeErrors ++ ax68ClosureAnalysis worldNames thingNames tables
-      else
-        pure <| base ++ probeErrors
-  else
-    pure <| #[
-      s!"A finite counterexample was confirmed for {field.field}.",
-      "Lean successfully proved the negation of this axiom for the generated finite model, so this is a semantic model failure rather than a counterexample-probe limit."
-    ] ++ diagnosticWitnesses worldNames thingNames namedFacts tables field.field
+    elabTermStringWithReport (liftTermElabM <|
+      CertificateChecking.prepareProofSource (certAxiomCounterexampleCheck field))
+  pure (certificationFailureReportCosted worldNames thingNames namedFacts tables
+    field.field counterexampleProbe.failed counterexampleProbe.errors).value
 
 private def throwResolveError : ResolveError → CommandElabM α
   | .duplicateWorld name => throwError "duplicate world name `{name}` in UFO model"
@@ -544,12 +517,13 @@ private def emitModel
     (scopedFacts : Array ScopedCompiledFact)
     (facts : Array CompiledFact) (productFamilies : Array ProductFamilySpec)
     (tables : FactTables) (reuseFor? : String → Option Name := fun _ => none) :
-    CommandElabM Unit := do
+    CommandElabM Name := do
   if worldNames.isEmpty then
     throwError "a UFO model must declare at least one world"
   if thingNames.isEmpty then
     throwError "a UFO model must declare at least one thing"
 
+  let declaredModel := (← getCurrNamespace) ++ model
   let modelIdent := mkIdent model
   let profileEnabled ← certProfileEnabled
   let initialErrors ← coreMessageErrorCount
@@ -557,107 +531,87 @@ private def emitModel
   elabCommandString (modelSourceDecl source)
   elabCommandString (modelASTSource worldNames.size thingNames.size facts productFamilies)
   elabCommandString "def tables : FactTables := compileExplicitModelAST ast"
-  elabCommandString "def data : FiniteModel4 := tables.toFiniteModel4 ast.worldCount ast.thingCount (by decide) (by decide)"
+  -- This finite coordinate proof uses the same local reduction limits as the
+  -- generated checker proofs. It does not evaluate table correspondence.
+  elabCommandString "set_option maxRecDepth 20000 in set_option maxHeartbeats 1000000 in theorem astWellBounded : Complexity.Production.explicitModelWellBounded ast := by decide"
+  elabCommandString "def data : FiniteModel4 := tables.toFiniteModel4Cached ast.worldCount ast.thingCount (by decide) (by decide) (compiledLookups_agree ast astWellBounded) (compileExplicitModelAST_inherenceCacheValid ast) (compileExplicitModelAST_tableDimensions ast).1 (compileExplicitModelAST_tableDimensions ast).2"
   elabCommandString "abbrev sig : UFOSignature4 := FiniteModel4.toUFOSignature4 data"
-  let derivedFailure? := derivedAssertionFailure? worldNames thingNames namedFacts scopedFacts tables
-  let derivedFailed ←
-    match derivedFailure? with
-    | some _ => pure true
-    | none =>
-        -- Derived assertions range over different semantic predicates. The
-        -- shared fallback tactic therefore uses a conservative simp set whose
-        -- relevant subset depends on the assertion. Suppress only that
-        -- expected per-model lint; checker-backed certificates keep it active.
-        profileStep profileEnabled s!"{model}.assertedDerivedFacts" <|
-          elabCommandStringWithErrorCheck
-            s!"set_option maxHeartbeats 1000000 in set_option maxRecDepth 20000 in set_option linter.unusedSimpArgs false in theorem assertedDerivedFacts : {derivedFactsType tables.derivedProps} := {derivedFactsBody tables.derivedProps}"
-  if derivedFailed then
-    let failureAnalysis :=
-      match derivedFailure? with
-      | some analysis => analysis
-      | none => derivedAssertionAnalysis worldNames thingNames namedFacts scopedFacts tables
+  -- Construct a deferred action: the shared assertion driver below invokes
+  -- it only after both the pure precheck and the derived-fact proof succeed.
+  let runCertificate : CommandElabM (CertificateChecking.RegistryReport CertField) := do
+    let progress ← CertificateChecking.runFields
+      (fun n => pure (Complexity.Costed.tick () n).value) certFields CertField.field fun field =>
+        CertificateChecking.runField
+          (fun n => pure (Complexity.Costed.tick () n).value)
+          (fun _ => pure (certificationFieldPrecheckCosted
+            worldNames.size thingNames.size tables field.field).value)
+          (fun _ =>
+            CertificateChecking.run
+              (fun n => pure (Complexity.Costed.tick () n).value)
+              (fun _ => pure (reuseFor? field.field))
+              (fun fieldReuseFrom? =>
+                profileStep profileEnabled s!"{model}.{field.field}.checked-preflight" <|
+                  elabTermStringStrictWithErrorCheck (liftTermElabM <|
+                    CertificateChecking.prepareProofSource (checkedAxiomProofCheck field fieldReuseFrom?)))
+              (fun fieldReuseFrom? =>
+                profileStep profileEnabled s!"{model}.{field.field}.checked" <|
+                  elabCommandStringWithErrorCheck (liftTermElabM <|
+                    CertificateChecking.prepareProofSource (checkedAxiomTheorem field fieldReuseFrom?)))
+              (fun _ =>
+                profileStep profileEnabled s!"{model}.{field.field}.checked-fresh-fallback-preflight" <|
+                  elabTermStringStrictWithErrorCheck (liftTermElabM <|
+                    CertificateChecking.prepareProofSource (checkedAxiomProofCheck field none)))
+              (fun _ =>
+                profileStep profileEnabled s!"{model}.{field.field}.checked-fresh-fallback" <|
+                  elabCommandStringWithErrorCheck (liftTermElabM <|
+                    CertificateChecking.prepareProofSource (checkedAxiomTheorem field none))))
+          (fun _ => pure (useCommandCertificateProbeCosted field).value)
+          (fun _ =>
+            profileStep profileEnabled s!"{model}.{field.field}.term-preflight" <|
+              elabTermStringWithErrorCheck
+                (liftTermElabM <| CertificateChecking.prepareProofSource
+                  (certAxiomProofCheck worldNames.size thingNames.size tables field)))
+          (fun command =>
+            let label := if command then "command-probe" else "declare"
+            profileStep profileEnabled s!"{model}.{field.field}.{label}" <|
+              elabCommandStringWithErrorCheck
+                (liftTermElabM <| CertificateChecking.prepareProofSource
+                  (certAxiomTheorem worldNames.size thingNames.size tables field)))
+    let reported ← CertificateChecking.reportAfterRegistry
+      (fun n => pure (Complexity.Costed.tick () n).value) progress
+      (certificationFailureAnalysis profileEnabled model worldNames thingNames namedFacts tables)
+    pure reported
+  let result ← CertificateChecking.runAfterAssertions
+    (fun n => pure (Complexity.Costed.tick () n).value)
+    (fun _ => pure (derivedAssertionFailure? worldNames thingNames namedFacts scopedFacts tables))
+    (fun _ =>
+      -- Derived assertions range over different semantic predicates. The
+      -- shared fallback tactic therefore uses a conservative simp set whose
+      -- relevant subset depends on the assertion. Suppress only that
+      -- expected per-model lint; checker-backed certificates keep it active.
+      profileStep profileEnabled s!"{model}.assertedDerivedFacts" <|
+        elabCommandStringWithErrorCheck
+          (pure s!"set_option maxHeartbeats 1000000 in set_option maxRecDepth 20000 in set_option linter.unusedSimpArgs false in theorem assertedDerivedFacts : {derivedFactsType tables.derivedProps} := {derivedFactsBody tables.derivedProps}"))
+    (fun saved => pure (derivedAssertionFailureReportCosted saved).value)
+    (fun _ => runCertificate)
+  match result with
+  | .failed failureAnalysis =>
     saveFailedDiagnosticsWidget cmdStx model worldNames thingNames namedFacts scopedFacts facts tables
       "derived-facts-failed" #[] none "A user-written derived relation assertion failed."
       failureAnalysis
-  else
-    let mut completed : Array String := #[]
-    let mut actualReuse : Array (String × Option Name) := #[]
-    let mut failedField? : Option CertField := none
-    for field in certFields do
-      if failedField?.isNone then
-        if field.field == "ax68" &&
-            hasAx68ClosureFailure worldNames.size thingNames.size tables then
-          failedField? := some field
-        else
-          let fieldReuseFrom? := reuseFor? field.field
-          let checkedPreflightFailed ←
-            profileStep profileEnabled s!"{model}.{field.field}.checked-preflight" <|
-              elabTermStringStrictWithErrorCheck (checkedAxiomProofCheck field fieldReuseFrom?)
-          let checkedFailed ←
-            if checkedPreflightFailed then
-              pure true
-            else
-              profileStep profileEnabled s!"{model}.{field.field}.checked" <|
-                elabCommandStringWithErrorCheck (checkedAxiomTheorem field fieldReuseFrom?)
-          let actualReuseFrom? ←
-            if checkedFailed then
-              match fieldReuseFrom? with
-              | some _ =>
-                  let freshCheckedPreflightFailed ←
-                    profileStep profileEnabled s!"{model}.{field.field}.checked-fresh-fallback-preflight" <|
-                      elabTermStringStrictWithErrorCheck (checkedAxiomProofCheck field none)
-                  let freshCheckedFailed ←
-                    if freshCheckedPreflightFailed then
-                      pure true
-                    else
-                      profileStep profileEnabled s!"{model}.{field.field}.checked-fresh-fallback" <|
-                        elabCommandStringWithErrorCheck (checkedAxiomTheorem field none)
-                  if freshCheckedFailed then
-                    failedField? := some field
-                  pure none
-              | none =>
-                  failedField? := some field
-                  pure none
-            else
-              pure fieldReuseFrom?
-          if failedField?.isSome then
-            pure ()
-          else if useCommandCertificateProbe field then
-            let certFailed ← profileStep profileEnabled s!"{model}.{field.field}.command-probe" <|
-              elabCommandStringWithErrorCheck
-                (certAxiomTheorem worldNames.size thingNames.size tables field)
-            if certFailed then
-              failedField? := some field
-            else
-              actualReuse := actualReuse.push (field.field, actualReuseFrom?)
-              completed := completed.push field.field
-          else
-            let certFailed ← profileStep profileEnabled s!"{model}.{field.field}.term-preflight" <|
-              elabTermStringWithErrorCheck
-                (certAxiomProofCheck worldNames.size thingNames.size tables field)
-            if certFailed then
-              failedField? := some field
-            else
-              let declareFailed ← profileStep profileEnabled s!"{model}.{field.field}.declare" <|
-                elabCommandStringWithErrorCheck
-                  (certAxiomTheorem worldNames.size thingNames.size tables field)
-              if declareFailed then
-                failedField? := some field
-              else
-                actualReuse := actualReuse.push (field.field, actualReuseFrom?)
-                completed := completed.push field.field
-    match failedField? with
-    | some failedField =>
-        let failureAnalysis ←
-          certificationFailureAnalysis profileEnabled model worldNames thingNames namedFacts tables failedField
+  | .checked reported =>
+    match reported with
+    | .failed progress failedField failureAnalysis =>
         saveFailedDiagnosticsWidget cmdStx model worldNames thingNames namedFacts scopedFacts facts tables
-          "certification-failed" completed (some failedField.field)
+          "certification-failed" progress.completed (some failedField.field)
           s!"Generated certificate theorem `{certTheoremName failedField.field}` failed."
-          failureAnalysis actualReuse
-    | none =>
+          failureAnalysis progress.actualReuse
+    | .checked progress =>
+        let completed := progress.completed
+        let actualReuse := progress.actualReuse
         let certifiedFailed ← profileStep profileEnabled s!"{model}.certified" <|
           elabCommandStringWithErrorCheck
-            s!"set_option maxHeartbeats 1000000 in set_option maxRecDepth 20000 in theorem certified : UFOAxioms4 sig := {certificateBody}"
+            (pure s!"set_option maxHeartbeats 1000000 in set_option maxRecDepth 20000 in theorem certified : UFOAxioms4 sig := {certificateBody}")
         if certifiedFailed then
           saveFailedDiagnosticsWidget cmdStx model worldNames thingNames namedFacts scopedFacts facts tables
             "packaging-failed" completed none "The individual axiom checks completed, but final certificate packaging failed."
@@ -665,7 +619,7 @@ private def emitModel
         else
           let certifiedModelFailed ← profileStep profileEnabled s!"{model}.certifiedModel" <|
             elabCommandStringWithErrorCheck
-              "theorem certifiedModel : FiniteModel4.Certified data := certified"
+              (pure "theorem certifiedModel : FiniteModel4.Certified data := certified")
           if certifiedModelFailed then
             saveFailedDiagnosticsWidget cmdStx model worldNames thingNames namedFacts scopedFacts facts tables
               "packaging-failed" completed none "The individual axiom checks completed, but final certified model packaging failed."
@@ -679,14 +633,12 @@ private def emitModel
               actualReuse.findSome? fun row =>
                 if row.1 == field then row.2 else none
             profileStep profileEnabled s!"{model}.manifest" <|
-              elabCommandString (certificateManifestSource model source tables actualReuseFor?)
+              elabCommandString (certificateManifestSource declaredModel source tables actualReuseFor?)
             profileStep profileEnabled s!"{model}.widget" <|
               saveDiagnosticsWidget cmdStx model worldNames thingNames namedFacts scopedFacts facts tables
                 "certified" completed none none #[] actualReuse
   elabCommand (← `(command| end $modelIdent))
-
-private def namesFromStrings (xs : Array String) : Array Name :=
-  xs.map Name.mkSimple
+  pure declaredModel
 
 private def parseBlocksAndFamilies
     (worldNames thingNames : Array Name)
@@ -725,15 +677,19 @@ private unsafe def cachedModelSourceFromEnv? (parent : Name) :
 
 private unsafe def resolveParentModelSource (parent : Name) :
     CommandElabM CachedModelSource := do
+  let namespaceParent := (← getCurrNamespace) ++ parent
+  let candidates :=
+    if namespaceParent == parent then #[parent] else #[namespaceParent, parent]
   let cache ← modelSourceCache.get
-  match cache.get? parent with
-  | some cached => pure cached
-  | none =>
-      match (← cachedModelSourceFromEnv? parent) with
-      | some cached => pure cached
-      | none =>
-          throwError
-            "unknown parent UFO model `{parent}` for extension; expected `{parent}.source` and `{parent}.tables` to be available from an earlier model or an imported module"
+  for candidate in candidates do
+    -- Namespace precedence must not depend on whether the parent is cached
+    -- from this module or recovered from an imported declaration.
+    if let some cached := cache.get? candidate then
+      return cached
+    if let some cached ← cachedModelSourceFromEnv? candidate then
+      return cached
+  throwError
+    "unknown parent UFO model `{parent}` for extension; expected `{parent}.source` and `{parent}.tables` to be available from an earlier model or an imported module"
 
 private def makeReusePlan
     (parent? : Option CachedModelSource) (source : ModelSource) (childTables : FactTables)
@@ -753,11 +709,12 @@ private def emitCompiledModelSource
     match compileModelSource source with
     | .ok compiled => pure compiled
     | .error err => throwResolveError err
-  emitModel cmdStx model (namesFromStrings source.worlds) (namesFromStrings source.things)
-    source source.facts compiled.scopedFacts compiled.expandedFacts compiled.productFamilies
-    compiled.tables (makeReusePlan parent? source compiled.tables fresh)
+  let declaredModel ←
+    emitModel cmdStx model (namesFromStrings source.worlds) (namesFromStrings source.things)
+      source source.facts compiled.scopedFacts compiled.expandedFacts compiled.productFamilies
+      compiled.tables (makeReusePlan parent? source compiled.tables fresh)
   modelSourceCache.modify (fun cache =>
-    cache.insert model { source, tables := compiled.tables, declaredName := model })
+    cache.insert declaredModel { source, tables := compiled.tables, declaredName := declaredModel })
 
 elab_rules : command
   | `(ufo_model $model:ident : UFO where
@@ -793,7 +750,7 @@ elab_rules : command
     let parentSource := parentCached.source
     let thingNames := ts.map (·.getId)
     let childThingNameStrings := thingNames.map (·.toString)
-    let allThingNames := parentSource.things.map Name.mkSimple ++ thingNames
+    let allThingNames := namesFromStrings parentSource.things ++ thingNames
     let worldNames := namesFromStrings parentSource.worlds
     let (namedFacts, namedProductFamilies) ← parseBlocksAndFamilies worldNames allThingNames blocks families
     let childSource : ModelSource :=

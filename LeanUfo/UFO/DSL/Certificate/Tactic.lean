@@ -19,6 +19,9 @@ def certificateModelSimpDefs : String :=
   "sig, data, tables, ast, compileModel, compileModelAST, compileFacts, compileFact,
     compileExplicitModel, compileExplicitModelAST, compileExplicitFact,
     FactTables.withDenseFacts, FactTables.initializeDense, FactTables.writeDenseFact,
+    compileVerifiedModel, FactTables.toFiniteModel4Cached, FactTables.toFiniteModel4CachedCosted,
+    FactTables.toFiniteModel4Verified, FactTables.verifiedLookups,
+    FactTables.sparseLookups, FactTables.toFiniteModel4WithLookups,
     FactTables.toFiniteModel4, FactTables.unaryTable, FactTables.binaryTable, FactTables.ternaryTable,
     FactTables.unaryTypedTable, FactTables.binaryTypedTable, FactTables.ternaryTypedTable,
     FactTables.tupleProjectionTypedTable, FactTables.identityBinaryTable, addUnary, addUnaryWithTaxonomy,
@@ -77,7 +80,16 @@ def certificateSimpSelected (defs : String) : String :=
 syntax (name := ufoCertTactic) "ufo_cert_tac" : tactic
 
 @[tactic ufoCertTactic] def evalUFOCertTactic : Lean.Elab.Tactic.Tactic := fun _ => do
-  let source := s!"{certificateSimp} <;> (try omega) <;> (try grind) <;> (decide +revert)"
+  -- Expose the finite propositions before asking for their decision procedures.
+  -- Keep `data` folded: broad simplification of the counted model constructors
+  -- can traverse unrelated tables and exhaust the simplifier's step limit.
+  -- `decide` uses ordinary kernel-checked reduction, not native execution.
+  -- Predicates without a computable decision procedure still need the semantic
+  -- simplifier below (for example, inductively defined reachability).
+  let source := s!"first
+    | (dsimp only [sig, FiniteModel4.toUFOSignature4,
+        FiniteModel4.typeSem, FiniteModel4.individualSem] <;> decide +revert)
+    | ({certificateSimp} <;> (try omega) <;> (try grind) <;> (decide +revert))"
   match Parser.runParserCategory (← getEnv) `tactic source with
   | .ok stx =>
       Lean.Elab.Term.withoutErrToSorry <|

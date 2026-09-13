@@ -2,6 +2,19 @@
 
 [Docs home](../README.md) · [Project README](../../README.md)
 
+## Overview
+
+A `ufo_model` command names the worlds and things in a finite model, states
+facts, and asks Lean to certify the result. Facts can apply to one world or
+every declared world. An extension can reuse an earlier model.
+
+The notation follows the UFO predicates and relations explained in the
+[theoretical notes](../theory.md). The compiler expands these declarations
+into finite data and the checker supports a Lean certificate when the encoded
+axioms hold. This reference gives the accepted forms, including derived
+assertions and explicit product-family witnesses. The
+[guarantees](../guarantees.md) state what successful certification establishes.
+
 ## Model command
 
 ```lean
@@ -164,7 +177,9 @@ export_certificate CarBase
 ```
 
 The marker emits `CarBase.exportRequested : Bool := true`. It is metadata for
-the Lake exporter, not proof evidence.
+the Lake exporter, not proof evidence. The exporter reads this declaration from
+the compiled module. Comments that resemble markers have no effect, and a
+namespaced model keeps its full Lean name.
 
 Export and validation are ordinary Lake workflows:
 
@@ -175,10 +190,10 @@ lake exe validate-certificate certificates/CarBase.certificate.json --structure-
 lake exe validate-certificate certificates/CarWithWindow.certificate.json --module LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension
 ```
 
-`--structure-only` checks just the JSON manifest shape. The default validation
-path requires `--module`: it rebuilds the module, checks the named Lean theorem
-declarations at their expected types, and compares regenerated SHA-256 source
-and finite-model digests.
+`--structure-only` checks the required metadata and all 116 certificate rows.
+The default validation path requires `--module`. It rebuilds the module,
+compares every row with the regenerated Lean manifest, checks every named
+theorem declaration, and recomputes the SHA-256 source and finite-model digests.
 
 Additional concrete reuse examples cover role extension and mode/inherence
 extension:

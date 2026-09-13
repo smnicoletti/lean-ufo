@@ -2,8 +2,25 @@
 
 [Docs home](README.md) · [Project README](../README.md)
 
+## Overview
+
+The DSL certifies finite models through UFO §4, with 116 registered checks.
+It also reports failures and supports certificate reuse for model extensions.
+All user-facing examples, including Relator, pass the final test profile.
+
+This inventory draws its evidence from Lean theorems and regression tests.
+[Theoretical notes](theory.md) explain the ontology choices, and
+[Formal guarantees](guarantees.md) separates proved results from trusted code.
+The limits below include the explicit witness data required for axiom 99 and
+the work excluded from the complexity bound.
+
 This page records implemented coverage and known limits. The theorem-level
 contract is in [Formal guarantees](guarantees.md).
+
+The 2026-09-13 local verification covers the compiler, checker, diagnostics,
+and certificate-tool repairs described here. Source checkouts use the development
+artifact version `0.0.0-dev`; the release workflow sets that metadata to the
+release tag. Release notes record the corresponding GitHub Actions results.
 
 | Area | Status |
 | --- | --- |
@@ -103,21 +120,50 @@ contract is in [Formal guarantees](guarantees.md).
   are derived directly in `FiniteModel4.toUFOSignature4`, so their checker
   proofs establish that the generated semantic definitions satisfy the packaged
   axioms without per-model tactic search.
-- The production checker is the erasure of a counted 116-entry registry. Each
-  entry carries its own proved operational formula, and the aggregate theorem
-  sums those heterogeneous bounds plus actual short-circuit traversal charges.
-  The counted source compiler also has a derived `80·inputSize⁴` scalar corollary. The
-  checker has a `2940·modelSize⁸` corollary, and the composed bound is
-  `3020·(sourceSize+modelSize)⁸`; the [complexity guide](dsl/complexity.md)
-  defines these metrics and records the theorem inventory.
-  The reproducible `lake exe complexity-benchmarks` target emits CSV for
-  sparse, dense, cyclic, product-family, and projection-heavy generated inputs.
-  Native finite relation lookup uses typed dense arrays. Kernel reduction uses
-  compact sparse definitions for generated certificates. The cost theorem
-  covers the dense native path. `ExplicitTableCorrespondence` proves that the
-  sparse and dense unary, binary, ternary, and projection lookups return equal
-  values for a well-bounded finite AST. It does not claim equal step counts.
-  Finite quantifiers are erasures of counted short-circuit scans.
+- The counted 116-entry checker registry has per-check bounds and proved
+  short-circuit traversal costs. `Complexity/Certification.lean` composes
+  successful source compilation, derived assertions, scheduled native checks,
+  retries, and selected failure reports. Its scalar bound is
+  `(439,182,619R + 109,798,953)N¹⁶ + D`: N is the larger complete child/parent
+  source size, R is the number of registered fields, and D is the selected
+  diagnostic allowance. Root models use only their own source size. The
+  [complexity guide](dsl/complexity.md#source-to-workflow-composition) gives the
+  assumptions and component derivations. Lean proof processing, code emission,
+  and native instructions remain outside the bound.
+- Compiled models use typed dense lookups in native execution and compact
+  sparse definitions in kernel proofs. `ExplicitTableCorrespondence` proves
+  equal lookup values for well-bounded finite input, not equal step counts.
+  Full value/cost equalities connect 112 checks to the concrete table
+  evaluators; axioms 105–108 return `⟨true, 0⟩`. The eleven checks identified
+  as 1, 53–55, 58–59, 63–64, 69–70, and 74 bind each shared predicate once
+  and charge it once per assignment.
+- Generated models carry a proved inherence cache. Compilation charges its
+  construction, and axiom 68 reads its arrays directly. Source-to-model proofs
+  also cover product-family conversion and the resulting model size.
+  Diagnostic and checker family searches have proved equal answers, with
+  separate costs. `lake exe complexity-benchmarks` exercises sparse, dense,
+  cyclic, product-family, and projection-heavy inputs.
+- Certificate tools validate complete manifest provenance and discover exports
+  from module-owned Lean declarations. The final cross-stage review and single
+  all-inclusive profile passed on 2026-09-13, including the user-facing examples
+  and Relator. The run took 362.58 seconds with an incremental build.
+  [Testing](testing.md) describes the profile, and
+  [Formal guarantees](guarantees.md) states the trust assumptions.
+- The diagnostic interpreter has a formula-size cost theorem. Its bound
+  includes node count, quantifier depth, domain sizes, environment size, and
+  atomic-query costs. The exponent grows with quantifier depth, so this does
+  not claim a uniform polynomial for unrestricted formula/model input.
+  [The derivation](dsl/complexity.md) is separate from the fixed-registry bound.
+  Failure minimization and successful-context collection also have explicit
+  formula-size cost bounds. The minimized environment and context have proved
+  entry-count bounds. Generic reports have a composed formula-size bound for
+  evidence, assignment search, registry selection, text, and retained output.
+  Their selected report bound is included explicitly in the source-to-workflow
+  theorem; it is not folded into a uniform polynomial for arbitrary formulas.
+- Paths returned by diagnostic reconstruction from a successfully compiled
+  source follow the produced model's inherence edges and end at the requested
+  target. Reconstruction succeeds exactly for reachable pairs within the
+  existing traversal limit.
 - The diagnostics widget distinguishes confirmed semantic counterexamples,
   timeout-style counterexample-probe limits, and unclassified probe failures.
 - The test suite covers syntax, certification fixtures, diagnostics rendering,
