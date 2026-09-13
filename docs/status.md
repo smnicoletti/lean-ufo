@@ -17,10 +17,10 @@ the work excluded from the complexity bound.
 This page records implemented coverage and known limits. The theorem-level
 contract is in [Formal guarantees](guarantees.md).
 
-The 2026-09-13 verification covers the local repair branch. It has not been
-pushed, merged, or released. Local manifests use the development artifact
-version `0.0.0-dev`; the release workflow sets that metadata to the release tag.
-Configured GitHub Actions jobs are not evidence of a remote run for these repairs.
+The 2026-09-13 local verification covers the compiler, checker, diagnostics,
+and certificate-tool repairs described here. Source checkouts use the development
+artifact version `0.0.0-dev`; the release workflow sets that metadata to the
+release tag. Release notes record the corresponding GitHub Actions results.
 
 | Area | Status |
 | --- | --- |
