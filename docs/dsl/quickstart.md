@@ -2,6 +2,11 @@
 
 [Docs home](../README.md) · [Project README](../../README.md)
 
+> [!TIP]
+> **Fast path.** Import `LeanUfo.UFO.DSL.Syntax`, declare a finite model, and
+> end it with `certify`. A successful command creates
+> `ModelName.certified : UFOAxioms4 ModelName.sig`.
+
 Import the DSL frontend:
 
 ```lean

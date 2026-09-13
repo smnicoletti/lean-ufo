@@ -4,9 +4,11 @@
 
 ## Overview
 
-A certified model comes with a Lean theorem that it satisfies the encoded UFO
-axioms. Separate proofs connect compiled tables to their meaning and bound
-the algorithmic work of checking them. Those are different guarantees.
+> [!IMPORTANT]
+> **Bottom line.** A successful DSL model has a kernel-checked theorem of type
+> `UFOAxioms4 Model.sig`. Other theorems justify compilation, checker soundness,
+> reuse, and algorithmic cost. The parser, emitter, and Lean proof processing
+> remain explicit boundaries.
 
 The methods combine semantic proofs, finite Boolean checks, and operation
 counts attached to executable algorithms. The [theoretical notes](theory.md)
@@ -26,6 +28,16 @@ derived assertions, scheduled native checks, and selected failure analysis.
 Its [scope and assumptions](dsl/complexity.md#source-to-workflow-composition)
 exclude Lean proof work and code emission. The [testing guide](testing.md)
 describes the regression tests and proof-dependency audits.
+
+### Guarantee map
+
+| Question | Answer | Main evidence |
+| --- | --- | --- |
+| Does a certified model satisfy the axioms? | Yes, for its generated `UFOSignature4` | `Model.certified` and checker soundness |
+| Do compiled tables represent the source facts? | Yes, after successful compilation and the stated coordinate premises | Compiler and table correspondence theorems |
+| How is reuse authorized? | Lean checks the child/parent result equality before using the parent result | Certificate-reuse theorems |
+| Is certification polynomial? | The counted algorithmic workflow is polynomial for the fixed registry | Complexity theorems |
+| Is every frontend operation verified? | No | Trusted-boundary section |
 
 The relevant theorem files are:
 

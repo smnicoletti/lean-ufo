@@ -4,21 +4,30 @@
 
 ## Overview
 
-A model moves from named facts to finite tables, Boolean checks, and Lean
-certificates. When a check fails, diagnostics inspect those same tables.
-The directory map assigns each step one owner.
+> [!IMPORTANT]
+> **Bottom line.** One pipeline owns the path from DSL source to certificate:
+> parse, compile, build tables, run Boolean checks, and emit Lean proofs. Each
+> representation change has a correspondence theorem or an explicit trust
+> boundary.
 
 The design uses proved links between representations and counts attached to
 executable operations. Its [research grounding](complexity.md#references)
 includes cost-aware semantics and verified algorithms. RadixExperiment informs
 the organization of implementation-correctness proofs. Lean UFO proves its own
 complexity result.
-The outcome is a certificate for the encoded UFO axioms and a separate bound
-on selected algorithmic work, with frontend and Lean-processing limits.
 
 This page traces a finite UFO model from surface syntax to Lean-checked
 certificates and diagnostics. It also records module ownership and the formal
 guarantees available at each boundary.
+
+| Stage | Main object | Reader question |
+| --- | --- | --- |
+| Frontend | `ModelSource` | What did the user write? |
+| Compiler | `ModelAST`, `FactTables` | How were names and facts resolved? |
+| Finite model | `FiniteModel4` | What executable data does the checker read? |
+| Checker | `checkAxN`, registry | Which encoded axioms hold? |
+| Certificate | `checked_axN`, `UFOAxioms4` | What theorem did Lean accept? |
+| Diagnostic | `FailureReport` | Why did the first failed check fail? |
 
 ## Directory map and ownership
 

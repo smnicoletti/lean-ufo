@@ -7,6 +7,11 @@
 
 ## Overview
 
+> [!IMPORTANT]
+> **Bottom line.** Lean UFO formalizes UFO axioms and certifies finite models
+> against them. Successful DSL models produce ordinary Lean theorems. Failed
+> models receive diagnostics whose proof status is stated explicitly.
+
 Lean UFO is a machine-checked formalization of the Unified Foundational
 Ontology (UFO) in Lean 4. It also provides a small modeling language for finite
 UFO examples: write a named model, ask Lean to certify it, and get structured

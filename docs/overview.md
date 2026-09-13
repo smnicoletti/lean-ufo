@@ -4,16 +4,16 @@
 
 ## Overview
 
-Lean UFO formalizes fragments of the Unified Foundational Ontology in Lean 4.
-Its finite DSL compiles small named models and asks Lean to certify them against
-the formalized axioms.
+> [!IMPORTANT]
+> **Bottom line.** Lean UFO turns finite UFO models into Lean-checked
+> certificates. A certificate proves that one encoded model satisfies the
+> formalized axioms. Its scope is that encoded model.
 
 The method combines possible-world semantics for UFO with finite tables and
 Lean-checked certificates. The [theoretical notes](theory.md) explain its
 ontology grounding. The [complexity guide](dsl/complexity.md#references)
 identifies the literature behind its counted algorithms and implementation
-proofs. A successful certificate establishes the encoded axioms for that model,
-not the correctness of the ontology for every real-world use.
+proofs.
 
 | Layer | Role |
 | --- | --- |

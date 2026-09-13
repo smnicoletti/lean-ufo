@@ -4,9 +4,10 @@
 
 ## Overview
 
-The diagnostics tell you whether a model certified, which check failed, and
-which facts help explain the failure. They distinguish a proved counterexample
-from a timeout or an unclassified proof failure.
+> [!IMPORTANT]
+> **Bottom line.** Only a Lean-checked negation proves that a failed model is a
+> semantic counterexample. A timeout or unclassified probe failure reports a
+> tool limit and gives no evidence about the model.
 
 The reports come from searches over the compiled finite model. Their meaning
 rests on the [encoded UFO semantics](../theory.md) and
@@ -20,6 +21,12 @@ The DSL frontend saves a VS Code diagnostics widget for each
 commands. The widget is saved when the command reaches a terminal success or
 failure path. It presents results while the Lean declarations carry proof
 evidence.
+
+| Status | Meaning | Conclusion |
+| --- | --- | --- |
+| Confirmed counterexample | Lean checked `¬ axN` for the finite model | The model violates that encoded axiom |
+| Timeout-style probe failure | The negative proof probe hit its resource limit | No semantic conclusion |
+| Unclassified probe failure | The probe failed without a recognized timeout | Investigate the tooling |
 
 ## What the widget shows
 

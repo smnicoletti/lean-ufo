@@ -4,24 +4,27 @@
 
 ## Overview
 
-Lean UFO connects an ontology theory to a finite-model tool. The core states
-the UFO axioms in Lean. The DSL turns named facts into tables, checks them,
-and builds certificates for successful models.
+> [!IMPORTANT]
+> **Bottom line.** The core defines the semantics. The DSL compiles named facts
+> into finite tables and generates a theorem checked against those same
+> semantics. Diagnostics explain failures but carry no proof authority.
 
 The [theoretical notes](theory.md) explain the UFO and possible-world semantics
 behind the core. The [complexity guide](dsl/complexity.md#references) records the
 research behind counted algorithms and implementation proofs. This page shows
 which layer owns each task and how a model reaches a checked theorem.
 
-Lean UFO has two connected layers:
-
-1. a semantic Lean formalization of UFO fragments;
-2. a finite DSL that compiles small named models and certifies them against the
-   formalized axiom package.
-
 The diagram below shows how the semantic formalization, finite DSL, generated
 proofs, diagnostics, and tests fit together. The [DSL architecture](dsl/architecture.md)
 covers the compiler and checker in detail.
+
+| Layer | Receives | Produces | Guarantee |
+| --- | --- | --- | --- |
+| Core | UFO definitions | Signatures, axioms, theorems | Kernel-checked semantics |
+| Compiler | Named finite facts | Indexed finite tables | Proved source/table correspondence |
+| Checker | Compiled model | Boolean result | Soundness for successful checks |
+| Certificate frontend | Successful checks | Lean declarations | Kernel-checked model certificate |
+| Diagnostics | Failed check | Named evidence | Presentation only. Lean declarations carry proof evidence |
 
 ## System map
 
