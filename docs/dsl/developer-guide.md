@@ -158,15 +158,17 @@ lake exe validate-certificate certificates/CarBase.certificate.json --module Lea
 
 Use `export_certificate ModelName` in a module to request export of selected
 models. If no export marker is present, the exporter attempts to export all
-certified models declared in the module source. `--structure-only` checks only
-manifest structure. The default validation path requires `--module`; it
-rebuilds the Lean module, checks the theorem declarations at their expected
-types, and compares regenerated SHA-256 source/model digests. Do not treat the
-JSON as proof evidence.
+certified models declared in the module source. `--structure-only` requires one
+well-formed row for each registered certificate field. The default validation
+path requires `--module`. It rebuilds the Lean module, compares every row and
+generated provenance field, checks every named theorem declaration, and
+recomputes the SHA-256 source/model digests. Do not treat the JSON as proof
+evidence.
 
-Before any recheck subprocess, the CLI parses the module, model, and both final
-theorem names as complete Lean identifiers. The shared certificate helper
-escapes each parsed name component before generating source. Unicode and
+Before any recheck subprocess, the CLI parses all executable names as complete
+Lean identifiers. These names include the module, model, final theorems,
+per-field theorems, and reuse sources. The shared certificate helper escapes
+each parsed name component before generating source. Unicode and
 escaped components remain supported. Expressions, extra commands, and comments
 outside escaped components are rejected. The original theorem-name strings
 remain unchanged for manifest comparisons.

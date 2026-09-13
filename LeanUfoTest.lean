@@ -2,6 +2,7 @@ import LeanUfo.Test.Coverage.RegistryCheck
 import LeanUfo.Test.Diagnostics.Rendering
 import LeanUfo.Test.Syntax.TableCorrespondence
 import LeanUfo.Test.Certificates.InputSafety
+import LeanUfo.Test.Certificates.ManifestValidation
 import LeanUfo.Test.Certificates.Generation
 import LeanUfo.Test.Certificates.Execution
 import LeanUfo.Test.Certificates.DerivedReduction
@@ -564,7 +565,22 @@ def checkCertificateExportWorkflow : IO (Array String) := do
     LeanUfo.Test.Certificates.checkGeneratedNameSource
     let content ← IO.FS.readFile (outDir / "CarBase.certificate.json")
     match Lean.Json.parse content with
-    | .ok baseline => LeanUfo.Test.Certificates.checkManifestNameSafety baseline moduleName
+    | .ok baseline =>
+        LeanUfo.Test.Certificates.checkManifestNameSafety baseline moduleName
+        let certificates ←
+          match baseline.getObjValD "certificates" |>.getArr? with
+          | .ok value => pure value
+          | .error error => throw <| IO.userError error
+        let alteredRow := certificates[0]!.setObjVal! "leanTheorem" (.str "CarBase.wrong")
+        let altered := baseline.setObjVal! "certificates"
+          (.arr (certificates.set! 0 alteredRow))
+        let alteredPath := outDir / "CarBase.altered.certificate.json"
+        IO.FS.writeFile alteredPath altered.pretty
+        let alteredResult ← IO.Process.output { cmd := "lake", args := #["exe",
+          "validate-certificate", alteredPath.toString, "--module", moduleName] }
+        unless alteredResult.exitCode != 0 &&
+            (alteredResult.stdout ++ alteredResult.stderr).contains "Lean theorem mismatch" do
+          throw <| IO.userError "altered certificate row matched rebuilt provenance"
     | .error message => throw <| IO.userError message
   catch e => failures := failures.push s!"certificate name safety: {e.toString}"
   pure failures
@@ -599,6 +615,9 @@ def fullTestsEnabled : IO Bool := do
 
 def main : IO UInt32 := do
   let mut failures := #[]
+  try
+    LeanUfo.Test.Certificates.checkManifestCompleteness
+  catch e => failures := failures.push s!"certificate manifest completeness: {e.toString}"
   try
     LeanUfo.Test.Certificates.checkIdentifierParsing
   catch e => failures := failures.push s!"certificate identifier parsing: {e.toString}"

@@ -175,10 +175,10 @@ lake exe validate-certificate certificates/CarBase.certificate.json --structure-
 lake exe validate-certificate certificates/CarWithWindow.certificate.json --module LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension
 ```
 
-`--structure-only` checks just the JSON manifest shape. The default validation
-path requires `--module`: it rebuilds the module, checks the named Lean theorem
-declarations at their expected types, and compares regenerated SHA-256 source
-and finite-model digests.
+`--structure-only` checks the required metadata and all 116 certificate rows.
+The default validation path requires `--module`. It rebuilds the module,
+compares every row with the regenerated Lean manifest, checks every named
+theorem declaration, and recomputes the SHA-256 source and finite-model digests.
 
 Additional concrete reuse examples cover role extension and mode/inherence
 extension:

@@ -17,6 +17,7 @@ root = "LeanUfo.ExportCertificates"
 [[lean_exe]]
 name = "validate-certificate"
 root = "LeanUfo.ValidateCertificate"
+supportInterpreter = true
 
 [[lean_exe]]
 name = "complexity-benchmarks"

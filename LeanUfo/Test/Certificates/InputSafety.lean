@@ -45,12 +45,26 @@ def checkManifestNameSafety (baseline : Json) (moduleName : String) : IO Unit :=
     let marker := dir / "executed.txt"
     let command := s!"\n#eval IO.FS.writeFile {reprStr marker.toString} \"executed\"\n--"
     let finals := baseline.getObjValD "finalTheorems"
+    let certificates ←
+      match baseline.getObjValD "certificates" |>.getArr? with
+      | .ok value => pure value
+      | .error error => throw <| IO.userError error
+    let firstCertificate := certificates[0]!
+    let replaceFirstCertificate (row : Json) : Json :=
+      baseline.setObjVal! "certificates" (.arr (certificates.set! 0 row))
     let variants := #[
       baseline.setObjVal! "model" (.str ("CarBase.source)" ++ command)),
       baseline.setObjVal! "finalTheorems"
         (finals.setObjVal! "certified" (.str ("CarBase.certified)" ++ command))),
       baseline.setObjVal! "finalTheorems"
         (finals.setObjVal! "certifiedModel" (.str ("CarBase.certifiedModel)" ++ command))),
+      replaceFirstCertificate
+        (firstCertificate.setObjVal! "leanTheorem" (.str ("CarBase.certified_ax1)" ++ command))),
+      replaceFirstCertificate
+        (firstCertificate.setObjVal! "checkTheorem" (.str ("CarBase.checked_ax1)" ++ command))),
+      replaceFirstCertificate
+        (firstCertificate.setObjVal! "status" (.str "reused") |>.setObjVal! "reusedFrom"
+          (.str ("CarBase.checked_ax1)" ++ command))),
       baseline.setObjVal! "model" (.str "(CarBase)"),
       baseline.setObjVal! "model" (.str "CarBase -- suffix")]
     for index in [:variants.size] do

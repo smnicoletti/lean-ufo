@@ -1125,9 +1125,11 @@ lake exe export-certificates --module LeanUfo.UFO.DSL.ConcreteExamples.ReuseMode
 lake exe validate-certificate certificates/CarWithWindow.certificate.json --module LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension
 ```
 
+`LeanUfo/Test/Certificates/ManifestValidation.lean` checks complete manifests
+and rejects missing, malformed, duplicate, and altered certificate rows.
 `LeanUfo/Test/Certificates/InputSafety.lean` tests identifier parsing in the fast
-profile. The full profile also injects commands into each executable manifest
-name field and checks that validation rejects them without creating a marker
+profile. The full profile also injects commands into final and per-field
+theorem names and checks that validation rejects them without creating a marker
 file. Direct digest-helper tests cover callers that bypass the CLI wrapper.
 The ordinary export and proof-recheck cases remain the successful controls.
 

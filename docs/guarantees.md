@@ -515,10 +515,12 @@ lake exe validate-certificate certificates/Model.certificate.json --module Modul
 
 `export_certificate Model` marks selected models for export. The exporter also
 adds local git commit/tag metadata and SHA-256 source/model digests when
-available. `--structure-only` checks manifest shape and required metadata
-fields. The default validation path requires `--module`; it rebuilds the named
-module, checks that the manifest's final theorem declarations have the expected
-certificate types, and compares regenerated SHA-256 digests and theorem names.
+available. `--structure-only` checks the required metadata and one unique,
+well-formed row for each of the 116 certificate fields. The default validation
+path requires `--module`. It rebuilds the named module, compares every row and
+generated provenance field with the rebuilt Lean manifest, checks every named
+theorem declaration, and recomputes the SHA-256 digests. The two final theorem
+declarations are also checked at their expected certificate types.
 
 What Lean proves:
 

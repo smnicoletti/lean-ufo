@@ -1,88 +1,31 @@
 import Lean
 import LeanUfo.CertificateCli
+import LeanUfo.CertificateValidation
 
 open Lean
 open LeanUfo.CertificateCli
+open LeanUfo.CertificateValidation
 
 namespace LeanUfo.ValidateCertificate
 
 def hasFlag (flag : String) : List String → Bool
   | [] => false
-  | x :: xs => x == flag || hasFlag flag xs
+  | List.cons x xs => x == flag || hasFlag flag xs
 
 def positionalArgs : List String → List String
   | [] => []
-  | "--structure-only" :: xs => positionalArgs xs
-  | "--module" :: _ :: xs => positionalArgs xs
-  | x :: xs => x :: positionalArgs xs
-
-def requireString (json : Json) (field : String) : Except String String := do
-  let value ← json.getObjVal? field
-  let text ← value.getStr?
-  if text.isEmpty then
-    throw s!"field `{field}` is empty"
-  pure text
-
-def requireNonPlaceholderVersion (version : String) : Except String Unit := do
-  if version == "unreleased" then
-    throw "field `artifactVersion` still uses the old `unreleased` placeholder"
-  else
-    pure ()
-
-def requireSha256Digest (_json : Json) (field : String) : Except String String := do
-  let value ← requireString _json field
-  if value.startsWith "sha256:" && value.length == "sha256:".length + 64 then
-    pure value
-  else
-    throw s!"field `{field}` is not a SHA-256 digest"
-
-def requireObject (_json : Json) (field : String) (value : Json) : Except String Unit := do
-  match value with
-  | .obj _ => pure ()
-  | _ => throw s!"field `{field}` is not an object"
-
-def requireArray (_json : Json) (field : String) (value : Json) : Except String Unit := do
-  match value with
-  | .arr xs =>
-      if xs.isEmpty then
-        throw s!"field `{field}` is an empty array"
-      else
-        pure ()
-  | _ => throw s!"field `{field}` is not an array"
-
-def validateJson (json : Json) : Except String Unit := do
-  discard <| requireString json "model"
-  discard <| requireString json "artifact"
-  let artifactVersion ← requireString json "artifactVersion"
-  requireNonPlaceholderVersion artifactVersion
-  discard <| requireString json "leanVersion"
-  discard <| requireString json "ufoAxiomPackage"
-  discard <| requireSha256Digest json "sourceDigest"
-  discard <| requireSha256Digest json "finiteModelDigest"
-  discard <| requireString json "sourceHash"
-  discard <| requireString json "finiteModelHash"
-  let checker ← json.getObjVal? "checker"
-  requireObject json "checker" checker
-  discard <| requireString checker "name"
-  discard <| requireString checker "version"
-  let certs ← json.getObjVal? "certificates"
-  requireArray json "certificates" certs
-  let finals ← json.getObjVal? "finalTheorems"
-  requireObject json "finalTheorems" finals
-  discard <| requireString finals "certified"
-  discard <| requireString finals "certifiedModel"
+  | List.cons "--structure-only" xs => positionalArgs xs
+  | List.cons "--module" (List.cons _ xs) => positionalArgs xs
+  | List.cons x xs => List.cons x (positionalArgs xs)
 
 def getString (json : Json) (field : String) : Except String String :=
   requireString json field
 
-def declarationExists (env : Environment) (declName : Name) : Bool :=
-  env.find? declName |>.isSome
-
-def compareField (label expected actual : String) : Except String Unit := do
-  if expected == actual then
+private def compareDigest (label manifestValue rebuiltValue : String) : Except String Unit := do
+  if manifestValue == rebuiltValue then
     pure ()
   else
-    throw s!"{label} mismatch: manifest has `{expected}`, rebuilt module has `{actual}`"
+    throw s!"{label} mismatch: manifest has `{manifestValue}`, rebuilt module has `{rebuiltValue}`"
 
 unsafe def recheckWithModule (json : Json) (moduleString : String) : IO (Except String Unit) := do
   let modelName ←
@@ -101,13 +44,24 @@ unsafe def recheckWithModule (json : Json) (moduleString : String) : IO (Except 
     match requireString finals "certifiedModel" with
     | .ok value => pure value
     | .error err => return .error err
+  let rows ←
+    match validateCertificateRows json with
+    | .ok value => pure value
+    | .error err => return .error err
   -- Parse and render every executable name before any build or Lean subprocess.
   -- The original theorem strings remain data for exact manifest comparisons.
   let sources ← try
+      let mut rowChecks := ""
+      for row in rows do
+        let theoremSource ← identifierSource row.theoremName
+        let checkedSource ← identifierSource row.checkedTheoremName
+        rowChecks := rowChecks ++ s!"#check {theoremSource}\n#check {checkedSource}\n"
+        if let some reusedFrom := row.reusedFrom then
+          rowChecks := rowChecks ++ s!"#check {← identifierSource reusedFrom}\n"
       pure <| Except.ok (← identifierSource moduleString, ← identifierSource modelName,
-        ← identifierSource certifiedName, ← identifierSource certifiedModelName)
+        ← identifierSource certifiedName, ← identifierSource certifiedModelName, rowChecks)
     catch e => pure <| Except.error s!"invalid certificate declaration name: {e.toString}"
-  let (moduleSource, modelSource, certifiedSource, certifiedModelSource) ←
+  let (moduleSource, modelSource, certifiedSource, certifiedModelSource, rowChecks) ←
     match sources with
     | .ok names => pure names
     | .error err => return .error err
@@ -144,12 +98,22 @@ unsafe def recheckWithModule (json : Json) (moduleString : String) : IO (Except 
     match rebuiltDigests with
     | .ok values => pure values
     | .error err => return .error err
-  match compareField "sourceDigest" sourceDigest rebuiltSourceDigest with
+  match compareDigest "sourceDigest" sourceDigest rebuiltSourceDigest with
   | .ok _ => pure ()
   | .error err => return .error err
-  match compareField "finiteModelDigest" finiteModelDigest rebuiltFiniteModelDigest with
+  match compareDigest "finiteModelDigest" finiteModelDigest rebuiltFiniteModelDigest with
   | .ok _ => pure ()
   | .error err => return .error err
+  let moduleName ← parseLeanName moduleString
+  let modelNameParsed ← parseLeanName modelName
+  let env ← loadModule moduleName
+  let some rebuiltManifest ← manifestByModel? env modelNameParsed
+    | return .error s!"rebuilt module has no certificate manifest for `{modelName}`"
+  match compareRebuiltManifest json rebuiltManifest with
+  | .ok _ => pure ()
+  | .error err => return .error err
+  -- The rebuilt manifest fixes the expected row contents; these checks then
+  -- confirm that each referenced proof declaration exists in the module.
   let script :=
     s!"import {moduleSource}\n" ++
     s!"#check ({certifiedSource} : UFOAxioms4 {modelSource}.sig)\n" ++
@@ -158,7 +122,8 @@ unsafe def recheckWithModule (json : Json) (moduleString : String) : IO (Except 
     s!"example : {modelSource}.certificateManifest.finiteModelHash = {reprStr finiteModelHash} := by native_decide\n" ++
     s!"example : {modelSource}.certificateManifest.certifiedTheorem = {reprStr certifiedName} := by native_decide\n" ++
     s!"example : {modelSource}.certificateManifest.certifiedModelTheorem = {reprStr certifiedModelName} := by native_decide\n" ++
-    s!"example : {modelSource}.certificateManifest.axiomPackage = {reprStr axiomPackage} := by native_decide\n"
+    s!"example : {modelSource}.certificateManifest.axiomPackage = {reprStr axiomPackage} := by native_decide\n" ++
+    rowChecks
   let out ← runLeanScript script
   if out.exitCode == 0 then
     return .ok ()

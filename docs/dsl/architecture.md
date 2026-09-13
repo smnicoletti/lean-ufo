@@ -573,10 +573,10 @@ lake exe validate-certificate certificates/CarBase.certificate.json --module Lea
 If a module contains one or more `export_certificate ModelName` markers, the
 exporter writes only those marked models. Otherwise it writes every certified
 model it can find in the module source. The JSON value is metadata; the checked
-Lean declarations remain the proof artifact. `--structure-only` checks JSON
-shape. Default validation requires `--module`, rebuilds the module, checks that
-the named Lean declarations have the expected certificate types, and compares
-the regenerated SHA-256 digests and theorem names.
+Lean declarations remain the proof artifact. `--structure-only` requires one
+valid row for every certificate field. Default validation requires `--module`.
+It rebuilds the module, compares the generated provenance and all certificate
+rows, checks the named Lean declarations, and recomputes both SHA-256 digests.
 
 The final bundled theorem is assembled from the generated per-axiom proofs. The
 Lean kernel checks all declarations, so a successful `certify` command leaves an

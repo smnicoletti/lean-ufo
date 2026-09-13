@@ -173,6 +173,7 @@ def parseModuleName (s : String) : Name :=
   s.toName
 
 unsafe def loadModule (module : Name) : IO Environment := do
+  unsafe enableInitializersExecution
   initSearchPath (← findSysroot) (← lakeSearchPath)
   importModules #[{ module := module, importAll := true, isMeta := true }] {} (loadExts := true)
 
