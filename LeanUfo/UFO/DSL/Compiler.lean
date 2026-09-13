@@ -25,8 +25,10 @@ ModelSource
 ```
 
 `compileModelSource` runs the counted source-to-table pipeline and discards
-its cost. Finite-model construction is a subsequent step. Its correspondence
-and cost-composition obligations are tracked in `docs/dsl/behavior-contract.md`.
+its cost. Finite-model construction is a subsequent step.
+`Compiler/VerifiedModel.lean` proves the successful compiler result's
+correspondence to that model. `Complexity/Certification.lean` composes its
+construction cost with the certification workflow.
 
 The trust boundary is:
 

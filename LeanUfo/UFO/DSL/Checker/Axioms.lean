@@ -7145,8 +7145,8 @@ theorem checkAx94Costed_cost_le (M : FiniteModel4) :
 /-!
 A simple quality has no inhering things. A complex quality passes the quality
 test and fails the simple-quality test. The latter repeats quality classification
-in the source definition. Counts retain that repetition; they do not assert that
-native compilation preserves identical calls (AMB-004 in the behavior contract).
+in the source definition. Counts retain that repetition. Native compilation
+can share identical calls, so these are source-level counts, not native call counts.
 
 Unary classification reads cost eight and binary instance/inherence reads eleven.
 A failed quality test skips inherence search. The table correspondences in
