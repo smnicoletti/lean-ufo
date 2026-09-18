@@ -1938,7 +1938,7 @@ private theorem foldDiagEnvsUntilCosted_eq_list
         apply List.drop_eq_nil_of_le
         simpa using (show vars.size ≤ index by omega)
       rw [foldDiagEnvsUntilCosted, hdrop, foldDiagVarsCosted]
-      simp only [dif_neg hindex]
+      simp only [dite_eq_right hindex]
   | succ remaining ih =>
       have hindex : index < vars.size := by omega
       have hdrop : vars.toList.drop index = vars[index] :: vars.toList.drop (index + 1) := by
@@ -1946,7 +1946,7 @@ private theorem foldDiagEnvsUntilCosted_eq_list
         exact congrArg (fun var => var :: vars.toList.drop (index + 1))
           (Array.getElem_toList _)
       rw [foldDiagEnvsUntilCosted, hdrop, foldDiagVarsCosted]
-      simp only [dif_pos hindex]
+      simp only [dite_eq_left hindex]
       split
       · rfl
       · congr 2

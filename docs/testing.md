@@ -11,7 +11,7 @@
 
 The expected results come from the [formal guarantees](guarantees.md) and
 the [counted algorithms](dsl/complexity.md), whose guide includes the research
-sources. Tests catch regressions; the Lean theorems establish general claims.
+sources.
 Tests catch regressions. Lean theorems establish general claims. Timings need
 matched build conditions before they can establish a speedup.
 
