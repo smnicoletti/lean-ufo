@@ -108,7 +108,7 @@ private theorem natArrayToFinArrayCosted_of_bounded (n : Nat) (xs : Array Nat)
         obtain ⟨ys, result, readback⟩ := ih (acc.push ⟨x, hx⟩)
           (fun x member => valid x (by simp [member]))
         refine ⟨ys, ?_, ?_⟩
-        · simpa only [List.foldl_cons, natToFinSpec, dif_pos hx] using result
+        · simpa only [List.foldl_cons, natToFinSpec, dite_eq_left hx] using result
         · apply Array.toList_inj.mp
           simpa [List.append_assoc] using congrArg Array.toList readback
   obtain ⟨ys, result, readback⟩ := foldBounded xs.toList #[]

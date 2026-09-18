@@ -127,10 +127,10 @@ private theorem warshallViaState_routingRank
             simp [warshallMatrixStep_get, hreach, via.2]
           · dsimp only [nextRank]
             by_cases already : previous.reachable.get hop target = true
-            · simp only [if_pos already, if_neg old]
+            · simp only [ite_eq_left already, ite_eq_right old]
               have := bounded hop target
               omega
-            · simp only [if_neg already, if_neg old]
+            · simp only [ite_eq_right already, ite_eq_right old]
               omega
 
 /-- Strictly decreasing ranks give a pointer route with no repeated vertex.

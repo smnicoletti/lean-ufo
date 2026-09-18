@@ -18,8 +18,12 @@ the work excluded from the complexity bound.
 
 The theorem-level details are in [Formal guarantees](guarantees.md).
 
-The 2026-09-13 local verification covers the compiler, checker, diagnostics,
-and certificate-tool repairs described here. Source checkouts use the development
+The 2026-09-17 local verification passed `lake build` and the all-inclusive
+`LEANUFO_PERFORMANCE_TESTS=1 lake test` profile on Lean and Mathlib 4.34.0.
+All user-facing examples, including Relator, certified with unchanged resource
+limits. The test run took 3,102.54 seconds and included toolchain-dependent
+rebuilds. A matched performance comparison with Lean 4.33.1 remains open.
+Source checkouts use the development
 artifact version `0.0.0-dev`; the release workflow sets that metadata to the
 release tag. Release notes record the corresponding GitHub Actions results.
 
@@ -148,8 +152,9 @@ release tag. Release notes record the corresponding GitHub Actions results.
   cyclic, product-family, and projection-heavy inputs.
 - Certificate tools validate complete manifest provenance and discover exports
   from module-owned Lean declarations. The final cross-stage review and single
-  all-inclusive profile passed on 2026-09-13, including the user-facing examples
-  and Relator. The run took 362.58 seconds with an incremental build.
+  all-inclusive profile passed again on Lean 4.34.0 on 2026-09-17, including the
+  user-facing examples and Relator. The run took 3,102.54 seconds with
+  toolchain-dependent rebuilds; the earlier incremental run took 362.58 seconds.
   [Testing](testing.md) describes the profile, and
   [Formal guarantees](guarantees.md) states the trust assumptions.
 - The diagnostic interpreter has a formula-size cost theorem. Its bound

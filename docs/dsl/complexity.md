@@ -3833,13 +3833,20 @@ checkout. Each measurement ran `lake env lean` on the named example without
 another build or suite running. These are isolated file timings, not total
 clean-project build times.
 
-The latest all-inclusive run, on 2026-09-13, passed in 362.58 seconds with a
+The 2026-09-13 all-inclusive run passed in 362.58 seconds with a
 1,656-job test dependency graph. It covered semantic fixtures, diagnostics,
 certificate export/revalidation, namespace discovery, all user-facing examples,
 and Relator. No suite or benchmark ran alongside it, and no resource limits
 were raised. This was an incremental verification run. It provides no
-clean-build speed comparison. Subsequent changes affected documentation and
-comments only.
+clean-build speed comparison.
+
+On 2026-09-17, the Lean and Mathlib 4.34.0 upgrade passed `lake build` in
+196.05 seconds after correcting upstream import names. The single all-inclusive
+test profile passed in 3,102.54 seconds, including native-code and fixture
+rebuilds for the new toolchain. All user-facing examples and Relator certified
+with unchanged resource limits. The elapsed test time is substantially longer
+than the earlier incremental run. A matched Lean 4.33.1/4.34.0 performance
+comparison remains open. This run establishes certifiability.
 
 The proof-facing/executable representation split is also checked against the
 last revision before this refactor (`6a21fd5`). These are wall-clock engineering

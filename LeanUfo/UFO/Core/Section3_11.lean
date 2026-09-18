@@ -1,6 +1,6 @@
 import LeanUfo.UFO.Core.Signature3_11
 import LeanUfo.UFO.Core.Section3_10
-import Mathlib.Logic.ExistsUnique
+import Mathlib.Basic.ExistsUnique
 
 universe u v
 
