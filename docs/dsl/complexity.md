@@ -63,12 +63,113 @@ describes the same algorithms that certification uses.
 > allocation, garbage collection, native instructions, elaboration, proof
 > search, kernel checking, Lake overhead, and wall-clock time.
 
-The [research sources](#references) have distinct roles: Vardi and
-Madelaine–Martin ground the fixed-formula versus variable-formula distinction.
-Niu and Haslbeck inform compositional operation counts. Verified-algorithm
-work by Nipkow and colleagues informs correctness with cost proofs.
-RadixExperiment informs the organization of implementation proofs.
-The cited work supplies the method. The repository contains the Lean UFO proofs.
+## Complexity context and known results
+
+> [!IMPORTANT]
+> **Bottom line.** Lean UFO checks one supplied finite model against a fixed
+> registry of UFO axioms. This is a finite-model-checking problem with fixed
+> formulas. Model search for an arbitrary modal or first-order formula is a
+> different problem.
+
+The input to the headline theorem is an explicit model `M`. The question is
+
+```text
+Does M satisfy every formula in the fixed 116-check registry?
+```
+
+The model gives all finite domains and primitive relation tables. The compiler
+also computes the transitive closure used by inherence checks. The theorem does
+not search through possible models.
+
+### Nearby decision problems
+
+Each result below assumes a specific input. Its complexity class applies only
+under that assumption.
+
+| Decision problem | Known result | Relation to Lean UFO | Source |
+| --- | --- | --- | --- |
+| Explicit propositional modal model checking | Standard bottom-up evaluation takes `O(size(M) · size(φ))` time for a finite Kripke model `M` and formula `φ` | Covers modal evaluation only. First-order quantifiers, compilation, and closure add work | [Lomuscio and Raimondi](https://www.doc.ic.ac.uk/~alessio/papers/06/dalt.pdf) |
+| Propositional S5 satisfiability | NP-complete. S5 non-validity is also NP-complete | Receives a formula and searches for a satisfying S5 model. Lean UFO receives the model | [Ladner](https://doi.org/10.1137/0206033) |
+| First-order model checking on finite structures | Data complexity is in LOGSPACE for a fixed formula. Combined complexity is PSPACE-complete when the formula is also input | Applies to first-order evaluation with relations already supplied. Computing inherence closure requires a separate bound | [Kolaitis and Vardi, §1.3](https://www.cs.rice.edu/~vardi/papers/ircsmv7.pdf#page=12) |
+| Least-fixed-point logic on ordered finite structures | Fixed `FO(LFP)` formulas express exactly the PTIME properties | Gives polynomial-time context for relational evaluation with computed closure. No formal `FO(LFP)` translation is proved here | [Immerman](https://people.cs.umass.edu/~immerman/descriptiveComplexity.html) |
+| Quantified modal satisfiability and finite first-order satisfiability | Quantified S5 is undecidable even in restricted monadic forms. Finite first-order satisfiability is undecidable with a binary relation | Both ask whether a model exists. Lean UFO evaluates a supplied model | [Kripke](https://doi.org/10.1002/malq.19620080204), [Kirst and Larchey-Wendling](https://pmc.ncbi.nlm.nih.gov/articles/PMC7324044/) |
+
+These results use the input encodings and machine models stated in their
+sources. The [reference list](#references) gives each source's role.
+
+For the modal bound, `size(M)` includes the explicitly stored worlds,
+accessibility edges, and atomic valuations. `size(φ)` is the formula length.
+The standard algorithm saves each subformula's truth value at each world,
+so repeated modal evaluation can reuse those answers. The bound establishes
+the existence of such an algorithm. A recursive evaluator needs its own
+analysis. See Theorem 1 in the cited Lomuscio–Raimondi paper.
+
+LOGSPACE bounds working memory logarithmically in input size. PSPACE bounds
+it polynomially. Neither is an elapsed-time estimate. For fixed first-order
+formulas, the number of nested quantifiers is constant, so domain enumeration
+uses a fixed number of counters. Allowing arbitrary input formulas removes
+that restriction. The general PSPACE-completeness result does not establish
+PSPACE-hardness for Lean UFO's particular diagnostic language.
+
+`FO(LFP)` adds least fixed points to first-order logic: a relation grows under
+a monotone rule until no new tuples appear. Reachability is an example. For
+a fixed relation arity, a finite domain has only polynomially many candidate
+tuples. The Immerman–Vardi theorem says that, on ordered finite structures,
+fixed formulas in this logic define exactly the polynomial-time properties.
+Here this is context for the use of closure, with no claim that the checker
+is PTIME-complete or that arbitrary input `FO(LFP)` formulas have a uniform
+polynomial evaluation bound.
+
+The undecidability results allow the input formula to vary. They establish
+no undecidability result for the fixed UFO registry. In the quantified-modal
+result, “monadic” means that predicates have one argument. Kripke's result
+already applies with two such predicates. For finite first-order
+satisfiability, “finite” places no fixed limit on the model size: the question
+allows a model of any finite size. A supplied finite model can still be
+checked by finite enumeration.
+
+### What S5 changes in this checker
+
+`FiniteModel4.toS5Frame` gives each generated model a universal S5 frame:
+every world can access every world. General S5 frames permit several
+equivalence classes of accessible worlds. The generated frame uses one class.
+Evaluation of `□φ` can therefore scan all `W` stored worlds. If evaluating
+`φ` costs at most `C` at each world, `allWorldsEvalCosted_cost_le` proves a
+bound of `W · (C + 2)` counted operations. The two extra operations charge
+each iteration and its Boolean test. A false result ends the scan early.
+Universal accessibility removes a separate accessibility-graph traversal,
+while the evaluation cost can still grow with `W`.
+
+The UFO checks also quantify over things and inspect relations of several
+arities. Some checks use the transitive closure of inherence. These operations
+place the implementation outside the basic propositional-modal bound. The
+counted compiler charges closure construction, and the checker then reads the
+stored closure matrix.
+
+### What this repository adds
+
+The general results above classify families of logical decision problems. They
+do not give the constants or exponents proved here. Lean UFO adds three kinds
+of implementation evidence:
+
+1. value-correspondence theorems connect counted functions to the functions
+   used by certification.
+2. component theorems bound the compiler, closure, checker, and diagnostics.
+3. composition theorems give the fixed-registry data bound and the complete
+   source-workflow bound shown in the [result map](#result-map).
+
+The bound `8367 · n⁸` is a safe upper bound for this checker. It makes no
+tightness or lower-bound claim. It does not imply that finite-model checking
+requires degree eight. The larger `N¹⁶` workflow bound includes the concrete
+compilation and counted parts of proof preparation. Lean elaboration and
+kernel checking remain outside that bound. The cited general results do not
+derive either bound.
+
+The remaining research sources have methodological roles. Niu and Haslbeck
+inform the compositional operation counts. Work by Nipkow and colleagues
+informs the joint correctness and cost proofs. RadixExperiment informs the
+organization of interpreter correspondence and pass-preservation proofs. The
+repository contains the Lean UFO theorems that instantiate these methods.
 
 ## Scope of the claims
 
@@ -105,6 +206,7 @@ bound and the algorithm the DSL executes.
 | If you need to know... | Read... |
 | --- | --- |
 | The headline result and its limits | This overview and [Current limitations](#current-limitations) |
+| How the result relates to known complexity theory | [Complexity context and known results](#complexity-context-and-known-results) |
 | How source becomes the model used by the theorem | [Source-result consistency](#source-result-consistency-and-coordinate-bounds) |
 | What one counted operation means | [Unit-cost machine model](#unit-cost-machine-model) |
 | How the complete command path is composed | [Source-to-workflow composition](#source-to-workflow-composition) |
@@ -3873,8 +3975,13 @@ regressions through the optional performance profile.
 
 ## References
 
-- Moshe Y. Vardi, [Finite Model Theory and Its Applications](https://www.cs.rice.edu/~vardi/papers/ircsmv7.pdf), for data versus combined complexity in finite-model checking.
+- Richard E. Ladner, [The Computational Complexity of Provability in Systems of Modal Propositional Logic](https://doi.org/10.1137/0206033), for NP-completeness of S5 non-validity, or equivalently S5 satisfiability.
+- Phokion G. Kolaitis and Moshe Y. Vardi, [A Logical Approach to Constraint Satisfaction](https://www.cs.rice.edu/~vardi/papers/ircsmv7.pdf#page=12), §1.3, in *Finite Model Theory and Its Applications*, for data versus combined complexity and the first-order model-checking bounds.
 - Florent Madelaine and Barnaby Martin, [On the Complexity of the Model Checking Problem](https://epubs.siam.org/doi/10.1137/140965715), for parameterized finite-model-checking classifications.
+- Neil Immerman, [Descriptive Complexity](https://people.cs.umass.edu/~immerman/descriptiveComplexity.html), for the Immerman–Vardi characterization of PTIME by least-fixed-point logic on ordered finite structures.
+- Saul A. Kripke, [The Undecidability of Monadic Modal Quantification Theory](https://doi.org/10.1002/malq.19620080204), for undecidability of restricted quantified modal logics, including S5. A later [Journal of Logic and Computation article](https://academic.oup.com/logcom/article/35/2/exad078/7517064), introduction, also states the two-predicate result.
+- Dominik Kirst and Dominique Larchey-Wendling, [Trakhtenbrot's Theorem in Coq](https://pmc.ncbi.nlm.nih.gov/articles/PMC7324044/), for the mechanized classification of finite first-order satisfiability.
+- Alessio Lomuscio and Franco Raimondi, [The Complexity of Model Checking Concurrent Programs against CTLK Specifications](https://www.doc.ic.ac.uk/~alessio/papers/06/dalt.pdf), for the standard `O(size(M) · size(φ))` explicit modal-model-checking bound used as background.
 - Yue Niu et al., [A Cost-Aware Logical Framework](https://doi.org/10.1145/3498670), POPL 2022, for compositional cost-aware semantics.
 - Max Haslbeck, [Hoare Logics for Time Bounds](https://link.springer.com/chapter/10.1007/978-3-319-89960-2_9), for verified operational time bounds.
 - Yannick Forster et al., [A Verified Time Hierarchy Theorem for Turing Machines](https://drops.dagstuhl.de/entities/document/10.4230/LIPIcs.ITP.2021.20), for explicit machine/implementation correspondence in mechanized complexity.
