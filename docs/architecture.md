@@ -242,7 +242,7 @@ expectations.
 ## Reading next
 
 - [Theoretical notes](theory.md) for modal choices, milestones, S5 consequences,
-  and explicit bridge assumptions.
+  and explicit structural assumptions.
 - [DSL architecture](dsl/architecture.md) for the finite DSL pipeline and
   checker.
 - [Formal guarantees](guarantees.md) for theorem-backed guarantees across the
