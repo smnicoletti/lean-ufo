@@ -1,0 +1,23 @@
+# Lake dependencies and build output
+/.lake
+/lake-packages
+/build
+
+# Lean compiler output
+*.olean
+*.ilean
+*.trace
+*.c
+*.cpp
+*.o
+*.so
+*.dll
+*.dylib
+
+# Editor and operating-system files
+.DS_Store
+/.vscode/
+
+# Local repository instructions
+/AGENTS.md
+/docs/dsl/behavior-contract.md

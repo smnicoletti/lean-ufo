@@ -1,0 +1,16 @@
+cff-version: 1.2.0
+message: "If you use this artifact, cite it with the metadata below."
+title: "Core Mechanization for A Lean Mechanization of the Unified Foundational Ontology"
+type: software
+authors:
+  - family-names: Nicoletti
+    given-names: "Stefano M."
+version: 1.0.0
+doi: 10.5281/zenodo.22961487
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.22961487
+    description: Archived artifact
+repository-code: "https://github.com/smnicoletti/lean-ufo"
+url: "https://doi.org/10.5281/zenodo.22961487"
+license: AGPL-3.0-only

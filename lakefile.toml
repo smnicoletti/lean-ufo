@@ -1,0 +1,11 @@
+name = "lean-ufo-core-mechanization"
+version = "1.0.0"
+defaultTargets = ["LeanUfo"]
+
+[[lean_lib]]
+name = "LeanUfo"
+
+[[require]]
+name = "mathlib"
+scope = "leanprover-community"
+rev = "v4.34.0"
