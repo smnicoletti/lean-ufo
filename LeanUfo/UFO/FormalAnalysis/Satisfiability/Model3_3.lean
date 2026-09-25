@@ -120,7 +120,6 @@ by
   -- get inherited §3.2 axioms from Model3_2
   have h2 : UFOAxioms3_2 Model3_2.sig3_2 := inferInstance
 
-  -- build full structure explicitly
   refine
   { -- inherited §3.1 + §3.2 fields
     ax1  := h2.ax1

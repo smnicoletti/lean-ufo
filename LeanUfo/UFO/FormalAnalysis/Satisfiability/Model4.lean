@@ -75,9 +75,9 @@ def sig4 : UFOSignature4 :=
   /-
     a107 witness:
     interpret partitioning as the conjunction of the two previous
-    right-hand-side conditions. This is deliberately written out instead of
-    calling the fields above, so the signature value is self-contained and the
-    later proof of (a107) reduces by unfolding `sig4`.
+    right-hand-side conditions. Writing both conditions here makes the
+    signature value self-contained and lets the proof of (a107) reduce by
+    unfolding `sig4`.
   -/
   IsPartitionedInto := fun t t' t'' w =>
     (∀ x : Model3_13.sig3_13.Thing,

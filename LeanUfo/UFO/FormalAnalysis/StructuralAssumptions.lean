@@ -4,24 +4,24 @@ import LeanUfo.UFO.FormalAnalysis.Satisfiability.Relator.Model3_10
 import Mathlib.Data.Fintype.Basic
 
 /-!
-# Added assumptions: derivations and countermodels
+# Derived facts and independent assumptions
 
-Three former assumptions follow from numbered axioms: instance typing,
-subtype-of-kind typing, and kind stability. Their proofs stay in Section3_4
-and S5_Derived, where other theorems use them. The applications below check
-their premises and the conclusions of (t10), (t11), (t14), and (t16).
+Three facts follow from numbered axioms: instance typing, subtype-of-kind
+typing, and kind stability. Their proofs are in Section3_4 and S5_Derived,
+where other theorems use them. The applications below check their premises and
+the conclusions of (t10), (t11), (t14), and (t16).
 
 Two assumptions do not follow from the remaining encoded axioms:
 non-sortal upward closure and qua-individual bearer typing. The countermodels
 below satisfy (a1)–(a108), the source's distance laws, and the other added
 assumption. The first also refutes (t16), and the second refutes (t33).
 
-The two kinds of evidence answer different questions. A derivation shows that
-an added assumption can be removed without losing its consequences. A model
-that satisfies the remaining axioms but falsifies the assumption proves that
-no derivation from those axioms is possible. Separate countermodels retain
-the other added assumption, so each failure can be attributed to the assumption
-being tested. For (t16) and (t33), we also check that the theorem itself is false.
+The two kinds of evidence answer different questions. A derivation proves that
+a fact follows from the numbered axioms. A model that satisfies those axioms
+but falsifies an additional assumption proves that the assumption does not
+follow from them. Each countermodel retains the other additional assumption,
+so it isolates the assumption under test. For (t16) and (t33), we also prove
+that the theorem itself is false in the corresponding countermodel.
 
 Reading order:
 - `KindChecks` and `TypingChecks`: derivable facts and theorem applications.
@@ -49,7 +49,7 @@ section KindChecks
 
 -- These applications keep the numbered conclusions and premises explicit.
 -- If a proof starts requiring an extra assumption, the application fails to
--- compile instead of silently accepting a stronger theorem hypothesis.
+-- compile. This detects an unintended stronger theorem hypothesis.
 variable (Sig : UFOSignature3_2)
 
 example (h18 : ax_a18 Sig) (h22 : ax_a22 Sig) (h26 : ax_a26 Sig) :
@@ -80,9 +80,9 @@ end KindChecks
 
 section TypingChecks
 
--- The two former typing assumptions are consequences of numbered axioms.
--- Applying their proofs here checks the justification for removing their
--- separate axiom fields. The reusable derivations remain in Section3_4.
+-- These two typing facts are consequences of numbered axioms. Applying their
+-- proofs here checks their exact premises. The reusable derivations remain in
+-- Section3_4, where the numbered theorem proofs use them.
 variable (Sig : UFOSignature3_4)
 
 example (h44 : ax_a44_endurantType Sig) :

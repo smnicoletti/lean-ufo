@@ -154,7 +154,7 @@ theorem ax80_sig3_10 : ax_a80 sig3_10 := by
   cases w
   simp [sig3_10, Model3_9.sig3_9, Model3_8.sig3_8, Model3_7.sig3_7, Model3_6.sig3_6, Model3_5.sig3_5, Model3_4.sig3_4, Model3_3.sig3_3, Model3_2.sig3_2]
 
-/-- Proof that `sig3_10` satisfies the bridge axiom used for `t33`. -/
+/-- Proof that qua-individual bearers in `sig3_10` are endurants, as required by (t33). -/
 theorem ax_quaIndividualOf_endurant_sig3_10 :
     ax_quaIndividualOf_endurant (Sig := sig3_10) := by
   unfold ax_quaIndividualOf_endurant
@@ -186,7 +186,7 @@ by
     ax79 := ax79_sig3_10
     ax80 := ax80_sig3_10
 
-    -- Bridge axiom used for t33
+    -- Bearer typing used by (t33)
     axQuaIndividualOfEndurant := ax_quaIndividualOf_endurant_sig3_10
   }
 
