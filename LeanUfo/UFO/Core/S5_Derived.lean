@@ -189,95 +189,88 @@ by
         (sub_stable (Sig := Sig) hA1 hA5 y x w v hRv).1 hSub_yx_w
       exact hNotSub_yx_v hSub_yx_v
 
-/-
-  The following results move to §3.2. Unlike the earlier lemmas for `Type`,
-  `Individual`, and `Sub`, they do not follow from S5 alone: they also depend
-  on the explicit structural axiom `ax_kindStable`.
--/
+/-! ## Kind stability from the numbered axioms
 
-variable (Sig2 : UFOSignature3_2)
-
-open UFOSignature3_2
-
-/--
-Derived semantic fact (requires `ax_kindStable`), in summary:
-
-def ax_kindStable : Prop :=
-  ∀ k w v,
-    Kind k w →
-    R w v →
-    Kind k v
-
-Because `Kind` is postulated to persist along accessibility, and because the
-frame is S5, kindhood is invariant across accessible worlds.
--/
-theorem kind_stable
-  (hKS : ax_kindStable Sig2) :
-  ∀ (k : Sig2.Thing) (w v : Sig2.F.World),
-    Sig2.F.R w v →
-    (Sig2.Kind k w ↔ Sig2.Kind k v) :=
-by
-  intro k w v hRv
-  constructor
-  · intro hKw
-    exact hKS k w v hKw hRv
-  · intro hKv
-    exact hKS k v w hKv (Sig2.F.symm hRv)
-
-/--
-Derived semantic fact (requires `ax_kindStable`):
-
-If something is a Kind at world `w`, then at every S5-accessible world `v`
-it is still rigid, since `Kind` persists and `Kind → Rigid` by (a26).
--/
-theorem kind_implies_rigid_accessible
-  (hKS  : ax_kindStable Sig2)
-  (hA26 : ax_a26 Sig2) :
-  ∀ (k : Sig2.Thing) (w v : Sig2.F.World),
-    Sig2.F.R w v →
-    Sig2.Kind k w →
-    Sig2.Rigid k v :=
-by
-  intro k w v hRv hKw
-  have hKv : Sig2.Kind k v :=
-    (kind_stable (Sig2 := Sig2) hKS k w v hRv).1 hKw
-  exact (hA26 k v).1 (Or.inl hKv) |>.1
-
-/--
-Derived semantic fact (requires `ax_kindStable`):
-
-If something is a Kind at world `w`, then at every S5-accessible world `v`
-it is still a sortal, since `Kind` persists and `Kind → Sortal` by (a26).
--/
-theorem kind_implies_sortal_accessible
-  (hKS  : ax_kindStable Sig2)
-  (hA26 : ax_a26 Sig2) :
-  ∀ (k : Sig2.Thing) (w v : Sig2.F.World),
-    Sig2.F.R w v →
-    Sig2.Kind k w →
-    Sig2.Sortal k v :=
-by
-  intro k w v hRv hKw
-  have hKv : Sig2.Kind k v :=
-    (kind_stable (Sig2 := Sig2) hKS k w v hRv).1 hKw
-  exact (hA26 k v).1 (Or.inl hKv) |>.2
-
-/-
-  §3.4 — S5-derived semantic facts for endurant-type refinements.
-
-  The `a44` clauses define the new type-level predicates as conjunctions of:
-  - `Type`
-  - a modal `Box` condition over instances
-
-  Since both `Type` and `Box` are stable across accessible worlds in S5,
-  each of these §3.4 refinements is also stable across accessibility.
-
-  For the kind-level refinements from `a45`, stability additionally depends on
-  the *introduced* structural axiom `ax_kindStable`, exactly as for the earlier
-  derived facts about `Kind` in §3.2.
+This derivation uses §3.4: (a44) makes a rigid type's instances endurants.
+Rigidity carries an instance to the target world; (a21) gives it a kind there,
+and (a22) identifies that kind with the original one.
 -/
 
 variable (Sig4 : UFOSignature3_4)
+
+open UFOSignature3_2
+
+/-- Kindhood persists along accessibility by (a1), (a18), (a21), (a22),
+(a26), and the endurant-type clause of (a44). -/
+theorem kind_forward_stable
+  (hA1 : ax_a1 Sig4.toUFOSignature3_1)
+  (hA18 : ax_a18 Sig4.toUFOSignature3_2)
+  (hA21 : ax_a21 Sig4.toUFOSignature3_2)
+  (hA22 : ax_a22 Sig4.toUFOSignature3_2)
+  (hA26 : ax_a26 Sig4.toUFOSignature3_2)
+  (hA44 : ax_a44_endurantType Sig4) :
+    ∀ k w v, Sig4.Kind k w → Sig4.F.R w v → Sig4.Kind k v := by
+  intro k w v hk hwv
+  have hr := (hA18 k w).1 ((hA26 k w).1 (Or.inl hk)).1
+  have ht := (hA44 k w).1 hr.1
+  obtain ⟨u, hwu, x, hx⟩ := (hA1 k w).1 ht.1
+  have hbox := hr.2 x ⟨u, hwu, hx⟩
+  have he := ht.2 v hwv x (hbox v hwv)
+  obtain ⟨l, hl, hxl⟩ := hA21 x v he
+  have hlk : l = k := by
+    classical
+    by_cases hne : l = k
+    · exact hne
+    · exact False.elim (hA22 k x w ⟨hk, hbox w (Sig4.F.refl w)⟩
+        ⟨v, hwv, l, hl, hxl v (Sig4.F.refl v), hne⟩)
+  exact hlk ▸ hl
+
+/-- Accessibility symmetry turns forward persistence into invariance. -/
+theorem kind_stable
+  (hA1 : ax_a1 Sig4.toUFOSignature3_1)
+  (hA18 : ax_a18 Sig4.toUFOSignature3_2)
+  (hA21 : ax_a21 Sig4.toUFOSignature3_2)
+  (hA22 : ax_a22 Sig4.toUFOSignature3_2)
+  (hA26 : ax_a26 Sig4.toUFOSignature3_2)
+  (hA44 : ax_a44_endurantType Sig4) :
+    ∀ k w v, Sig4.F.R w v → (Sig4.Kind k w ↔ Sig4.Kind k v) := by
+  intro k w v hwv
+  exact ⟨fun hk => kind_forward_stable Sig4 hA1 hA18 hA21 hA22 hA26 hA44 k w v hk hwv,
+    fun hk => kind_forward_stable Sig4 hA1 hA18 hA21 hA22 hA26 hA44 k v w hk
+      (Sig4.F.symm hwv)⟩
+
+/-- A kind remains rigid at accessible worlds by kind stability and (a26). -/
+theorem kind_implies_rigid_accessible
+  (hA1 : ax_a1 Sig4.toUFOSignature3_1)
+  (hA18 : ax_a18 Sig4.toUFOSignature3_2)
+  (hA21 : ax_a21 Sig4.toUFOSignature3_2)
+  (hA22 : ax_a22 Sig4.toUFOSignature3_2)
+  (hA26 : ax_a26 Sig4.toUFOSignature3_2)
+  (hA44 : ax_a44_endurantType Sig4) :
+    ∀ k w v, Sig4.F.R w v → Sig4.Kind k w → Sig4.Rigid k v := by
+  intro k w v hwv hk
+  have hkv := (kind_stable Sig4 hA1 hA18 hA21 hA22 hA26 hA44 k w v hwv).1 hk
+  exact ((hA26 k v).1 (Or.inl hkv)).1
+
+/-- A kind remains sortal at accessible worlds by kind stability and (a26). -/
+theorem kind_implies_sortal_accessible
+  (hA1 : ax_a1 Sig4.toUFOSignature3_1)
+  (hA18 : ax_a18 Sig4.toUFOSignature3_2)
+  (hA21 : ax_a21 Sig4.toUFOSignature3_2)
+  (hA22 : ax_a22 Sig4.toUFOSignature3_2)
+  (hA26 : ax_a26 Sig4.toUFOSignature3_2)
+  (hA44 : ax_a44_endurantType Sig4) :
+    ∀ k w v, Sig4.F.R w v → Sig4.Kind k w → Sig4.Sortal k v := by
+  intro k w v hwv hk
+  have hkv := (kind_stable Sig4 hA1 hA18 hA21 hA22 hA26 hA44 k w v hwv).1 hk
+  exact ((hA26 k v).1 (Or.inl hkv)).2
+
+/-! ## Endurant-type and kind refinements
+
+The (a44) type refinements combine typehood with a boxed instance condition;
+both are invariant across accessible S5 worlds. The (a45) kind refinements
+also use the derived kind stability theorem above.
+-/
 
 open UFOSignature3_4
 
@@ -665,22 +658,15 @@ by
       (S5Frame.box_stable (F := Sig4.F) (w := v) (v := w) (Sig4.F.symm hRv)).1 hBox_v
     exact (hQualT t w).2 ⟨hType_w, hBox_w⟩
 
-/--
-Derived semantic fact (requires the *introduced* structural axiom `ax_kindStable`):
-
-In S5, `ObjectKind` is invariant across accessible worlds.
-
-Reason:
-- by (a45), `ObjectKind` is defined as `ObjectType ∧ Kind`,
-- `ObjectType` is stable in S5 by `objectType_stable`,
-- `Kind` is stable across accessible worlds only because of the
-  *additional* axiom `ax_kindStable`, via `kind_stable`.
--/
+/-- `ObjectKind` is invariant by (a45), type stability, and derived kind stability. -/
 theorem objectKind_stable
   (hA1  : ax_a1 Sig4.toUFOSignature3_1)
   (hA44 : ax_a44 Sig4)
   (hA45 : ax_a45 Sig4)
-  (hKS  : ax_kindStable Sig4.toUFOSignature3_2) :
+  (hA18 : ax_a18 Sig4.toUFOSignature3_2)
+  (hA21 : ax_a21 Sig4.toUFOSignature3_2)
+  (hA22 : ax_a22 Sig4.toUFOSignature3_2)
+  (hA26 : ax_a26 Sig4.toUFOSignature3_2) :
   ∀ (t : Sig4.Thing) (w v : Sig4.F.World),
     Sig4.F.R w v →
     (Sig4.ObjectKind t w ↔ Sig4.ObjectKind t v) :=
@@ -694,30 +680,25 @@ by
     have hObjT_v : Sig4.ObjectType t v :=
       (objectType_stable (Sig4 := Sig4) hA1 hA44 t w v hRv).1 hObjT_w
     have hKind_v : Sig4.Kind t v :=
-      (kind_stable (Sig2 := Sig4.toUFOSignature3_2) hKS t w v hRv).1 hKind_w
+      (kind_stable (Sig4 := Sig4) hA1 hA18 hA21 hA22 hA26 hA44.1 t w v hRv).1 hKind_w
     exact (hObjK t v).2 ⟨hObjT_v, hKind_v⟩
   · intro hObjK_v
     rcases (hObjK t v).1 hObjK_v with ⟨hObjT_v, hKind_v⟩
     have hObjT_w : Sig4.ObjectType t w :=
       (objectType_stable (Sig4 := Sig4) hA1 hA44 t v w (Sig4.F.symm hRv)).1 hObjT_v
     have hKind_w : Sig4.Kind t w :=
-      (kind_stable (Sig2 := Sig4.toUFOSignature3_2) hKS t v w (Sig4.F.symm hRv)).1 hKind_v
+      (kind_stable (Sig4 := Sig4) hA1 hA18 hA21 hA22 hA26 hA44.1 t v w (Sig4.F.symm hRv)).1 hKind_v
     exact (hObjK t w).2 ⟨hObjT_w, hKind_w⟩
 
-/--
-Derived semantic fact (requires the *introduced* structural axiom `ax_kindStable`):
-
-In S5, `CollectiveKind` is invariant across accessible worlds.
-
-Note:
-The proof depends essentially on the introduced axiom `ax_kindStable`
-in order to transport the `Kind` component of (a45).
--/
+/-- `CollectiveKind` is invariant by (a45), type stability, and derived kind stability. -/
 theorem collectiveKind_stable
   (hA1  : ax_a1 Sig4.toUFOSignature3_1)
   (hA44 : ax_a44 Sig4)
   (hA45 : ax_a45 Sig4)
-  (hKS  : ax_kindStable Sig4.toUFOSignature3_2) :
+  (hA18 : ax_a18 Sig4.toUFOSignature3_2)
+  (hA21 : ax_a21 Sig4.toUFOSignature3_2)
+  (hA22 : ax_a22 Sig4.toUFOSignature3_2)
+  (hA26 : ax_a26 Sig4.toUFOSignature3_2) :
   ∀ (t : Sig4.Thing) (w v : Sig4.F.World),
     Sig4.F.R w v →
     (Sig4.CollectiveKind t w ↔ Sig4.CollectiveKind t v) :=
@@ -731,30 +712,25 @@ by
     have hCollT_v : Sig4.CollectiveType t v :=
       (collectiveType_stable (Sig4 := Sig4) hA1 hA44 t w v hRv).1 hCollT_w
     have hKind_v : Sig4.Kind t v :=
-      (kind_stable (Sig2 := Sig4.toUFOSignature3_2) hKS t w v hRv).1 hKind_w
+      (kind_stable (Sig4 := Sig4) hA1 hA18 hA21 hA22 hA26 hA44.1 t w v hRv).1 hKind_w
     exact (hCollK t v).2 ⟨hCollT_v, hKind_v⟩
   · intro hCollK_v
     rcases (hCollK t v).1 hCollK_v with ⟨hCollT_v, hKind_v⟩
     have hCollT_w : Sig4.CollectiveType t w :=
       (collectiveType_stable (Sig4 := Sig4) hA1 hA44 t v w (Sig4.F.symm hRv)).1 hCollT_v
     have hKind_w : Sig4.Kind t w :=
-      (kind_stable (Sig2 := Sig4.toUFOSignature3_2) hKS t v w (Sig4.F.symm hRv)).1 hKind_v
+      (kind_stable (Sig4 := Sig4) hA1 hA18 hA21 hA22 hA26 hA44.1 t v w (Sig4.F.symm hRv)).1 hKind_v
     exact (hCollK t w).2 ⟨hCollT_w, hKind_w⟩
 
-/--
-Derived semantic fact (requires the *introduced* structural axiom `ax_kindStable`):
-
-In S5, `QuantityKind` is invariant across accessible worlds.
-
-Note:
-The proof depends essentially on the introduced axiom `ax_kindStable`
-in order to transport the `Kind` component of (a45).
--/
+/-- `QuantityKind` is invariant by (a45), type stability, and derived kind stability. -/
 theorem quantityKind_stable
   (hA1  : ax_a1 Sig4.toUFOSignature3_1)
   (hA44 : ax_a44 Sig4)
   (hA45 : ax_a45 Sig4)
-  (hKS  : ax_kindStable Sig4.toUFOSignature3_2) :
+  (hA18 : ax_a18 Sig4.toUFOSignature3_2)
+  (hA21 : ax_a21 Sig4.toUFOSignature3_2)
+  (hA22 : ax_a22 Sig4.toUFOSignature3_2)
+  (hA26 : ax_a26 Sig4.toUFOSignature3_2) :
   ∀ (t : Sig4.Thing) (w v : Sig4.F.World),
     Sig4.F.R w v →
     (Sig4.QuantityKind t w ↔ Sig4.QuantityKind t v) :=
@@ -768,30 +744,25 @@ by
     have hQtyT_v : Sig4.QuantityType t v :=
       (quantityType_stable (Sig4 := Sig4) hA1 hA44 t w v hRv).1 hQtyT_w
     have hKind_v : Sig4.Kind t v :=
-      (kind_stable (Sig2 := Sig4.toUFOSignature3_2) hKS t w v hRv).1 hKind_w
+      (kind_stable (Sig4 := Sig4) hA1 hA18 hA21 hA22 hA26 hA44.1 t w v hRv).1 hKind_w
     exact (hQtyK t v).2 ⟨hQtyT_v, hKind_v⟩
   · intro hQtyK_v
     rcases (hQtyK t v).1 hQtyK_v with ⟨hQtyT_v, hKind_v⟩
     have hQtyT_w : Sig4.QuantityType t w :=
       (quantityType_stable (Sig4 := Sig4) hA1 hA44 t v w (Sig4.F.symm hRv)).1 hQtyT_v
     have hKind_w : Sig4.Kind t w :=
-      (kind_stable (Sig2 := Sig4.toUFOSignature3_2) hKS t v w (Sig4.F.symm hRv)).1 hKind_v
+      (kind_stable (Sig4 := Sig4) hA1 hA18 hA21 hA22 hA26 hA44.1 t v w (Sig4.F.symm hRv)).1 hKind_v
     exact (hQtyK t w).2 ⟨hQtyT_w, hKind_w⟩
 
-/--
-Derived semantic fact (requires the *introduced* structural axiom `ax_kindStable`):
-
-In S5, `RelatorKind` is invariant across accessible worlds.
-
-Note:
-The proof depends essentially on the introduced axiom `ax_kindStable`
-in order to transport the `Kind` component of (a45).
--/
+/-- `RelatorKind` is invariant by (a45), type stability, and derived kind stability. -/
 theorem relatorKind_stable
   (hA1  : ax_a1 Sig4.toUFOSignature3_1)
   (hA44 : ax_a44 Sig4)
   (hA45 : ax_a45 Sig4)
-  (hKS  : ax_kindStable Sig4.toUFOSignature3_2) :
+  (hA18 : ax_a18 Sig4.toUFOSignature3_2)
+  (hA21 : ax_a21 Sig4.toUFOSignature3_2)
+  (hA22 : ax_a22 Sig4.toUFOSignature3_2)
+  (hA26 : ax_a26 Sig4.toUFOSignature3_2) :
   ∀ (t : Sig4.Thing) (w v : Sig4.F.World),
     Sig4.F.R w v →
     (Sig4.RelatorKind t w ↔ Sig4.RelatorKind t v) :=
@@ -805,30 +776,25 @@ by
     have hRelT_v : Sig4.RelatorType t v :=
       (relatorType_stable (Sig4 := Sig4) hA1 hA44 t w v hRv).1 hRelT_w
     have hKind_v : Sig4.Kind t v :=
-      (kind_stable (Sig2 := Sig4.toUFOSignature3_2) hKS t w v hRv).1 hKind_w
+      (kind_stable (Sig4 := Sig4) hA1 hA18 hA21 hA22 hA26 hA44.1 t w v hRv).1 hKind_w
     exact (hRelK t v).2 ⟨hRelT_v, hKind_v⟩
   · intro hRelK_v
     rcases (hRelK t v).1 hRelK_v with ⟨hRelT_v, hKind_v⟩
     have hRelT_w : Sig4.RelatorType t w :=
       (relatorType_stable (Sig4 := Sig4) hA1 hA44 t v w (Sig4.F.symm hRv)).1 hRelT_v
     have hKind_w : Sig4.Kind t w :=
-      (kind_stable (Sig2 := Sig4.toUFOSignature3_2) hKS t v w (Sig4.F.symm hRv)).1 hKind_v
+      (kind_stable (Sig4 := Sig4) hA1 hA18 hA21 hA22 hA26 hA44.1 t v w (Sig4.F.symm hRv)).1 hKind_v
     exact (hRelK t w).2 ⟨hRelT_w, hKind_w⟩
 
-/--
-Derived semantic fact (requires the *introduced* structural axiom `ax_kindStable`):
-
-In S5, `ModeKind` is invariant across accessible worlds.
-
-Note:
-The proof depends essentially on the introduced axiom `ax_kindStable`
-in order to transport the `Kind` component of (a45).
--/
+/-- `ModeKind` is invariant by (a45), type stability, and derived kind stability. -/
 theorem modeKind_stable
   (hA1  : ax_a1 Sig4.toUFOSignature3_1)
   (hA44 : ax_a44 Sig4)
   (hA45 : ax_a45 Sig4)
-  (hKS  : ax_kindStable Sig4.toUFOSignature3_2) :
+  (hA18 : ax_a18 Sig4.toUFOSignature3_2)
+  (hA21 : ax_a21 Sig4.toUFOSignature3_2)
+  (hA22 : ax_a22 Sig4.toUFOSignature3_2)
+  (hA26 : ax_a26 Sig4.toUFOSignature3_2) :
   ∀ (t : Sig4.Thing) (w v : Sig4.F.World),
     Sig4.F.R w v →
     (Sig4.ModeKind t w ↔ Sig4.ModeKind t v) :=
@@ -842,30 +808,25 @@ by
     have hModeT_v : Sig4.ModeType t v :=
       (modeType_stable (Sig4 := Sig4) hA1 hA44 t w v hRv).1 hModeT_w
     have hKind_v : Sig4.Kind t v :=
-      (kind_stable (Sig2 := Sig4.toUFOSignature3_2) hKS t w v hRv).1 hKind_w
+      (kind_stable (Sig4 := Sig4) hA1 hA18 hA21 hA22 hA26 hA44.1 t w v hRv).1 hKind_w
     exact (hModeK t v).2 ⟨hModeT_v, hKind_v⟩
   · intro hModeK_v
     rcases (hModeK t v).1 hModeK_v with ⟨hModeT_v, hKind_v⟩
     have hModeT_w : Sig4.ModeType t w :=
       (modeType_stable (Sig4 := Sig4) hA1 hA44 t v w (Sig4.F.symm hRv)).1 hModeT_v
     have hKind_w : Sig4.Kind t w :=
-      (kind_stable (Sig2 := Sig4.toUFOSignature3_2) hKS t v w (Sig4.F.symm hRv)).1 hKind_v
+      (kind_stable (Sig4 := Sig4) hA1 hA18 hA21 hA22 hA26 hA44.1 t v w (Sig4.F.symm hRv)).1 hKind_v
     exact (hModeK t w).2 ⟨hModeT_w, hKind_w⟩
 
-/--
-Derived semantic fact (requires the *introduced* structural axiom `ax_kindStable`):
-
-In S5, `QualityKind` is invariant across accessible worlds.
-
-Note:
-The proof depends essentially on the introduced axiom `ax_kindStable`
-in order to transport the `Kind` component of (a45).
--/
+/-- `QualityKind` is invariant by (a45), type stability, and derived kind stability. -/
 theorem qualityKind_stable
   (hA1  : ax_a1 Sig4.toUFOSignature3_1)
   (hA44 : ax_a44 Sig4)
   (hA45 : ax_a45 Sig4)
-  (hKS  : ax_kindStable Sig4.toUFOSignature3_2) :
+  (hA18 : ax_a18 Sig4.toUFOSignature3_2)
+  (hA21 : ax_a21 Sig4.toUFOSignature3_2)
+  (hA22 : ax_a22 Sig4.toUFOSignature3_2)
+  (hA26 : ax_a26 Sig4.toUFOSignature3_2) :
   ∀ (t : Sig4.Thing) (w v : Sig4.F.World),
     Sig4.F.R w v →
     (Sig4.QualityKind t w ↔ Sig4.QualityKind t v) :=
@@ -879,14 +840,14 @@ by
     have hQualT_v : Sig4.QualityType t v :=
       (qualityType_stable (Sig4 := Sig4) hA1 hA44 t w v hRv).1 hQualT_w
     have hKind_v : Sig4.Kind t v :=
-      (kind_stable (Sig2 := Sig4.toUFOSignature3_2) hKS t w v hRv).1 hKind_w
+      (kind_stable (Sig4 := Sig4) hA1 hA18 hA21 hA22 hA26 hA44.1 t w v hRv).1 hKind_w
     exact (hQualK t v).2 ⟨hQualT_v, hKind_v⟩
   · intro hQualK_v
     rcases (hQualK t v).1 hQualK_v with ⟨hQualT_v, hKind_v⟩
     have hQualT_w : Sig4.QualityType t w :=
       (qualityType_stable (Sig4 := Sig4) hA1 hA44 t v w (Sig4.F.symm hRv)).1 hQualT_v
     have hKind_w : Sig4.Kind t w :=
-      (kind_stable (Sig2 := Sig4.toUFOSignature3_2) hKS t v w (Sig4.F.symm hRv)).1 hKind_v
+      (kind_stable (Sig4 := Sig4) hA1 hA18 hA21 hA22 hA26 hA44.1 t v w (Sig4.F.symm hRv)).1 hKind_v
     exact (hQualK t w).2 ⟨hQualT_w, hKind_w⟩
 
 /-

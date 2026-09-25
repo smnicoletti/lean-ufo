@@ -204,8 +204,9 @@ the common preamble.
 
 The four type-relation report families also have counted required-missing
 text and two-row evidence. `Categorizes` first searches all worlds for an
-instance of the category, then checks current instances for missing `Sub`
-facts. Disjointness selects the first shared instance. Coverage selects the
+instance of the category, then checks current instances for failed `ProperSub`:
+forward specialization must hold and reverse specialization must fail.
+Disjointness selects the first shared instance. Coverage selects the
 first instance outside both covering types. Partition selects a coverage
 failure before searching for overlapping parts. Value proofs preserve these
 orders and the messages, including fallbacks when no witness is isolated.

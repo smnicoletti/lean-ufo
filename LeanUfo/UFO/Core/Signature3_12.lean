@@ -57,10 +57,10 @@ structure UFOSignature3_12 extends UFOSignature3_11 where
   `TupleProjection p i w` is the `i`-th coordinate of the tuple-like entity
   `p` at world `w`.
 
-  This is intentionally weaker than postulating a full tuple construction:
-  it is enough to interpret the subset claim in (a99), which only requires
-  that every member of `x` have coordinates in the corresponding component
-  structures.
+  `ProductSubsetOf` in (a99) requires these coordinates to distinguish
+  members of the domain and to belong to the component structures. Its
+  embedding theorem represents the domain as a subset of the Lean product.
+  No requirement constructs a UFO entity for every possible tuple.
   -/
   TupleProjection :
     {n : Nat} → Thing → Fin n → F.World → Thing

@@ -64,7 +64,7 @@ def checkManifestCompleteness : IO Unit := do
     | .error error => throw <| IO.userError error
 
   let missing := replaceCertificates baseline (rows.extract 0 (rows.size - 1))
-  requireErrorContains (validateJson missing) "expected 116"
+  requireErrorContains (validateJson missing) "expected 113"
     "manifest with a missing certificate row was accepted"
 
   let malformedRow := rows[0]!.setObjVal! "status" (.bool true)
@@ -103,7 +103,8 @@ def checkManifestCompleteness : IO Unit := do
   requireErrorContains (validateJson (replaceCertificates baseline (rows.set! 0 unexpectedReuse)))
     "fresh but" "fresh row with reuse provenance was accepted"
   let duplicateRebuilt := { baselineManifest with
-    fields := baselineManifest.fields.set! 115 baselineManifest.fields[0]! }
+    fields := baselineManifest.fields.set! (baselineManifest.fields.size - 1)
+      baselineManifest.fields[0]! }
   requireErrorContains (compareRebuiltManifest baseline duplicateRebuilt) "duplicated"
     "duplicate rebuilt rows concealed missing provenance"
 

@@ -1,15 +1,15 @@
 import LeanUfo.UFO.DSL.Syntax
 
 /-!
-Expected-failure `ax_instEndurant` fixture.
+Expected-failure (a44) fixture.
 
 `T` is an endurant quality type, but its instance `Q` is only classified as an
-abstract quale.  This was found while building a quality-structure scaffold.
+abstract quale. The endurant-type clause of (a44) rejects that instance.
 -/
 
 open LeanUfo.UFO.DSL
 
-ufo_model FailedAxInstEndurantTypeHasNonEndurantInstance : UFO where
+ufo_model FailedAx44EndurantTypeHasNonEndurantInstance : UFO where
   worlds actual
   things S T Q
   given actual:

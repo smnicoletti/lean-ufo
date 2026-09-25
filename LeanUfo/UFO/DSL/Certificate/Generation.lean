@@ -115,10 +115,7 @@ def certFields : Array CertField :=
     ⟨"ax31", "ax_a31 sig.toUFOSignature3_2"⟩,
     ⟨"ax32", "ax_a32 sig.toUFOSignature3_2"⟩,
     ⟨"ax33", "ax_a33 sig.toUFOSignature3_2"⟩,
-    ⟨"ax_instEndurant", "ax_instEndurant_of_EndurantType (Sig := sig.toUFOSignature3_2)"⟩,
-    ⟨"ax_sub_kind_sortal", "ax_sub_of_kind_is_sortal (Sig := sig.toUFOSignature3_2)"⟩,
     ⟨"ax_nonSortal_up", "ax_nonSortal_upward (Sig := sig.toUFOSignature3_2)"⟩,
-    ⟨"ax_kindStable", "ax_kindStable sig.toUFOSignature3_2"⟩,
     ⟨"ax34", "ax_a34 sig.toUFOSignature3_3"⟩,
     ⟨"ax35", "ax_a35 sig.toUFOSignature3_3"⟩,
     ⟨"ax36", "ax_a36 sig.toUFOSignature3_3"⟩,
@@ -208,10 +205,7 @@ def checkedTheoremName (field : String) : String :=
 
 def checkerFunctionName (field : String) : String :=
   match field with
-  | "ax_instEndurant" => "checkAxInstEndurant"
-  | "ax_sub_kind_sortal" => "checkAxSubKindSortal"
   | "ax_nonSortal_up" => "checkAxNonSortalUp"
-  | "ax_kindStable" => "checkAxKindStable"
   | "axQuaIndividualOfEndurant" => "checkAxQuaIndividualOfEndurant"
   | "axDistanceIdentity" => "checkAxDistanceIdentity"
   | "axDistanceSymmetry" => "checkAxDistanceSymmetry"
@@ -372,10 +366,7 @@ def certFormula : String → String
   | "ax31" => "Mixin(x) ↔ SemiRigid(x) ∧ NonSortal(x)"
   | "ax32" => "¬∃ t, PhaseMixin(t) ∧ RoleMixin(t)"
   | "ax33" => "PhaseMixin(t) ∨ RoleMixin(t) ↔ AntiRigid(t) ∧ NonSortal(t)"
-  | "ax_instEndurant" => "EndurantType(t) ∧ x :: t → Endurant(x)"
-  | "ax_sub_kind_sortal" => "x ⊑ k ∧ Kind(k) → Sortal(x)"
   | "ax_nonSortal_up" => "NonSortal(x) ∧ x ⊑ y → NonSortal(y)"
-  | "ax_kindStable" => "Kind(k) → □ Kind(k)"
   | "ax34" => "Substantial(x) ∨ Moment(x) ↔ Endurant(x)"
   | "ax35" => "¬∃ x, Substantial(x) ∧ Moment(x)"
   | "ax36" => "Object(x) ∨ Collective(x) ∨ Quantity(x) ↔ Substantial(x)"
@@ -454,7 +445,7 @@ def certFormula : String → String
   | "ax105" => "isDisjointWith(t, t') ↔ Type(t) ∧ Type(t') ∧ ¬∃ x, x :: t ∧ x :: t'"
   | "ax106" => "isCompletelyCoveredBy(t, t', t'') ↔ ∀ x, x :: t → x :: t' ∨ x :: t''"
   | "ax107" => "isPartitionedInto(t, t', t'') ↔ isCompletelyCoveredBy(t, t', t'') ∧ isDisjointWith(t', t'')"
-  | "ax108" => "categorizes(t₁, t₂) ↔ Type(t₁) ∧ ∀ t₃, t₃ :: t₁ → t₃ ⊑ t₂"
+  | "ax108" => "categorizes(t₁, t₂) ↔ Type(t₁) ∧ ∀ t₃, t₃ :: t₁ → t₃ ⊏ t₂"
   | _ => ""
 
 private def indentLines (pref source : String) : String :=
@@ -506,10 +497,7 @@ private def certificateSimpDefs? (field : CertField) : Option String :=
   | "axDistanceIdentity" => some "ax_distance_identity"
   | "axDistanceSymmetry" => some "ax_distance_symmetry"
   | "axDistanceTriangle" => some "ax_distance_triangle"
-  | "ax_instEndurant" => some "ax_instEndurant_of_EndurantType"
-  | "ax_sub_kind_sortal" => some "ax_sub_of_kind_is_sortal"
   | "ax_nonSortal_up" => some "ax_nonSortal_upward"
-  | "ax_kindStable" => some "ax_kindStable"
   | _ => numberedAxiomSimpDefs? field.field
 
 def checkerBackedField (field : CertField) : Bool :=
@@ -525,8 +513,7 @@ def checkerBackedField (field : CertField) : Bool :=
     field.field == "ax26" || field.field == "ax27" || field.field == "ax28" ||
     field.field == "ax29" || field.field == "ax30" || field.field == "ax31" ||
     field.field == "ax32" || field.field == "ax33" ||
-    field.field == "ax_instEndurant" || field.field == "ax_sub_kind_sortal" ||
-    field.field == "ax_nonSortal_up" || field.field == "ax_kindStable" ||
+    field.field == "ax_nonSortal_up" ||
     field.field == "ax34" || field.field == "ax35" || field.field == "ax36" ||
     field.field == "ax37" || field.field == "ax38" || field.field == "ax39" ||
     field.field == "ax40" || field.field == "ax41" || field.field == "ax42" ||
@@ -596,10 +583,7 @@ private def checkerSoundnessName? (field : CertField) : Option String :=
   | "ax31" => some "checkAx31_sound"
   | "ax32" => some "checkAx32_sound"
   | "ax33" => some "checkAx33_sound"
-  | "ax_instEndurant" => some "checkAxInstEndurant_sound"
-  | "ax_sub_kind_sortal" => some "checkAxSubKindSortal_sound"
   | "ax_nonSortal_up" => some "checkAxNonSortalUp_sound"
-  | "ax_kindStable" => some "checkAxKindStable_sound"
   | "ax34" => some "checkAx34_sound"
   | "ax35" => some "checkAx35_sound"
   | "ax36" => some "checkAx36_sound"
@@ -721,10 +705,7 @@ private def checkerCounterexampleBackend? (field : CertField) : Option CheckerCo
   | "ax31" => direct "checkAx31" "checkAx31_complete"
   | "ax32" => direct "checkAx32" "checkAx32_complete"
   | "ax33" => direct "checkAx33" "checkAx33_complete"
-  | "ax_instEndurant" => direct "checkAxInstEndurant" "checkAxInstEndurant_complete"
-  | "ax_sub_kind_sortal" => direct "checkAxSubKindSortal" "checkAxSubKindSortal_complete"
   | "ax_nonSortal_up" => direct "checkAxNonSortalUp" "checkAxNonSortalUp_complete"
-  | "ax_kindStable" => direct "checkAxKindStable" "checkAxKindStable_complete"
   | "ax34" => direct "checkAx34" "checkAx34_complete"
   | "ax35" => direct "checkAx35" "checkAx35_complete"
   | "ax36" => direct "checkAx36" "checkAx36_complete"

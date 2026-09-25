@@ -60,7 +60,7 @@ private theorem endurantType_characterization (t : Thing) (w : Unit) :
   · intro ht
     refine ⟨ax15_sig t w ht, ?_⟩
     intro v _hv x hx
-    exact ax_instEndurant_sig t x v ht hx
+    exact inst_endurant_sig t x v ht hx
 
 private theorem perdurantType_characterization (t : Thing) (w : Unit) :
     typedBy sig3.Perdurant t w ↔ sig3.PerdurantType t w := by

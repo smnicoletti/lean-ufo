@@ -265,7 +265,7 @@ theorem anyListCosted_eq_true_iff (xs : List α) (p : α → Costed Bool) :
 /--
 Bound a finite universal scan by its length and a supplied predicate bound.
 The proof follows the executable's short-circuit branches. Registry length
-can vary here; it becomes a constant for the fixed 116-axiom UFO registry.
+can vary here; it becomes a constant for the fixed 113-axiom UFO registry.
 This distinction follows Vardi and Madelaine--Martin's treatment of data and
 combined complexity. The supplied predicate bound is a separate obligation.
 -/

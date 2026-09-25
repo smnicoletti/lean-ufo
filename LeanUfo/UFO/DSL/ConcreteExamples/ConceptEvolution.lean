@@ -6,7 +6,9 @@ Paper example: concept evolution
 Section 4.5 uses marriage to illustrate anticipated concept evolution.  Unlike
 the other Section 4 examples, the central pattern is higher-order:
 a type such as ConjugalRelationshipType has first-order types as instances,
-and those instances specialize a stable base type such as ConjugalRelationship.
+and those instances properly specialize a stable base type such as
+ConjugalRelationship. In (a108), proper specialization also requires that the
+base type does not specialize the instance type in reverse.
 
 This is a limitation of the finite DSL/backend, not a claim that the
 axiomatization cannot express the pattern.  The encoded UFO axiom package

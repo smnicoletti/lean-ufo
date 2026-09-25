@@ -530,26 +530,20 @@ by
   exact h.1
 
 /--
-NOTE:
-Kind-stability (explicit semantic assumption), needed for (t10):
-
-If something is a Kind at world w, then it is a Kind at every accessible world v.
--/
-def ax_kindStable : Prop :=
-  ∀ (k : Sig.Thing) (w v : Sig.F.World),
-    Sig.Kind k w → Sig.F.R w v → Sig.Kind k v
-
-/--
 (t10)
 
 Kind(x) ∧ Kind(y) ∧ x ≠ y → □(¬∃z (z :: x ∧ z :: y))
 
 Natural language:
 Distinct kinds are necessarily disjoint.
+
+Only (a18), (a22), and (a26) are needed. Rigidity transports a hypothetical
+shared instance to the world where both kind classifications hold.
 -/
 theorem th_t10
+  (hA18 : ax_a18 Sig)
   (hA22 : ax_a22 Sig)
-  (hKS  : ax_kindStable Sig) :
+  (hA26 : ax_a26 Sig) :
   ∀ (x y : Sig.Thing) (w : Sig.F.World),
     Sig.Kind x w ∧ Sig.Kind y w ∧ x ≠ y →
       Frame.Box (F := Sig.F)
@@ -559,38 +553,15 @@ theorem th_t10
               Sig.Inst z y v)
         w :=
 by
-  classical
-  intro x y w h
-  rcases h with ⟨hKx_w, hKy_w, hNe_xy⟩
-
-  intro v hvR
-  intro hEx
-  rcases hEx with ⟨z, hz_x, hz_y⟩
-
-  -- transport Kind facts from w to v using hKS
-  have hKx_v : Sig.Kind x v := hKS x w v hKx_w hvR
-  have hKy_v : Sig.Kind y v := hKS y w v hKy_w hvR
-
-  -- apply a22 at world v with k := x and instance z :: x
-  have hNoOtherKind :
-    ¬ Frame.Dia (F := Sig.F)
-        (fun v' => ∃ k : Sig.Thing,
-          Sig.Kind k v' ∧ Sig.Inst z k v' ∧ k ≠ x)
-        v :=
-    hA22 x z v ⟨hKx_v, hz_x⟩
-
-  -- build the forbidden possibility at v using k := y (and R v v via refl)
-  have hBad :
-    Frame.Dia (F := Sig.F)
-        (fun v' => ∃ k : Sig.Thing,
-          Sig.Kind k v' ∧ Sig.Inst z k v' ∧ k ≠ x)
-        v :=
-  by
-    refine ⟨v, Sig.F.refl v, ?_⟩
-    refine ⟨y, hKy_v, hz_y, ?_⟩
-    exact Ne.symm hNe_xy
-
-  exact hNoOtherKind hBad
+  intro x y w ⟨hKx, hKy, hNe⟩ v hRv ⟨z, hzx, hzy⟩
+  -- Rigidity brings both instantiations back to the world where the two
+  -- kind classifications are known. Axiom (a22) then excludes their overlap.
+  have hRigidX := ((hA26 x w).1 (Or.inl hKx)).1
+  have hRigidY := ((hA26 y w).1 (Or.inl hKy)).1
+  have hzxW := ((hA18 x w).1 hRigidX).2 z ⟨v, hRv, hzx⟩ w (Sig.F.refl w)
+  have hzyW := ((hA18 y w).1 hRigidY).2 z ⟨v, hRv, hzy⟩ w (Sig.F.refl w)
+  exact hA22 x z w ⟨hKx, hzxW⟩
+    ⟨w, Sig.F.refl w, y, hKy, hzyW, Ne.symm hNe⟩
 
 /--
 (t11)
@@ -607,7 +578,7 @@ theorem th_t11
   (hA23 : ax_a23 Sig)
   (hA26 : ax_a26 Sig)
   (hA22 : ax_a22 Sig)
-  (hKS  : ax_kindStable Sig) :
+  (hA18 : ax_a18 Sig) :
   ∀ (x y : Sig.Thing) (w : Sig.F.World),
     Sig.Kind x w ∧ Sig.Kind y w ∧ x ≠ y →
       (¬ Sig.Sub x y w ∧ ¬ Sig.Sub y x w) :=
@@ -622,7 +593,7 @@ by
 
     -- Use t10 directly
     have hBoxDisj :=
-      th_t10 (Sig := Sig) hA22 hKS x y w ⟨hKx, hKy, hNe⟩
+      th_t10 (Sig := Sig) hA18 hA22 hA26 x y w ⟨hKx, hKy, hNe⟩
 
     -- unpack specialization definition
     have hSubDef := (hA5 x y w).1 hSub_xy
@@ -661,7 +632,7 @@ by
     intro hSub_yx
 
     have hBoxDisj :=
-      th_t10 (Sig := Sig) hA22 hKS y x w ⟨hKy, hKx, Ne.symm hNe⟩
+      th_t10 (Sig := Sig) hA18 hA22 hA26 y x w ⟨hKy, hKx, Ne.symm hNe⟩
 
     have hSubDef := (hA5 y x w).1 hSub_yx
     rcases hSubDef with ⟨_hTy, _hTx, hBoxIncl⟩
@@ -758,7 +729,8 @@ theorem th_t14
   (hA1  : ax_a1 Sig.toUFOSignature3_1)
   (hA5  : ax_a5 Sig.toUFOSignature3_1)
   (hA22 : ax_a22 Sig)
-  (hKS  : ax_kindStable Sig) :
+  (hA18 : ax_a18 Sig)
+  (hA26 : ax_a26 Sig) :
   ∀ (w : Sig.F.World),
     ¬ ∃ x y z : Sig.Thing,
         Sig.Kind y w ∧ Sig.Kind z w ∧ y ≠ z ∧
@@ -771,7 +743,7 @@ by
 
   -- use t10
   have hBoxDisj :=
-    th_t10 (Sig := Sig) hA22 hKS y z w ⟨hKy, hKz, hNe_yz⟩
+    th_t10 (Sig := Sig) hA18 hA22 hA26 y z w ⟨hKy, hKz, hNe_yz⟩
 
   -- unpack specialization
   have hxy := (hA5 x y w).1 hSub_xy
@@ -851,49 +823,17 @@ by
   exact hNotSortal_x hSortal_x
 
 /--
-NOTE:
-Bridge axioms needed for (t16):
+Additional closure assumption: every supertype of a non-sortal is a non-sortal.
 
-(typing of instantiation for endurant types)
-If `t` is an EndurantType and `x :: t`, then `x` is an Endurant.
-
-This is an implicit typing assumption in the paper:
-instances of endurant types are endurants.
--/
-def ax_instEndurant_of_EndurantType : Prop :=
-  ∀ (t x : Sig.Thing) (w : Sig.F.World),
-    Sig.EndurantType t w →
-    Sig.Inst x t w →
-    Sig.Endurant x w
-
-/--
-NOTE:
-Also needed for (t16).
-Structural axiom (subtypes of kinds are sortals):
-
-If a specializes a kind k,
-then a is a sortal.
-
-This reflects the intended taxonomy:
-kinds and their subkinds are rigid sortals.
--/
-def ax_sub_of_kind_is_sortal : Prop :=
-  ∀ (a k : Sig.Thing) (w : Sig.F.World),
-    Sig.Sub a k w →
-    Sig.Kind k w →
-    Sig.Sortal a w
-
-/--
-NOTE:
-Also needed for (t16).
-Structural axiom (closure of NonSortal under specialization upward):
-
-If a is NonSortal and a ⊑ b,
-then b is NonSortal.
-
-This reflects the intended taxonomy:
-NonSortal is a proper branch under EndurantType,
-and no supertype of a NonSortal can be a Sortal.
+The numbered axioms (a5), (a23), and (a24) rule out a sortal supertype, but
+they do not supply the supertype's `EndurantType` classification in that
+argument. `nonSortal_supertype_of_endurantType` isolates this missing premise.
+`FormalAnalysis/StructuralAssumptions.lean` supplies a countermodel satisfying
+(a1)–(a108), the source distance laws, and qua-individual bearer typing in
+which both the unrestricted closure and (t16) fail. Some additional restriction
+is therefore necessary for (t16). The proof in Section3_4 uses this closure
+assumption in its common-supertype branch. We do not establish that it is the
+weakest sufficient assumption.
 -/
 def ax_nonSortal_upward : Prop :=
   ∀ (a b : Sig.Thing) (w : Sig.F.World),
@@ -901,109 +841,16 @@ def ax_nonSortal_upward : Prop :=
     Sig.Sub a b w →
     Sig.NonSortal b w
 
-/--
-(t16)
-
-(NonSortal(t) ∧ x :: t) →
-  (∃ s, Sortal(s) ∧ s ⊑ t ∧ x :: s) ∨
-  (∃ n s, NonSortal(n) ∧ Sortal(s) ∧ s ⊑ n ∧ t ⊑ n ∧ x :: s)
-
-Natural language:
-Non-sortals do not have direct instances: any instance of a non-sortal
-is also an instance of some sortal that either specializes it,
-or specializes a common non-sortal supertype.
--/
-theorem th_t16
-  (hA5   : ax_a5 Sig.toUFOSignature3_1)
-  (hA6   : ax_a6 Sig.toUFOSignature3_1)
-  (hA21  : ax_a21 Sig)
-  (hA23  : ax_a23 Sig)
-  (hA24  : ax_a24 Sig)
-  (hA26  : ax_a26 Sig)
-  (hInstEnd : ax_instEndurant_of_EndurantType (Sig := Sig))
-  (hSubKindSortal : ax_sub_of_kind_is_sortal (Sig := Sig))
-  (hNonUp   : ax_nonSortal_upward (Sig := Sig)) :
-  ∀ (t x : Sig.Thing) (w : Sig.F.World),
-    (Sig.NonSortal t w ∧ Sig.Inst x t w) →
-      ( (∃ s : Sig.Thing,
-            Sig.Sortal s w ∧
-            Sig.Sub s t w ∧
-            Sig.Inst x s w)
-        ∨
-        (∃ n s : Sig.Thing,
-            Sig.NonSortal n w ∧
-            Sig.Sortal s w ∧
-            Sig.Sub s n w ∧
-            Sig.Sub t n w ∧
-            Sig.Inst x s w) )
-:= by
-  classical
-  intro t x w h
-  rcases h with ⟨hNon_t, hInst_xt⟩
-
-  -- unfold NonSortal(t)
-  have hNonDef := (hA24 t w).1 hNon_t
-  rcases hNonDef with ⟨hEnd_t, hNotSortal_t⟩
-
-  -- instance typing: x is an Endurant
-  have hEnd_x : Sig.Endurant x w :=
-    hInstEnd t x w hEnd_t hInst_xt
-
-  -- from a21: x necessarily instantiates some kind k
-  obtain ⟨k, hKind_k, hBox_xk⟩ :=
-    hA21 x w hEnd_x
-
-  -- x :: k at w (via reflexivity of R)
-  have hInst_xk : Sig.Inst x k w :=
-    hBox_xk w (Sig.F.refl w)
-
-  -- k is a sortal (directly from a26)
-  have hSortal_k : Sig.Sortal k w :=
-    (hA26 k w).1 (Or.inl hKind_k) |>.2
-
-  -- check comparability of t and k
-  by_cases hSub_tk : Sig.Sub t k w
-
-  ------------------------------------------------------------------
-  -- Case 1: t ⊑ k  → contradiction (would force Sortal(t))
-  ------------------------------------------------------------------
-  · exfalso
-    have hSubDef := (hA5 t k w).1 hSub_tk
-    rcases hSubDef with ⟨_, _, hBox_tk⟩
-    have hSortal_t : Sig.Sortal t w :=
-      (hA23 t w).2 ⟨hEnd_t, ⟨k, hKind_k, hBox_tk⟩⟩
-    exact hNotSortal_t hSortal_t
-
-  ------------------------------------------------------------------
-  -- Case 2: ¬(t ⊑ k)
-  ------------------------------------------------------------------
-  · by_cases hSub_kt : Sig.Sub k t w
-
-    --------------------------------------------------------------
-    -- Case 2a: k ⊑ t  → pick s := k
-    --------------------------------------------------------------
-    · exact Or.inl ⟨k, hSortal_k, hSub_kt, hInst_xk⟩
-
-    --------------------------------------------------------------
-    -- Case 2b: incomparable t and k  → use a6
-    --------------------------------------------------------------
-    · have hA6app :=
-        hA6 t k x w ⟨hInst_xt, hInst_xk, hSub_tk, hSub_kt⟩
-      cases hA6app with
-      | inl hSuper =>
-          -- common supertype n: t ⊑ n, k ⊑ n, and x :: n
-          rcases hSuper with ⟨n, ht_n, hk_n, _hInst_xn⟩
-          have hNon_n : Sig.NonSortal n w :=
-            hNonUp t n w hNon_t ht_n
-          -- choose s := k, since we already have Sortal(k) and x::k and k ⊑ n
-          exact Or.inr ⟨n, k, hNon_n, hSortal_k, hk_n, ht_n, hInst_xk⟩
-
-      | inr hSubcase =>
-          -- common subtype s: s ⊑ t, s ⊑ k, and x :: s
-          rcases hSubcase with ⟨s, hs_t, hs_k, hInst_xs⟩
-          have hSortal_s : Sig.Sortal s w :=
-            hSubKindSortal s k w hs_k hKind_k
-          exact Or.inl ⟨s, hSortal_s, hs_t, hInst_xs⟩
+/-- A supertype of a non-sortal is non-sortal if it is an endurant type.
+By (t15), a sortal supertype would force the subtype to be sortal as well.
+The explicit endurant-type premise is the remaining part of (a24). -/
+theorem nonSortal_supertype_of_endurantType
+    (h5 : ax_a5 Sig.toUFOSignature3_1) (h23 : ax_a23 Sig) (h24 : ax_a24 Sig)
+    {a b : Sig.Thing} {w : Sig.F.World}
+    (ha : Sig.NonSortal a w) (hab : Sig.Sub a b w)
+    (hb : Sig.EndurantType b w) : Sig.NonSortal b w := by
+  apply (h24 b w).2
+  exact ⟨hb, fun hs => th_t15 Sig h5 h23 h24 w ⟨a, b, ha, hs, hab⟩⟩
 
 /--
 (a27)
@@ -1967,7 +1814,7 @@ Axioms package for §3.2.
 
 This extends the §3.1 axioms with:
 - (a18)–(a33),
-- the structural assumptions used in (t10), (t14) and (t16).
+- non-sortal upward closure, used in the proof of (t16).
 -/
 class UFOAxioms3_2 (Sig : UFOSignature3_2) : Prop
   extends UFOAxioms3_1 Sig.toUFOSignature3_1 where
@@ -1990,15 +1837,6 @@ class UFOAxioms3_2 (Sig : UFOSignature3_2) : Prop
   ax32 : ax_a32 Sig
   ax33 : ax_a33 Sig
 
-  -- Structural assumptions required for t10 / t16
-  ax_instEndurant :
-    ax_instEndurant_of_EndurantType (Sig := Sig)
-
-  ax_sub_kind_sortal :
-    ax_sub_of_kind_is_sortal (Sig := Sig)
-
+  -- The proof of (t16) in Section3_4 uses this additional closure assumption.
   ax_nonSortal_up :
     ax_nonSortal_upward (Sig := Sig)
-
-  ax_kindStable :
-    ax_kindStable Sig

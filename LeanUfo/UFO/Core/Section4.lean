@@ -68,15 +68,16 @@ def ax_a107 : Prop :=
 (a108)
 
 categorizes(t₁, t₂) ↔
-  Type(t₁) ∧ ∀t₃ (t₃ :: t₁ → t₃ ⊑ t₂)
+  Type(t₁) ∧ ∀t₃ (t₃ :: t₁ → t₃ ⊏ t₂)
 
 Natural language:
 A type categorizes another type exactly when all instances of the categorizing
-type are specializations of the categorized type.
+type are proper specializations of the categorized type.
 
 Formalization note:
-The last relation in the printed formula is encoded as `Sub`, the existing
-specialization predicate introduced in §3.1.
+The printed formula in UFO §4.5, p. 202, uses proper specialization from (d1),
+§3.1, p. 175: specialization holds forward and fails in reverse. This also
+excludes distinct types that specialize each other.
 -/
 def ax_a108 : Prop :=
   ∀ (t1 t2 : Sig.Thing) (w : Sig.F.World),
@@ -84,7 +85,7 @@ def ax_a108 : Prop :=
       (Sig.Type_ t1 w ∧
        ∀ t3 : Sig.Thing,
          Sig.Inst t3 t1 w →
-           Sig.Sub t3 t2 w)
+           ProperSub Sig.toUFOSignature3_1 t3 t2 w)
 
 /--
 Axioms package for §4.

@@ -168,8 +168,7 @@ private def nonEmptySetLookup (W T : Nat) (tables : FactTables) (s w : Nat) : Bo
   (nonEmptySetLookupCosted W T tables s w).value
 
 /-- Find a source related to the left target but not the right target.
-Set inclusion uses membership for both relations. Categorization uses
-instantiation on the left and specialization on the right. Only a left match
+Set inclusion uses membership for both relations. Only a left match
 incurs the right query. The first difference ends the search. -/
 private def firstRelationDifferenceCosted
     (W T : Nat) (tables : FactTables) (left right : BinaryField) (s t w : Nat) :
@@ -287,6 +286,48 @@ private theorem properSubLookupCosted_value (W T : Nat) (tables : FactTables)
 
 private def properSubLookup (W T : Nat) (tables : FactTables) (x y w : Nat) : Bool :=
   (properSubLookupCosted W T tables x y w).value
+
+/-- Find an instance that fails proper specialization in (a108). The forward
+and reverse queries implement (d1). Distinct types that specialize each other
+fail this test too.
+Non-instances skip both queries, and a missing forward relation skips the
+reverse query. The first failed instance supplies the diagnostic witness. -/
+private def firstCategorizationFailureCosted
+    (W T : Nat) (tables : FactTables) (s t w : Nat) :
+    Complexity.Costed (Option Nat) :=
+  findDiagDomainCosted T fun x =>
+    (Complexity.diagnosticBinaryCosted W T tables .inst x s w).andThen fun _ =>
+      (properSubLookupCosted W T tables x t w).not
+
+/-- Instantiation costs at most 17, proper specialization 36, negation and
+branching two, and search control four: at most 59 per candidate. -/
+private theorem firstCategorizationFailureCosted_cost_le
+    (W T : Nat) (tables : FactTables) (s t w : Nat) :
+    (firstCategorizationFailureCosted W T tables s t w).cost ≤ 59 * T := by
+  have h := findDiagDomainCosted_cost_le T
+    (fun x => (Complexity.diagnosticBinaryCosted W T tables .inst x s w).andThen fun _ =>
+      (properSubLookupCosted W T tables x t w).not) 55 (by
+      intro x hx
+      exact Complexity.Costed.andThen_cost_le _ _ 17 37
+        (Complexity.diagnosticBinaryCosted_cost_le _ _ _ _ _ _ _)
+        (by
+          simpa using Nat.add_le_add_right
+            (properSubLookupCosted_cost_le W T tables x t w) 1))
+  simpa [firstCategorizationFailureCosted, Nat.mul_comm] using h
+
+private theorem firstCategorizationFailureCosted_value
+    (W T : Nat) (tables : FactTables)
+    (agreement : tables.sparseLookups W T = tables.denseLookups W T)
+    (s t : Fin T) (w : Fin W) :
+    (firstCategorizationFailureCosted W T tables s t w).value =
+      (List.range T).find? (fun x => tables.binaryLookup "inst" x s w &&
+        !(tables.binaryLookup "sub" x t w && !tables.binaryLookup "sub" t x w)) := by
+  apply findDiagDomainCosted_value
+  intro x hx
+  rw [Complexity.Costed.andThen_value, Complexity.Costed.not_value,
+    Complexity.diagnosticBinaryCosted_value _ _ _ agreement .inst ⟨x, hx⟩ s w,
+    properSubLookupCosted_value _ _ _ agreement ⟨x, hx⟩ t w]
+  rfl
 
 /-- Search for the first shared instance. The right query runs only for a
 left instance. Two queries, one branch, and four search controls cost at most
@@ -451,23 +492,24 @@ private def isPartitionedIntoLookup (W T : Nat) (tables : FactTables) (t t' t'' 
   (isPartitionedIntoLookupCosted W T tables t t' t'' w).value
 
 /-- A category must have a possible instance. At the current world, each of
-its instances must specialize the target. The counterexample search runs only
-after possible typehood succeeds, and skips specialization for non-instances. -/
+its instances must properly specialize the target. The counterexample search
+runs only after possible typehood succeeds, and skips specialization for
+non-instances. -/
 private def categorizesLookupCosted (W T : Nat) (tables : FactTables) (t1 t2 w : Nat) :
     Complexity.Costed Bool :=
   (hasPossibleInstanceCosted W T tables t1).andThen fun _ =>
-    (firstRelationDifferenceCosted W T tables .inst .sub t1 t2 w).bind fun failure =>
+    (firstCategorizationFailureCosted W T tables t1 t2 w).bind fun failure =>
       Complexity.Costed.tick failure.isNone 1
 
 private theorem categorizesLookupCosted_cost_le (W T : Nat) (tables : FactTables) (t1 t2 w : Nat) :
-    (categorizesLookupCosted W T tables t1 t2 w).cost ≤ W * (T * 19 + 2) + 40 * T + 2 := by
+    (categorizesLookupCosted W T tables t1 t2 w).cost ≤ W * (T * 19 + 2) + 59 * T + 2 := by
   have h := Complexity.Costed.andThen_cost_le _
-    (fun _ => (firstRelationDifferenceCosted W T tables .inst .sub t1 t2 w).bind
-      fun failure => Complexity.Costed.tick failure.isNone 1) (W * (T * 19 + 2)) (40 * T + 1)
+    (fun _ => (firstCategorizationFailureCosted W T tables t1 t2 w).bind
+      fun failure => Complexity.Costed.tick failure.isNone 1) (W * (T * 19 + 2)) (59 * T + 1)
     (hasPossibleInstanceCosted_cost_le W T tables t1)
     (by
       simpa using Nat.add_le_add_right
-        (firstRelationDifferenceCosted_cost_le W T tables .inst .sub t1 t2 w) 1)
+        (firstCategorizationFailureCosted_cost_le W T tables t1 t2 w) 1)
   unfold categorizesLookupCosted
   omega
 
@@ -477,10 +519,10 @@ private theorem categorizesLookupCosted_value (W T : Nat) (tables : FactTables)
     (categorizesLookupCosted W T tables t1 t2 w).value =
       (typeLookup W T tables t1 &&
         !((List.range T).any fun x => tables.binaryLookup "inst" x t1 w &&
-          !tables.binaryLookup "sub" x t2 w)) := by
+          !(tables.binaryLookup "sub" x t2 w && !tables.binaryLookup "sub" t2 x w))) := by
   simp [categorizesLookupCosted, typeLookup,
-    firstRelationDifferenceCosted_value _ _ _ agreement .inst .sub t1 t2 w,
-    ← Option.not_isSome, List.isSome_find?, BinaryField.toTableField]
+    firstCategorizationFailureCosted_value _ _ _ agreement t1 t2 w,
+    ← Option.not_isSome, List.isSome_find?]
 
 private def categorizesLookup (W T : Nat) (tables : FactTables) (t1 t2 w : Nat) : Bool :=
   (categorizesLookupCosted W T tables t1 t2 w).value
@@ -1063,7 +1105,7 @@ private def namedDerivedPredicateCostBound (W T : Nat) (tables : FactTables) : N
   (40 * T + 1) +
   (80 * T + 3) +
   (2 * (W * (T * 19 + 2)) + 39 * T + 3) +
-  (W * (T * 19 + 2) + 40 * T + 2) +
+  (W * (T * 19 + 2) + 59 * T + 2) +
   (58 * T + 1) +
   (2 * (W * (T * 19 + 2)) + 97 * T + 5) +
   (T * (39 * T + 39) + 73) +
@@ -1653,7 +1695,7 @@ private def derivedAssertionSuggestionSpec (fact : NamedDerivedFact) : String :=
   | .ternary "IsPartitionedInto" _ _ _ =>
       "Computed from complete coverage plus disjointness of the two covering types. Make the cover complete and the covering types disjoint, or remove the assertion."
   | .binary "Categorizes" _ _ =>
-      "Computed from typehood, `Inst`, and `Sub`: every type instantiating the category must specialize the categorized type. Add missing specialization facts, or remove the assertion."
+      "Computed from typehood, `Inst`, and `ProperSub`: each category-instance type must specialize the target with no reverse specialization. Check both directions of `Sub`, or remove the assertion."
   | _ =>
       "Remove the assertion, or add the primitive DSL facts needed to make this derived relation true in the generated finite model."
 
@@ -1723,7 +1765,7 @@ private def derivedAssertionSuggestionCosted (fact : NamedDerivedFact) : Complex
                           .pure "Computed from typehood and `Inst`: the two types must have no shared instance. Remove the assertion, or remove the common instance facts that make the two types overlap."
                         else
                           Complexity.Costed.charge 2 <| if field == "Categorizes" then
-                            .pure "Computed from typehood, `Inst`, and `Sub`: every type instantiating the category must specialize the categorized type. Add missing specialization facts, or remove the assertion."
+                            .pure "Computed from typehood, `Inst`, and `ProperSub`: each category-instance type must specialize the target with no reverse specialization. Check both directions of `Sub`, or remove the assertion."
                           else
                             .pure "Remove the assertion, or add the primitive DSL facts needed to make this derived relation true in the generated finite model."
   | .ternary field _ _ _ =>
@@ -4418,10 +4460,10 @@ private theorem existentialIndependenceEvidenceCosted_size
 
 
 /-- Check that category x has an instance in some world before searching
-for missing specialization in the report's world.
+for failed proper specialization in the report's world.
 For W worlds and T things, the two searches cost at most P = W(19T+2)
-and 40T. The no-type branch adds 16 for names, text, negation, and branching.
-The witness branch adds 25, giving P+40T+25. A supplied fallback has no
+and 59T. The no-type branch adds 16 for names, text, negation, and branching.
+The witness branch adds 25, giving P+59T+25. A supplied fallback has no
 construction cost here. As in Niu et al. (POPL 2022, doi:10.1145/3498670),
 the report composes the costs of the computations it actually selects. -/
 private def categorizesRequiredMissingCosted
@@ -4439,7 +4481,7 @@ private def categorizesRequiredMissingCosted
     let text := text.appendString (.pure xn)
     text.appendString (.pure "` to be a computed `Type`; missing any possible instance.")
   else do
-    let failure ← firstRelationDifferenceCosted worldNames.size thingNames.size tables .inst .sub x y w
+    let failure ← firstCategorizationFailureCosted worldNames.size thingNames.size tables x y w
     Complexity.Costed.charge 1 <| match failure with
     | some witness => do
       let xn ← indexedNameCosted thingNames x
@@ -4449,9 +4491,9 @@ private def categorizesRequiredMissingCosted
       let text := text.appendString (.pure xn)
       let text := text.appendString (.pure ", ")
       let text := text.appendString (.pure yn)
-      let text := text.appendString (.pure ")` requires each category-instance type to specialize `")
+      let text := text.appendString (.pure ")` requires each category-instance type to properly specialize `")
       let text := text.appendString (.pure yn)
-      let text := text.appendString (.pure "`; missing `Sub(")
+      let text := text.appendString (.pure "`; failed `ProperSub(")
       let text := text.appendString (.pure witnessName)
       let text := text.appendString (.pure ", ")
       let text := text.appendString (.pure yn)
@@ -4464,10 +4506,9 @@ private theorem categorizesRequiredMissingCosted_value
       if !typeLookup worldNames.size thingNames.size tables x then
         s!"`Categorizes({indexedName thingNames x}, {indexedName thingNames y})` requires `{indexedName thingNames x}` to be a computed `Type`; missing any possible instance."
       else
-        match (firstRelationDifferenceCosted worldNames.size thingNames.size tables
-          .inst .sub x y w).value with
+        match (firstCategorizationFailureCosted worldNames.size thingNames.size tables x y w).value with
         | some instType =>
-            s!"`Categorizes({indexedName thingNames x}, {indexedName thingNames y})` requires each category-instance type to specialize `{indexedName thingNames y}`; missing `Sub({indexedName thingNames instType}, {indexedName thingNames y})`."
+            s!"`Categorizes({indexedName thingNames x}, {indexedName thingNames y})` requires each category-instance type to properly specialize `{indexedName thingNames y}`; failed `ProperSub({indexedName thingNames instType}, {indexedName thingNames y})`."
         | none => fallback := by
   dsimp only [categorizesRequiredMissingCosted,
     Bind.bind,
@@ -4478,15 +4519,15 @@ private theorem categorizesRequiredMissingCosted_value
     typeLookup,
     hasPossibleInstance]
   split
-  all_goals cases (firstRelationDifferenceCosted worldNames.size thingNames.size tables .inst .sub x y w).value
+  all_goals cases (firstCategorizationFailureCosted worldNames.size thingNames.size tables x y w).value
   all_goals simp_all only [indexedNameCosted_value, ite_true]
   all_goals rfl
 
 private theorem categorizesRequiredMissingCosted_cost_le
     (worldNames thingNames : Array Name) (tables : FactTables) (x y w : Nat) (fallback : String) :
-    (categorizesRequiredMissingCosted worldNames thingNames tables x y w fallback).cost ≤ worldNames.size * (thingNames.size * 19 + 2) + 40 * thingNames.size + 25 := by
+    (categorizesRequiredMissingCosted worldNames thingNames tables x y w fallback).cost ≤ worldNames.size * (thingNames.size * 19 + 2) + 59 * thingNames.size + 25 := by
   have htype := hasPossibleInstanceCosted_cost_le worldNames.size thingNames.size tables x
-  have hsearch := firstRelationDifferenceCosted_cost_le worldNames.size thingNames.size tables .inst .sub x y w
+  have hsearch := firstCategorizationFailureCosted_cost_le worldNames.size thingNames.size tables x y w
   dsimp only [categorizesRequiredMissingCosted,
     Bind.bind,
     Complexity.Costed.bind,
@@ -4494,7 +4535,7 @@ private theorem categorizesRequiredMissingCosted_cost_le
     Complexity.Costed.appendString,
     Complexity.Costed.pure]
   split
-  all_goals cases (firstRelationDifferenceCosted worldNames.size thingNames.size tables .inst .sub x y w).value
+  all_goals cases (firstCategorizationFailureCosted worldNames.size thingNames.size tables x y w).value
   all_goals simp only [indexedNameCosted_cost]
   all_goals omega
 
@@ -4700,10 +4741,10 @@ private theorem partitionRequiredMissingCosted_cost_le
   all_goals simp only [indexedNameCosted_cost]
   all_goals omega
 
-/-- Show typehood failure, missing specialization, or a successful category
+/-- Show typehood failure, failed proper specialization, or a successful category
 check in two rows. The assertion and array cost 17. Typehood costs at most
 P = W(19T+2), and its negation/branch cost two. The specialization path adds
-at most 40T for search, one match, and 18 for witness text: P+40T+38. -/
+at most 59T for search, one match, and 18 for witness text: P+59T+38. -/
 private def categorizesEvidenceCosted
     (worldNames thingNames : Array Name) (tables : FactTables) (x y w : Nat) :
     Complexity.Costed (Array String) := do
@@ -4722,7 +4763,7 @@ private def categorizesEvidenceCosted
       let text := text.appendString (.pure xn)
       text.appendString (.pure "` is not a computed `Type`.")
     else do
-      let failure ← firstRelationDifferenceCosted worldNames.size thingNames.size tables .inst .sub x y w
+      let failure ← firstCategorizationFailureCosted worldNames.size thingNames.size tables x y w
       Complexity.Costed.charge 1 <| match failure with
       | some witness => do
         let witnessName ← indexedNameCosted thingNames witness
@@ -4733,15 +4774,15 @@ private def categorizesEvidenceCosted
         let text := text.appendString (.pure xn)
         let text := text.appendString (.pure "` at `")
         let text := text.appendString (.pure wn)
-        let text := text.appendString (.pure "` but `Sub(")
+        let text := text.appendString (.pure "` but `ProperSub(")
         let text := text.appendString (.pure witnessName)
         let text := text.appendString (.pure ", ")
         let text := text.appendString (.pure yn)
-        text.appendString (.pure ")` is missing.")
+        text.appendString (.pure ")` fails.")
       | none => do
         let text := Complexity.Costed.pure "  - Computed Categorizes: true; every instance type of `"
         let text := text.appendString (.pure xn)
-        let text := text.appendString (.pure "` specializes `")
+        let text := text.appendString (.pure "` properly specializes `")
         let text := text.appendString (.pure yn)
         text.appendString (.pure "`.")
   let out ← Complexity.Costed.tick (#[] : Array String) 1
@@ -4757,17 +4798,16 @@ private theorem categorizesEvidenceCosted_value
           s!"  - Computed Categorizes: false, because `{indexedName thingNames x}` is not a computed `Type`."
         ]
       else
-        match (firstRelationDifferenceCosted worldNames.size thingNames.size tables
-          .inst .sub x y w).value with
+        match (firstCategorizationFailureCosted worldNames.size thingNames.size tables x y w).value with
         | some instType =>
             #[
               s!"  - User assertion: `Categorizes({indexedName thingNames x}, {indexedName thingNames y})`.",
-              s!"  - Computed Categorizes: false, because `{indexedName thingNames instType}` instantiates `{indexedName thingNames x}` at `{indexedName worldNames w}` but `Sub({indexedName thingNames instType}, {indexedName thingNames y})` is missing."
+              s!"  - Computed Categorizes: false, because `{indexedName thingNames instType}` instantiates `{indexedName thingNames x}` at `{indexedName worldNames w}` but `ProperSub({indexedName thingNames instType}, {indexedName thingNames y})` fails."
             ]
         | none =>
             #[
               s!"  - User assertion: `Categorizes({indexedName thingNames x}, {indexedName thingNames y})`.",
-              s!"  - Computed Categorizes: true; every instance type of `{indexedName thingNames x}` specializes `{indexedName thingNames y}`."
+              s!"  - Computed Categorizes: true; every instance type of `{indexedName thingNames x}` properly specializes `{indexedName thingNames y}`."
             ] := by
   dsimp only [categorizesEvidenceCosted,
     Bind.bind,
@@ -4779,15 +4819,15 @@ private theorem categorizesEvidenceCosted_value
     typeLookup,
     hasPossibleInstance]
   split
-  all_goals cases (firstRelationDifferenceCosted worldNames.size thingNames.size tables .inst .sub x y w).value
+  all_goals cases (firstCategorizationFailureCosted worldNames.size thingNames.size tables x y w).value
   all_goals simp_all only [indexedNameCosted_value, ite_true]
   all_goals rfl
 
 private theorem categorizesEvidenceCosted_cost_le
     (worldNames thingNames : Array Name) (tables : FactTables) (x y w : Nat) :
-    (categorizesEvidenceCosted worldNames thingNames tables x y w).cost ≤ worldNames.size * (thingNames.size * 19 + 2) + 40 * thingNames.size + 38 := by
+    (categorizesEvidenceCosted worldNames thingNames tables x y w).cost ≤ worldNames.size * (thingNames.size * 19 + 2) + 59 * thingNames.size + 38 := by
   have htype := hasPossibleInstanceCosted_cost_le worldNames.size thingNames.size tables x
-  have hsearch := firstRelationDifferenceCosted_cost_le worldNames.size thingNames.size tables .inst .sub x y w
+  have hsearch := firstCategorizationFailureCosted_cost_le worldNames.size thingNames.size tables x y w
   dsimp only [categorizesEvidenceCosted,
     Bind.bind,
     Complexity.Costed.bind,
@@ -4796,7 +4836,7 @@ private theorem categorizesEvidenceCosted_cost_le
     Complexity.Costed.pure,
     Complexity.Costed.tick]
   split
-  all_goals cases (firstRelationDifferenceCosted worldNames.size thingNames.size tables .inst .sub x y w).value
+  all_goals cases (firstCategorizationFailureCosted worldNames.size thingNames.size tables x y w).value
   all_goals simp only [indexedNameCosted_cost]
   all_goals omega
 
@@ -4805,7 +4845,7 @@ private theorem categorizesEvidenceCosted_size
     (categorizesEvidenceCosted worldNames thingNames tables x y w).value.size = 2 := by
   rw [categorizesEvidenceCosted_value]
   cases typeLookup worldNames.size thingNames.size tables x
-  all_goals cases (firstRelationDifferenceCosted worldNames.size thingNames.size tables .inst .sub x y w).value
+  all_goals cases (firstCategorizationFailureCosted worldNames.size thingNames.size tables x y w).value
   all_goals rfl
 
 /-- Show the first shared instance, or the no-witness explanation, in two

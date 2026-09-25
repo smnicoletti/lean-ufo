@@ -298,7 +298,7 @@ theorem registryCosted_bound {ε : Type} (child : CompiledInput) (parent : Optio
   dsimp only [budget] at total
   omega
 
-/-- The primary data-complexity result fixes the UFO registry at 116 fields.
+/-- The primary data-complexity result fixes the UFO registry at 113 fields.
 Repeated trials, declarations, failed reuse, and skipped later fields are
 already included. This bounds registry certification, before failure-report
 selection and the source compiler/pre-certification assertion stage. -/
@@ -311,7 +311,7 @@ theorem fixedRegistryCosted_bound {ε : Type} (child : CompiledInput) (parent : 
     (parentRegistered : ∀ field, (parentInput child parent).Registered (checks field))
     (semanticRegistered : ∀ field request, child.Registered (semanticChecks field request)) :
     (registryCosted child parent fresh certFields checks semanticChecks checkedOutcomes semanticOutcomes).cost ≤
-      2 + 116 * (124 * child.inputSize ^ 4 + 18 * child.inputSize +
+      2 + 113 * (124 * child.inputSize ^ 4 + 18 * child.inputSize +
         11023 * (parentInput child parent).inputSize +
         8 * (54896424 * commonSize child parent ^ 16) + 62) :=
   registryCosted_bound child parent fresh certFields checks semanticChecks checkedOutcomes semanticOutcomes
@@ -497,7 +497,7 @@ theorem postCompileCosted_erasure {ε : Type} (child : CompiledInput) (parent : 
     namesFromStrings, derivedAssertionFailure?]
 
 /-- Source compilation, name conversion, and the derived-assertion stage cost
-at most 6091N⁵ plus two driver decisions. The remaining term is the concrete
+at most 6129N⁵ plus two driver decisions. The remaining term is the concrete
 registry/report computation, not the cost of an unconstrained callback. -/
 theorem postCompileCosted_prefix_bound {ε : Type} (child : CompiledInput) (parent : Option ParentInput)
     (fresh derivedProofFailed : Bool) (fields : Array CertField)
@@ -509,7 +509,7 @@ theorem postCompileCosted_prefix_bound {ε : Type} (child : CompiledInput) (pare
     compilerOperationalCost child.source +
       (postCompileCosted child parent fresh derivedProofFailed fields checks semanticChecks
         counterexampleChecks checkedOutcomes semanticOutcomes counterexampleOutcomes errors).cost ≤
-      6091 * child.inputSize ^ 5 + 2 +
+      6129 * child.inputSize ^ 5 + 2 +
         (registryAndReportCosted child parent (namesFromStrings child.source.worlds)
           (namesFromStrings child.source.things) fresh fields checks semanticChecks counterexampleChecks
           checkedOutcomes semanticOutcomes counterexampleOutcomes errors).cost := by
@@ -558,7 +558,7 @@ theorem sourceWorkflow_bound {ε : Type} (child : CompiledInput) (parent : Optio
     compilerOperationalCost child.source +
       (postCompileCosted child parent fresh derivedProofFailed fields checks semanticChecks
         counterexampleChecks checkedOutcomes semanticOutcomes counterexampleOutcomes errors).cost ≤
-      6091 * child.inputSize ^ 5 + 5 +
+      6129 * child.inputSize ^ 5 + 5 +
         fields.size * (124 * child.inputSize ^ 4 + 18 * child.inputSize +
           11023 * (parentInput child parent).inputSize +
           8 * (54896424 * commonSize child parent ^ 16) + 62) +
@@ -580,9 +580,9 @@ theorem sourceWorkflow_bound {ε : Type} (child : CompiledInput) (parent : Optio
 source component has already been included in C and P. The two extra operands
 reserve the failed field's counterexample probe; diagnostic output is separate. -/
 theorem sourceWorkflowCore_scalar_bound (C P R : Nat) (positive : 0 < C) :
-    6091 * C ^ 5 + 5 + R * (124 * C ^ 4 + 18 * C + 11023 * P +
+    6129 * C ^ 5 + 5 + R * (124 * C ^ 4 + 18 * C + 11023 * P +
         8 * (54896424 * (max C P) ^ 16) + 62) + 2 * (54896424 * C ^ 16) + 9 ≤
-      (439182619 * R + 109798953) * (max C P) ^ 16 := by
+      (439182619 * R + 109798991) * (max C P) ^ 16 := by
   let n := max C P
   have child : C ≤ n := Nat.le_max_left _ _
   have parent : P ≤ n := Nat.le_max_right _ _
@@ -601,16 +601,16 @@ theorem sourceWorkflowCore_scalar_bound (C P R : Nat) (positive : 0 < C) :
   have perField : 124 * C ^ 4 + 18 * C + 11023 * P +
       8 * (54896424 * n ^ 16) + 62 ≤ 439182619 * n ^ 16 := by omega
   have registry := Nat.mul_le_mul_left R perField
-  have normalization : (439182619 * R + 109798953) * n ^ 16 =
-      R * (439182619 * n ^ 16) + 109798953 * n ^ 16 := by ring
-  change _ ≤ (439182619 * R + 109798953) * n ^ 16
+  have normalization : (439182619 * R + 109798991) * n ^ 16 =
+      R * (439182619 * n ^ 16) + 109798991 * n ^ 16 := by ring
+  change _ ≤ (439182619 * R + 109798991) * n ^ 16
   rw [normalization]
   dsimp only [n] at *
   omega
 
 /-- One-variable corollary for the executed algorithmic workflow. N is the
-larger source size and R is the registry length. Fixing R at 116 gives the
-data-complexity coefficient 51,054,982,757. The selected diagnostic term stays
+larger source size and R is the registry length. Fixing R at 113 gives the
+data-complexity coefficient 49,737,434,938. The selected diagnostic term stays
 explicit; this is not a uniform polynomial for unrestricted formulas. -/
 theorem sourceWorkflow_scalar_bound {ε : Type} (child : CompiledInput) (parent : Option ParentInput)
     (fresh derivedProofFailed : Bool) (fields : Array CertField)
@@ -626,7 +626,7 @@ theorem sourceWorkflow_scalar_bound {ε : Type} (child : CompiledInput) (parent 
     compilerOperationalCost child.source +
       (postCompileCosted child parent fresh derivedProofFailed fields checks semanticChecks
         counterexampleChecks checkedOutcomes semanticOutcomes counterexampleOutcomes errors).cost ≤
-      (439182619 * fields.size + 109798953) * commonSize child parent ^ 16 +
+      (439182619 * fields.size + 109798991) * commonSize child parent ^ 16 +
       match (registryCosted child parent fresh fields checks semanticChecks
           checkedOutcomes semanticOutcomes).value.failedField? with
       | none => 0
@@ -651,7 +651,7 @@ theorem sourceWorkflow_scalar_bound {ε : Type} (child : CompiledInput) (parent 
           (namesFromStrings child.source.things) field (errors field))
 
 /-- Fixed-registry data complexity, with diagnostics kept as an explicit
-output-sensitive term. The constant is the scalar coefficient at R = 116;
+output-sensitive term. The constant is the scalar coefficient at R = 113;
 it is derived from the component bounds, not assigned as an execution count. -/
 theorem sourceWorkflow_fixed_data_bound {ε : Type} (child : CompiledInput) (parent : Option ParentInput)
     (fresh derivedProofFailed : Bool)
@@ -667,7 +667,7 @@ theorem sourceWorkflow_fixed_data_bound {ε : Type} (child : CompiledInput) (par
     compilerOperationalCost child.source +
       (postCompileCosted child parent fresh derivedProofFailed certFields checks semanticChecks
         counterexampleChecks checkedOutcomes semanticOutcomes counterexampleOutcomes errors).cost ≤
-      51054982757 * commonSize child parent ^ 16 +
+      49737434938 * commonSize child parent ^ 16 +
       match (registryCosted child parent fresh certFields checks semanticChecks
           checkedOutcomes semanticOutcomes).value.failedField? with
       | none => 0
@@ -682,10 +682,10 @@ separate diagnostic allowance. The allowance is a size/output bound, not a
 requirement that actual reports grow when facts are added. -/
 theorem sourceWorkflowScalarBound_mono {N R D N' R' D' : Nat}
     (sourceGrows : N ≤ N') (registryGrows : R ≤ R') (diagnosticsGrow : D ≤ D') :
-    (439182619 * R + 109798953) * N ^ 16 + D ≤
-      (439182619 * R' + 109798953) * N' ^ 16 + D' := by
+    (439182619 * R + 109798991) * N ^ 16 + D ≤
+      (439182619 * R' + 109798991) * N' ^ 16 + D' := by
   exact Nat.add_le_add (Nat.mul_le_mul
-    (Nat.add_le_add_right (Nat.mul_le_mul_left 439182619 registryGrows) 109798953)
+    (Nat.add_le_add_right (Nat.mul_le_mul_left 439182619 registryGrows) 109798991)
     (Nat.pow_le_pow_left sourceGrows 16)) diagnosticsGrow
 
 /-- Adding source size or registered fields cannot reduce this upper bound.

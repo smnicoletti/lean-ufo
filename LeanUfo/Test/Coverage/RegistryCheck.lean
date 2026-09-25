@@ -9,7 +9,7 @@ frontend's certificate registry by reading both source files.  Keeping this as
 a Lean module ensures the manifest itself remains syntactically checked.
 -/
 
-example : axiomCoverageManifest.size = 116 := by
+example : axiomCoverageManifest.size = 113 := by
   native_decide
 
 example :

@@ -40,6 +40,142 @@ def ax_a44_endurantType : Prop :=
              Sig.Endurant x w')
          w)
 
+/-- Instances of endurant types are endurants by (a44).
+Its boxed clause applies at the current world because S5 accessibility is
+reflexive. This is a theorem, with no additional package field. -/
+theorem inst_endurant_of_a44 (h44 : ax_a44_endurantType Sig) :
+    ∀ t x w, Sig.EndurantType t w → Sig.Inst x t w → Sig.Endurant x w := by
+  intro t x w ht hx
+  exact ((h44 t w).1 ht).2 w (Sig.F.refl w) x hx
+
+/-- Subtypes of kinds are sortals by (a5), (a23), (a26), and (a44).
+A kind is a sortal by (a26), hence an endurant type by (a23). Specialization
+transfers its instance typing to the subtype at every accessible world.
+The reverse directions of (a44) and (a23) then classify the subtype. -/
+theorem sub_kind_is_sortal
+    (h5 : ax_a5 Sig.toUFOSignature3_1) (h23 : ax_a23 Sig.toUFOSignature3_2)
+    (h26 : ax_a26 Sig.toUFOSignature3_2) (h44 : ax_a44_endurantType Sig) :
+    ∀ a k w, Sig.Sub a k w → Sig.Kind k w → Sig.Sortal a w := by
+  intro a k w hsub hk
+  have hs := (h5 a k w).1 hsub
+  have hek := ((h23 k w).1 ((h26 k w).1 (Or.inl hk)).2).1
+  have hbox := ((h44 k w).1 hek).2
+  apply (h23 a w).2
+  refine ⟨(h44 a w).2 ⟨hs.1, ?_⟩, k, hk, hs.2.2⟩
+  intro v hwv x hx
+  exact hbox v hwv x (hs.2.2 v hwv x hx)
+
+/--
+(t16)
+
+(NonSortal(t) ∧ x :: t) →
+  (∃ s, Sortal(s) ∧ s ⊑ t ∧ x :: s) ∨
+  (∃ n s, NonSortal(n) ∧ Sortal(s) ∧ s ⊑ n ∧ t ⊑ n ∧ x :: s)
+
+Natural language:
+Non-sortals do not have direct instances: any instance of a non-sortal
+is also an instance of some sortal that either specializes it,
+or specializes a common non-sortal supertype.
+
+The proof uses the endurant-type clause of (a44), so it belongs after §3.4's
+schema even though the source states (t16) in §3.2. Instance typing and
+subtype-of-kind typing are proved above. Upward closure of `NonSortal`
+remains an explicit assumption for the common-supertype branch.
+The countermodel in `FormalAnalysis/StructuralAssumptions.lean` satisfies all
+remaining encoded axioms but refutes (t16). Some additional restriction is
+necessary, although we do not establish that upward closure is the weakest one.
+-/
+theorem th_t16
+  (hA5   : ax_a5 Sig.toUFOSignature3_1)
+  (hA6   : ax_a6 Sig.toUFOSignature3_1)
+  (hA21  : ax_a21 Sig.toUFOSignature3_2)
+  (hA23  : ax_a23 Sig.toUFOSignature3_2)
+  (hA24  : ax_a24 Sig.toUFOSignature3_2)
+  (hA26  : ax_a26 Sig.toUFOSignature3_2)
+  (hA44 : ax_a44_endurantType Sig)
+  (hNonUp   : ax_nonSortal_upward (Sig := Sig.toUFOSignature3_2)) :
+  ∀ (t x : Sig.Thing) (w : Sig.F.World),
+    (Sig.NonSortal t w ∧ Sig.Inst x t w) →
+      ( (∃ s : Sig.Thing,
+            Sig.Sortal s w ∧
+            Sig.Sub s t w ∧
+            Sig.Inst x s w)
+        ∨
+        (∃ n s : Sig.Thing,
+            Sig.NonSortal n w ∧
+            Sig.Sortal s w ∧
+            Sig.Sub s n w ∧
+            Sig.Sub t n w ∧
+            Sig.Inst x s w) )
+:= by
+  classical
+  intro t x w h
+  rcases h with ⟨hNon_t, hInst_xt⟩
+
+  -- unfold NonSortal(t)
+  have hNonDef := (hA24 t w).1 hNon_t
+  rcases hNonDef with ⟨hEnd_t, hNotSortal_t⟩
+
+  -- instance typing: x is an Endurant
+  have hEnd_x : Sig.Endurant x w :=
+    inst_endurant_of_a44 Sig hA44 t x w hEnd_t hInst_xt
+
+  -- from a21: x necessarily instantiates some kind k
+  obtain ⟨k, hKind_k, hBox_xk⟩ :=
+    hA21 x w hEnd_x
+
+  -- x :: k at w (via reflexivity of R)
+  have hInst_xk : Sig.Inst x k w :=
+    hBox_xk w (Sig.F.refl w)
+
+  -- k is a sortal (directly from a26)
+  have hSortal_k : Sig.Sortal k w :=
+    (hA26 k w).1 (Or.inl hKind_k) |>.2
+
+  -- check comparability of t and k
+  by_cases hSub_tk : Sig.Sub t k w
+
+  ------------------------------------------------------------------
+  -- Case 1: t ⊑ k  → contradiction (would force Sortal(t))
+  ------------------------------------------------------------------
+  · exfalso
+    have hSubDef := (hA5 t k w).1 hSub_tk
+    rcases hSubDef with ⟨_, _, hBox_tk⟩
+    have hSortal_t : Sig.Sortal t w :=
+      (hA23 t w).2 ⟨hEnd_t, ⟨k, hKind_k, hBox_tk⟩⟩
+    exact hNotSortal_t hSortal_t
+
+  ------------------------------------------------------------------
+  -- Case 2: ¬(t ⊑ k)
+  ------------------------------------------------------------------
+  · by_cases hSub_kt : Sig.Sub k t w
+
+    --------------------------------------------------------------
+    -- Case 2a: k ⊑ t  → pick s := k
+    --------------------------------------------------------------
+    · exact Or.inl ⟨k, hSortal_k, hSub_kt, hInst_xk⟩
+
+    --------------------------------------------------------------
+    -- Case 2b: incomparable t and k  → use a6
+    --------------------------------------------------------------
+    · have hA6app :=
+        hA6 t k x w ⟨hInst_xt, hInst_xk, hSub_tk, hSub_kt⟩
+      cases hA6app with
+      | inl hSuper =>
+          -- common supertype n: t ⊑ n, k ⊑ n, and x :: n
+          rcases hSuper with ⟨n, ht_n, hk_n, _hInst_xn⟩
+          have hNon_n : Sig.NonSortal n w :=
+            hNonUp t n w hNon_t ht_n
+          -- choose s := k, since we already have Sortal(k) and x::k and k ⊑ n
+          exact Or.inr ⟨n, k, hNon_n, hSortal_k, hk_n, ht_n, hInst_xk⟩
+
+      | inr hSubcase =>
+          -- common subtype s: s ⊑ t, s ⊑ k, and x :: s
+          rcases hSubcase with ⟨s, hs_t, hs_k, hInst_xs⟩
+          have hSortal_s : Sig.Sortal s w :=
+            sub_kind_is_sortal Sig hA5 hA23 hA26 hA44 s k w hs_k hKind_k
+          exact Or.inl ⟨s, hSortal_s, hs_t, hInst_xs⟩
+
 /--
 (a44) for PerdurantType
 
@@ -508,8 +644,8 @@ then it is an endurant.
 Proof pattern is:
 	1.	from a possible instantiation of a specific endurant kind, pick an accessible world v,
 	2.	use (a45) to get the corresponding specific endurant type and Kind at v,
-	3.	use ax_kindStable to transport Kind back to w,
-	4.	use Kind → Rigid (a26) and Rigid (a18) to get x :: k already at w,
+	3.	use Kind → Rigid (a26) at v,
+	4.	use Rigid (a18) and S5 symmetry to get x :: k at w,
 	5.	use S5-stability of the Type and Box parts of (a44) to transport the corresponding specific endurant type back to w,
 	6.	conclude that x belongs to the corresponding individual leaf category at w,
 	7.	conclude Endurant x w via t20.
@@ -519,7 +655,6 @@ theorem th_t22
   (hA1 : ax_a1 Sig.toUFOSignature3_2.toUFOSignature3_1)
   (hA18 : ax_a18 Sig.toUFOSignature3_2)
   (hA26 : ax_a26 Sig.toUFOSignature3_2)
-  (hKS : ax_kindStable Sig.toUFOSignature3_2)
   (hA44 : ax_a44 Sig)
   (hA45 : ax_a45 Sig)
   (hT20 : ∀ (t : Sig.Thing) (w : Sig.F.World),
@@ -591,26 +726,12 @@ by
     have hKindPair_v := (hKindDef k v).1 hKind_v
     rcases hKindPair_v with ⟨hTypePred_v, hKind_v'⟩
 
-    -- transport Kind back to w using the explicit stability axiom
-    have hKind_w : Sig.Kind k w :=
-      hKS k v w hKind_v' (Sig.F.symm hRv)
-
-    -- from Kind at w, obtain Rigid at w
-    have hRigid_w : Sig.Rigid k w :=
-      (hA26 k w).1 (Or.inl hKind_w) |>.1
-
-    -- from possible instantiation at w and rigidity, get actual instantiation at w
-    have hDiaInst_w :
-      Frame.Dia (F := Sig.F) (fun w' => Sig.Inst x k w') w :=
-      ⟨v, hRv, hInst_v⟩
-
-    have hRigidDef_w := (hA18 k w).1 hRigid_w
-    have hBoxInst_w :
-      Frame.Box (F := Sig.F) (fun w' => Sig.Inst x k w') w :=
-      hRigidDef_w.2 x hDiaInst_w
-
+    -- Rigidity transports the instance. No transport of Kind is needed.
+    have hRigid_v : Sig.Rigid k v :=
+      (hA26 k v).1 (Or.inl hKind_v') |>.1
     have hInst_w : Sig.Inst x k w :=
-      hBoxInst_w w (Sig.F.refl w)
+      ((hA18 k v).1 hRigid_v).2 x ⟨v, Sig.F.refl v, hInst_v⟩
+        w (Sig.F.symm hRv)
 
     -- unpack the specific type at v
     have hTypePair_v := (hTypeDef k v).1 hTypePred_v
@@ -739,11 +860,10 @@ Proof idea:
 theorem kind_implies_specific_kind
   (hA1 : ax_a1 Sig.toUFOSignature3_1)
   (hA15 : ax_a15 Sig.toUFOSignature3_1)
+  (hA18 : ax_a18 Sig.toUFOSignature3_2)
   (hA22 : ax_a22 Sig.toUFOSignature3_3.toUFOSignature3_2)
   (hA23 : ax_a23 Sig.toUFOSignature3_3.toUFOSignature3_2)
   (hA26 : ax_a26 Sig.toUFOSignature3_3.toUFOSignature3_2)
-  (hKS : ax_kindStable Sig.toUFOSignature3_3.toUFOSignature3_2)
-  (hInstEnd : ax_instEndurant_of_EndurantType (Sig := Sig.toUFOSignature3_3.toUFOSignature3_2))
   (hA44 : ax_a44 Sig)
   (hA45 : ax_a45 Sig)
   (hA46 : ax_a46 Sig) :
@@ -846,10 +966,7 @@ by
     intro TypePred KindPred LeafPred hKindDef hTypeDef u hRu hKind_u
 
     have hPair_u := (hKindDef t u).1 hKind_u
-    rcases hPair_u with ⟨hTypePred_u, hKind_u'⟩
-
-    have hKind_w' : Sig.Kind t w :=
-      hKS t u w hKind_u' (Sig.F.symm hRu)
+    rcases hPair_u with ⟨hTypePred_u, _⟩
 
     have hTypePair_u := (hTypeDef t u).1 hTypePred_u
     rcases hTypePair_u with ⟨hType_u, hBoxLeaf_u⟩
@@ -877,7 +994,7 @@ by
     have hTypePred_w : TypePred t w :=
       (hTypeDef t w).2 ⟨hType_w', hBoxLeaf_w⟩
 
-    exact (hKindDef t w).2 ⟨hTypePred_w, hKind_w'⟩
+    exact (hKindDef t w).2 ⟨hTypePred_w, hKind⟩
 
   /-
     If `t` is a specific endurant kind at an accessible world,
@@ -930,25 +1047,17 @@ by
 
   rcases hDiaInst_t with ⟨v, hRv, ⟨x, hInst_xt_v⟩⟩
 
-  have hKind_v : Sig.Kind t v :=
-    hKS t w v hKind hRv
-
-  have hSortal_v : Sig.Sortal t v :=
-    th_t12 (Sig := Sig.toUFOSignature3_2) hA26 t v hKind_v
-
-  have hEnd_v : Sig.EndurantType t v :=
-    (hA23 t v).1 hSortal_v |>.1
-
-  have hEnd_x_v : Sig.Endurant x v :=
-    hInstEnd t x v hEnd_v hInst_xt_v
+  -- Bring the instance to w, where the original kind classification holds.
+  have hRigid_w := ((hA26 t w).1 (Or.inl hKind)).1
+  have hInst_xt_w : Sig.Inst x t w :=
+    ((hA18 t w).1 hRigid_w).2 x ⟨v, hRv, hInst_xt_v⟩ w (Sig.F.refl w)
+  have hEnd_x_w : Sig.Endurant x w :=
+    inst_endurant_of_a44 Sig _hEndT t x w hEnd_w hInst_xt_w
 
   have hDiaSpecific :=
-    hA46 x v hEnd_x_v
+    hA46 x w hEnd_x_w
 
-  rcases hDiaSpecific with ⟨u, hVu, ⟨k, hSpecific_u, hInst_xk_u⟩⟩
-
-  have hWtU : Sig.F.R w u :=
-    Sig.F.trans hRv hVu
+  rcases hDiaSpecific with ⟨u, hWu, ⟨k, hSpecific_u, hInst_xk_u⟩⟩
 
   have hk_eq_t : k = t := by
     by_cases hEq : k = t
@@ -960,8 +1069,8 @@ by
                 Sig.Kind z v' ∧
                 Sig.Inst x z v' ∧
                 z ≠ t)
-            v :=
-        hA22 t x v ⟨hKind_v, hInst_xt_v⟩
+            w :=
+        hA22 t x w ⟨hKind, hInst_xt_w⟩
 
       have hBad :
         Frame.Dia (F := Sig.F)
@@ -970,14 +1079,14 @@ by
               Sig.Kind z v' ∧
               Sig.Inst x z v' ∧
               z ≠ t)
-          v :=
+          w :=
       by
-        exact ⟨u, hVu, ⟨k, hSpecificImpliesKind k u hSpecific_u, hInst_xk_u, hEq⟩⟩
+        exact ⟨u, hWu, ⟨k, hSpecificImpliesKind k u hSpecific_u, hInst_xk_u, hEq⟩⟩
 
       exact False.elim (hNoOtherKind hBad)
 
   subst k
-  exact hTransportSpecificDisj hWtU hSpecific_u
+  exact hTransportSpecificDisj hWu hSpecific_u
 
 /--
 (t23)
@@ -1002,8 +1111,6 @@ theorem th_t23
   (hA26 : ax_a26 Sig.toUFOSignature3_3.toUFOSignature3_2)
   (hA28 : ax_a28 Sig.toUFOSignature3_3.toUFOSignature3_2)
   (hA29 : ax_a29 Sig.toUFOSignature3_3.toUFOSignature3_2)
-  (hKS : ax_kindStable Sig.toUFOSignature3_3.toUFOSignature3_2)
-  (hInstEnd : ax_instEndurant_of_EndurantType (Sig := Sig.toUFOSignature3_3.toUFOSignature3_2))
   (hA44 : ax_a44 Sig)
   (hA45 : ax_a45 Sig)
   (hA46 : ax_a46 Sig) :
@@ -1036,7 +1143,7 @@ by
           have hSpecific :=
             kind_implies_specific_kind
               (Sig := Sig)
-              hA1 hA15 hA22 hA23 hA26 hKS hInstEnd hA44 hA45 hA46 t w hKind
+              hA1 hA15 hA18 hA22 hA23 hA26 hA44 hA45 hA46 t w hKind
           grind
       | inr hSubkind => grind
   | inr hRest =>
@@ -1159,12 +1266,10 @@ theorem th_t24
   (hA1 : ax_a1 Sig.toUFOSignature3_1)
   (hA5 : ax_a5 Sig.toUFOSignature3_1)
   (hA15 : ax_a15 Sig.toUFOSignature3_1)
+  (hA18 : ax_a18 Sig.toUFOSignature3_2)
   (hA22 : ax_a22 Sig.toUFOSignature3_3.toUFOSignature3_2)
   (hA23 : ax_a23 Sig.toUFOSignature3_3.toUFOSignature3_2)
   (hA26 : ax_a26 Sig.toUFOSignature3_3.toUFOSignature3_2)
-  (hKS : ax_kindStable Sig.toUFOSignature3_3.toUFOSignature3_2)
-  (hInstEnd : ax_instEndurant_of_EndurantType (Sig := Sig.toUFOSignature3_3.toUFOSignature3_2))
-  (hSubKindSortal : ax_sub_of_kind_is_sortal (Sig := Sig.toUFOSignature3_3.toUFOSignature3_2))
   (hA44 : ax_a44 Sig)
   (hA45 : ax_a45 Sig)
   (hA46 : ax_a46 Sig) :
@@ -1205,7 +1310,7 @@ by
       Sig.QualityKind k w :=
       kind_implies_specific_kind
         (Sig := Sig)
-        hA1 hA15 hA22 hA23 hA26 hKS hInstEnd hA44 hA45 hA46 k w hKind_k
+        hA1 hA15 hA18 hA22 hA23 hA26 hA44 hA45 hA46 k w hKind_k
 
     exact ⟨k, hSpecificKind_k, hSub_tk⟩
 
@@ -1244,7 +1349,7 @@ by
                           grind
 
     have hSortal_t : Sig.Sortal t w :=
-      hSubKindSortal t k w hSub_tk hKind_k
+      sub_kind_is_sortal Sig hA5 hA23 hA26 hA44.1 t k w hSub_tk hKind_k
 
     have hSpecificType_t :=
       sub_specific_kind_implies_specific_type
@@ -1692,11 +1797,10 @@ endurant types.
 theorem th_t26
   (hA1 : ax_a1 Sig.toUFOSignature3_1)
   (hA15 : ax_a15 Sig.toUFOSignature3_1)
+  (hA18 : ax_a18 Sig.toUFOSignature3_2)
   (hA22 : ax_a22 Sig.toUFOSignature3_3.toUFOSignature3_2)
   (hA23 : ax_a23 Sig.toUFOSignature3_3.toUFOSignature3_2)
   (hA26 : ax_a26 Sig.toUFOSignature3_3.toUFOSignature3_2)
-  (hKS : ax_kindStable Sig.toUFOSignature3_3.toUFOSignature3_2)
-  (hInstEnd : ax_instEndurant_of_EndurantType (Sig := Sig.toUFOSignature3_3.toUFOSignature3_2))
   (hA44 : ax_a44 Sig)
   (hA45 : ax_a45 Sig)
   (hA46 : ax_a46 Sig)
@@ -1736,7 +1840,7 @@ by
       have hSpecific :=
         kind_implies_specific_kind
           (Sig := Sig)
-          hA1 hA15 hA22 hA23 hA26 hKS hInstEnd hA44 hA45 hA46 t w hKind
+          hA1 hA15 hA18 hA22 hA23 hA26 hA44 hA45 hA46 t w hKind
       grind
   | inr hRest =>
       cases hRest with

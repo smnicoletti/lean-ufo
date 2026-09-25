@@ -646,14 +646,14 @@ example (source : ModelSource) (compiled : CompiledModelSource)
     (success : compileModelSource source = .ok compiled) :
     (derivedAssertionFailureCosted (source.worlds.map Lean.Name.mkSimple)
       (source.things.map Lean.Name.mkSimple) source.facts compiled.scopedFacts compiled.tables).cost ≤
-      5570 * (Complexity.sourceMetrics source).inputSize ^ 5 :=
+      5608 * (Complexity.sourceMetrics source).inputSize ^ 5 :=
   Complexity.source_derivedAssertionFailure_cost_bound source compiled success
 
 example (source : ModelSource) (compiled : CompiledModelSource)
     (success : compileModelSource source = .ok compiled) :
     (derivedAssertionAnalysisCosted (source.worlds.map Lean.Name.mkSimple)
       (source.things.map Lean.Name.mkSimple) source.facts compiled.scopedFacts compiled.tables).cost ≤
-      5574 * (Complexity.sourceMetrics source).inputSize ^ 5 :=
+      5612 * (Complexity.sourceMetrics source).inputSize ^ 5 :=
   Complexity.source_derivedAssertionAnalysis_cost_bound source compiled success
 
 example : (compileExplicitModelAST
@@ -710,7 +710,7 @@ example (source : ModelSource) (compiled : CompiledModelSource)
       (namesFromStringsCosted source.things).cost +
       (derivedAssertionAnalysisCosted (namesFromStrings source.worlds)
         (namesFromStrings source.things) source.facts compiled.scopedFacts compiled.tables).cost ≤
-      6091 * (Complexity.sourceMetrics source).inputSize ^ 5 :=
+      6129 * (Complexity.sourceMetrics source).inputSize ^ 5 :=
   Complexity.source_derivedAssertion_component_bound source compiled success
 
 private def diagnosticBoundHolds (source : ModelSource) : Bool :=
@@ -724,10 +724,10 @@ private def diagnosticBoundHolds (source : ModelSource) : Bool :=
         compiled.scopedFacts compiled.tables
       let report := derivedAssertionFailureReportCosted precheck.value
       let n := (Complexity.sourceMetrics source).inputSize
-      decide (precheck.cost ≤ 5570 * n ^ 5) &&
-        decide (precheck.cost + report.cost ≤ 5574 * n ^ 5) &&
+      decide (precheck.cost ≤ 5608 * n ^ 5) &&
+        decide (precheck.cost + report.cost ≤ 5612 * n ^ 5) &&
         decide (compilation.cost + worlds.cost + things.cost + precheck.cost + report.cost ≤
-          6091 * n ^ 5)
+          6129 * n ^ 5)
 
 example : diagnosticBoundHolds repeatedDerivedSource = true := by native_decide
 example : diagnosticBoundHolds allFactSource = true := by native_decide

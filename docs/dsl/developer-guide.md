@@ -236,7 +236,7 @@ The current checker-backed fields are all registered fields through §4:
 ```text
 ax1-ax17
 ax18-ax33
-ax_instEndurant, ax_sub_kind_sortal, ax_nonSortal_up, ax_kindStable
+ax_nonSortal_up
 ax34-ax43
 ax44-ax46
 ax47-ax52

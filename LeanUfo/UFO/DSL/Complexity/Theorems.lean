@@ -80,7 +80,7 @@ theorem source_field_precheck_scalar_bound
   omega
 
 /-- Representative per-axiom operational bound. The complete fixed-registry
-result below composes this bound with the other 115 concrete entry bounds. -/
+result below composes this bound with the other 112 concrete entry bounds. -/
 theorem axiom9_operational_bound (M : FiniteModel4) :
     (Checker.checkAx9Costed M).cost ≤
       M.thingCount * (M.worldCount * 21 + 2) :=
@@ -216,12 +216,6 @@ theorem two_things_worlds_bridge_operational_bound (M : FiniteModel4)
         (M.worldCount * (firstBound + secondBound + consequentBound + 5) + 2) + 2) :=
   Checker.checkTwoThingsWorldsImpCosted_cost_le M first second consequent
     firstBound secondBound consequentBound hf hs hc
-
-/-- Operational bound for the post-33 kind-stability bridge. -/
-theorem kind_stability_bridge_operational_bound (M : FiniteModel4) :
-    (Checker.checkAxKindStableCosted M).cost ≤
-      M.thingCount * (M.worldCount * (M.worldCount * 20 + 2) + 2) :=
-  Checker.checkAxKindStableCosted_cost_le M
 
 /-- Concrete quadratic bound for the production quality uniqueness predicate. -/
 theorem quality_predicate_operational_bound (M : FiniteModel4)
@@ -671,66 +665,39 @@ theorem distance_triangle_operational_bound (M : FiniteModel4) :
 The scalar checker size includes dense relation cells and product-family
 witness arrays. Axiom 99 is the only fixed-registry entry whose concrete bound
 depends on those arrays, so its search bound is discharged separately before
-the heterogeneous 116-entry sum is majorized. This preserves the concrete
+the heterogeneous 113-entry sum is majorized. This preserves the concrete
 computation rather than silently treating witnesses as an oracle.
 -/
 
-theorem product_family_witness_bound_le_checkerInputSize_sq
+theorem product_family_witness_bound_le_checkerInputSize_cube
     (M : FiniteModel4) (i : Fin M.productFamilies.size) :
     Checker.productFamilyWitnessBound M M.productFamilies[i] ≤
-      95 * checkerInputSize M ^ 2 := by
+      154 * checkerInputSize M ^ 3 := by
   let n := checkerInputSize M
-  have hn : 1 ≤ n := by
-    have := checkerInputSize_pos M
-    simp only [n]
-    omega
-  have ht : M.thingCount ≤ n := by
-    simpa [n] using thingCount_le_checkerInputSize M
-  have hd : M.productFamilies[i].dimensionThings.size ≤ n := by
-    simpa [n] using productFamilyDimension_le_checkerInputSize M i
-  have htd : M.thingCount * M.productFamilies[i].dimensionThings.size ≤ n ^ 2 := by
-    simpa [Nat.pow_two] using Nat.mul_le_mul ht hd
-  have hn_sq : n ≤ n ^ 2 := by
+  have hn : 1 ≤ n := checkerInputSize_pos M
+  have ht : M.thingCount ≤ n := thingCount_le_checkerInputSize M
+  have hd : M.productFamilies[i].dimensionThings.size ≤ n :=
+    productFamilyDimension_le_checkerInputSize M i
+  have hn2 : n ≤ n ^ 2 := by
+    simpa [Nat.pow_two] using Nat.mul_le_mul_left n hn
+  have hn3 : n ^ 2 ≤ n ^ 3 := by
     calc
-      n = n * 1 := by omega
-      _ ≤ n * n := Nat.mul_le_mul_left n hn
-      _ = n ^ 2 := by simp [Nat.pow_two]
-  have ht_sq : M.thingCount ≤ n ^ 2 := ht.trans hn_sq
-  have hone_sq : 1 ≤ n ^ 2 := hn.trans hn_sq
-  have hprojection :
-      M.thingCount * (25 * M.productFamilies[i].dimensionThings.size + 15) ≤
-        40 * n ^ 2 := by
-    calc
-      M.thingCount * (25 * M.productFamilies[i].dimensionThings.size + 15) =
-          25 * (M.thingCount * M.productFamilies[i].dimensionThings.size) +
-            15 * M.thingCount := by
-        rw [Nat.mul_add]
-        congr 1 <;> ac_rfl
-      _ ≤ 25 * n ^ 2 + 15 * n ^ 2 :=
-        Nat.add_le_add (Nat.mul_le_mul_left 25 htd)
-          (Nat.mul_le_mul_left 15 ht_sq)
-      _ = 40 * n ^ 2 := by omega
-  have hslots : M.productFamilies[i].dimensionThings.size * 28 ≤ 28 * n ^ 2 := by
-    have := hd.trans hn_sq
-    omega
-  have hcoverage :
-      M.thingCount * (4 * M.productFamilies[i].dimensionThings.size + 15) ≤
-        19 * n ^ 2 := by
-    calc
-      M.thingCount * (4 * M.productFamilies[i].dimensionThings.size + 15) =
-          4 * (M.thingCount * M.productFamilies[i].dimensionThings.size) +
-            15 * M.thingCount := by
-        rw [Nat.mul_add]
-        congr 1 <;> ac_rfl
-      _ ≤ 4 * n ^ 2 + 15 * n ^ 2 :=
-        Nat.add_le_add (Nat.mul_le_mul_left 4 htd)
-          (Nat.mul_le_mul_left 15 ht_sq)
-      _ = 19 * n ^ 2 := by omega
-  change 8 + M.thingCount * (25 * M.productFamilies[i].dimensionThings.size + 15) +
-      M.productFamilies[i].dimensionThings.size * 28 +
-      M.thingCount * (4 * M.productFamilies[i].dimensionThings.size + 15) ≤
-    95 * n ^ 2
-  omega
+      n ^ 2 = n ^ 2 * 1 := by omega
+      _ ≤ n ^ 2 * n := Nat.mul_le_mul_left (n ^ 2) hn
+      _ = n ^ 3 := by ring
+  calc
+    Checker.productFamilyWitnessBound M M.productFamilies[i] ≤
+        9 + n * (25 * n + 15) + n * (n * (25 * n + 18) + 15) +
+          n * 28 + n * (4 * n + 15) := by
+      unfold Checker.productFamilyWitnessBound
+      repeat' first
+        | assumption
+        | exact Nat.le_refl _
+        | apply Nat.add_le_add
+        | apply Nat.mul_le_mul
+    _ ≤ 154 * n ^ 3 := by
+      ring_nf
+      omega
 
 private theorem list_sum_map_le_const (xs : List α) (f : α → Nat) (bound : Nat)
     (h : ∀ x ∈ xs, f x ≤ bound) :
@@ -746,32 +713,32 @@ private theorem list_sum_map_le_const (xs : List α) (f : α → Nat) (bound : N
       simp only [List.map_cons, List.sum_cons, List.length_cons, Nat.succ_mul]
       omega
 
-theorem product_family_search_bound_le_checkerInputSize_cube (M : FiniteModel4) :
-    Checker.productFamilySearchBound M ≤ 98 * checkerInputSize M ^ 3 := by
+theorem product_family_search_bound_le_checkerInputSize_pow4 (M : FiniteModel4) :
+    Checker.productFamilySearchBound M ≤ 157 * checkerInputSize M ^ 4 := by
   let n := checkerInputSize M
   have hn : 1 ≤ n := by
     have := checkerInputSize_pos M
     simp only [n]
     omega
-  have hn_sq : 1 ≤ n ^ 2 := by
-    simpa [Nat.pow_two] using Nat.mul_le_mul hn hn
+  have hn_sq : 1 ≤ n ^ 3 := by
+    exact Nat.one_le_pow _ _ hn
   have hcount : M.productFamilies.size ≤ n := by
     simpa [n] using productFamilyCount_le_checkerInputSize M
   unfold Checker.productFamilySearchBound
   calc
     ((List.finRange M.productFamilies.size).map fun i =>
         Checker.productFamilyWitnessBound M M.productFamilies[i] + 3).sum ≤
-        (List.finRange M.productFamilies.size).length * (98 * n ^ 2) := by
+        (List.finRange M.productFamilies.size).length * (157 * n ^ 3) := by
       apply list_sum_map_le_const
       intro i hi
-      have hw := product_family_witness_bound_le_checkerInputSize_sq M i
-      change Checker.productFamilyWitnessBound M M.productFamilies[i] ≤ 95 * n ^ 2 at hw
+      have hw := product_family_witness_bound_le_checkerInputSize_cube M i
+      change Checker.productFamilyWitnessBound M M.productFamilies[i] ≤ 154 * n ^ 3 at hw
       change Checker.productFamilyWitnessBound M M.productFamilies[i] + 3 ≤
-        98 * n ^ 2
+        157 * n ^ 3
       omega
-    _ = M.productFamilies.size * (98 * n ^ 2) := by simp
-    _ ≤ n * (98 * n ^ 2) := Nat.mul_le_mul_right (98 * n ^ 2) hcount
-    _ = 98 * n ^ 3 := by
+    _ = M.productFamilies.size * (157 * n ^ 3) := by simp
+    _ ≤ n * (157 * n ^ 3) := Nat.mul_le_mul_right (157 * n ^ 3) hcount
+    _ = 157 * n ^ 4 := by
       simp [Nat.pow_succ]
       ac_rfl
 
@@ -803,7 +770,7 @@ private theorem scan_layer_scalar_bound
       ac_rfl
 
 theorem axiom99_scalar_operational_bound (M : FiniteModel4) :
-    (Checker.checkAx99Costed M).cost ≤ 126 * checkerInputSize M ^ 6 := by
+    (Checker.checkAx99Costed M).cost ≤ 185 * checkerInputSize M ^ 7 := by
   let n := checkerInputSize M
   have hn : 1 ≤ n := by
     have := checkerInputSize_pos M
@@ -813,34 +780,34 @@ theorem axiom99_scalar_operational_bound (M : FiniteModel4) :
     simpa [n] using thingCount_le_checkerInputSize M
   have hw : M.worldCount ≤ n := by
     simpa [n] using worldCount_le_checkerInputSize M
-  have hsearch := product_family_search_bound_le_checkerInputSize_cube M
-  change Checker.productFamilySearchBound M ≤ 98 * n ^ 3 at hsearch
-  have hcube : 1 ≤ n ^ 3 := one_le_pow_of_one_le n 3 hn
-  have hbase : Checker.productFamilySearchBound M + 22 ≤ 120 * n ^ 3 := by
+  have hsearch := product_family_search_bound_le_checkerInputSize_pow4 M
+  change Checker.productFamilySearchBound M ≤ 157 * n ^ 4 at hsearch
+  have hcube : 1 ≤ n ^ 4 := one_le_pow_of_one_le n 4 hn
+  have hbase : Checker.productFamilySearchBound M + 22 ≤ 179 * n ^ 4 := by
     omega
   have hworld :
       M.worldCount * (Checker.productFamilySearchBound M + 24) ≤
-        122 * n ^ 4 := by
-    exact scan_layer_scalar_bound n 120 3 M.worldCount
+        181 * n ^ 5 := by
+    exact scan_layer_scalar_bound n 179 4 M.worldCount
       (Checker.productFamilySearchBound M + 22) hn hw hbase
   have hthingInner :
       M.thingCount *
           (M.worldCount * (Checker.productFamilySearchBound M + 24) + 2) ≤
-        124 * n ^ 5 := by
-    exact scan_layer_scalar_bound n 122 4 M.thingCount
+        183 * n ^ 6 := by
+    exact scan_layer_scalar_bound n 181 5 M.thingCount
       (M.worldCount * (Checker.productFamilySearchBound M + 24)) hn ht hworld
   have hthingOuter : M.thingCount *
       (M.thingCount *
           (M.worldCount * (Checker.productFamilySearchBound M + 24) + 2) + 2) ≤
-        126 * n ^ 6 := by
-    exact scan_layer_scalar_bound n 124 5 M.thingCount
+        185 * n ^ 7 := by
+    exact scan_layer_scalar_bound n 183 6 M.thingCount
       (M.thingCount *
         (M.worldCount * (Checker.productFamilySearchBound M + 24) + 2)) hn ht hthingInner
   exact (Checker.checkAx99Costed_cost_le M).trans hthingOuter
 
-/-- The production checker is the erasure of the exact, delayed 116-check registry. -/
+/-- The production checker is the erasure of the exact, delayed 113-check registry. -/
 theorem fixed_registry_size (M : FiniteModel4) :
-    (Checker.checkAxioms4BoundedRegistry M).size = 116 :=
+    (Checker.checkAxioms4BoundedRegistry M).size = 113 :=
   Checker.checkAxioms4BoundedRegistry_size M
 
 theorem fixed_registry_erases_to_legacy (M : FiniteModel4) :
@@ -848,7 +815,7 @@ theorem fixed_registry_erases_to_legacy (M : FiniteModel4) :
   Checker.checkAxioms4_eq_legacy M
 
 /-- Fixed-formula data-complexity theorem. The right side expands to the sum
-of the 116 per-check bounds and the registry traversal charges. Atomic queries
+of the 113 per-check bounds and the registry traversal charges. Atomic queries
 use the checker interface documented in the complexity guide. -/
 theorem fixed_registry_data_complexity_bound (M : FiniteModel4) :
     (Checker.checkAxioms4Costed M).cost ≤
@@ -868,10 +835,11 @@ private theorem thing_world_monomial_le
     _ = n ^ (thingDegree + worldDegree) := by rw [Nat.pow_add]
     _ ≤ n ^ totalDegree := Nat.pow_le_pow_right hn hdegree
 
-/-- The exact heterogeneous 116-entry production bound is at most a degree-eight
+/-- The exact heterogeneous 113-entry production bound is at most a degree-eight
 polynomial in the complete explicit checker encoding. Unfolding the registry
-gives ordinary monomial coefficient sum 8269; axiom 99 contributes at most 98
-more after its separately proved witness-search bound. -/
+gives ordinary monomial coefficient sum 8164; axiom 99 contributes at most 157
+more after its separately proved witness-search bound. The coefficient 8367
+leaves 46 units of slack. -/
 theorem fixed_registry_operational_bound_le_checkerInputSize_pow8
     (M : FiniteModel4) :
     Checker.checkAxioms4OperationalBound M ≤ 8367 * checkerInputSize M ^ 8 := by
@@ -905,21 +873,21 @@ theorem fixed_registry_operational_bound_le_checkerInputSize_pow8
   have h70 := hmono 7 0 (by omega)
   have h71 := hmono 7 1 (by omega)
   have hone : 1 ≤ n ^ 8 := one_le_pow_of_one_le n 8 (by omega)
-  have hsearch := product_family_search_bound_le_checkerInputSize_cube M
-  change Checker.productFamilySearchBound M ≤ 98 * n ^ 3 at hsearch
+  have hsearch := product_family_search_bound_le_checkerInputSize_pow4 M
+  change Checker.productFamilySearchBound M ≤ 157 * n ^ 4 at hsearch
   have h21degree3 : M.thingCount ^ 2 * M.worldCount ≤ n ^ 3 := by
     simpa using thing_world_monomial_le n M.thingCount M.worldCount 2 1 3
       hn ht hw (by omega)
-  have hpow6to8 : n ^ 6 ≤ n ^ 8 := Nat.pow_le_pow_right hn (by omega)
+  have hpow7to8 : n ^ 7 ≤ n ^ 8 := Nat.pow_le_pow_right hn (by omega)
   have hproduct : M.thingCount ^ 2 * M.worldCount *
-      Checker.productFamilySearchBound M ≤ 98 * n ^ 8 := by
+      Checker.productFamilySearchBound M ≤ 157 * n ^ 8 := by
     calc
       M.thingCount ^ 2 * M.worldCount * Checker.productFamilySearchBound M ≤
-          n ^ 3 * (98 * n ^ 3) := Nat.mul_le_mul h21degree3 hsearch
-      _ = 98 * n ^ 6 := by
+          n ^ 3 * (157 * n ^ 4) := Nat.mul_le_mul h21degree3 hsearch
+      _ = 157 * n ^ 7 := by
         simp [Nat.pow_succ]
         ac_rfl
-      _ ≤ 98 * n ^ 8 := Nat.mul_le_mul_left 98 hpow6to8
+      _ ≤ 157 * n ^ 8 := Nat.mul_le_mul_left 157 hpow7to8
   simp [Checker.checkAxioms4OperationalBound,
     Complexity.boundedRegistryCostBound,
     Checker.checkAxioms4BoundedRegistry,

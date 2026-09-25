@@ -1,4 +1,5 @@
 import LeanUfo.UFO.Core.Signature3_12
+import Mathlib.Logic.Embedding.Basic
 import LeanUfo.UFO.Core.Section3_11
 import Mathlib.Data.Set.Basic
 import Mathlib.Basic.ExistsUnique
@@ -50,21 +51,36 @@ Because the UFO domain is still `Sig.Thing`, we do not identify members of
 `TupleProjection`, which extracts the `i`-th coordinate of a tuple-like UFO
 entity.
 
-Thus `ProductSubsetOf x ys w` says:
-every member `p` of the set-extension of `x` has, for each coordinate `i`, its
-`i`-th projection in the set-extension of `ys i`.
-
-This exactly captures the subset direction required by (a99). It deliberately
-does not assert the converse direction, i.e. it does not claim that every
-coordinate-compatible Lean tuple is represented by some UFO `Thing`.
+`ProductSubsetOf x ys w` requires coordinate membership and injectivity:
+two members of `x` with equal coordinates must be equal. Together these
+conditions embed the domain into the Lean Cartesian product. Without
+injectivity, two distinct members could both represent the same tuple.
+The product may contain tuples outside the image, as the source's subset
+notation permits (UFO formalization, §3.12, pp. 183–185).
 -/
 def ProductSubsetOf
     (x : Sig.Thing) {n : Nat} (ys : Fin n → Sig.Thing)
     (w : Sig.F.World) : Prop :=
-  ∀ p : Sig.Thing,
+  (∀ p : Sig.Thing,
     MemberOf Sig p x w →
       ∀ i : Fin n,
-        MemberOf Sig (Sig.TupleProjection p i w) (ys i) w
+        MemberOf Sig (Sig.TupleProjection p i w) (ys i) w) ∧
+  ∀ p q : Sig.Thing,
+    MemberOf Sig p x w → MemberOf Sig q x w →
+      (∀ i : Fin n, Sig.TupleProjection p i w = Sig.TupleProjection q i w) → p = q
+
+/-- The coordinate map faithfully represents each domain member as a tuple
+in the product of the component sets. Injectivity supplies the subset
+interpretation up to this representation; no tuple-construction axiom is needed. -/
+def ProductSubsetOf.embedding {x : Sig.Thing} {n : Nat} {ys : Fin n → Sig.Thing}
+    {w : Sig.F.World} (h : ProductSubsetOf Sig x ys w) :
+    {p // MemberOf Sig p x w} ↪ ((i : Fin n) → {v // MemberOf Sig v (ys i) w}) where
+  toFun p i := ⟨Sig.TupleProjection p.val i w, h.1 p.val p.property i⟩
+  inj' := by
+    intro p q heq
+    apply Subtype.ext
+    exact h.2 p.val q.val p.property q.property
+      (fun i => congrArg Subtype.val (congrFun heq i))
 
 /--
 Definition (d5): Quality structure.

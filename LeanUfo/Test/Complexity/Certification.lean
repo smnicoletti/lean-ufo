@@ -172,7 +172,7 @@ example (input : CompiledInput) (parent : Option ParentInput) (fresh derivedFail
       (postCompileCosted input parent fresh derivedFailed #[⟨"ax75", "True"⟩]
         (fun _ => Checker.checkAx75Costed) (fun _ _ => Checker.checkAx75Costed)
         (fun _ _ => Checker.checkAx75Costed) checkedOutcomes semanticOutcomes counterexampleOutcomes errors).cost ≤
-      548981572 * commonSize input parent ^ 16 +
+      548981610 * commonSize input parent ^ 16 +
       match (registryCosted input parent fresh #[⟨"ax75", "True"⟩]
           (fun _ => Checker.checkAx75Costed) (fun _ _ => Checker.checkAx75Costed)
           checkedOutcomes semanticOutcomes).value.failedField? with

@@ -158,10 +158,7 @@ by
     ax32 := h2.ax32
     ax33 := h2.ax33
 
-    ax_instEndurant   := h2.ax_instEndurant
-    ax_sub_kind_sortal := h2.ax_sub_kind_sortal
     ax_nonSortal_up    := h2.ax_nonSortal_up
-    ax_kindStable      := h2.ax_kindStable
 
     -- §3.3 axioms
     ax34 := ax34_sig3_3

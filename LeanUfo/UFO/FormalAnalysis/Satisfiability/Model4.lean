@@ -92,8 +92,8 @@ def sig4 : UFOSignature4 :=
 
   /-
     a108 witness:
-    interpret categorization by the printed condition, with the final relation
-    read as the existing specialization predicate `Sub`. In this model there
+    interpret categorization by the printed proper-specialization condition
+    from (d1). In this model there
     are no type-level instances of `K` (`K`'s only instance is `I`, which is not
     a type and does not specialize anything), so most categorization claims are
     false because the first argument is not a type or because the specialization
@@ -103,7 +103,7 @@ def sig4 : UFOSignature4 :=
     Model3_13.sig3_13.Type_ t1 w ∧
     ∀ t3 : Model3_13.sig3_13.Thing,
       Model3_13.sig3_13.Inst t3 t1 w →
-        Model3_13.sig3_13.Sub t3 t2 w
+        ProperSub Model3_13.sig3_13.toUFOSignature3_1 t3 t2 w
 }
 
 attribute [simp] sig4

@@ -18,6 +18,10 @@ open LeanUfo.UFO.DSL
 open private checkedAxiomProofScript checkerCertificateProof? certAxiomCounterexampleScript
   from LeanUfo.UFO.DSL.Certificate.Generation
 
+-- Certificate explanations preserve the strict symbol from printed (a108).
+example : certFormula "ax108" =
+    "categorizes(t₁, t₂) ↔ Type(t₁) ∧ ∀ t₃, t₃ :: t₁ → t₃ ⊏ t₂" := rfl
+
 private def registryField (name : String) : CertField :=
   match certFields.find? (·.field == name) with
   | some field => field
@@ -426,10 +430,10 @@ example : (CertificateChecking.runFieldsCosted (#[] : Array Nat) toString
 -- The outer loop composes the existing checked-attempt driver, not only
 -- synthetic ticks. All fresh attempts here succeed and each costs 32.
 example : (CertificateChecking.runFieldsCosted certFields CertField.field
-    (fun _ => countedAttempts false false false false false)).cost = 4526 := by native_decide
+    (fun _ => countedAttempts false false false false false)).cost = 4409 := by native_decide
 
 -- Both production drivers, the real policy, and the real precheck compose.
--- The 108 trial/declaration fields each cost 63. The eight command-only
+-- The 105 trial/declaration fields each cost 63. The eight command-only
 -- fields cost 439 together, plus the one closure precheck. Initialization adds two.
 private def composedRegistry :=
   CertificateChecking.runFieldsCosted certFields CertField.field fun field =>
@@ -440,7 +444,7 @@ private def composedRegistry :=
       (fun _ => Complexity.Costed.tick false)
       (fun _ => Complexity.Costed.tick false)
 
-example : composedRegistry.cost = 7245 + (hasAx68ClosureFailureCosted 0 0 {}).cost := by
+example : composedRegistry.cost = 7056 + (hasAx68ClosureFailureCosted 0 0 {}).cost := by
   native_decide
 example : composedRegistry.value.completed = certFields.map CertField.field := by native_decide
 example : composedRegistry.value.failedField?.isNone = true := by native_decide

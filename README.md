@@ -66,9 +66,11 @@ Technical highlights:
 5. **Axiom diagnosis and relator repair.** The mechanization exposes
    that the printed (a73) is incompatible with ordinary qua-individual parthood in
    a relator, independently of (a79). The analysis proves an (a79) distinctness
-   guard insufficient and equivalent under the background axioms, records why
-   guarded-overlap (a73) does not preserve original (t31), selects a part-based
-   (a73), preserves (t31)-(t33), and constructs a finite nonempty-relator model.
+   guard insufficient and equivalent under the background axioms, compares
+   guarded-overlap and part-based (a73), and constructs a finite nonempty-relator
+   model. The selected part-based repair preserves (t31)-(t33). For guarded
+   overlap, (t31) is proved for founded parts. A countermodel refutes its
+   unrestricted form under the full comparison package through §4.
    The core `UFOAxioms3_10` package uses the part-based formula. The
    printed formula, failed distinctness guard, guarded-overlap comparison, and
    countermodel remain available as historical analysis evidence. The finite
@@ -218,7 +220,7 @@ modules. If the module has no marker, it exports all manifests owned by that
 module.
 
 `--structure-only` checks the JSON metadata and requires one well-formed entry
-for each of the 116 certificate fields. The default validation path requires
+for each of the 113 certificate fields. The default validation path requires
 `--module`. It rebuilds the Lean module, checks every theorem named by the
 manifest, compares the generated provenance, and recomputes the SHA-256 source
 and finite-model digests. The manifest is provenance metadata. The Lean
@@ -316,7 +318,7 @@ axioms currently classified as compiler-enforced or blocked.
 | Document | Purpose |
 | --- | --- |
 | [Documentation home](docs/README.md) | Guide map and reading paths |
-| [Theoretical notes](docs/theory.md) | Modal choices, formal milestones, relator diagnosis and repair analysis, S5 consequences, and explicit bridge axioms |
+| [Theoretical notes](docs/theory.md) | Modal choices, formal milestones, relator diagnosis and repair analysis, S5 consequences, and added assumptions |
 | [Project architecture](docs/architecture.md) | Core formalization, DSL layer, certificates, tests, and trust boundary |
 | [Formal guarantees](docs/guarantees.md) | Theorem-backed guarantees for core, DSL, checker, reuse, diagnostics, and complexity |
 | [DSL quickstart](docs/dsl/quickstart.md) | First certified model |
@@ -338,6 +340,7 @@ LeanUfo/
     Core/              -- semantic signatures, axioms, and theorems
     FormalAnalysis/    -- semantic analysis kept separate from the active core and DSL
       AxiomaticAnalysis.lean
+      StructuralAssumptions.lean
       Historical/      -- retained repair experiments and countermodels
       AntiVacuity/     -- section witnesses and aggregate anti-vacuity checkpoints
       Satisfiability/  -- ordinary ModelX and positive-relator model chains

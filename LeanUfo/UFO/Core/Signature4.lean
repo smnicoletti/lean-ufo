@@ -10,8 +10,8 @@ These predicates are constrained by axioms (a105)–(a108):
 - `IsCompletelyCoveredBy` records binary complete coverage of one type by two
   other types,
 - `IsPartitionedInto` combines complete coverage with disjointness,
-- `Categorizes` relates a categorizing type to the type categorized by its
-  instances.
+- `Categorizes` requires each instance of the categorizing type to properly
+  specialize the categorized type, as defined by (d1) and required by (a108).
 -/
 structure UFOSignature4 extends UFOSignature3_13 where
 

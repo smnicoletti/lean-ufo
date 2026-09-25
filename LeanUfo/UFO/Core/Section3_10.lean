@@ -356,14 +356,13 @@ def ax_a80 : Prop :=
          Sig.Part z x w)
 
 /--
-NOTE:
-Bridge axiom needed for (t33):
-
-(typing of the bearer of a qua individual)
 If `x` is a qua individual of `y`, then `y` is an endurant.
 
-This is an implicit typing assumption in the paper:
-the entity a relator mediates is an endurant.
+This additional assumption is sufficient for (t33). The countermodel in
+`FormalAnalysis/StructuralAssumptions.lean` satisfies all numbered axioms,
+the source distance laws, and non-sortal upward closure, but refutes this
+assumption and (t33). The proof below needs typing only for bearers of
+qua-individual proper parts of relators.
 -/
 def ax_quaIndividualOf_endurant : Prop :=
   ∀ (x y : Sig.Thing) (w : Sig.F.World),
@@ -404,6 +403,68 @@ theorem eq_of_same_overlappers
       exact False.elim (hzNotOvx ((hSame z).2 hzOvy))
 
 /--
+Theorem (t33) only needs bearer typing for qua individuals that are proper
+parts of relators. Strong supplementation supplies two disjoint proper parts.
+Axioms (a79) and (a74) give their qua-individual bearers. If the bearers were
+equal, (a73) would make the parts overlap. The typing premise then permits
+(a80) to establish mediation of both distinct bearers.
+-/
+theorem th_t33_of_relator_bearer_typing
+  (hA47 : ax_a47 Sig.toUFOSignature3_5)
+  (hA49 : ax_a49 Sig.toUFOSignature3_5)
+  (hA50 : ax_a50 Sig.toUFOSignature3_5)
+  (hA51 : ax_a51 Sig.toUFOSignature3_5)
+  (hA52 : ax_a52 Sig.toUFOSignature3_5)
+  (hA73 : ax_a73 Sig)
+  (hA74 : ax_a74 Sig)
+  (hA79 : ax_a79 Sig)
+  (hA80 : ax_a80 Sig)
+  (hQuaEnd : ∀ r q b w, Sig.Relator r w → Sig.ProperPart q r w →
+    Sig.QuaIndividualOf q b w → Sig.Endurant b w) :
+  ∀ (x : Sig.Thing) (w : Sig.F.World),
+    Sig.Relator x w →
+      ∃ y z : Sig.Thing,
+        y ≠ z ∧ Sig.Mediates x y w ∧ Sig.Mediates x z w
+:= by
+  intro x w hRel
+  -- A relator has a proper part. Supplementation supplies a second part
+  -- disjoint from it, giving the two candidates without assuming mediation.
+  rcases (hA79 x w).1 hRel with ⟨⟨p, hPPp⟩, hPairwise, _hClosure⟩
+  rcases (hA52 p x w).1 hPPp with ⟨hpPartx, hNotPartxp⟩
+  rcases hA51 p x w hNotPartxp with ⟨q, hqPartx, hNoOvqp⟩
+  have hNotPartxq : ¬ Sig.Part x q w := by
+    intro hxq
+    have hpq : Sig.Part p q w := hA49 p x q w ⟨hpPartx, hxq⟩
+    have hOvqp' : Sig.Overlap q p w :=
+      (hA50 q p w).2 ⟨p, hpq, hA47 p w⟩
+    exact hNoOvqp hOvqp'
+  have hPPq : Sig.ProperPart q x w :=
+    (hA52 q x w).2 ⟨hqPartx, hNotPartxq⟩
+  rcases hPairwise p q ⟨hPPp, hPPq⟩ with ⟨hQp, hQq, hFoEq, _hEDpq, _hEDqp⟩
+  rcases (hA74 p w).1 hQp with ⟨y, hQOfp⟩
+  rcases (hA74 q w).1 hQq with ⟨z, hQOfq⟩
+  -- This is the only use of the extra typing premise. The numbered axioms
+  -- provide the bearers, but do not establish that those bearers are endurants.
+  have hEndy : Sig.Endurant y w := hQuaEnd x p y w hRel hPPp hQOfp
+  have hEndz : Sig.Endurant z w := hQuaEnd x q z w hRel hPPq hQOfq
+  have hDisjoint : ¬ Sig.Overlap q p w := hNoOvqp
+  -- Equal bearers and equal foundations would make q a part of p by (a73),
+  -- contradicting the disjointness supplied by supplementation.
+  have hyNez : y ≠ z := by
+    intro hyz
+    have hPartQQ : Sig.Part q q w := hA47 q w
+    have hQData := ((hA73 q z w).1 hQOfq q).1 hPartQQ
+    have hPartQP : Sig.Part q p w :=
+      ((hA73 p y w).1 hQOfp q).2
+        ⟨hQData.1, by simpa [hyz] using hQData.2.1, hFoEq.symm⟩
+    exact hDisjoint ((hA50 q p w).2 ⟨q, hA47 q w, hPartQP⟩)
+  have hMedy : Sig.Mediates x y w :=
+    (hA80 x y w).2 ⟨hRel, hEndy, ⟨p, hQOfp, hpPartx⟩⟩
+  have hMedz : Sig.Mediates x z w :=
+    (hA80 x z w).2 ⟨hRel, hEndz, ⟨q, hQOfq, hqPartx⟩⟩
+  exact ⟨y, z, hyNez, hMedy, hMedz⟩
+
+/--
 (t33)
 
 Relator(x) → ∃y, z(y ≠ z ∧ mediates(x, y) ∧ mediates(x, z))
@@ -411,13 +472,11 @@ Relator(x) → ∃y, z(y ≠ z ∧ mediates(x, y) ∧ mediates(x, z))
 Natural language:
 Every relator mediates at least two distinct endurants.
 
-To derive this in the current formalization, we use the bridge axiom
-`ax_quaIndividualOf_endurant`, which makes explicit the intended typing of the
-bearer of a qua individual.
+The package's global bearer-typing assumption supplies the restricted premise
+of `th_t33_of_relator_bearer_typing`. Axiom (a48) is not used.
 -/
 theorem th_t33
   (hA47 : ax_a47 Sig.toUFOSignature3_5)
-  (_hA48 : ax_a48 Sig.toUFOSignature3_5)
   (hA49 : ax_a49 Sig.toUFOSignature3_5)
   (hA50 : ax_a50 Sig.toUFOSignature3_5)
   (hA51 : ax_a51 Sig.toUFOSignature3_5)
@@ -432,43 +491,9 @@ theorem th_t33
       ∃ y z : Sig.Thing,
         y ≠ z ∧ Sig.Mediates x y w ∧ Sig.Mediates x z w
 := by
-  intro x w hRel
-  rcases (hA79 x w).1 hRel with ⟨⟨p, hPPp⟩, hPairwise, _hClosure⟩
-  rcases (hA52 p x w).1 hPPp with ⟨hpPartx, hNotPartxp⟩
-  rcases hA51 p x w hNotPartxp with ⟨q, hqPartx, hNoOvqp⟩
-  have hNotPartxq : ¬ Sig.Part x q w := by
-    intro hxq
-    have hpq : Sig.Part p q w := hA49 p x q w ⟨hpPartx, hxq⟩
-    have hOvqp' : Sig.Overlap q p w :=
-      (hA50 q p w).2 ⟨p, hpq, hA47 p w⟩
-    exact hNoOvqp hOvqp'
-  have hPPq : Sig.ProperPart q x w :=
-    (hA52 q x w).2 ⟨hqPartx, hNotPartxq⟩
-  have hpNeq : p ≠ q := by
-    intro hpq
-    subst hpq
-    have hOvpp : Sig.Overlap p p w :=
-      (hA50 p p w).2 ⟨p, hA47 p w, hA47 p w⟩
-    exact hNoOvqp hOvpp
-  rcases hPairwise p q ⟨hPPp, hPPq⟩ with ⟨hQp, hQq, hFoEq, _hEDpq, _hEDqp⟩
-  rcases (hA74 p w).1 hQp with ⟨y, hQOfp⟩
-  rcases (hA74 q w).1 hQq with ⟨z, hQOfq⟩
-  have hEndy : Sig.Endurant y w := hQuaEnd p y w hQOfp
-  have hEndz : Sig.Endurant z w := hQuaEnd q z w hQOfq
-  have hDisjoint : ¬ Sig.Overlap q p w := hNoOvqp
-  have hyNez : y ≠ z := by
-    intro hyz
-    have hPartQQ : Sig.Part q q w := hA47 q w
-    have hQData := ((hA73 q z w).1 hQOfq q).1 hPartQQ
-    have hPartQP : Sig.Part q p w :=
-      ((hA73 p y w).1 hQOfp q).2
-        ⟨hQData.1, by simpa [hyz] using hQData.2.1, hFoEq.symm⟩
-    exact hDisjoint ((hA50 q p w).2 ⟨q, hA47 q w, hPartQP⟩)
-  have hMedy : Sig.Mediates x y w :=
-    (hA80 x y w).2 ⟨hRel, hEndy, ⟨p, hQOfp, hpPartx⟩⟩
-  have hMedz : Sig.Mediates x z w :=
-    (hA80 x z w).2 ⟨hRel, hEndz, ⟨q, hQOfq, hqPartx⟩⟩
-  exact ⟨y, z, hyNez, hMedy, hMedz⟩
+  apply th_t33_of_relator_bearer_typing Sig hA47 hA49 hA50 hA51 hA52 hA73 hA74 hA79 hA80
+  intro r q b w _ _
+  exact hQuaEnd q b w
 
 /--
 Axioms package for §3.10.
@@ -487,7 +512,7 @@ Extends §3.9 axioms with:
 - (a79) definition of relator,
 - (a80) mediation.
 
-Also records the bridge axiom required for (t33):
+Also records the additional typing assumption used for (t33):
 - qua individuals are of endurants.
 
 The printed overlap-based version is retained separately as
@@ -510,6 +535,6 @@ class UFOAxioms3_10 (Sig : UFOSignature3_10) : Prop
   ax79 : ax_a79 Sig
   ax80 : ax_a80 Sig
 
-  -- Bridge assumption required for t33
+  -- Additional bearer typing used in the proof of (t33).
   axQuaIndividualOfEndurant :
     ax_quaIndividualOf_endurant (Sig := Sig)

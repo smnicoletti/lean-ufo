@@ -35,6 +35,7 @@ import LeanUfo.UFO.Core.Section3_12
 import LeanUfo.UFO.Core.Section3_13
 import LeanUfo.UFO.Core.Section4
 import LeanUfo.UFO.FormalAnalysis.AxiomaticAnalysis
+import LeanUfo.UFO.FormalAnalysis.StructuralAssumptions
 
 /- Concrete Models -/
 import LeanUfo.UFO.FormalAnalysis.Satisfiability.Model3_1

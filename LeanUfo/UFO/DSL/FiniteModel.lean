@@ -456,7 +456,8 @@ def toUFOSignature4 (M : FiniteModel4) : UFOSignature4 :=
       ¬ ∃ x : Fin M.thingCount, M.inst x t' w = true ∧ M.inst x t'' w = true)
   Categorizes := fun t1 t2 w =>
     M.typeSem t1 w ∧
-      ∀ t3 : Fin M.thingCount, M.inst t3 t1 w = true → M.sub t3 t2 w = true }
+      ∀ t3 : Fin M.thingCount, M.inst t3 t1 w = true →
+        M.sub t3 t2 w = true ∧ ¬ M.sub t2 t3 w = true }
 
 /--
 User-facing certification predicate for a finite model.
