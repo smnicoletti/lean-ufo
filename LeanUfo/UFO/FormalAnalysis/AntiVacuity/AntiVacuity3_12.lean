@@ -4,11 +4,11 @@ import Mathlib.Data.Set.Insert
 /-!
 # Quality-structure anti-vacuity analysis through section 3.12
 
-The section 3.12 axioms require more than a nonempty quality predicate. A quale
-must belong to a unique quality structure, quality structures are nonempty
-set-like abstract individuals, and quales and sets are disjoint. The model
-therefore uses distinct entities for two quales, a quality dimension, and a
-quality domain.
+The section 3.12 axioms require a nonempty quality predicate and related
+structure. A quale must belong to a unique quality structure, quality
+structures are nonempty set-like abstract individuals, and quales and sets are
+disjoint. The model therefore uses distinct entities for two quales, a quality
+dimension, and a quality domain.
 
 The concrete part contains one bearer, one simple quality, and one complex
 quality. The simple quality inheres in the complex quality, which in turn

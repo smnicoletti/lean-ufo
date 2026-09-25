@@ -116,10 +116,10 @@ end AntiVacuity.Taxonomy
 /-!
 ## Complete section 3.2 anti-vacuity model
 
-The common taxonomy model above is intentionally rigid because later files use
-it to classify the six endurant leaves. The following independent model checks
-all section 3.2 categories simultaneously. It still satisfies the complete
-cumulative package through section 3.2.
+The common taxonomy model above is rigid because later files use it to classify
+the six endurant leaves. The following independent model checks all section 3.2
+categories simultaneously. It also satisfies the complete cumulative package
+through section 3.2.
 -/
 
 namespace AntiVacuity.Section3_2

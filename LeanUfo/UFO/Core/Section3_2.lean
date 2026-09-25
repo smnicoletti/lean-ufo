@@ -591,7 +591,6 @@ by
   · -- show ¬(x ⊑ y)
     intro hSub_xy
 
-    -- Use t10 directly
     have hBoxDisj :=
       th_t10 (Sig := Sig) hA18 hA22 hA26 x y w ⟨hKx, hKy, hNe⟩
 
