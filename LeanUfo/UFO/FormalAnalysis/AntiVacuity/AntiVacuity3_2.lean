@@ -80,24 +80,16 @@ theorem ax31_sig : ax_a31 sig2 := by intro t w; cases t <;> cases w <;> simp
 theorem ax32_sig : ax_a32 sig2 := by intro w; simp
 theorem ax33_sig : ax_a33 sig2 := by intro t w; cases t <;> cases w <;> simp
 
-theorem ax_instEndurant_sig : ax_instEndurant_of_EndurantType (Sig := sig2) := by
+/-- Concrete instance typing used to prove the (a44) schema for this witness. -/
+theorem inst_endurant_sig :
+    ∀ t x w, sig2.EndurantType t w → sig2.Inst x t w → sig2.Endurant x w := by
   intro t x w hType hInst
   cases t <;> rename_i tl <;> cases tl <;>
     cases x <;> rename_i xl <;> cases xl <;> cases w <;> simp_all
 
-theorem ax_sub_kind_sortal_sig : ax_sub_of_kind_is_sortal (Sig := sig2) := by
-  intro a k w hSub hKind
-  rcases type_has_instance hSub.1 with ⟨x, hxa⟩
-  have hxk := hSub.2.2 () trivial x hxa
-  have hak : a = k := inst_target_unique hxa hxk
-  subst k
-  simpa using hKind
 
 theorem ax_nonSortal_up_sig : ax_nonSortal_upward (Sig := sig2) := by
   intro a b w h; exact False.elim h
-
-theorem ax_kindStable_sig : ax_kindStable sig2 := by
-  intro k w v hk _; exact hk
 
 instance axioms2 : UFOAxioms3_2 sig2 where
   toUFOAxioms3_1 := axioms1
@@ -117,10 +109,7 @@ instance axioms2 : UFOAxioms3_2 sig2 where
   ax31 := ax31_sig
   ax32 := ax32_sig
   ax33 := ax33_sig
-  ax_instEndurant := ax_instEndurant_sig
-  ax_sub_kind_sortal := ax_sub_kind_sortal_sig
   ax_nonSortal_up := ax_nonSortal_up_sig
-  ax_kindStable := ax_kindStable_sig
 
 end AntiVacuity.Taxonomy
 
@@ -431,21 +420,7 @@ theorem ax32_sig : ax_a32 sig := by intro w; cases w <;> simp
 theorem ax33_sig : ax_a33 sig := by
   intro t w; cases t <;> cases w <;> simp [antiRigid_iff, sortal_iff]
 
-theorem ax_instEndurant_sig : ax_instEndurant_of_EndurantType (Sig := sig) := by
-  intro t x w ht hx
-  cases t <;> cases x <;> cases w <;> simp_all
 
-theorem ax_sub_kind_sortal_sig : ax_sub_of_kind_is_sortal (Sig := sig) := by
-  intro a k w hSub hKind
-  have hEnd : endurantType a := by
-    have hIncl := hSub.2.2
-    cases a <;> try trivial
-    · have hTarget := hIncl .actual trivial .abstractIndividual (by simp)
-      cases k <;> simp_all
-    · have hTarget := hIncl .actual trivial .perdurantIndividual (by simp)
-      cases k <;> simp_all
-    all_goals simp_all
-  exact ⟨hEnd, k, hKind, hSub.2.2⟩
 
 theorem ax_nonSortal_up_sig : ax_nonSortal_upward (Sig := sig) := by
   intro a b w hNon hSub
@@ -459,10 +434,6 @@ theorem ax_nonSortal_up_sig : ax_nonSortal_upward (Sig := sig) := by
   have hi1b := hSub.2.2 .actual trivial .i1 hi1a
   have hi2b := hSub.2.2 .actual trivial .i2 hi2a
   cases b <;> cases w <;> simp_all [sortal_iff]
-
-theorem ax_kindStable_sig : ax_kindStable sig := by
-  intro k w v hk _
-  cases k <;> cases w <;> cases v <;> simp_all
 
 instance axioms : UFOAxioms3_2 sig where
   ax1 := ax1_sig
@@ -498,10 +469,7 @@ instance axioms : UFOAxioms3_2 sig where
   ax31 := ax31_sig
   ax32 := ax32_sig
   ax33 := ax33_sig
-  ax_instEndurant := ax_instEndurant_sig
-  ax_sub_kind_sortal := ax_sub_kind_sortal_sig
   ax_nonSortal_up := ax_nonSortal_up_sig
-  ax_kindStable := ax_kindStable_sig
 
 theorem predicates_nonempty :
     (∃ x, sig.Rigid x .actual) ∧

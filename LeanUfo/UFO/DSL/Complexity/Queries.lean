@@ -4,12 +4,12 @@ import LeanUfo.UFO.DSL.Checker.Axioms
 /-!
 # Concrete table costs at checker calls
 
-For 112 registry checks, execution equals a counted computation over the
+For 109 registry checks, execution equals a counted computation over the
 compiler's table evaluators: axioms 1–104,
-the qua-individual/endurant typing check, the four named taxonomy bridges,
+the qua-individual/endurant typing check, the non-sortal closure check,
 and the three distance extensions. The remaining four entries, axioms 105–108,
 return `⟨true, 0⟩` because the signature defines their relations by those axioms.
-Together these results cover all 116 entries.
+Together these results cover all 113 entries.
 The equalities in this module preserve both the Boolean result and its cost.
 They concern the dense native lookup, not the work of reducing sparse tables
 inside Lean's kernel.
@@ -338,18 +338,6 @@ theorem unaryIffThreeOrSingle_eq_countedTables (M : FiniteModel4) (tables : Fact
           Costed.orElse (tables.unaryTypedTableCosted leftB x w) (fun _ => tables.unaryTypedTableCosted leftC x w)))
             (fun _ => tables.unaryTypedTableCosted right x w))) := by
   simp only [Checker.checkUnaryIffThreeOrSingleCosted, Checker.allThingsEvalCosted,
-    Checker.allWorldsEvalCosted, verifiedUnaryBlock_eq_counted]
-
-theorem thingWorldWorldImp_eq_countedTables (M : FiniteModel4) (tables : FactTables)
-    (agreement : tables.sparseLookups M.worldCount M.thingCount =
-      tables.denseLookups M.worldCount M.thingCount) (left right : UnaryField) :
-    Checker.checkThingWorldWorldImpCosted M
-      ((tables.verifiedLookups M.worldCount M.thingCount agreement).unary left)
-      ((tables.verifiedLookups M.worldCount M.thingCount agreement).unary right) =
-      allFinCosted M.thingCount (fun x => allFinCosted M.worldCount (fun w => allFinCosted M.worldCount (fun v =>
-        Costed.implies (tables.unaryTypedTableCosted left x w)
-          (fun _ => tables.unaryTypedTableCosted right x v)))) := by
-  simp only [Checker.checkThingWorldWorldImpCosted, Checker.allThingsEvalCosted,
     Checker.allWorldsEvalCosted, verifiedUnaryBlock_eq_counted]
 
 /-! ## Instantiation scans and specialization witnesses
@@ -2075,46 +2063,6 @@ theorem compiledAx104_eq_countedTables (tables : FactTables) (W T : Nat)
             Costed.tick ((tables.verifiedLookups W T agreement).unary .perdurant y w) 8))))) = _
   simp only [verifiedBinaryBlock_eq_counted, verifiedUnaryBlock_eq_counted]
 
-theorem compiledAxInstEndurant_eq_countedTables (tables : FactTables) (W T : Nat)
-    (hw : 0 < W) (ht : 0 < T) (agreement valid worlds things) :
-    let M := tables.toFiniteModel4Cached W T hw ht agreement valid worlds things
-    Checker.checkAxInstEndurantCosted M =
-      allFinCosted T (fun a =>
-        allFinCosted T (fun b =>
-          allFinCosted W (fun w =>
-            Costed.implies (Costed.andThen (tables.unaryTypedTableCosted .endurantType a w) (fun _ =>
-                tables.binaryTypedTableCosted .inst b a w)) (fun _ =>
-              tables.unaryTypedTableCosted .endurant b w)))) := by
-  change
-    allFinCosted T (fun a =>
-      allFinCosted T (fun b =>
-        allFinCosted W (fun w =>
-          Costed.implies (Costed.andThen (Costed.tick ((tables.verifiedLookups W T agreement).unary .endurantType a w) 8)
-            (fun _ =>
-              Costed.tick ((tables.verifiedLookups W T agreement).binary .inst b a w) 11)) (fun _ =>
-            Costed.tick ((tables.verifiedLookups W T agreement).unary .endurant b w) 8)))) = _
-  simp only [verifiedBinaryBlock_eq_counted, verifiedUnaryBlock_eq_counted]
-
-theorem compiledAxSubKindSortal_eq_countedTables (tables : FactTables) (W T : Nat)
-    (hw : 0 < W) (ht : 0 < T) (agreement valid worlds things) :
-    let M := tables.toFiniteModel4Cached W T hw ht agreement valid worlds things
-    Checker.checkAxSubKindSortalCosted M =
-      allFinCosted T (fun a =>
-        allFinCosted T (fun b =>
-          allFinCosted W (fun w =>
-            Costed.implies (Costed.andThen (tables.binaryTypedTableCosted .sub a b w) (fun _ =>
-                tables.unaryTypedTableCosted .kind b w)) (fun _ =>
-              tables.unaryTypedTableCosted .sortal a w)))) := by
-  change
-    allFinCosted T (fun a =>
-      allFinCosted T (fun b =>
-        allFinCosted W (fun w =>
-          Costed.implies (Costed.andThen (Costed.tick ((tables.verifiedLookups W T agreement).binary .sub a b w) 11)
-            (fun _ =>
-              Costed.tick ((tables.verifiedLookups W T agreement).unary .kind b w) 8)) (fun _ =>
-            Costed.tick ((tables.verifiedLookups W T agreement).unary .sortal a w) 8)))) = _
-  simp only [verifiedBinaryBlock_eq_counted, verifiedUnaryBlock_eq_counted]
-
 theorem compiledAxNonSortalUp_eq_countedTables (tables : FactTables) (W T : Nat)
     (hw : 0 < W) (ht : 0 < T) (agreement valid worlds things) :
     let M := tables.toFiniteModel4Cached W T hw ht agreement valid worlds things
@@ -2134,17 +2082,6 @@ theorem compiledAxNonSortalUp_eq_countedTables (tables : FactTables) (W T : Nat)
               Costed.tick ((tables.verifiedLookups W T agreement).binary .sub a b w) 11)) (fun _ =>
             Costed.tick ((tables.verifiedLookups W T agreement).unary .nonSortal b w) 8)))) = _
   simp only [verifiedBinaryBlock_eq_counted, verifiedUnaryBlock_eq_counted]
-
-theorem compiledAxKindStable_eq_countedTables (tables : FactTables) (W T : Nat)
-    (hw : 0 < W) (ht : 0 < T) (agreement valid worlds things) :
-    let M := tables.toFiniteModel4Cached W T hw ht agreement valid worlds things
-    Checker.checkAxKindStableCosted M =
-      allFinCosted T (fun x => allFinCosted W (fun w => allFinCosted W (fun v =>
-        Costed.implies (tables.unaryTypedTableCosted .kind x w)
-          (fun _ => tables.unaryTypedTableCosted .kind x v)))) := by
-  exact thingWorldWorldImp_eq_countedTables
-    (tables.toFiniteModel4Cached W T hw ht agreement valid worlds things) tables agreement
-    .kind .kind
 
 theorem compiledAxDistanceIdentity_eq_countedTables (tables : FactTables) (W T : Nat)
     (hw : 0 < W) (ht : 0 < T) (agreement valid worlds things) :
@@ -4309,6 +4246,23 @@ theorem compiledFamilyCoverageRows_eq_countedTables (tables : FactTables) (W T :
 
   rfl
 
+theorem compiledFamilySeparation_eq_countedTables (tables : FactTables) (W T : Nat)
+    (hw : 0 < W) (ht : 0 < T) (agreement valid worlds things)
+    (D : Nat) (x : Fin T) (w : Fin W) :
+    let M := tables.toFiniteModel4Cached W T hw ht agreement valid worlds things
+    Checker.productCoordinatesSeparateCosted T D
+      (fun p => Costed.tick (M.memberOf p x w) 11)
+      (fun p i => M.tupleProjectionCosted p i w) =
+    Checker.productCoordinatesSeparateCosted T D
+      (fun p => tables.binaryTypedTableCosted .memberOf p x w)
+      (fun p i => tables.tupleProjectionTypedTableCosted p i.val w) := by
+  dsimp only
+  congr 1
+  · funext p
+    exact verifiedBinaryBlock_eq_counted tables W T agreement .memberOf p x w
+  · funext p i
+    exact compiledProjection_eq_countedTable tables W T hw ht agreement valid worlds things p i w
+
 theorem compiledFamilyWitness_eq_countedTables (tables : FactTables) (W T : Nat)
     (hw : 0 < W) (ht : 0 < T) (agreement valid worlds things)
     (pf : ProductFamilyWitness T W) (x t : Fin T) (w : Fin W) :
@@ -4338,8 +4292,12 @@ theorem compiledFamilyWitness_eq_countedTables (tables : FactTables) (W T : Nat)
     let witness := fun (pf : ProductFamilyWitness T W) (x t : Fin T) (w : Fin W) =>
       Costed.andThen
         (Costed.andThen
-          (Costed.andThen (Checker.productFamilyHeaderCosted pf x t w)
-            (fun _ => projection pf x w))
+          (Costed.andThen
+            (Costed.andThen (Checker.productFamilyHeaderCosted pf x t w)
+              (fun _ => projection pf x w))
+            (fun _ => Checker.productCoordinatesSeparateCosted T pf.dimensionThings.size
+              (fun p => tables.binaryTypedTableCosted .memberOf p x w)
+              (fun p i => tables.tupleProjectionTypedTableCosted p i.val w)))
           (fun _ => association pf t w))
         (fun _ => coverage pf t w)
     Checker.productFamilyWitnessCosted M pf x t w =
@@ -4348,7 +4306,12 @@ theorem compiledFamilyWitness_eq_countedTables (tables : FactTables) (W T : Nat)
     compiledFamilyProjectionRows_eq_countedTables,
     compiledFamilyAssociationRows_eq_countedTables,
     compiledFamilyCoverageRows_eq_countedTables]
-  rfl
+  congr 1
+  congr 1
+  congr 1
+  funext _
+  exact compiledFamilySeparation_eq_countedTables tables W T hw ht agreement valid worlds things
+    pf.dimensionThings.size x w
 
 theorem compiledFamilySearch_eq_countedTables (tables : FactTables) (W T : Nat)
     (hw : 0 < W) (ht : 0 < T) (agreement valid worlds things)
@@ -4379,8 +4342,12 @@ theorem compiledFamilySearch_eq_countedTables (tables : FactTables) (W T : Nat)
     let witness := fun (pf : ProductFamilyWitness T W) (x t : Fin T) (w : Fin W) =>
       Costed.andThen
         (Costed.andThen
-          (Costed.andThen (Checker.productFamilyHeaderCosted pf x t w)
-            (fun _ => projection pf x w))
+          (Costed.andThen
+            (Costed.andThen (Checker.productFamilyHeaderCosted pf x t w)
+              (fun _ => projection pf x w))
+            (fun _ => Checker.productCoordinatesSeparateCosted T pf.dimensionThings.size
+              (fun p => tables.binaryTypedTableCosted .memberOf p x w)
+              (fun p i => tables.tupleProjectionTypedTableCosted p i.val w)))
           (fun _ => association pf t w))
         (fun _ => coverage pf t w)
     Checker.productFamilySearchCosted M x t w =
@@ -4424,8 +4391,12 @@ theorem compiledAx99_eq_countedTables (tables : FactTables) (W T : Nat)
     let witness := fun (pf : ProductFamilyWitness T W) (x t : Fin T) (w : Fin W) =>
       Costed.andThen
         (Costed.andThen
-          (Costed.andThen (Checker.productFamilyHeaderCosted pf x t w)
-            (fun _ => projection pf x w))
+          (Costed.andThen
+            (Costed.andThen (Checker.productFamilyHeaderCosted pf x t w)
+              (fun _ => projection pf x w))
+            (fun _ => Checker.productCoordinatesSeparateCosted T pf.dimensionThings.size
+              (fun p => tables.binaryTypedTableCosted .memberOf p x w)
+              (fun p i => tables.tupleProjectionTypedTableCosted p i.val w)))
           (fun _ => association pf t w))
         (fun _ => coverage pf t w)
     Checker.checkAx99Costed M =

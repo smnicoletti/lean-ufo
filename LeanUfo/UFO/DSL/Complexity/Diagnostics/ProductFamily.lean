@@ -1,5 +1,6 @@
 import LeanUfo.UFO.DSL.Complexity.Diagnostics
 import LeanUfo.UFO.DSL.Checker.Soundness
+import Mathlib.Tactic.Ring
 
 /-!
 # Counted validation of declared product families
@@ -7,7 +8,7 @@ import LeanUfo.UFO.DSL.Checker.Soundness
 The axiom 99 diagnostic must inspect the supplied witness arrays. Searching for
 different dimensions can accept a family that the certification checker rejects.
 The validator below checks finite coordinates and equal array lengths, then
-checks projection membership, dimension/type associations, and coverage of all
+checks projection membership, distinct coordinate tuples, dimension/type associations, and coverage of all
 characterization targets. Each finite scan stops at its first decisive result.
 
 Projection uses the compiler's indexed table and its tuple-as-default rule.
@@ -25,35 +26,44 @@ open Checker
 
 private def familyProjectionRowsCosted (tables : FactTables)
     (family : ProductFamilySpec) (x : Fin T) (w : Fin W) : Costed Bool :=
-  allFinEvalCosted T fun p =>
+  (allFinEvalCosted T fun p =>
     (tables.binaryTypedTableCosted .memberOf p x w).implies fun _ =>
       allFinEvalCosted family.dimensionThings.size fun i => do
         let dimension ← Costed.tick family.dimensionThings[i.val] 1
         let component ← tables.tupleProjectionTypedTableCosted p i.val w
-        diagnosticBinaryCosted W T tables .memberOf component.val dimension w.val
+        diagnosticBinaryCosted W T tables .memberOf component.val dimension w.val).andThen fun _ =>
+    productCoordinatesSeparateCosted T family.dimensionThings.size
+      (fun p => tables.binaryTypedTableCosted .memberOf p x w)
+      (fun p i => tables.tupleProjectionTypedTableCosted p i.val w)
 
 private theorem familyProjectionRowsCosted_cost_le (tables : FactTables)
     (family : ProductFamilySpec) (x : Fin T) (w : Fin W) :
     (familyProjectionRowsCosted tables family x w).cost ≤
-      T * (31 * family.dimensionThings.size + 15) := by
+      T * (31 * family.dimensionThings.size + 15) +
+        T * (T * (25 * family.dimensionThings.size + 18) + 15) + 1 := by
   unfold familyProjectionRowsCosted
-  apply allFinEvalCosted_cost_le _ _ (31 * family.dimensionThings.size + 13)
-  intro p
-  apply le_trans (Costed.implies_cost_le _ _ 11 (31 * family.dimensionThings.size) ?_ ?_) (by omega)
-  · simp
-  · have h := allFinEvalCosted_cost_le family.dimensionThings.size
-      (fun i => do
-        let dimension ← Costed.tick family.dimensionThings[i.val] 1
-        let component ← tables.tupleProjectionTypedTableCosted p i.val w
-        diagnosticBinaryCosted W T tables .memberOf component.val dimension w.val) 29 (by
-          intro i
-          have hp := tables.tupleProjectionTypedTableCosted_cost_le p i.val w
-          have hb := diagnosticBinaryCosted_cost_le W T tables .memberOf
-            (tables.tupleProjectionTypedTableCosted p i.val w).value.val
-            family.dimensionThings[i.val] w.val
-          simp only [Bind.bind, Costed.bind, Costed.tick]
-          omega)
-    simpa [Nat.mul_comm] using h
+  apply le_trans (Costed.andThen_cost_le _ _
+    (T * (31 * family.dimensionThings.size + 15))
+    (T * (T * (25 * family.dimensionThings.size + 18) + 15)) ?_ ?_) (by omega)
+  · apply allFinEvalCosted_cost_le _ _ (31 * family.dimensionThings.size + 13)
+    intro p
+    apply le_trans (Costed.implies_cost_le _ _ 11 (31 * family.dimensionThings.size) ?_ ?_) (by omega)
+    · simp
+    · have h := allFinEvalCosted_cost_le family.dimensionThings.size
+        (fun i => do
+          let dimension ← Costed.tick family.dimensionThings[i.val] 1
+          let component ← tables.tupleProjectionTypedTableCosted p i.val w
+          diagnosticBinaryCosted W T tables .memberOf component.val dimension w.val) 29 (by
+            intro i
+            have hp := tables.tupleProjectionTypedTableCosted_cost_le p i.val w
+            have hb := diagnosticBinaryCosted_cost_le W T tables .memberOf
+              (tables.tupleProjectionTypedTableCosted p i.val w).value.val
+              family.dimensionThings[i.val] w.val
+            simp only [Bind.bind, Costed.bind, Costed.tick]
+            omega)
+      simpa [Nat.mul_comm] using h
+  · exact productCoordinatesSeparateCosted_cost_le _ _ _ _ (by intros; simp)
+      (by intro p i; exact tables.tupleProjectionTypedTableCosted_cost_le p i.val w)
 
 private def familyAssociationRowsCosted (tables : FactTables)
     (family : ProductFamilySpec) (sameSize : family.dimensionThings.size = family.typeThings.size)
@@ -133,7 +143,8 @@ def productFamilyDiagnosticCosted (W T : Nat) (tables : FactTables)
 /-- `T` counts things; `D` and `Z` count supplied dimension and type slots.
 World lookup has constant unit cost, so only the selected world is inspected. -/
 def productFamilyDiagnosticBound (T D Z : Nat) : Nat :=
-  T * (31 * D + 15) + 39 * D + T * (4 * Z + 15) + 4 * D + 4 * Z + 16
+  T * (31 * D + 15) + T * (T * (25 * D + 18) + 15) +
+    39 * D + T * (4 * Z + 15) + 4 * D + 4 * Z + 17
 
 theorem productFamilyDiagnosticCosted_cost_le (W T : Nat) (tables : FactTables)
     (x t w : Nat) (family : ProductFamilySpec) :
@@ -187,7 +198,7 @@ theorem productFamilyDiagnosticBound_mono {T T' D D' Z Z' : Nat}
     | apply Nat.add_le_add
     | apply Nat.mul_le_mul
 
-/-- For finite, equally sized witness arrays, success means exactly the three
+/-- For finite, equally sized witness arrays, success means exactly the four
 relational conditions of a product-family witness. The statement uses dense
 table semantics; compiler table agreement supplies the sparse interpretation.
 Coverage permits repeated listed types, as does the certification checker. -/
@@ -199,6 +210,10 @@ theorem productFamilyDiagnosticCosted_valid_iff (tables : FactTables)
       (∀ p : Fin T, tables.binaryTypedTableDense .memberOf p x w = true →
         ∀ i : Fin ys.size, tables.binaryTypedTableDense .memberOf
           (tables.tupleProjectionTypedTableDense p i.val w) ys[i.val] w = true) ∧
+      (∀ p q : Fin T, tables.binaryTypedTableDense .memberOf p x w = true →
+        tables.binaryTypedTableDense .memberOf q x w = true →
+        (∀ i : Fin ys.size, tables.tupleProjectionTypedTableDense p i.val w =
+          tables.tupleProjectionTypedTableDense q i.val w) → p = q) ∧
       (∀ i : Fin ys.size,
         tables.binaryTypedTableDense .associatedWith ys[i.val] (zs[i.val]'(by omega)) w = true ∧
         tables.binaryTypedTableDense .characterization t (zs[i.val]'(by omega)) w = true) ∧
@@ -212,6 +227,7 @@ theorem productFamilyDiagnosticCosted_valid_iff (tables : FactTables)
     beq_self_eq_true, x.isLt, t.isLt, w.isLt, ↓reduceDIte, Array.size_map, sameSize,
     Costed.charge_value, valid, Bool.true_and]
   simp [familyProjectionRowsCosted, familyAssociationRowsCosted, familyCoverageRowsCosted,
+    productCoordinatesSeparateCosted_value,
     allFinEvalCosted_value, Costed.implies_value, Costed.andThen_value,
     Bind.bind, Costed.bind, Costed.tick, diagnosticBinaryCosted,
     FactTables.binaryTypedTableCosted_value_dense,
@@ -222,21 +238,24 @@ theorem productFamilyDiagnosticCosted_valid_iff (tables : FactTables)
   simp only [implication, and_assoc]
   constructor
   all_goals
-    rintro ⟨hp, ha, hc⟩
-    refine ⟨?_, ?_, ?_⟩
+    rintro ⟨hp, hs, ha, hc⟩
+    refine ⟨?_, ?_, ?_, ?_⟩
     · intro p h i
       exact hp p h ⟨i.val, by
         have hi := i.isLt
         simp only [Array.size_map] at hi ⊢
         exact hi⟩
+    · intro p q hp hq heq
+      exact hs p q hp hq (fun i => heq ⟨i.val, by
+        have hi := i.isLt
+        simp only [Array.size_map] at hi ⊢
+        exact hi⟩)
     · intro i
       exact ha ⟨i.val, by
         have hi := i.isLt
         simp only [Array.size_map] at hi ⊢
         exact hi⟩
-    · intro u hu
-      rcases hc u hu with ⟨z, hz, heq⟩
-      exact ⟨z, hz, heq.symm⟩
+    · simpa only [← Fin.ext_iff, exists_eq_right] using hc
 
 /-- The diagnostic checks the same relational witness conditions as the
 certification checker when both interpret the same tables. This theorem does
@@ -285,23 +304,21 @@ Redistributing slots between records does not change this bound. These totals
 are independent of the thing count, even for malformed input records. -/
 theorem productFamiliesDiagnosticBound_eq_sizes (T : Nat) (families : Array ProductFamilySpec) :
     productFamiliesDiagnosticBound T families =
-      (31 * T + 43) * (families.toList.map fun f => f.dimensionThings.size).sum +
+      (25 * T * T + 31 * T + 43) * (families.toList.map fun f => f.dimensionThings.size).sum +
       (4 * T + 4) * (families.toList.map fun f => f.typeThings.size).sum +
-      (30 * T + 19) * families.size := by
+      (18 * T * T + 45 * T + 20) * families.size := by
   have sum_formula (fs : List ProductFamilySpec) :
       (fs.map fun f => productFamilyDiagnosticBound T f.dimensionThings.size f.typeThings.size + 3).sum =
-        (31 * T + 43) * (fs.map fun f => f.dimensionThings.size).sum +
+        (25 * T * T + 31 * T + 43) * (fs.map fun f => f.dimensionThings.size).sum +
         (4 * T + 4) * (fs.map fun f => f.typeThings.size).sum +
-        (30 * T + 19) * fs.length := by
+        (18 * T * T + 45 * T + 20) * fs.length := by
     induction fs with
     | nil => simp
     | cons f fs ih =>
       simp only [List.map_cons, List.sum_cons, List.length_cons]
       rw [ih]
-      simp only [productFamilyDiagnosticBound, Nat.mul_add, Nat.add_mul,
-        Nat.mul_left_comm T 31, Nat.mul_left_comm T 4, Nat.mul_comm T 15, Nat.mul_assoc,
-        Nat.mul_one]
-      omega
+      unfold productFamilyDiagnosticBound
+      ring
   simpa [productFamiliesDiagnosticBound] using sum_formula families.toList
 
 /-- Size growth cannot reduce the upper bound. Actual execution can still

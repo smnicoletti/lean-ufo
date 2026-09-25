@@ -675,42 +675,6 @@ theorem checkAx33_iff (M : FiniteModel4) :
     checkAx33 M = true ↔ ax_a33 M.toUFOSignature4.toUFOSignature3_2 :=
   checkAx33_correct M
 
-private theorem checkAxInstEndurant_correct (M : FiniteModel4) :
-    checkAxInstEndurant M = true ↔
-      ax_instEndurant_of_EndurantType (Sig := M.toUFOSignature4.toUFOSignature3_2) := by
-  rw [checkAxInstEndurant_eq_legacy]
-  unfold ax_instEndurant_of_EndurantType allThings allWorlds impliesB
-  simp [FiniteModel4.toUFOSignature4]
-  grind
-
-theorem checkAxInstEndurant_sound (M : FiniteModel4) :
-    checkAxInstEndurant M = true →
-      ax_instEndurant_of_EndurantType (Sig := M.toUFOSignature4.toUFOSignature3_2) :=
-  (checkAxInstEndurant_correct M).1
-
-theorem checkAxInstEndurant_complete (M : FiniteModel4) :
-    ax_instEndurant_of_EndurantType (Sig := M.toUFOSignature4.toUFOSignature3_2) →
-      checkAxInstEndurant M = true :=
-  (checkAxInstEndurant_correct M).2
-
-private theorem checkAxSubKindSortal_correct (M : FiniteModel4) :
-    checkAxSubKindSortal M = true ↔
-      ax_sub_of_kind_is_sortal (Sig := M.toUFOSignature4.toUFOSignature3_2) := by
-  rw [checkAxSubKindSortal_eq_legacy]
-  unfold ax_sub_of_kind_is_sortal allThings allWorlds impliesB
-  simp [FiniteModel4.toUFOSignature4]
-  grind
-
-theorem checkAxSubKindSortal_sound (M : FiniteModel4) :
-    checkAxSubKindSortal M = true →
-      ax_sub_of_kind_is_sortal (Sig := M.toUFOSignature4.toUFOSignature3_2) :=
-  (checkAxSubKindSortal_correct M).1
-
-theorem checkAxSubKindSortal_complete (M : FiniteModel4) :
-    ax_sub_of_kind_is_sortal (Sig := M.toUFOSignature4.toUFOSignature3_2) →
-      checkAxSubKindSortal M = true :=
-  (checkAxSubKindSortal_correct M).2
-
 private theorem checkAxNonSortalUp_correct (M : FiniteModel4) :
     checkAxNonSortalUp M = true ↔
       ax_nonSortal_upward (Sig := M.toUFOSignature4.toUFOSignature3_2) := by
@@ -728,21 +692,6 @@ theorem checkAxNonSortalUp_complete (M : FiniteModel4) :
     ax_nonSortal_upward (Sig := M.toUFOSignature4.toUFOSignature3_2) →
       checkAxNonSortalUp M = true :=
   (checkAxNonSortalUp_correct M).2
-
-private theorem checkAxKindStable_correct (M : FiniteModel4) :
-    checkAxKindStable M = true ↔ ax_kindStable M.toUFOSignature4.toUFOSignature3_2 := by
-  rw [checkAxKindStable_eq_legacy]
-  unfold ax_kindStable allThings allWorlds impliesB
-  simp [FiniteModel4.toUFOSignature4, FiniteModel4.toS5Frame]
-  grind
-
-theorem checkAxKindStable_sound (M : FiniteModel4) :
-    checkAxKindStable M = true → ax_kindStable M.toUFOSignature4.toUFOSignature3_2 :=
-  (checkAxKindStable_correct M).1
-
-theorem checkAxKindStable_complete (M : FiniteModel4) :
-    ax_kindStable M.toUFOSignature4.toUFOSignature3_2 → checkAxKindStable M = true :=
-  (checkAxKindStable_correct M).2
 
 private theorem qualityB_eq_true_iff
     (M : FiniteModel4) (x : Fin M.thingCount) (w : Fin M.worldCount) :
@@ -3661,9 +3610,9 @@ private theorem productFamilyWitnessB_sound
   unfold productFamilyWitnessB at h
   simp [allThings_eq_true_iff, allProductFamilyIndices_eq_true_iff,
     anyProductFamilyIndices_eq_true_iff, impliesB] at h
-  rcases h with ⟨⟨⟨⟨hDomainType, hWorld⟩, hProduct⟩, hAssocChar⟩, hCover⟩
+  rcases h with ⟨⟨⟨⟨⟨hDomainType, hWorld⟩, hProduct⟩, hSeparate⟩, hAssocChar⟩, hCover⟩
   rcases hDomainType with ⟨hDomain, hType⟩
-  refine ⟨hDomain, hType, hWorld, ?_, hAssocChar, ?_⟩
+  refine ⟨hDomain, hType, hWorld, ?_, hSeparate, hAssocChar, ?_⟩
   · intro p hp i
     exact ((hProduct p).resolve_left (by simp [hp])) i
   · intro u hu
@@ -3675,7 +3624,7 @@ private theorem productFamilyWitnessB_complete
     productFamilyWitnessProp M pf x t w →
       productFamilyWitnessB M pf x t w = true := by
   intro h
-  rcases h with ⟨hDomain, hType, hWorld, hProduct, hAssocChar, hCover⟩
+  rcases h with ⟨hDomain, hType, hWorld, hProduct, hSeparate, hAssocChar, hCover⟩
   unfold productFamilyWitnessB
   have hProductB :
       (allThings M fun p =>
@@ -3720,7 +3669,9 @@ private theorem productFamilyWitnessB_complete
     · cases hum : M.characterization t u w
       · simp
       · exact False.elim (hu hum)
-  simp [hDomain, hType, hWorld, hProductB, hAssocCharB, hCoverB]
+  simp only [hDomain, hType, hWorld, decide_true, hProductB, hAssocCharB, hCoverB,
+    Bool.true_and, Bool.and_true, decide_eq_true_eq]
+  exact hSeparate
 
 private theorem productFamilyWitnessB_correct
     (M : FiniteModel4) (pf : ProductFamilyWitness M.thingCount M.worldCount)
@@ -3841,18 +3792,19 @@ theorem checkAx99_sound (M : FiniteModel4) :
   rcases (anyProductFamilyWitness_eq_true_iff M _).1 hw with ⟨idx, hWitnessB⟩
   let pf := M.productFamilies[idx]
   have hWitness := productFamilyWitnessB_sound M pf x t w hWitnessB
-  rcases hWitness with ⟨hDomain, hType, hWorld, hProduct, hAssocChar, hCover⟩
+  rcases hWitness with ⟨hDomain, hType, hWorld, hProduct, hSeparate, hAssocChar, hCover⟩
   subst hDomain
   subst hType
   subst hWorld
   refine ⟨pf.dimensionThings.size, productFamilyDimensions pf, productFamilyTypes pf, ?_, ?_, ?_⟩
-  · intro p hp
-    have hpB : M.memberOf p pf.domain pf.world = true := by
-      exact (finiteMemberOf_iff M p pf.domain pf.world).1 hp
-    intro i
-    have hi := hProduct p hpB i
-    exact (finiteMemberOf_iff M (M.tupleProjection p i pf.world)
-      (productFamilyDimensions pf i) pf.world).2 hi
+  · constructor
+    · intro p hp i
+      have hpB := (finiteMemberOf_iff M p pf.domain pf.world).1 hp
+      exact (finiteMemberOf_iff M (M.tupleProjection p i pf.world)
+        (productFamilyDimensions pf i) pf.world).2 (hProduct p hpB i)
+    · intro p q hp hq heq
+      exact hSeparate p q ((finiteMemberOf_iff M p pf.domain pf.world).1 hp)
+        ((finiteMemberOf_iff M q pf.domain pf.world).1 hq) heq
   · intro i
     exact ⟨by
       simpa [FiniteModel4.toUFOSignature4] using (hAssocChar i).1, by
@@ -4144,7 +4096,7 @@ theorem checkAx107_complete (M : FiniteModel4) :
 private theorem checkAx108_correct (M : FiniteModel4) :
     checkAx108 M = true ↔ ax_a108 M.toUFOSignature4 := by
   unfold checkAx108 checkAx108Costed ax_a108
-  simp [FiniteModel4.toUFOSignature4]
+  simp [FiniteModel4.toUFOSignature4, ProperSub]
 
 theorem checkAx108_sound (M : FiniteModel4) :
     checkAx108 M = true → ax_a108 M.toUFOSignature4 :=
@@ -4326,11 +4278,6 @@ theorem checkAx32_semantic_iff (M : FiniteModel4) :
 theorem checkAx33_semantic_iff (M : FiniteModel4) :
     ax_a33 M.toUFOSignature4.toUFOSignature3_2 ↔ checkAx33 M = true :=
   ⟨checkAx33_complete M, checkAx33_sound M⟩
-
-@[ufo_checker]
-theorem checkAxKindStable_semantic_iff (M : FiniteModel4) :
-    ax_kindStable M.toUFOSignature4.toUFOSignature3_2 ↔ checkAxKindStable M = true :=
-  ⟨checkAxKindStable_complete M, checkAxKindStable_sound M⟩
 
 @[ufo_checker]
 theorem checkAx34_semantic_iff (M : FiniteModel4) :
@@ -4703,18 +4650,6 @@ theorem checkAx108_semantic_iff (M : FiniteModel4) :
   ⟨checkAx108_complete M, checkAx108_sound M⟩
 
 @[ufo_checker]
-theorem checkAxInstEndurant_semantic_iff (M : FiniteModel4) :
-    ax_instEndurant_of_EndurantType (Sig := M.toUFOSignature4.toUFOSignature3_2) ↔
-      checkAxInstEndurant M = true :=
-  ⟨checkAxInstEndurant_complete M, checkAxInstEndurant_sound M⟩
-
-@[ufo_checker]
-theorem checkAxSubKindSortal_semantic_iff (M : FiniteModel4) :
-    ax_sub_of_kind_is_sortal (Sig := M.toUFOSignature4.toUFOSignature3_2) ↔
-      checkAxSubKindSortal M = true :=
-  ⟨checkAxSubKindSortal_complete M, checkAxSubKindSortal_sound M⟩
-
-@[ufo_checker]
 theorem checkAxNonSortalUp_semantic_iff (M : FiniteModel4) :
     ax_nonSortal_upward (Sig := M.toUFOSignature4.toUFOSignature3_2) ↔
       checkAxNonSortalUp M = true :=
@@ -4782,10 +4717,7 @@ theorem checkAxioms4_sound (M : FiniteModel4) :
   have h31 : checkAx31 M = true := hmem _ (by simp [checkAxioms4Checks])
   have h32 : checkAx32 M = true := hmem _ (by simp [checkAxioms4Checks])
   have h33 : checkAx33 M = true := hmem _ (by simp [checkAxioms4Checks])
-  have hInstEndurant : checkAxInstEndurant M = true := hmem _ (by simp [checkAxioms4Checks])
-  have hSubKindSortal : checkAxSubKindSortal M = true := hmem _ (by simp [checkAxioms4Checks])
   have hNonSortalUp : checkAxNonSortalUp M = true := hmem _ (by simp [checkAxioms4Checks])
-  have hKindStable : checkAxKindStable M = true := hmem _ (by simp [checkAxioms4Checks])
   have h34 : checkAx34 M = true := hmem _ (by simp [checkAxioms4Checks])
   have h35 : checkAx35 M = true := hmem _ (by simp [checkAxioms4Checks])
   have h36 : checkAx36 M = true := hmem _ (by simp [checkAxioms4Checks])
@@ -4899,10 +4831,7 @@ theorem checkAxioms4_sound (M : FiniteModel4) :
     ax31 := checkAx31_sound M h31
     ax32 := checkAx32_sound M h32
     ax33 := checkAx33_sound M h33
-    ax_instEndurant := checkAxInstEndurant_sound M hInstEndurant
-    ax_sub_kind_sortal := checkAxSubKindSortal_sound M hSubKindSortal
     ax_nonSortal_up := checkAxNonSortalUp_sound M hNonSortalUp
-    ax_kindStable := checkAxKindStable_sound M hKindStable
     ax34 := checkAx34_sound M h34
     ax35 := checkAx35_sound M h35
     ax36 := checkAx36_sound M h36

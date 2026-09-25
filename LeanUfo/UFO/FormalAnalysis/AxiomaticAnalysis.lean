@@ -200,9 +200,11 @@ by
   exact (((hA73 x y w).1 h.1 x').1 h.2).2.2.symm
 
 /--
-The guarded-overlap experiment proves the (t31) conclusion only for parts that
-are independently known to be externally dependent modes. Its countermodel is
-recorded in `FormalAnalysis.Historical.GuardedOverlapCountermodel`.
+Guarded overlap proves (t31) for parts that are externally dependent modes,
+using reflexivity and the definition of overlap. Unrestricted (t31) fails
+even under the full guarded alternative through §4, as proved in
+`FormalAnalysis.Historical.GuardedOverlapCountermodel`. Its qua individual
+has unfounded object parts, which the guarded formula leaves unconstrained.
 -/
 theorem th_t31_guarded_overlap
   (hA47 : ax_a47 Sig.toUFOSignature3_5)
@@ -219,6 +221,62 @@ by
   have hOverlap : Sig.Overlap x' x w :=
     (hA50 x' x w).2 ⟨x', hA47 x' w, hPart⟩
   exact (((hA73 x y w).1 hQua).2.2 x' hEDM).1 hOverlap |>.2.symm
+
+/--
+Every part of a qua individual contained in a relator shares its foundation.
+Transitivity puts both entities inside the relator, and (a78) equates their
+foundations with its foundation. No version of (a73) is needed.
+-/
+theorem th_t31_of_part_relator
+  (hA49 : ax_a49 Sig.toUFOSignature3_5)
+  (hA78 : ax_a78 Sig)
+  {x x' r : Sig.Thing} {w : Sig.F.World}
+  (hPart : Sig.Part x' x w) (hContainer : Sig.Part x r w)
+  (hRelator : Sig.Relator r w) :
+  FoundationOf Sig x w = FoundationOf Sig x' w := by
+  exact (hA78 r x w ⟨hRelator, hContainer⟩).symm.trans
+    (hA78 r x' w ⟨hRelator, hA49 x' x r w ⟨hPart, hContainer⟩⟩)
+
+/--
+Under the full guarded-repair package, (t31) holds whenever the selected part
+has a foundation. Axiom (a71) makes that part an externally dependent mode or
+a relator. In the relator case, (a79) supplies a qua-individual part whose
+foundation connects the two entities through guarded overlap and (a78).
+
+The countermodel in `Historical/GuardedOverlapCountermodel.lean` refutes
+unrestricted (t31) under the full guarded alternative through §4. Some
+additional restriction is therefore necessary. This theorem supplies one
+sufficient condition, without claiming that it is the weakest.
+-/
+theorem th_t31_guarded_overlap_of_founded
+  [UFOAxioms3_10GuardedOverlapRepair Sig]
+  {x x' y : Sig.Thing} {w : Sig.F.World}
+  (hQua : Sig.QuaIndividualOf x y w) (hPart : Sig.Part x' x w)
+  (hFounded : ∃ f, Sig.FoundedBy x' f w) :
+  FoundationOf Sig x w = FoundationOf Sig x' w := by
+  let h10 := (inferInstance : UFOAxioms3_10GuardedOverlapRepair Sig)
+  let hBase := h10.toUFOAxioms3_10WithoutA73
+  let h5 := hBase.toUFOAxioms3_9.toUFOAxioms3_8.toUFOAxioms3_7.toUFOAxioms3_6.toUFOAxioms3_5
+  obtain ⟨f, hf⟩ := hFounded
+  rcases (hBase.ax71 x' f w hf).1 with hEDM | hRelator
+  · exact th_t31_guarded_overlap Sig h5.ax47 h5.ax50 h10.ax73GuardedOverlap
+      x x' y w ⟨hQua, hPart, hEDM⟩
+  · obtain ⟨⟨p, hp⟩, hPairwise, _⟩ := (hBase.ax79 x' w).1 hRelator
+    have hpPart := ((h5.ax52 p x' w).1 hp).1
+    have hpEDM := hBase.ax75 p w (hPairwise p p ⟨hp, hp⟩).1
+    have hxFp := th_t31_guarded_overlap Sig h5.ax47 h5.ax50 h10.ax73GuardedOverlap
+      x p y w ⟨hQua, h5.ax49 p x' x w ⟨hpPart, hPart⟩, hpEDM⟩
+    exact hxFp.trans (hBase.ax78 x' p w ⟨hRelator, hpPart⟩).symm
+
+/-- Any full-package counterexample to (t31) must use a part with no foundation. -/
+theorem t31_guarded_overlap_failure_unfounded
+  [UFOAxioms3_10GuardedOverlapRepair Sig]
+  {x x' y : Sig.Thing} {w : Sig.F.World}
+  (hQua : Sig.QuaIndividualOf x y w) (hPart : Sig.Part x' x w)
+  (hDifferent : FoundationOf Sig x w ≠ FoundationOf Sig x' w) :
+  ¬ ∃ f, Sig.FoundedBy x' f w := by
+  intro hFounded
+  exact hDifferent (th_t31_guarded_overlap_of_founded Sig hQua hPart hFounded)
 
 /--
 Package-level corollary for the historical package with printed (a73).
@@ -376,29 +434,7 @@ theorem th_t33_part_characterization
   (hQuaEnd : ax_quaIndividualOf_endurant (Sig := Sig)) :
   ∀ (x : Sig.Thing) (w : Sig.F.World), Sig.Relator x w →
     ∃ y z : Sig.Thing, y ≠ z ∧ Sig.Mediates x y w ∧ Sig.Mediates x z w :=
-by
-  intro x w hRel
-  rcases (hA79 x w).1 hRel with ⟨⟨p, hPPp⟩, hPairwise, _⟩
-  rcases properPart_has_disjoint_companion (Sig := Sig)
-      hA47 hA49 hA50 hA51 hA52 hPPp with ⟨q, hPPq, hDisjoint⟩
-  rcases hPairwise p q ⟨hPPp, hPPq⟩ with
-    ⟨hQp, hQq, hFoundation, _hEDpq, _hEDqp⟩
-  rcases (hA74 p w).1 hQp with ⟨y, hQOfp⟩
-  rcases (hA74 q w).1 hQq with ⟨z, hQOfq⟩
-  have hyNez : y ≠ z := by
-    intro hyz
-    have hPartQQ : Sig.Part q q w := hA47 q w
-    have hQData := ((hA73 q z w).1 hQOfq q).1 hPartQQ
-    have hPartQP : Sig.Part q p w :=
-      ((hA73 p y w).1 hQOfp q).2
-        ⟨hQData.1, by simpa [hyz] using hQData.2.1,
-          hFoundation.symm⟩
-    exact hDisjoint ((hA50 q p w).2 ⟨q, hA47 q w, hPartQP⟩)
-  exact ⟨y, z, hyNez,
-    (hA80 x y w).2 ⟨hRel, hQuaEnd p y w hQOfp,
-      ⟨p, hQOfp, (hA52 p x w).1 hPPp |>.1⟩⟩,
-    (hA80 x z w).2 ⟨hRel, hQuaEnd q z w hQOfq,
-      ⟨q, hQOfq, (hA52 q x w).1 hPPq |>.1⟩⟩⟩
+  th_t33 Sig hA47 hA49 hA50 hA51 hA52 hA73 hA74 hA79 hA80 hQuaEnd
 
 /-- The guarded-overlap comparison also preserves theorem (t33) unchanged. -/
 theorem th_t33_guarded_overlap

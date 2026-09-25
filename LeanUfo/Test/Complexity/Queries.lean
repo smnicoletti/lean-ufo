@@ -241,12 +241,6 @@ example : (#[false, true]).all (fun a => (#[false, true]).all (fun b =>
           22 + (if a then 0 else 9 + (if b then 0 else 8)) +
             (if a || b || c then 0 else 1)⟩)))) = true := by native_decide
 
--- The cross-world helper has three loops, hence six loop operations here.
-example : (#[false, true]).all (fun a => (#[false, true]).all (fun b =>
-    let M := classificationModel a b false false
-    Checker.checkThingWorldWorldImpCosted M M.kind M.subKind ==
-      ⟨!a || b, 16 + (if a then 8 else 0)⟩)) = true := by native_decide
-
 private def worldFirstAst : ModelAST :=
   { worldCount := 2, thingCount := 3,
     facts := #[.unary .kind 2 0, .unary .subKind 2 0] }
@@ -633,27 +627,6 @@ example : Checker.ax22CounterexampleCosted crossWorldKindModel (0 : Fin 2) (0 : 
     ⟨true, 74⟩ := by native_decide
 example : Checker.checkAx22Costed crossWorldKindModel =
     ⟨false, 103⟩ := by native_decide
-
-private def bridgeAst (a b c : Bool) : ModelAST :=
-  { worldCount := 1, thingCount := 1,
-    facts := (if a then #[.unary .endurantType 0 0, .binary .sub 0 0 0] else #[]) ++
-      (if b then #[.binary .inst 0 0 0, .unary .kind 0 0] else #[]) ++
-      (if c then #[.unary .endurant 0 0, .unary .sortal 0 0] else #[]) }
-
-private def bridgeModel (a b c : Bool) : FiniteModel4 :=
-  compileVerifiedModel (bridgeAst a b c)
-    (by change 0 < 1; decide) (by change 0 < 1; decide)
-    (by cases a <;> cases b <;> cases c <;> decide)
-
--- Three loops and the connectives add nine. Reversing unary/binary premise
--- order changes the skipped-read cost, but both fully evaluated checks cost 36.
-example : (#[false, true]).all (fun a => (#[false, true]).all (fun b =>
-    (#[false, true]).all (fun c =>
-      let M := bridgeModel a b c
-      #[Checker.checkAxInstEndurantCosted M, Checker.checkAxSubKindSortalCosted M] ==
-      #[⟨!(a && b) || c, 17 + (if a then 11 + (if b then 8 else 0) else 0)⟩,
-        ⟨!(a && b) || c, 20 + (if a then 8 + (if b then 8 else 0) else 0)⟩]))) =
-    true := by native_decide
 
 private def nonSortalAst (a b c : Bool) : ModelAST :=
   { worldCount := 1, thingCount := 2,
@@ -2860,78 +2833,105 @@ example : Checker.productFamilyCoverageRowsCosted (familyCostModel 0 false false
     countedFamily (0 : Fin 3) (0 : Fin 1) =
     ⟨false, 34⟩ := by native_decide
 
+-- Two-member scans count both projection calls. With one coordinate and
+-- one-operation projections, a compared pair costs 23 when coordinates agree
+-- and 22 when they differ. The first collision stops the outer scan.
+example : Checker.productCoordinatesSeparateCosted 2 1
+    (fun _ => Complexity.Costed.tick true 11)
+    (fun _ _ => Complexity.Costed.tick (0 : Fin 2) 1) = ⟨false, 61⟩ := by
+  native_decide
+
+example : Checker.productCoordinatesSeparateCosted 2 1
+    (fun _ => Complexity.Costed.tick true 11)
+    (fun p _ => Complexity.Costed.tick p 1) = ⟨true, 120⟩ := by
+  native_decide
+
+-- Empty domains skip projection work. Zero coordinates still require
+-- injectivity: at most one member can represent the empty tuple.
+example : Checker.productCoordinatesSeparateCosted 2 0
+    (fun _ => Complexity.Costed.tick false 11)
+    (fun p _ => Complexity.Costed.tick p 1) = ⟨true, 30⟩ := by native_decide
+
+example : Checker.productCoordinatesSeparateCosted 2 0
+    (fun p => Complexity.Costed.tick (decide (p = 0)) 11)
+    (fun p _ => Complexity.Costed.tick p 1) = ⟨true, 63⟩ := by native_decide
+
+example : Checker.productCoordinatesSeparateCosted 2 0
+    (fun _ => Complexity.Costed.tick true 11)
+    (fun p _ => Complexity.Costed.tick p 1) = ⟨false, 51⟩ := by native_decide
+
 example : Checker.productFamilyWitnessCosted (familyCostModel 0 false false false false false)
-    countedFamily (0 : Fin 3) (0 : Fin 3) (0 : Fin 1) =
-    ⟨false, 69⟩ := by native_decide
-
-example : Checker.productFamilyWitnessCosted (familyCostModel 0 false false true false false)
-    countedFamily (0 : Fin 3) (0 : Fin 3) (0 : Fin 1) =
-    ⟨false, 81⟩ := by native_decide
-
-example : Checker.productFamilyWitnessCosted (familyCostModel 0 false false true true false)
-    countedFamily (0 : Fin 3) (0 : Fin 3) (0 : Fin 1) =
-    ⟨true, 130⟩ := by native_decide
-
-example : Checker.productFamilyWitnessCosted (familyCostModel 0 false false true true true)
     countedFamily (0 : Fin 3) (0 : Fin 3) (0 : Fin 1) =
     ⟨false, 115⟩ := by native_decide
 
+example : Checker.productFamilyWitnessCosted (familyCostModel 0 false false true false false)
+    countedFamily (0 : Fin 3) (0 : Fin 3) (0 : Fin 1) =
+    ⟨false, 127⟩ := by native_decide
+
+example : Checker.productFamilyWitnessCosted (familyCostModel 0 false false true true false)
+    countedFamily (0 : Fin 3) (0 : Fin 3) (0 : Fin 1) =
+    ⟨true, 176⟩ := by native_decide
+
+example : Checker.productFamilyWitnessCosted (familyCostModel 0 false false true true true)
+    countedFamily (0 : Fin 3) (0 : Fin 3) (0 : Fin 1) =
+    ⟨false, 161⟩ := by native_decide
+
 example : Checker.productFamilyWitnessCosted (familyCostModel 0 true true true true false)
     countedFamily (0 : Fin 3) (0 : Fin 3) (0 : Fin 1) =
-    ⟨true, 146⟩ := by native_decide
+    ⟨true, 247⟩ := by native_decide
 
 example : Checker.productFamilyWitnessCosted (familyCostModel 1 true true true true false)
     countedFamily (0 : Fin 3) (0 : Fin 3) (0 : Fin 1) =
-    ⟨true, 153⟩ := by native_decide
+    ⟨true, 268⟩ := by native_decide
 
 example : Checker.productFamilyWitnessCosted (familyCostModel 2 true true true true false)
     countedFamily (0 : Fin 3) (0 : Fin 3) (0 : Fin 1) =
-    ⟨true, 155⟩ := by native_decide
+    ⟨true, 274⟩ := by native_decide
 
 example : Checker.productFamilyWitnessCosted (familyCostModel 3 true true true true false)
     countedFamily (0 : Fin 3) (0 : Fin 3) (0 : Fin 1) =
-    ⟨true, 155⟩ := by native_decide
+    ⟨true, 274⟩ := by native_decide
 
 example : Checker.productFamilyWitnessCosted (familyCostModel 0 true false true true false)
     countedFamily (0 : Fin 3) (0 : Fin 3) (0 : Fin 1) =
-    ⟨false, 39⟩ := by native_decide
+    ⟨false, 40⟩ := by native_decide
 
 example : Checker.productFamilyWitnessCosted (familyCostModel 1 true false true true false)
     countedFamily (0 : Fin 3) (0 : Fin 3) (0 : Fin 1) =
-    ⟨false, 46⟩ := by native_decide
+    ⟨false, 47⟩ := by native_decide
 
 example : Checker.productFamilyWitnessCosted (familyCostModel 3 true false true true false)
     countedFamily (0 : Fin 3) (0 : Fin 3) (0 : Fin 1) =
-    ⟨false, 48⟩ := by native_decide
+    ⟨false, 49⟩ := by native_decide
 
 example : Checker.productFamilyWitnessCosted (familyCostModel 3 true true true true false)
     countedFamily (1 : Fin 3) (0 : Fin 3) (0 : Fin 1) =
-    ⟨false, 6⟩ := by native_decide
+    ⟨false, 7⟩ := by native_decide
 
 example : Checker.productFamilyWitnessCosted (familyCostModel 3 true true true true false)
     countedFamily (0 : Fin 3) (1 : Fin 3) (0 : Fin 1) =
-    ⟨false, 7⟩ := by native_decide
+    ⟨false, 8⟩ := by native_decide
 
 example : Checker.productFamilySearchCosted (familyCostModel 0 false false true true false)
     (0 : Fin 3) (0 : Fin 3) (0 : Fin 1) =
-    ⟨true, 133⟩ := by native_decide
+    ⟨true, 179⟩ := by native_decide
 
 example : Checker.productFamilySearchCosted (familyCostModel 0 true true true true false)
     (0 : Fin 3) (0 : Fin 3) (0 : Fin 1) =
-    ⟨true, 149⟩ := by native_decide
+    ⟨true, 250⟩ := by native_decide
 
 example : Checker.productFamilySearchCosted (familyCostModel 0 false false false false false)
     (0 : Fin 3) (0 : Fin 3) (0 : Fin 1) =
-    ⟨false, 72⟩ := by native_decide
+    ⟨false, 118⟩ := by native_decide
 
 example : Checker.checkAx99Costed (familyCostModel 0 false false true true false) =
-    ⟨true, 307⟩ := by native_decide
+    ⟨true, 353⟩ := by native_decide
 
 example : Checker.checkAx99Costed (familyCostModel 0 true true true true false) =
-    ⟨true, 323⟩ := by native_decide
+    ⟨true, 424⟩ := by native_decide
 
 example : Checker.checkAx99Costed (familyCostModel 0 false false false false false) =
-    ⟨false, 100⟩ := by native_decide
+    ⟨false, 146⟩ := by native_decide
 
 -- These models retain the compiled relation and projection operations while
 -- varying only the supplied family array. Each visited family adds one array
@@ -2945,26 +2945,26 @@ private def familyOrderModel (firstValid secondValid : Bool) : FiniteModel4 :=
 
 example : Checker.productFamilySearchCosted (familyOrderModel true false)
     (0 : Fin 3) (0 : Fin 3) (0 : Fin 1) =
-    ⟨true, 133⟩ := by native_decide
+    ⟨true, 179⟩ := by native_decide
 
 example : Checker.productFamilySearchCosted (familyOrderModel true true)
     (0 : Fin 3) (0 : Fin 3) (0 : Fin 1) =
-    ⟨true, 133⟩ := by native_decide
+    ⟨true, 179⟩ := by native_decide
 
 example : Checker.productFamilySearchCosted (familyOrderModel false true)
     (0 : Fin 3) (0 : Fin 3) (0 : Fin 1) =
-    ⟨true, 142⟩ := by native_decide
+    ⟨true, 189⟩ := by native_decide
 
 example : Checker.productFamilySearchCosted (familyOrderModel false false)
     (0 : Fin 3) (0 : Fin 3) (0 : Fin 1) =
-    ⟨false, 18⟩ := by native_decide
+    ⟨false, 20⟩ := by native_decide
 
 example : Checker.checkAx99Costed
     { familyCostModel 0 false false true true false with productFamilies := #[] } =
     ⟨false, 28⟩ := by native_decide
 
 example : Checker.checkAx99Costed (familyOrderModel false true) =
-    ⟨true, 316⟩ := by native_decide
+    ⟨true, 363⟩ := by native_decide
 
 -- Family arity is independent of the number of model things. Later slots
 -- outside the projection table use the two-operation tuple fallback.
@@ -2976,16 +2976,16 @@ private def wideCountedFamily : ProductFamilyWitness 3 1 :=
 
 example : Checker.productFamilyWitnessCosted
     (familyCostModel 0 false false true true false) wideCountedFamily
-    (0 : Fin 3) (0 : Fin 3) (0 : Fin 1) = ⟨true, 242⟩ := by native_decide
+    (0 : Fin 3) (0 : Fin 3) (0 : Fin 1) = ⟨true, 288⟩ := by native_decide
 
 example : Checker.productFamilyWitnessCosted
     (familyCostModel 3 true true true true false) wideCountedFamily
-    (0 : Fin 3) (0 : Fin 3) (0 : Fin 1) = ⟨true, 331⟩ := by native_decide
+    (0 : Fin 3) (0 : Fin 3) (0 : Fin 1) = ⟨true, 478⟩ := by native_decide
 
 example : Checker.productFamilyWitnessCosted
     (familyCostModel 0 true false true false false)
     { countedFamily with dimensionThings := #[], typeThings := #[], sameSize := rfl }
-    (0 : Fin 3) (0 : Fin 3) (0 : Fin 1) = ⟨true, 98⟩ := by native_decide
+    (0 : Fin 3) (0 : Fin 3) (0 : Fin 1) = ⟨true, 192⟩ := by native_decide
 
 private def projectionWorldAst : ModelAST :=
   { worldCount := 2, thingCount := 3, facts := #[.tupleProjection 0 0 1 1] }
@@ -3239,6 +3239,36 @@ example : Checker.checkAx107Costed (lifeShapeModel true true true true false fal
 
 example (M : FiniteModel4) : ax_a108 M.toUFOSignature4 :=
   Checker.checkAx108_sound M rfl
+
+/-- Isolate the interpretation of (a108). These raw tables test the definition;
+the cumulative anti-vacuity model separately proves full-package consistency.
+Thing 0 instantiates category 1 and specializes target 2. -/
+private def categorizationAst (reverse : Bool) : ModelAST :=
+  { worldCount := 1, thingCount := 3,
+    facts := #[.binary .inst 0 1 0, .binary .sub 0 2 0] ++
+      (if reverse then #[.binary .sub 2 0 0] else #[]) }
+
+private def categorizationModel (reverse : Bool) : FiniteModel4 :=
+  compileVerifiedModel (categorizationAst reverse)
+    (by change 0 < 1; decide) (by change 0 < 3; decide)
+    (by cases reverse <;> decide)
+
+example : (categorizationModel false).toUFOSignature4.Categorizes
+    (1 : Fin 3) (2 : Fin 3) (0 : Fin 1) := by
+  refine ⟨⟨(0 : Fin 1), (0 : Fin 3), by decide⟩, ?_⟩
+  intro t
+  change Fin 3 at t
+  have ht : t = (0 : Fin 3) ∨ t = (1 : Fin 3) ∨ t = (2 : Fin 3) := by
+    have := t.isLt
+    change t.val < 3 at this
+    omega
+  rcases ht with rfl | rfl | rfl <;> decide
+
+example : ¬ (categorizationModel true).toUFOSignature4.Categorizes
+    (1 : Fin 3) (2 : Fin 3) (0 : Fin 1) := by
+  intro h
+  have hp := h.2 (0 : Fin 3) (by decide)
+  exact hp.2 (by decide)
 
 example : Checker.checkAx108Costed (lifeShapeModel true true true true false false false) =
     ⟨true, 0⟩ := by native_decide

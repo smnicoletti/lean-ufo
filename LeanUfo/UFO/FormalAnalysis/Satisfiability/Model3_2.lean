@@ -480,27 +480,13 @@ theorem ax33_sig3_2 : ax_a33 sig3_2 := by
   cases w
   cases t <;> simp [sig3_2]
 
-theorem ax_instEndurant_sig3_2 :
-  ax_instEndurant_of_EndurantType (Sig := sig3_2) := by
-  intro t x w hEnd hInst
-  cases w
-  cases t <;> cases x <;> simp [sig3_2] at hEnd hInst ⊢
 
-theorem ax_sub_kind_sortal_sig3_2 :
-  ax_sub_of_kind_is_sortal (Sig := sig3_2) := by
-  intro a k w hSub hKind
-  cases w
-  cases a <;> cases k <;> simp [sig3_2] at hSub hKind ⊢
 
 theorem ax_nonSortal_up_sig3_2 :
   ax_nonSortal_upward (Sig := sig3_2) := by
   intro a b w hNon hSub
   cases w
   cases a <;> cases b <;> simp [sig3_2] at hNon hSub ⊢
-
-theorem ax_kindStable_sig3_2 : ax_kindStable sig3_2 := by
-  intro k w v hK hv
-  cases w; cases v; cases k <;> simp [sig3_2] at hK ⊢
 
 /-- Consistency witness: a concrete model of UFO subsection 3.2. -/
 instance : UFOAxioms3_2 sig3_2 where
@@ -543,9 +529,6 @@ instance : UFOAxioms3_2 sig3_2 where
   ax33 := ax33_sig3_2
 
   -- Structural axioms
-  ax_instEndurant := ax_instEndurant_sig3_2
-  ax_sub_kind_sortal := ax_sub_kind_sortal_sig3_2
   ax_nonSortal_up := ax_nonSortal_up_sig3_2
-  ax_kindStable := ax_kindStable_sig3_2
 
 end Model3_2

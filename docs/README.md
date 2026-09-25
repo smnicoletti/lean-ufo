@@ -13,7 +13,7 @@ diagnostics, tests, and implementation reference.
 | Page | Use It For |
 | --- | --- |
 | [Project overview](overview.md) | What the project formalizes and how the DSL fits |
-| [Theoretical notes](theory.md) | Modal choices, formal milestones, relator diagnosis and repair analysis, S5 consequences, and explicit bridge axioms |
+| [Theoretical notes](theory.md) | Modal choices, formal milestones, relator diagnosis and repair analysis, S5 consequences, and added assumptions |
 | [DSL quickstart](dsl/quickstart.md) | Writing and certifying a first finite model |
 | [DSL syntax reference](dsl/syntax.md) | Facts, scopes, derived assertions, and quality/distance primitives |
 | [DSL architecture](dsl/architecture.md) | DSL directory ownership, import direction, syntax-to-certificate pipeline, checker, and diagnostics |

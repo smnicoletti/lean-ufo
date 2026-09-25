@@ -54,18 +54,38 @@ LeanUfo/Test/
 
 ## Default tests
 
+`FormalAnalysis/StructuralAssumptions.lean` collects the checks of all added
+assumptions. Applications of the core theorems check that instance typing,
+subtype-of-kind typing, and kind stability follow from numbered axioms.
+They also check the conclusions of (t10), (t11), (t14), and (t16).
+
+Two countermodels satisfy (a1)–(a108) as currently encoded, the source distance
+laws, and the other added assumption. One refutes non-sortal upward closure
+and (t16). The other refutes qua-individual bearer typing and (t33). The proofs used by
+the numbered theorems stay in their respective `Core` sections.
+
+The default imports also check
+`FormalAnalysis/Historical/GuardedOverlapCountermodel.lean`.
+Its `full_counterexample` satisfies the guarded-overlap alternative through
+§4, including both added assumptions and the source distance laws, and
+refutes unrestricted (t31). The proof handles the unspecified value of
+`FoundationOf` on an unfounded part without assuming which value it returns.
+
 ```bash
 lake test
 ```
 
 The default profile checks syntax smoke fixtures, diagnostic rendering checks,
-registry/manifest consistency, and counted traversal regressions.
+registry/manifest consistency, theorem dependencies, and counted traversal regressions.
+The (t10) application supplies only (a18), (a22), and (a26). The (t16)
+application uses the numbered §3.4 axioms and the retained non-sortal closure
+assumption.
 `Certificates/Generation.lean` checks prerequisite order and the generated
 checker calls for axioms 73, 78, and 79. It covers both trial proofs and
 declarations. Failure probes must not refer to a checked theorem for the
 failed field, which need not exist. These source-level tests complement the
 full profile's certification and counterexample fixtures.
-Typed-request tests check all 116 fields' fresh and reuse requests and their
+Typed-request tests check all 113 fields' fresh and reuse requests and their
 explicit generated goal types. Probe tests retain the ordered pairs 75/73 and
 79/78, and the single false-answer request for axiom 79. Registry-wide checks
 require every registered native decision to come from a request node; only
@@ -114,7 +134,7 @@ operations gives an expected-answer request cost of eleven, even with a parent
 costing one million. Agreement with a twenty-operation parent costs 31.
 A general equality proves that expected-answer requests ignore the parent
 computation in both result and cost.
-Prefix tests use all 116 fields' fresh and reused scripts. An empty prefix
+Prefix tests use all 113 fields' fresh and reused scripts. An empty prefix
 costs zero; one decision costs eleven or 31 with the operand costs above.
 Axiom-73 and axiom-78 probe prefixes cost zero, eleven, and 22. A limit beyond
 the two requests does not add work.
@@ -133,14 +153,14 @@ They compare the completed prefix, parent records, failed field, and callback
 trace with an independent first-failure specification. Exact cases charge
 153 operations for all three successes and 23, 47, or 151 for failure at each
 position. An empty registry costs two. Running the counted fresh-attempt
-driver for all 116 fields costs 4,526 in the synthetic callback fixture.
+driver for all 113 fields costs 4,409 in the synthetic callback fixture.
 The per-field driver has a 128-case result/trace test. Exact counts distinguish
 early precheck and checked-proof failures, command-only proofs, skipped
 declarations, and preserved parent reuse. The real policy costs 2, 14, and 15
 operations at selected positions. A non-68 field skips closure search even
-with million-sized supplied domains. A combined 116-field test uses both
+with million-sized supplied domains. A combined 113-field test uses both
 drivers, the real policy and precheck, and synthetic proof callbacks.
-Reuse-source tests cover all 116 fields, require the counted comparison's
+Reuse-source tests cover all 113 fields, require the counted comparison's
 erasure and the parent theorem, and reject cost records in generated goals.
 Boolean comparison tests cover all four answer pairs, including two false
 answers. The extension fixture requires every unchanged-alias field to report
@@ -153,7 +173,7 @@ field isolation, skipped optional components, fresh mode, and source-equality
 bypass. These tests complement the planner's general equivalence and bounds.
 An explicit-AST fixture checks that duplicate metadata rows survive dense
 materialization. A source-linked bound test compiles a parent with repeated
-facts and family slots, then checks all 3,248 combinations of 116 fields and
+facts and family slots, then checks all 3,164 combinations of 113 fields and
 28 child sources. General examples exercise the compiler row invariant, the
 source-linked planner theorem, and monotonicity of its size bound.
 `Complexity/Traversal.lean` checks million-entry initialization, folds, and
@@ -171,7 +191,7 @@ operation counts for all eleven signature selections, direct-field fallbacks,
 and all four arities. It also covers large coordinates, empty-world expansion,
 explicit out-of-domain scopes, and a fixture that attains the scope bound.
 `Complexity/SourceCorrespondence.lean` checks the successful compiler record's
-construction invariant, coordinate bounds, and lookup-agreement bridge. The
+construction invariant, coordinate bounds, and proof that lookups agree. The
 general lookup proof requires only compiler success. Other proofs reject a
 substituted world count and an invalid hand-built name index. Concrete cases
 cover all five fact constructors, both scopes, first/last source coordinates,
@@ -306,11 +326,13 @@ once, without a second lookup to recover its cost.
 
 Product-family tests distinguish absent slots, initialized empty cells, and
 stored self-projections that return the same tuple with different costs.
-They cover projection membership failure, missing association, missing
+They cover projection membership failure, coordinate collisions between distinct
+domain members, a repaired collision, missing association, missing
 characterization, uncovered targets, and wrong family headers. Ordered searches
 test missing registrations, repeated valid entries, and a valid second entry.
 A five-slot family over three things checks that arity remains independent of
-model size. Additional tests cover zero slots, world isolation, and counted
+model size. Zero-slot products reject domains with two distinct members.
+Additional tests cover world isolation and counted
 projection correspondence for every successful source compilation.
 
 Distance tests separate classification failures, common-membership search,
@@ -635,23 +657,23 @@ first match in six operations. A full domain-mismatch scan costs five million.
 These counts exclude construction of the input arrays. A one-world, two-thing
 regression checks that an unregistered quality-domain association is rejected
 by ax99 and reported as missing registration, even without characterization
-targets. The other 115 axioms lie outside this test's claim.
+targets. The other 112 registered checks lie outside this test's claim.
 
 Declared-family tests compare the diagnostic with ax99 on valid witnesses,
-missing associations, missing characterization facts, projection failures,
+missing associations, missing characterization facts, projection failures and collisions,
 uncovered characterization targets, empty families, repeated types, and invalid
 coordinates. A later valid record must remain usable after an invalid record
 for the same key. A missing projection uses the tuple itself, which can either
 satisfy or fail dimension membership. The complete successful one-record
-example costs 188 operations. Million-entry tests cover an immediate successful
+example costs 307 operations. Million-entry tests cover an immediate successful
 registry search and immediate rejection of an invalid dimension coordinate.
 
 The axiom 99 collector tests empty, absent, and present characterization targets.
 A three-thing absent-target scan costs 64 operations. One target adds one array
 append. Full report tests cover both registration categories and nonempty target
 names. Search tests check world, thing, and type priority independently of fact
-order. The complete analyzer costs 155 for missing registration, 272 for the
-invalid registered example, and 319 for the valid example. These counts include
+order. The complete analyzer costs 155 for missing registration, 318 for the
+invalid registered example, and 438 for the valid example. These counts include
 loop control and final result selection. An absent association costs 18 even
 with a million thing names. A full million-candidate collector scan with an
 invalid world costs 10,000,001 operations. Input-array construction is outside
@@ -680,8 +702,8 @@ collectors cost 83, 49, and 92 operations. Search tests cover missing-bearer
 priority and world order. An empty world domain skips a million-thing search.
 A full million-thing scan with no moments costs 16,000,004 operations, including
 result projection. These counts do not include report construction. The
-fallback test rejects the unsupported conclusion that an unexplained failure
-must come from the proof bridge.
+fallback test checks that an unexplained failure is reported without blaming
+the proof that connects the checker to the axioms.
 
 Report tests cover path separators, out-of-range name rendering, empty bearer
 lists, and complete report text. A two-name path costs seventeen operations.
@@ -855,6 +877,11 @@ the `9T` bound. Exact cases include missing and duplicate names, case
 sensitivity, qualified names, and an immediate match in 100,000 entries.
 Behavior tests cover primitive-only inputs, unknown references and predicates,
 source-fact priority, world-scope priority, and an empty world domain.
+Categorization cases distinguish proper specialization from self-specialization
+and mutual specialization between distinct types. Exact counts include the
+reverse lookup. `Queries.lean` also tests the finite-model interpretation of
+(a108), and the §4 anti-vacuity model proves a nonempty categorization relation
+under the full axiom package.
 
 `LeanUfo/Test/Complexity/DerivedReportComposition.lean` covers the complete
 report boundary. Exact counts check eager argument resolution, all 25 fields
@@ -1054,10 +1081,10 @@ first-match correspondence, environment size, and the `N(E+6)+1` bound.
 
 Formula-registry tests cover empty arrays, first and last matches, unknown
 names, case sensitivity, and duplicate-name priority. An immediate match in
-100,000 entries costs 11. The fixed registry has 107 entries. Its first lookup
-costs 11, while its last lookup and unknown-name scan cost 856. Dispatcher tests
-include these costs: an unsupported field costs 874 before the public output
-cap, and 882 with one retained row. Axiom 1 over empty domains costs 45, or 41
+100,000 entries costs 11. The fixed registry has 104 entries. Its first lookup
+costs 11, while its last lookup and unknown-name scan cost 832. Dispatcher tests
+include these costs: an unsupported field costs 850 before the public output
+cap, and 858 with one retained row. Axiom 1 over empty domains costs 47, or 43
 with a zero evidence budget. Specialized dispatch tests verify that those
 analyzers skip the generic registry entirely.
 
@@ -1188,7 +1215,7 @@ LEANUFO_AXIOMS=ax13 lake test
 LEANUFO_AXIOMS=ax10,ax18,ax61 lake test
 LEANUFO_AXIOMS=ax66 lake test
 LEANUFO_AXIOMS=ax1,ax2,ax3,ax4,ax5,ax6,ax7,ax8,ax9,ax10,ax11,ax12,ax13,ax14,ax15,ax16,ax17,ax61,ax71,ax77 lake test
-LEANUFO_AXIOMS=ax18,ax19,ax20,ax21,ax22,ax23,ax24,ax25,ax26,ax27,ax28,ax29,ax30,ax31,ax32,ax33,ax_instEndurant,ax_sub_kind_sortal,ax_nonSortal_up,ax_kindStable lake test
+LEANUFO_AXIOMS=ax18,ax19,ax20,ax21,ax22,ax23,ax24,ax25,ax26,ax27,ax28,ax29,ax30,ax31,ax32,ax33,ax_nonSortal_up lake test
 LEANUFO_AXIOMS=ax34,ax35,ax36,ax37,ax38,ax39,ax40,ax41,ax42,ax43 lake test
 LEANUFO_AXIOMS=ax44,ax45,ax46 lake test
 LEANUFO_AXIOMS=ax47,ax48,ax49,ax50,ax51,ax52 lake test
@@ -1243,9 +1270,8 @@ compiled signature satisfies active part-based (a73) and refutes historical
 `ax68` is included in the §3.9 checker-backed selection. It uses the bounded
 finite closure checker for `MomentOf` and `UltimateBearerOf`.
 
-After checker changes, the `ax68` positive test exercises the Warshall-style
-finite closure bridge from executable
-reachability to the core inductive `MomentOf` relation. The direct negative
+After checker changes, the `ax68` positive test checks that Warshall reachability
+computations support proofs about the inductive `MomentOf` relation. The direct negative
 fixture uses the same checker-aware counterexample pattern as the other
 direct-complete checker fields: prove `¬ axN` from `checkAxN_complete` and a
 computed `checkAxN = false`.

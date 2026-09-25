@@ -1,4 +1,6 @@
 import LeanUfo.Test.Coverage.RegistryCheck
+import LeanUfo.UFO.FormalAnalysis.StructuralAssumptions
+import LeanUfo.UFO.FormalAnalysis.Historical.GuardedOverlapCountermodel
 import LeanUfo.Test.Diagnostics.Rendering
 import LeanUfo.Test.Syntax.TableCorrespondence
 import LeanUfo.Test.Certificates.InputSafety
@@ -73,7 +75,7 @@ def fullExpectedFailures : Array ExpectedFailure := #[
   ⟨"ax27", "LeanUfo/Test/Certification/Negative/Ax27PhaseAndRole.lean", "certified_ax27", true⟩,
   ⟨"ax28", "LeanUfo/Test/Certification/Negative/Ax28AntiRigidSortalNeitherPhaseNorRole.lean", "certified_ax28", true⟩,
   ⟨"ax30", "LeanUfo/Test/Certification/Negative/Ax30RigidNonSortalMissingCategory.lean", "certified_ax30", true⟩,
-  ⟨"ax_instEndurant", "LeanUfo/Test/Certification/Negative/AxInstEndurantTypeHasNonEndurantInstance.lean", "certified_ax_instEndurant", true⟩,
+  ⟨"ax44", "LeanUfo/Test/Certification/Negative/Ax44EndurantTypeHasNonEndurantInstance.lean", "certified_ax44", true⟩,
   ⟨"ax34", "LeanUfo/Test/Certification/Negative/Ax34EndurantNeitherSubstantialNorMoment.lean", "certified_ax34", true⟩,
   ⟨"ax35", "LeanUfo/Test/Certification/Negative/Ax35SubstantialAndMoment.lean", "certified_ax35", true⟩,
   ⟨"ax36", "LeanUfo/Test/Certification/Negative/Ax36SubstantialWithoutSpecificKind.lean", "certified_ax36", true⟩,
@@ -459,10 +461,7 @@ def quotedFieldAfter? (marker text : String) : Option String :=
 
 def checkerFunctionField? (fn : String) : Option String :=
   match fn with
-  | "checkAxInstEndurant" => some "ax_instEndurant"
-  | "checkAxSubKindSortal" => some "ax_sub_kind_sortal"
   | "checkAxNonSortalUp" => some "ax_nonSortal_up"
-  | "checkAxKindStable" => some "ax_kindStable"
   | "checkAxQuaIndividualOfEndurant" => some "axQuaIndividualOfEndurant"
   | "checkAxDistanceIdentity" => some "axDistanceIdentity"
   | "checkAxDistanceSymmetry" => some "axDistanceSymmetry"

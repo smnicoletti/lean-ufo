@@ -2391,7 +2391,7 @@ example (tables : FactTables) (x t : Nat) :
 
 -- With no characterization targets, inferred empty families cannot justify
 -- missing registration. This checks the diagnostic and ax99 rejection, not
--- whether the model satisfies the other 115 axioms.
+-- whether the model satisfies the other 112 axioms.
 private def ax99MissingFamilyTables := compileExplicitModelAST
   { worldCount := 1, thingCount := 2
     facts := #[.unary .qualityDomain 0 0, .binary .associatedWith 0 1 0] }
@@ -2424,7 +2424,7 @@ private def ax99ValidAST : ModelAST :=
 -- With no domain members, projection is vacuous, but association still fails.
 example : Complexity.productFamilyDiagnosticCosted 1 3
     (compileExplicitModelAST ax99DeclaredAST) 0 1 0 ax99DeclaredFamily =
-    ⟨false, 91⟩ := by native_decide
+    ⟨false, 137⟩ := by native_decide
 example : diagnosticWitnessesBudgeted 1 #[`w] #[`domain, `qualityType, `dimension] #[]
     (compileExplicitModelAST ax99DeclaredAST) "ax99" =
     #["Product-family witness data is present for x = domain, t = qualityType, w = w, but it does not satisfy ax99."] := by
@@ -2433,11 +2433,12 @@ example : Checker.checkAx99
     ((compileExplicitModelAST ax99DeclaredAST).toFiniteModel4 1 3 (by decide) (by decide)) = false := by
   native_decide
 
--- The successful count is 22 for keys/shape, 76 for projection rows, 39 for
--- association rows, 49 for coverage, and two Boolean branches between them.
+-- The successful count is 22 for keys/shape, 76 for projection membership,
+-- 118 for coordinate separation, 39 for associations, 49 for coverage,
+-- and three branches between these scans.
 example : Complexity.productFamilyDiagnosticCosted 1 3
     (compileExplicitModelAST ax99ValidAST) 0 1 0 ax99DeclaredFamily =
-    ⟨true, 188⟩ := by native_decide
+    ⟨true, 307⟩ := by native_decide
 example : Checker.checkAx99
     ((compileExplicitModelAST ax99ValidAST).toFiniteModel4 1 3 (by decide) (by decide)) = true := by
   native_decide
@@ -2465,11 +2466,11 @@ example : Complexity.productFamilyDiagnosticCosted 1 3 {} 0 1 0
 example : Complexity.productFamiliesDiagnosticCosted 1 3
     { (compileExplicitModelAST ax99ValidAST) with productFamilies :=
       #[{ ax99DeclaredFamily with typeThings := #[] }, ax99DeclaredFamily] } 0 1 0 =
-    ⟨true, 206⟩ := by native_decide
+    ⟨true, 325⟩ := by native_decide
 example : Complexity.productFamiliesDiagnosticCosted 1 3
     { (compileExplicitModelAST ax99ValidAST) with
       productFamilies := Array.replicate 1000000 ax99DeclaredFamily } 0 1 0 =
-    ⟨true, 191⟩ := by native_decide
+    ⟨true, 310⟩ := by native_decide
 
 private def ax99DiagnosticAndChecker (facts : Array CompiledFact)
     (families : Array ProductFamilySpec) : Bool × Bool :=
@@ -2477,6 +2478,24 @@ private def ax99DiagnosticAndChecker (facts : Array CompiledFact)
     { worldCount := 1, thingCount := 3, facts := facts, productFamilies := families }
   ((Complexity.productFamiliesDiagnosticCosted 1 3 tables 0 1 0).value,
     Checker.checkAx99 (tables.toFiniteModel4 1 3 (by decide) (by decide)))
+
+-- Both members project to 2 in the sole coordinate. Component membership
+-- holds, but these distinct members cannot represent the same tuple.
+example : ax99DiagnosticAndChecker
+    (ax99ValidAST.facts ++ #[.binary .memberOf 1 0 0, .tupleProjection 1 0 2 0])
+    #[ax99DeclaredFamily] = (false, false) := by native_decide
+
+-- Giving the second member a different coordinate repairs that collision.
+example : ax99DiagnosticAndChecker
+    (ax99ValidAST.facts ++ #[.binary .memberOf 1 0 0, .tupleProjection 1 0 1 0,
+      .binary .memberOf 1 2 0])
+    #[ax99DeclaredFamily] = (true, true) := by native_decide
+
+-- A zero-coordinate product has one tuple. It accepts at most one domain
+-- member, even though coordinate membership itself is vacuous.
+example : ax99DiagnosticAndChecker
+    (ax99DeclaredAST.facts ++ #[.binary .memberOf 0 0 0, .binary .memberOf 1 0 0])
+    #[ax99Family] = (false, false) := by native_decide
 
 example : ax99DiagnosticAndChecker
     (ax99ValidAST.facts.filter fun | .binary .characterization 1 2 0 => false | _ => true)
@@ -2555,7 +2574,7 @@ example : ax99FailureEvidenceCosted #[`w] #[`domain, `qualityType, `dimension]
     (compileExplicitModelAST ax99DeclaredAST) 0 1 0 true =
     ⟨#["Product-family witness data is present for x = domain, t = qualityType, w = w, but it does not satisfy ax99.",
       "The witness must list one quality dimension for each characterization of `qualityType` and prove that every member of `domain` projects into the corresponding dimension.",
-      "Check the `dimensions` and `types` listed in the `product_family` block, the `Characterization(t, z)` facts, the `AssociatedWith(y, z)` facts for the listed dimensions, and the `TupleProjection(tuple, i, component)` plus `MemberOf(component, y)` facts for every domain member.",
+      "Check the `dimensions` and `types` listed in the `product_family` block, the `Characterization(t, z)` facts, the `AssociatedWith(y, z)` facts for the listed dimensions, and the `TupleProjection(tuple, i, component)` plus `MemberOf(component, y)` facts for every domain member. Distinct domain members must differ in at least one listed coordinate.",
       "Characterization targets found for `qualityType`: none."], 102⟩ := by native_decide
 
 -- A false association skips registration, witness validation, and formatting.
@@ -2644,12 +2663,12 @@ example : diagnosticWitnessesBudgetedCosted 1 #[`w] #[`a, `b] #[] ax68MissingTab
 example : diagnosticWitnessesBudgetedCosted 0 #[`w] #[`a, `b] #[] ax68MissingTables "ax68" =
     ⟨#[], 101⟩ := by native_decide
 -- Unrecognized names reach the generic fallback, preserving case-sensitive lookup.
--- The 107-entry registry scan costs 856 before the 18-operation fallback.
+-- The 104-entry registry scan costs 832 before the 18-operation fallback.
 example : diagnosticWitnessesInnerCosted 4 #[] #[] #[] {} "AX68" =
-    ⟨#["No structured DSL-level witness extractor is registered for AX68 yet."], 874⟩ := by
+    ⟨#["No structured DSL-level witness extractor is registered for AX68 yet."], 850⟩ := by
   native_decide
 example : diagnosticWitnessesBudgetedCosted 1 #[] #[] #[] {} "unknown" =
-    ⟨#["No structured DSL-level witness extractor is registered for unknown yet."], 882⟩ := by
+    ⟨#["No structured DSL-level witness extractor is registered for unknown yet."], 858⟩ := by
   native_decide
 -- Axiom 1 has two leading universals. Their extraction costs eight even when
 -- the domain or output budget prevents assignment enumeration. Registry lookup
@@ -2663,9 +2682,9 @@ example : diagnosticWitnessesInnerCosted 0 #[] #[] #[] {} "ax1" =
   native_decide
 
 example : (ax99QualityDomainAnalysisCosted #[`w] #[`domain, `qualityType, `dimension]
-    (compileExplicitModelAST ax99DeclaredAST)).cost = 272 := by native_decide
+    (compileExplicitModelAST ax99DeclaredAST)).cost = 318 := by native_decide
 example : (ax99QualityDomainAnalysisCosted #[`w] #[`domain, `qualityType, `dimension]
-    (compileExplicitModelAST ax99ValidAST)).cost = 319 := by native_decide
+    (compileExplicitModelAST ax99ValidAST)).cost = 438 := by native_decide
 
 -- A nonempty target list uses indexed names instead of the literal "none".
 example : ax99FailureEvidenceCosted #[`w] #[`domain, `qualityType, `dimension]
@@ -3121,10 +3140,10 @@ example : (lookupDiagnosticFormulaCosted
     (Array.replicate 100000 ("same", DiagFormula.eqThing "x" "x")) "same").cost = 11 :=
   by native_decide
 
-example : diagnosticFormulaRegistry.size = 107 := by rfl
+example : diagnosticFormulaRegistry.size = 104 := by rfl
 example : (diagnosticFormulaCosted "ax1").cost = 11 := by native_decide
-example : (diagnosticFormulaCosted "ax104").cost = 856 := by native_decide
-example : (diagnosticFormulaCosted "unknown").cost = 856 := by native_decide
+example : (diagnosticFormulaCosted "ax104").cost = 832 := by native_decide
+example : (diagnosticFormulaCosted "unknown").cost = 832 := by native_decide
 
 open private minimizeFailureSpec minimizeFailureCosted_spec minimizeFailureCosted_cost_le
   DiagFormula.failureMinimizeCostBound withContextCosted withContextCosted_value

@@ -108,23 +108,18 @@ instance decidableUFOAxioms3_2 (Sig : UFOSignature3_2)
     [Decidable (ax_a27 Sig)] [Decidable (ax_a28 Sig)] [Decidable (ax_a29 Sig)]
     [Decidable (ax_a30 Sig)] [Decidable (ax_a31 Sig)] [Decidable (ax_a32 Sig)]
     [Decidable (ax_a33 Sig)]
-    [Decidable (ax_instEndurant_of_EndurantType (Sig := Sig))]
-    [Decidable (ax_sub_of_kind_is_sortal (Sig := Sig))]
-    [Decidable (ax_nonSortal_upward (Sig := Sig))]
-    [Decidable (ax_kindStable Sig)] :
+    [Decidable (ax_nonSortal_upward (Sig := Sig))] :
     Decidable (UFOAxioms3_2 Sig) :=
   decidable_of_iff
     (UFOAxioms3_1 Sig.toUFOSignature3_1 ∧
      ax_a18 Sig ∧ ax_a19 Sig ∧ ax_a20 Sig ∧ ax_a21 Sig ∧ ax_a22 Sig ∧
      ax_a23 Sig ∧ ax_a24 Sig ∧ ax_a25 Sig ∧ ax_a26 Sig ∧ ax_a27 Sig ∧
      ax_a28 Sig ∧ ax_a29 Sig ∧ ax_a30 Sig ∧ ax_a31 Sig ∧ ax_a32 Sig ∧
-     ax_a33 Sig ∧ ax_instEndurant_of_EndurantType (Sig := Sig) ∧
-     ax_sub_of_kind_is_sortal (Sig := Sig) ∧ ax_nonSortal_upward (Sig := Sig) ∧
-     ax_kindStable Sig)
+     ax_a33 Sig ∧ ax_nonSortal_upward (Sig := Sig))
     ⟨by
       intro h
       rcases h with ⟨h1, h18, h19, h20, h21, h22, h23, h24, h25, h26, h27,
-        h28, h29, h30, h31, h32, h33, hInst, hSub, hNon, hStable⟩
+        h28, h29, h30, h31, h32, h33, hNon⟩
       exact
         { toUFOAxioms3_1 := h1
           ax18 := h18
@@ -143,16 +138,12 @@ instance decidableUFOAxioms3_2 (Sig : UFOSignature3_2)
           ax31 := h31
           ax32 := h32
           ax33 := h33
-          ax_instEndurant := hInst
-          ax_sub_kind_sortal := hSub
-          ax_nonSortal_up := hNon
-          ax_kindStable := hStable },
+          ax_nonSortal_up := hNon },
      by
       intro h
       exact ⟨h.toUFOAxioms3_1, h.ax18, h.ax19, h.ax20, h.ax21, h.ax22, h.ax23,
         h.ax24, h.ax25, h.ax26, h.ax27, h.ax28, h.ax29, h.ax30, h.ax31, h.ax32,
-        h.ax33, h.ax_instEndurant, h.ax_sub_kind_sortal, h.ax_nonSortal_up,
-        h.ax_kindStable⟩⟩
+        h.ax33, h.ax_nonSortal_up⟩⟩
 
 instance decidableUFOAxioms3_3 (Sig : UFOSignature3_3)
     [Decidable (UFOAxioms3_2 Sig.toUFOSignature3_2)]

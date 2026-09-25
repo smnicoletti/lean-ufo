@@ -139,10 +139,7 @@ by
     ax32 := h4.ax32
     ax33 := h4.ax33
 
-    ax_instEndurant    := h4.ax_instEndurant
-    ax_sub_kind_sortal := h4.ax_sub_kind_sortal
     ax_nonSortal_up    := h4.ax_nonSortal_up
-    ax_kindStable      := h4.ax_kindStable
 
     ax34 := h4.ax34
     ax35 := h4.ax35

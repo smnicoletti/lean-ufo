@@ -5,7 +5,7 @@
 ## Overview
 
 > [!IMPORTANT]
-> **Bottom line.** The finite DSL covers UFO through §4 with 116 checks. All
+> **Bottom line.** The finite DSL covers UFO through §4 with 113 checks. All
 > user-facing examples certify, including the nonempty Relator model. The main
 > remaining limits concern frontend verification, richer syntax, and direct
 > negative witnesses for a small set of axioms.
@@ -50,6 +50,9 @@ release tag. Release notes record the corresponding GitHub Actions results.
   distinctness-guard and guarded-overlap experiments and their limitations,
   selects the part-based (a73), proves preservation of (t31)-(t33), and
   constructs a finite nonempty-relator witness model.
+- A ten-entity, three-world countermodel refutes unrestricted (t31) under the
+  full guarded-overlap alternative through §4. The founded-part version holds.
+  The result concerns the current total-function encoding of `FoundationOf`.
 - The active `UFOAxioms3_10` package uses the part-based (a73). The printed
   overlap formula remains available as `ax_a73_printed`, and its forced-empty
   consequence is packaged separately as `UFOAxioms3_10PrintedA73`.
@@ -96,9 +99,9 @@ release tag. Release notes record the corresponding GitHub Actions results.
 - The reflective checker certifies all registered axiom fields through §4. For
   `ax68`, the checker uses a bounded finite closure proved equivalent to the
   inductive `MomentOf` relation used by `UltimateBearerOf`.
-- The checker includes the §3.2 bridge axioms `ax_instEndurant`,
-  `ax_sub_kind_sortal`, `ax_nonSortal_up`, and `ax_kindStable`, through reusable
-  Boolean checker soundness theorems instead of per-model tactic proof search.
+- The checker includes the additional §3.2 assumption `ax_nonSortal_up`.
+  Instance-to-endurant and subtype-of-kind typing follow from numbered axioms
+  in §3.4 and have no separate checker entries.
   The §3.3 `Quality` definition is checked through an executable finite
   uniqueness predicate, and the §3.4 type schema is checked through reusable
   necessary-instance helpers.
@@ -127,11 +130,11 @@ release tag. Release notes record the corresponding GitHub Actions results.
   are derived directly in `FiniteModel4.toUFOSignature4`, so their checker
   proofs establish that the generated semantic definitions satisfy the packaged
   axioms without per-model tactic search.
-- The counted 116-entry checker registry has per-check bounds and proved
+- The counted 113-entry checker registry has per-check bounds and proved
   short-circuit traversal costs. `Complexity/Certification.lean` composes
   successful source compilation, derived assertions, scheduled native checks,
   retries, and selected failure reports. Its scalar bound is
-  `(439,182,619R + 109,798,953)N¹⁶ + D`: N is the larger complete child/parent
+  `(439,182,619R + 109,798,991)N¹⁶ + D`: N is the larger complete child/parent
   source size, R is the number of registered fields, and D is the selected
   diagnostic allowance. Root models use only their own source size. The
   [complexity guide](dsl/complexity.md#source-to-workflow-composition) gives the
@@ -140,7 +143,7 @@ release tag. Release notes record the corresponding GitHub Actions results.
 - Compiled models use typed dense lookups in native execution and compact
   sparse definitions in kernel proofs. `ExplicitTableCorrespondence` proves
   equal lookup values for well-bounded finite input, not equal step counts.
-  Full value/cost equalities connect 112 checks to the concrete table
+  Full value/cost equalities connect 109 checks to the concrete table
   evaluators; axioms 105–108 return `⟨true, 0⟩`. The eleven checks identified
   as 1, 53–55, 58–59, 63–64, 69–70, and 74 bind each shared predicate once
   and charge it once per assignment.

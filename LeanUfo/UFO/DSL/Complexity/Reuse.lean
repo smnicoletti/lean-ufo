@@ -474,12 +474,12 @@ theorem reuseFootprint_source_scalar_bound (fp : ReusableFieldFootprint)
   simp only [Nat.add_mul, Nat.mul_add, Nat.mul_assoc] at u b t bound ⊢
   omega
 
-/-- The fixed registry has 116 rows and 335 relation-name occurrences.
+/-- The fixed registry has 113 rows and 328 relation-name occurrences.
 The coefficient sums `39 + 18D` for each row with `D` relation names.
 This closed arithmetic fact is checked by the kernel, without native decision. -/
 private theorem reuseRegistry_source_coefficient :
     (reusableFieldFootprints.toList.map (fun fp =>
-      39 + 18 * (fp.unary.size + fp.binary.size + fp.ternary.size))).sum = 10554 := by
+      39 + 18 * (fp.unary.size + fp.binary.size + fp.ternary.size))).sum = 10311 := by
   decide
 
 /-- A source-linked bound for the production reuse planner: `18C + 11023P`,
@@ -505,7 +505,7 @@ theorem certificateReuseSource_source_bound (parentName : Lean.Name)
         omega
   have rows := allRows reusableFieldFootprints.toList
   rw [reuseRegistry_source_coefficient] at rows
-  have count : reusableFieldFootprints.size = 116 := by decide
+  have count : reusableFieldFootprints.size = 113 := by decide
   have footprint := fieldFootprintReusable_cost_le field parent.tables childTables
   rw [count] at footprint
   have pos := sourceMetrics_inputSize_pos parentSource

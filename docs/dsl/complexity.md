@@ -3,7 +3,7 @@
 ## Overview
 
 > [!IMPORTANT]
-> **Bottom line.** For the fixed 116 UFO checks, the algorithmic work of
+> **Bottom line.** For the fixed 113 UFO checks, the algorithmic work of
 > certification is polynomial in the size of the explicitly stored model.
 > The proof covers the compiler, the executed checker calls, control flow, and
 > the selected diagnostic. Lean proof processing and elapsed time lie outside
@@ -19,8 +19,8 @@ the diagnostic searches the same finite model and produces bounded evidence.
 | --- | ---: | --- |
 | Source compiler | `511 · N⁴` | Resolve names, expand facts, and build finite tables |
 | Inherence closure | `W · (23T³ + 48T² + 5T + 3)` | Compute reachability once for each world |
-| Fixed checker registry | `8367 · n⁸` | Run the ordered 116 checks on one compiled model |
-| Fixed source workflow | `51,054,982,757 · N¹⁶ + D` | Compile, prepare checker calls, traverse the registry, and construct the selected diagnostic |
+| Fixed checker registry | `8367 · n⁸` | Run the ordered 113 checks on one compiled model |
+| Fixed source workflow | `49,737,434,938 · N¹⁶ + D` | Compile, prepare checker calls, traverse the registry, and construct the selected diagnostic |
 | Arbitrary diagnostic formula | Structural recurrence | Bound evaluation by formula size, nesting depth, domains, environments, and atomic-query cost |
 
 The large coefficients are safe proof bounds with no timing interpretation or
@@ -74,7 +74,7 @@ describes the same algorithms that certification uses.
 The input to the headline theorem is an explicit model `M`. The question is
 
 ```text
-Does M satisfy every formula in the fixed 116-check registry?
+Does M satisfy every formula in the fixed 113-check registry?
 ```
 
 The model gives all finite domains and primitive relation tables. The compiler
@@ -174,7 +174,7 @@ repository contains the Lean UFO theorems that instantiate these methods.
 ## Scope of the claims
 
 > [!IMPORTANT]
-> The headline theorem is a **data-complexity** result: the 116-check registry is
+> The headline theorem is a **data-complexity** result: the 113-check registry is
 > fixed and the finite model grows. No uniform polynomial result is claimed for
 > unrestricted formulas supplied as input.
 
@@ -211,7 +211,7 @@ bound and the algorithm the DSL executes.
 | What one counted operation means | [Unit-cost machine model](#unit-cost-machine-model) |
 | How the complete command path is composed | [Source-to-workflow composition](#source-to-workflow-composition) |
 | Why inherence closure is cubic | [Counted closure](#counted-closure) |
-| How all 116 checks are covered | [Registry and diagnostic bounds](#registry-and-diagnostic-bounds) |
+| How all 113 checks are covered | [Registry and diagnostic bounds](#registry-and-diagnostic-bounds) |
 | How failure reports are bounded | [Derived-assertion prechecks](#derived-assertion-prechecks) and [Failure minimization](#failure-minimization) |
 | Which files contain the proofs | [Module layout](#module-layout) |
 | What was measured in practice | [Acceptance evidence](#acceptance-evidence) |
@@ -634,7 +634,7 @@ uses these facts to prove `18C + 11023P` for the executed planner, where C and P
 are the complete child and parent source sizes. Parent tables must be the
 returned compiler output. No independent table-size assumption is needed.
 `certificateReuseSource_bound_mono` proves that this bound cannot decrease
-when either size grows. The coefficient uses the fixed 116-field registry.
+when either size grows. The coefficient uses the fixed 113-field registry.
 The checked-attempt driver includes this planner cost. The source-workflow
 theorem connects its proof callbacks to the concrete scheduled checker calls.
 
@@ -894,9 +894,9 @@ require full counted registry membership on the reconstructed models, not
 merely Boolean agreement or a supplied callback-cost inequality.
 
 `sourceWorkflow_scalar_bound` gives
-`(439,182,619 · R + 109,798,953) · N¹⁶ + D`. The fixed-registry corollary,
-`sourceWorkflow_fixed_data_bound`, substitutes R = 116 and gives
-`51,054,982,757 · N¹⁶ + D`. These deliberately loose coefficients come from
+`(439,182,619 · R + 109,798,991) · N¹⁶ + D`. The fixed-registry corollary,
+`sourceWorkflow_fixed_data_bound`, substitutes R = 113 and gives
+`49,737,434,938 · N¹⁶ + D`. These deliberately loose coefficients come from
 the component inequalities; they are not assigned operation counts or timing
 predictions. `sourceWorkflowScalarBound_mono` proves monotonicity in N, R, and D.
 
@@ -1257,13 +1257,13 @@ organizational precedent. It supplies no complexity result for Lean UFO.
 | Inherence closure | Warshall matrix corresponds to `MomentOf` | Compiler storage and axiom 68 use the proved sized-matrix recurrence. The compiler also stores deterministic first-hop evidence. Its counted constructors, eleven-operation dense edge reads, pivot steps, and row-major conversion give `W·(23T³+48T²+5T+3)` as an upper bound. Uncached checker construction also has a proved dense-edge cost connection, with bound `W(10T³+17T²+3T+2)`. The complete cached axiom-68 call has proved table-cost correspondence. See [Counted closure](#counted-closure) for the derivation and native correspondence. |
 | Finite-model interpretation | compiled Boolean fields denote the corresponding `UFOSignature4` relations | core bridge theorems exist |
 | Compiler | counted value equals compact production compilation | proved: source compilation uses a counted core, and `compileExplicitModelASTCosted_value` connects explicit-AST cost accounting to the compact proof-facing compiler. `compilerOperationalCost_le` covers every success and early-error branch with the explicit multivariate `sourceCompilerPolynomial`. Only afterwards, `source_compiler_scalar_polynomial_bound` derives the one-variable bound `511·inputSize⁴`, where `inputSize` contains every independently sized source component. |
-| Checker | counted erasure equals production checker | Proved for the ordered 116-entry registry. Concrete table-cost equalities cover 112 entries; the four definition checks return `⟨true, 0⟩`. The model-size bound is `8367·n⁸`. Eleven identified checks explicitly share their predicate result. `Complexity/Certification.lean` composes the scheduled calls. |
+| Checker | counted erasure equals production checker | Proved for the ordered 113-entry registry. Concrete table-cost equalities cover 109 entries; the four definition checks return `⟨true, 0⟩`. The model-size bound is `8367·n⁸`. Eleven identified checks explicitly share their predicate result. `Complexity/Certification.lean` composes the scheduled calls. |
 | Certification | successful Boolean checks imply `UFOAxioms4` | existing soundness theorem |
 | Diagnostics | evidence is sound and its production cost is output-sensitive | Both axiom reports and pre-certification derived-assertion reports have compositional production-cost and output bounds. Their default caps are 128 and nine rows respectively. Formula evaluation has a separate node-count and quantifier-depth bound. Path reconstruction is sound and complete for compiled caches. The workflow theorem includes the selected diagnostic allowance separately from its certification polynomial. |
 
 ### Registry and diagnostic bounds
 
-The checker registry contains all 116 registered checks, including the
+The checker registry contains all 113 registered checks, including the
 qua-individual/endurance condition and the identity, symmetry, and seven-thing
 triangle distance extensions. Its delayed computations run in order and stop
 at the first failure. The returned Boolean equals `checkAxioms4Checks M` tested
@@ -1272,11 +1272,11 @@ correspondences.
 
 Each entry supplies its own cost proof. `fixed_registry_data_complexity_bound`
 sums those bounds and the visited registry's traversal charges. Axiom 99's
-witness, family-search, and nested checker bounds have degrees two, three, and
-six. Expanding the registry bound, including traversal and axiom 99's outer
-loops, gives ordinary monomial coefficients totaling 8269. The remaining
-product-family search term contributes 98 after its cubic bound is applied.
-The resulting bound is `8367·n⁸`, where `n` includes
+witness, family-search, and nested checker bounds have degrees three, four, and
+seven. Expanding the registry bound, including traversal and axiom 99's outer
+loops, gives ordinary monomial coefficients totaling 8164. The remaining
+product-family search term contributes 157 after its degree-four bound is applied.
+The proved bound `8367·n⁸` leaves 46 units of coefficient slack. Here `n` includes
 dense relation cells, family records, and both witness arrays. The generic
 registry theorem composes supplied per-check bounds; it does not derive one
 from arbitrary formula size.
@@ -1342,7 +1342,7 @@ checks with actual compilation and selected failure reports.
 
 #### Modal classification and taxonomy bridges
 
-Axioms 18–23 and the three two-thing taxonomy bridges have full value/cost
+Axioms 18–23 and the non-sortal closure check have full value/cost
 equalities to the compiler's table evaluators. W counts worlds and T counts
 things. The equalities require the actual compiled tables, dimensions, and
 sparse/dense agreement, as for the other concrete query results.
@@ -1362,7 +1362,7 @@ T(27W+4). Both scans restart at world zero for each thing.
 | Axiom 21 | T(W(T(13W+11)+12)+2) |
 | Axiom 22 | T(T(W(W(24T+2)+25)+2)+2) |
 | Axiom 23 | T(W(T(W(26T+2)+11)+21)+2) |
-| Instantiation-to-endurant, subkind-to-sortal, non-sortal propagation | T(T(32W+2)+2) |
+| Non-sortal propagation | T(T(32W+2)+2) |
 
 Axiom 20's consequent has three unary reads, two negations, and two
 conjunction tests, totaling at most 28. Its outer unary read, equivalence,
@@ -1383,7 +1383,7 @@ world loop add at most 21.
 
 The bridge helper accepts counted predicates. Its bound adds the three
 predicate bounds, three Boolean operations, and two world-loop operations.
-Each taxonomy bridge uses two unary reads and one binary read, totaling 27.
+The non-sortal closure check uses two unary reads and one binary read, totaling 27.
 The same helper serves axiom 48. Its part queries use a finite-index equality
 test followed, when needed, by a counted binary-table lookup.
 `compiledAx48_eq_countedTables` proves this correspondence for both values and
@@ -1391,9 +1391,9 @@ costs on the compiled cached model.
 
 #### Unary checker calls with concrete table costs
 
-`Complexity/Queries.lean` connects 31 registry checks to loops over
+`Complexity/Queries.lean` connects 30 registry checks to loops over
 `unaryTypedTableCosted` on the compiler's cached model: axioms 9, 11–14, 17, 20,
-24–41, 45, 83–85, 89, and the kind-stability bridge.
+24–41, 45, 83–85, and 89.
 The equalities cover the complete `Costed Bool`, including the cost field.
 The compiler's sparse/dense agreement proof is required for the actual tables
 and dimensions. The cache does not change these unary fields.
@@ -1938,17 +1938,22 @@ Each matching target searches for an equal type in the family, giving bound
 T(4D+15). The complete witness bound is:
 
 ```text
-B(T,D) = 8 + T(25D+15) + 28D + T(4D+15)
+B(T,D) = 9 + T(25D+15) + T(T(25D+18)+15) + 28D + T(4D+15)
 ```
 
-Eight operations cover header comparisons and conjunction branches. Each visited
+The pairwise scan checks that equal coordinate tuples imply equal domain
+members. Its bound is T(T(25D+18)+15), including both projection reads per
+coordinate, equality tests, membership guards, and loop operations. This
+injectivity check makes the coordinate representation faithful to a subset
+of the Cartesian product. Nine operations cover header comparisons and
+conjunction branches. Each visited
 family adds one array read and two loop operations, so the full search bound
 is P = Σ_family(B(T,D_family)+3). Invalid entries do not hide a later valid
 entry, and the first successful entry stops the search. With W worlds, axiom
 99 has bound T(T(W(P+24)+2)+2).
 
-For the explicit checker size n, each witness bound is at most 95n², the search
-bound at most 98n³, and the whole axiom bound at most 126n⁶. These bounds include
+For the explicit checker size n, each witness bound is at most 154n³, the search
+bound at most 157n⁴, and the whole axiom bound at most 185n⁷. These bounds include
 independently sized family arrays and all slot reads. They do not assume that
 the Lean compiler preserves repeated source calls or array reads.
 
@@ -2001,9 +2006,9 @@ are checked separately and retain their own cost bounds.
 The same full counted-computation equality covers axioms 102 and 104 and the
 distance identity, symmetry, and triangle extensions. Together with the unary
 instantiation, modal, bridge, quality, part, functional, constitution, dependence,
-inherence, bearer, distance-witness, and life-of checks, 112 registry checks
+inherence, bearer, distance-witness, and life-of checks, 109 registry checks
 have a proved table-cost connection. The four definition checks complete the
-116-entry query-cost inventory.
+113-entry query-cost inventory.
 Binary reads cost 11 operations:
 two width multiplications, four coordinate operations, field selection, two
 flat-index operations, a checked read, and an option test. Ternary reads cost
@@ -2041,7 +2046,7 @@ presence only. Missing registration produces a report before witness validation.
 
 `Complexity/Diagnostics/ProductFamily.lean` validates the supplied records.
 It rejects unequal array lengths and out-of-domain coordinates, then checks
-projection membership, dimension/type associations, and coverage of every
+projection membership, distinct coordinate tuples, dimension/type associations, and coverage of every
 characterization target. A record can fail without ending the registry search:
 a later valid record for the same key still supplies a witness. Projection
 reads use the compiler's flat table, including its tuple-as-default rule.
@@ -2050,10 +2055,11 @@ For `T` things, `D` dimension slots, and `Z` type slots in one record, the prove
 bound is
 
 ```text
-T·(31D + 15) + 39D + T·(4Z + 15) + 4D + 4Z + 16.
+T·(31D + 15) + T·(T·(25D + 18) + 15) + 39D + T·(4Z + 15) + 4D + 4Z + 17.
 ```
 
-The first three terms bound projection, association, and coverage scans.
+The first four terms bound projection membership, coordinate injectivity,
+association, and coverage scans.
 The remaining terms cover coordinate validation, key comparisons, and branches.
 The bound is monotone in `T`, `D`, and `Z`. The registry bound sums each record's
 bound plus three operations for its visited array read, loop step, and Boolean
@@ -2061,11 +2067,11 @@ test. Record lengths are independent input sizes, not bounded by `T`.
 
 For `R` records, total dimension slots `DΣ`, and total type slots `ZΣ`,
 `productFamiliesDiagnosticBound_eq_sizes` gives the same bound as
-`(31T+43)·DΣ + (4T+4)·ZΣ + (30T+19)·R`. Thus record order and slot distribution
+`(25T²+31T+43)·DΣ + (4T+4)·ZΣ + (18T²+45T+20)·R`. Thus record order and slot distribution
 do not affect the bound. Its monotonicity theorem permits any registry whose
 record and slot totals are larger, including added records.
 
-`productFamilyDiagnosticCosted_valid_iff` states the three witness conditions
+`productFamilyDiagnosticCosted_valid_iff` states the four witness conditions
 over dense tables. `productFamilyDiagnosticCosted_checker_iff` connects them to
 the checker's `productFamilyWitnessProp` for finite arrays when the two use the
 same relation and projection interpretations.
@@ -2695,13 +2701,13 @@ initialization and the final selection. The cost accumulator advances before
 each tail call. Value proofs preserve variable order, duplicate names, and the
 first non-universal body. Existential and modal nodes stop extraction.
 
-Generic lookup scans a fixed array of 107 field/formula pairs. Every visited
+Generic lookup scans a fixed array of 104 field/formula pairs. Every visited
 entry costs eight operations: three loop controls, three for the checked array
 read, a string comparison, and its branch. A match stops before another read.
 The next stop test costs three when entries remain. The bound is `8R` for
-registry size `R`, or 856 for this registry. The dispatcher includes the
+registry size `R`, or 832 for this registry. The dispatcher includes the
 returned lookup cost. The first entry, ax1, costs 11 to select. An unknown
-field costs 856 to reject. The registry is static program data. Module-startup
+field costs 832 to reject. The registry is static program data. Module-startup
 initialization of program constants is outside the per-call cost model.
 
 Generic fallback rows count their concatenations, initialization, writes, and
@@ -2782,7 +2788,7 @@ in order and then things within each world, stopping at its first instance.
 | `SubsetOf` | `40T + 1` |
 | `ProperSubsetOf` | `80T + 3` |
 | `ProperSub` | `36` |
-| `Categorizes` | `P + 40T + 2` |
+| `Categorizes` | `P + 59T + 2` |
 | `IsDisjointWith` | `2P + 39T + 3` |
 | `IsCompletelyCoveredBy` | `58T + 1` |
 | `IsPartitionedInto` | `2P + 97T + 5` |
@@ -2794,11 +2800,17 @@ candidate. Testing whether a member exists adds one operation.
 
 `firstRelationDifferenceCosted` finds the first thing related to the left
 target but not the right target. Subset checks use membership on both sides.
-Categorization uses instantiation on the left and specialization on the right.
 Only a left match incurs the right query. Two queries, a branch, a negation,
 and search control give `40T`. Proper subset checks first establish inclusion,
 then search for a difference in the reverse direction to establish strictness.
 `ProperSub` uses two specialization queries without a domain search.
+
+Categorization uses `firstCategorizationFailureCosted` to find an instance
+that fails proper specialization, as required by (a108) and (d1). Each
+candidate costs at most 59 operations: 17 for instantiation, 36 for proper
+specialization, two for branching and negation, and four for search control.
+Non-instances skip specialization. A failed forward specialization skips
+the reverse query. Typehood is checked before this search.
 
 Disjointness first checks typehood on both sides, then searches for a shared
 instance. Each candidate incurs at most two queries, one branch, and four
@@ -2931,12 +2943,12 @@ compilation then gives
 `m = sourceMetrics source` and `N = m.inputSize`.
 
 The named-predicate bound has degree at most three in worlds W, things T,
-and stored propositions D. With each bounded by N, it is at most `1648N³`.
+and stored propositions D. With each bounded by N, it is at most `1667N³`.
 The report bound is at most `2103N³`. Named-fact selection adds the outer
-fact and world loops, yielding `3426N⁵`. The nine-row cap contributes at most
+fact and world loops, yielding `3464N⁵`. The nine-row cap contributes at most
 41 more operations. Thus `source_derivedAssertionFailure_cost_bound` proves
-`5570N⁵` for the precheck, and `source_derivedAssertionAnalysis_cost_bound`
-proves `5574N⁵` for one precheck followed by saved-report selection.
+`5608N⁵` for the precheck, and `source_derivedAssertionAnalysis_cost_bound`
+proves `5612N⁵` for one precheck followed by saved-report selection.
 
 These bounds concern the fixed named-predicate dispatcher, including its
 unsupported-name fallback. They allow empty domains because diagnostics accept
@@ -2959,10 +2971,10 @@ two calls with source compilation and the precheck/report producer:
 
 ```text
 compiler cost + world-name cost + thing-name cost + derived-analysis cost
-  ≤ 6091 N⁵
+  ≤ 6129 N⁵
 ```
 
-The coefficient is `511 + 6 + 5574`; the compiler's quartic bound and the
+The coefficient is `511 + 6 + 5612`; the compiler's quartic bound and the
 linear conversion bound are each bounded by the corresponding fifth-degree
 term because N is positive. This sum uses the successful compiler's actual
 tables and the names returned by the counted conversions. It does not include
@@ -3051,7 +3063,7 @@ and `T` is the number of things:
 | `ExternallyDependent` | `30W+T(60W+40)+43` | `30W+T(60W+40)+48` |
 | `ExistentialDependence` | `30W+25` | `30W+28` |
 | `ExistentialIndependence` | `60W+33` | `60W+38` |
-| `Categorizes` | `W(19T+2)+40T+25` | `W(19T+2)+40T+38` |
+| `Categorizes` | `W(19T+2)+59T+25` | `W(19T+2)+59T+38` |
 | `IsDisjointWith` | `39T+19` | `39T+30` |
 | `IsCompletelyCoveredBy` | `58T+31` | `58T+38` |
 | `IsPartitionedInto` | `97T+26` | `97T+38` |
@@ -3187,10 +3199,11 @@ report work remain outside these component bounds.
 
 `Categorizes(x, y)` reports first establish that `x` is a computed `Type`:
 it has an instance in some world. That search costs at most `P = W(19T+2)`.
-If it succeeds, the report seeks the first current instance of `x` without
-the required `Sub` relation to `y`, at cost at most `40T`. A missing type skips
+If it succeeds, the report seeks the first current instance of `x` that fails
+`ProperSub` to `y`, at cost at most `59T`. The forward `Sub` must hold and
+the reverse `Sub` must fail. A missing type skips
 this second search. Required-missing text adds at most 25 operations, giving
-`P+40T+25`. Two-row evidence adds at most 38. The no-instance and no-failure
+`P+59T+25`. Two-row evidence adds at most 38. The no-instance and no-failure
 branches use less work. Possible typehood ranges over all worlds, but the
 specialization counterexample must occur in the report's world.
 

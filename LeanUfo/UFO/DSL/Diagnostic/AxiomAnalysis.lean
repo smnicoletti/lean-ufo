@@ -8715,7 +8715,6 @@ private theorem productFamilyEntryPresentCosted_value
   simp only [productFamilyEntryPresentCosted, Complexity.anyArrayCosted_eq_list,
     Complexity.anyListCosted_eq_true_iff]
   simp [Array.mem_iff_getElem]
-  aesop
 
 private theorem productFamilyEntryPresentCosted_cost_le
     (tables : FactTables) (x t : Nat) :
@@ -8747,7 +8746,7 @@ private def ax99FailureRowsCosted (xn tn wn rendered : String) (entryPresent : B
     let line ← Complexity.Costed.tick (line ++ xn) 1
     let line ← Complexity.Costed.tick (line ++ "` projects into the corresponding dimension.") 1
     let out ← Complexity.Costed.tick (out.push line) 2
-    let out ← Complexity.Costed.tick (out.push "Check the `dimensions` and `types` listed in the `product_family` block, the `Characterization(t, z)` facts, the `AssociatedWith(y, z)` facts for the listed dimensions, and the `TupleProjection(tuple, i, component)` plus `MemberOf(component, y)` facts for every domain member.") 2
+    let out ← Complexity.Costed.tick (out.push "Check the `dimensions` and `types` listed in the `product_family` block, the `Characterization(t, z)` facts, the `AssociatedWith(y, z)` facts for the listed dimensions, and the `TupleProjection(tuple, i, component)` plus `MemberOf(component, y)` facts for every domain member. Distinct domain members must differ in at least one listed coordinate.") 2
     let line ← Complexity.Costed.tick ("Characterization targets found for `" ++ tn) 1
     let line ← Complexity.Costed.tick (line ++ "`: ") 1
     let line ← Complexity.Costed.tick (line ++ rendered) 1
@@ -8786,7 +8785,7 @@ private theorem ax99FailureRowsCosted_value (xn tn wn rendered : String) (entryP
       if entryPresent then #[
         s!"Product-family witness data is present for x = {xn}, t = {tn}, w = {wn}, but it does not satisfy ax99.",
         s!"The witness must list one quality dimension for each characterization of `{tn}` and prove that every member of `{xn}` projects into the corresponding dimension.",
-        "Check the `dimensions` and `types` listed in the `product_family` block, the `Characterization(t, z)` facts, the `AssociatedWith(y, z)` facts for the listed dimensions, and the `TupleProjection(tuple, i, component)` plus `MemberOf(component, y)` facts for every domain member.",
+        "Check the `dimensions` and `types` listed in the `product_family` block, the `Characterization(t, z)` facts, the `AssociatedWith(y, z)` facts for the listed dimensions, and the `TupleProjection(tuple, i, component)` plus `MemberOf(component, y)` facts for every domain member. Distinct domain members must differ in at least one listed coordinate.",
         s!"Characterization targets found for `{tn}`: {rendered}."]
       else #[
         s!"Missing product-family witness data for x = {xn}, t = {tn}, w = {wn}.",
@@ -12398,27 +12397,6 @@ private def diagnosticFormulaRegistry : Array (String × DiagFormula) := #[
             dUnary .rigid "t" "w",
             dUnary .sortal "t" "w"
           ])),
-  ("ax_kindStable",
-    .forallThing "k" <| .forallWorld "w" <| .forallWorld "v" <|
-        .imp
-          (dUnary .kind "k" "w")
-          (dUnary .kind "k" "v")),
-  ("ax_instEndurant",
-    .forallThing "t" <| .forallThing "x" <| .forallWorld "w" <|
-        .imp
-          (dAndList [
-            dUnary .endurantType "t" "w",
-            dInst "x" "t" "w"
-          ])
-          (dUnary .endurant "x" "w")),
-  ("ax_sub_kind_sortal",
-    .forallThing "a" <| .forallThing "k" <| .forallWorld "w" <|
-        .imp
-          (dAndList [
-            dSub "a" "k" "w",
-            dUnary .kind "k" "w"
-          ])
-          (dUnary .sortal "a" "w")),
   ("ax_nonSortal_up",
     .forallThing "a" <| .forallThing "b" <| .forallWorld "w" <|
         .imp

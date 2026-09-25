@@ -201,7 +201,7 @@ lake exe validate-certificate certificates/CarBase.certificate.json --structure-
 lake exe validate-certificate certificates/CarWithWindow.certificate.json --module LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension
 ```
 
-`--structure-only` checks the required metadata and all 116 certificate rows.
+`--structure-only` checks the required metadata and all 113 certificate rows.
 The default validation path requires `--module`. It rebuilds the module,
 compares every row with the regenerated Lean manifest, checks every named
 theorem declaration, and recomputes the SHA-256 source and finite-model digests.
@@ -305,6 +305,11 @@ Current supported derived assertions include:
 The compiler also computes definition-like predicates, including `Type` and
 `Individual`, but those are not surface assertions.
 
+`Categorizes(c, t)` follows (a108): `c` must be a computed type, and each
+instance `s` of `c` must satisfy `ProperSub(s, t)` at the asserted world.
+This requires `Sub(s, t)` and forbids `Sub(t, s)`. Distinct names alone do
+not establish proper specialization.
+
 ## Quality and distance primitives
 
 The current surface supports primitive finite facts for quality/set examples:
@@ -332,6 +337,11 @@ product_family ColorSpace for ColorQuality:
 ```
 
 The witness supplies the finite `ys`/`zs` family used by the reflective checker.
+Each domain member must project into every listed dimension. Distinct domain
+members must differ in at least one listed coordinate. This represents the
+domain as a subset of the Cartesian product, with no requirement to include
+every coordinate combination. A family with no dimensions permits at most
+one domain member.
 Richer §3.12 models can still require low-level tuple, membership,
 `AssociatedWith`, and `Characterization` facts to make such a family
 semantically active.

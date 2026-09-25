@@ -168,7 +168,7 @@ pure Lean code.
 | Positive checker | `Checker/Axioms.lean`, `Checker/Soundness.lean` | Soundness proves `checkAxN = true -> ax_aN`; most fields also have completeness |
 | Aggregate checker | `Checker/Axioms.lean`, `Checker/Soundness.lean` | `checkAxioms4_sound` proves `checkAxioms4 = true -> UFOAxioms4` |
 | Operational costs | `Complexity/CostModel.lean`, `Complexity/Theorems.lean` | Concrete counted execution and fixed/parameterized bounds |
-| Checker/table cost correspondence | `Complexity/Queries.lean` | Full value/cost equalities for 112 table-using entries, plus four constant definition checks. All 116 registry entries are covered. Workflow composition uses these source-operation costs, not native instruction counts. |
+| Checker/table cost correspondence | `Complexity/Queries.lean` | Full value/cost equalities for 109 table-using entries, plus four constant definition checks. All 113 registry entries are covered. Workflow composition uses these source-operation costs, not native instruction counts. |
 | Source-linked component bound | `Complexity/Theorems.lean` | Charges successful source compilation, construction of its returned model, and one aggregate checker call. The frontend's repeated per-field checks and report branches require further composition. |
 | Source-to-workflow bound | `Complexity/Certification.lean` | Composes compiler output, derived assertions, native proof requests, retries, registry traversal, and selected failure analysis. Provides fixed-registry data complexity and an explicit diagnostic term; excludes Lean proof work and emission. |
 | Certificate source generation | `Certificate/Generation.lean` | Trusted code emission, checked afterward by the Lean kernel |
@@ -351,7 +351,7 @@ checkAxNCosted : FiniteModel4 -> Costed Bool
 The production checker is the `value` projection of the counted checker. Each
 counted definition follows Lean's actual short-circuit order and has separate
 value-correspondence and operational-bound theorems. The fixed aggregate is an
-ordered registry of 116 delayed counted computations.
+ordered registry of 113 delayed counted computations.
 
 Projection lookup returns its value and cost together through `TableLookups`.
 The proved native replacement performs one dense lookup. Kernel reduction uses
@@ -677,7 +677,7 @@ checkAxioms4
   = value (checkBoundedRegistryCosted (checkAxioms4BoundedRegistry M))
 ```
 
-The registry has exactly 116 delayed entries. Each entry contains its actual
+The registry has exactly 113 delayed entries. Each entry contains its actual
 counted checker, a concrete polynomial bound inferred from that checker's
 proof, and the proof itself. The aggregate operational bound is their
 heterogeneous sum plus actual short-circuit traversal charges. The erasure
@@ -690,6 +690,6 @@ This yields two distinct proved guarantees:
 - semantic correctness of a successful finite check;
 - operational cost of the concrete compiler/checker computation.
 
-The fixed 116-entry theorem is data complexity. Generic registry theorems make
+The fixed 113-entry theorem is data complexity. Generic registry theorems make
 registry size and per-formula costs explicit for combined complexity.
 Diagnostics retain their separate output-sensitive result.

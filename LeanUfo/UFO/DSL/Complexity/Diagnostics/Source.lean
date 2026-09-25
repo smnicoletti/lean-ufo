@@ -5,14 +5,14 @@ import LeanUfo.UFO.DSL.Diagnostic.DerivedAssertions
 # Source-size bounds for derived-assertion diagnostics
 
 Successful compilation bounds the stored proposition array used by diagnostic
-queries. The precheck therefore costs at most `5570 N^5`, where `N` is the
+queries. The precheck therefore costs at most `5608 N^5`, where `N` is the
 explicit source input size. Selecting its saved report adds at most four
 operations. The count includes fact/world selection, predicate queries, full
 report construction, and copying the retained rows.
 
 These are bounds on the existing diagnostic components, with the actual
 compiler result as input. The final component sum also charges source
-compilation and both frontend name arrays, giving `6091 N^5`. Lean proof
+compilation and both frontend name arrays, giving `6129 N^5`. Lean proof
 elaboration and the remaining frontend schedule are not covered. Composing
 counters at those call boundaries follows the cost-aware semantics described
 in `CostModel.lean`.
@@ -26,12 +26,12 @@ open private derivedLookupCostBound
   from LeanUfo.UFO.DSL.Diagnostic.AxiomAnalysis
 
 -- All monomials in the predicate and report bounds have degree at most three.
--- Their coefficients sum to 1648 and 2103 respectively. Stored propositions
+-- Their coefficients sum to 1667 and 2103 respectively. Stored propositions
 -- count separately from worlds and things until each is bounded by N.
 private theorem derivedComponentBounds_le_cube (W T n : Nat) (tables : FactTables)
     (positive : 0 < n) (worlds : W ≤ n) (things : T ≤ n)
     (stored : tables.derivedProps.size ≤ n) :
-    namedDerivedPredicateCostBound W T tables ≤ 1648 * n ^ 3 ∧
+    namedDerivedPredicateCostBound W T tables ≤ 1667 * n ^ 3 ∧
       derivedAssertionReportCostBound W T tables ≤ 2103 * n ^ 3 := by
   have linear : n ≤ n ^ 3 := by
     simpa using Nat.pow_le_pow_right positive (show 1 ≤ 3 by omega)
@@ -63,28 +63,28 @@ private theorem derivedComponentBounds_le_cube (W T n : Nat) (tables : FactTable
 private theorem derivedFailureBound_le_fifth (W T F E n : Nat) (tables : FactTables)
     (positive : 0 < n) (worlds : W ≤ n) (things : T ≤ n) (facts : F ≤ n)
     (stored : tables.derivedProps.size ≤ n) (rows : E ≤ 9) :
-    derivedAssertionFailureCostBound W T F E tables ≤ 5570 * n ^ 5 := by
+    derivedAssertionFailureCostBound W T F E tables ≤ 5608 * n ^ 5 := by
   obtain ⟨predicate, report⟩ := derivedComponentBounds_le_cube W T n tables
     positive worlds things stored
   have linear : n ≤ n ^ 3 := by
     simpa using Nat.pow_le_pow_right positive (show 1 ≤ 3 by omega)
   have t := things.trans linear
   have extra : namedDerivedPredicateCostBound W T tables + 36 * T + 24 ≤
-      1708 * n ^ 3 := by omega
+      1727 * n ^ 3 := by omega
   have visits := Nat.mul_le_mul (show W + 1 ≤ 2 * n by omega) extra
   have visitsBound : (W + 1) *
-      (namedDerivedPredicateCostBound W T tables + 36 * T + 24) ≤ 3416 * n ^ 4 := by
+      (namedDerivedPredicateCostBound W T tables + 36 * T + 24) ≤ 3454 * n ^ 4 := by
     convert visits using 1
     ring
   have oneFourth : 1 ≤ n ^ 4 := by
     have := Nat.pow_le_pow_right positive (show 0 ≤ 4 by omega)
     simpa using this
   have perFact : 10 + (W + 1) *
-      (namedDerivedPredicateCostBound W T tables + 36 * T + 24) ≤ 3426 * n ^ 4 := by
+      (namedDerivedPredicateCostBound W T tables + 36 * T + 24) ≤ 3464 * n ^ 4 := by
     omega
   have selection := Nat.mul_le_mul facts perFact
   have selectionBound : F * (10 + (W + 1) *
-      (namedDerivedPredicateCostBound W T tables + 36 * T + 24)) ≤ 3426 * n ^ 5 := by
+      (namedDerivedPredicateCostBound W T tables + 36 * T + 24)) ≤ 3464 * n ^ 5 := by
     convert selection using 1
     ring
   have cube : n ^ 3 ≤ n ^ 5 := Nat.pow_le_pow_right positive (by omega)
@@ -102,7 +102,7 @@ theorem source_derivedAssertionFailure_cost_bound
     (success : compileModelSource source = .ok compiled) :
     (derivedAssertionFailureCosted (source.worlds.map Lean.Name.mkSimple)
       (source.things.map Lean.Name.mkSimple) source.facts compiled.scopedFacts compiled.tables).cost ≤
-      5570 * (sourceMetrics source).inputSize ^ 5 := by
+      5608 * (sourceMetrics source).inputSize ^ 5 := by
   have bound := derivedAssertionFailureCosted_cost_le
     (source.worlds.map Lean.Name.mkSimple) (source.things.map Lean.Name.mkSimple)
     source.facts compiled.scopedFacts compiled.tables
@@ -122,14 +122,14 @@ theorem source_derivedAssertionFailure_cost_bound
   · exact rows
 
 /-- If semantic proof elaboration fails, the frontend selects the saved
-precheck report. One scan and that selection cost at most `5574 N^5`.
+precheck report. One scan and that selection cost at most `5612 N^5`.
 Successful elaboration skips selection. Its own proof work is excluded. -/
 theorem source_derivedAssertionAnalysis_cost_bound
     (source : ModelSource) (compiled : CompiledModelSource)
     (success : compileModelSource source = .ok compiled) :
     (derivedAssertionAnalysisCosted (source.worlds.map Lean.Name.mkSimple)
       (source.things.map Lean.Name.mkSimple) source.facts compiled.scopedFacts compiled.tables).cost ≤
-      5574 * (sourceMetrics source).inputSize ^ 5 := by
+      5612 * (sourceMetrics source).inputSize ^ 5 := by
   have bound := source_derivedAssertionFailure_cost_bound source compiled success
   have selection := derivedAssertionAnalysisCosted_cost_le
     (source.worlds.map Lean.Name.mkSimple) (source.things.map Lean.Name.mkSimple)
@@ -165,7 +165,7 @@ theorem source_derivedAssertion_component_bound
       (namesFromStringsCosted source.things).cost +
       (derivedAssertionAnalysisCosted (namesFromStrings source.worlds)
         (namesFromStrings source.things) source.facts compiled.scopedFacts compiled.tables).cost ≤
-      6091 * (sourceMetrics source).inputSize ^ 5 := by
+      6129 * (sourceMetrics source).inputSize ^ 5 := by
   have compiler := compilerOperationalCost_le_inputSize_pow4 source
   have names := sourceNameConversion_cost_bound source
   have diagnostics := source_derivedAssertionAnalysis_cost_bound source compiled success

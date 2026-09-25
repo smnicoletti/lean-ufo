@@ -78,9 +78,11 @@ Reference Manual, “Inductive Types”
 (`<https://lean-lang.org/doc/reference/latest/The-Type-System/Inductive-Types/>`)
 and Theorem Proving in Lean 4, “Inductive Types”
 (`<https://docs.lean-lang.org/theorem_proving_in_lean4/Inductive-Types/>`).
-We use this inductive presentation because the paper's formulation is
-recursively self-referential, and Lean does not accept such a propositional
-self-reference as an ordinary `def`.
+This selects the least relation closed under these clauses: every witness
+contains a finite, nonempty inherence path. The recursive equation alone can
+admit larger fixed points. The finite-path reading is therefore an explicit
+semantic choice, consistent with the paper's explanation in terms of chains
+of bearers. The proofs of (t28)–(t30) use the resulting induction principle.
 -/
 inductive MomentOf (Sig : UFOSignature3_9) :
     Sig.Thing → Sig.Thing → Sig.F.World → Prop where

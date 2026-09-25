@@ -32,7 +32,7 @@ are stated separately.
 | Do the models avoid empty predicates? | [Anti-vacuity analysis](#anti-vacuity-analysis) |
 | What does S5 add? | [S5-derived results](#s5-derived-results) |
 | What happened to axiom (a73)? | [Relators, qua individuals, and axiom (a73)](#relators-qua-individuals-and-axiom-a73) |
-| Which assumptions were added explicitly? | [Explicit bridge axioms](#explicit-bridge-axioms) |
+| Which assumptions were added explicitly? | [Derived facts and added assumptions](#structural-assumptions-made-explicit) |
 
 ## Semantic framework
 
@@ -103,7 +103,7 @@ They have the following shape:
 
 ```lean
 theorem consistent_3_7 :
-  exists (Sig : UFOSignature3_7.{0,0}),
+  exists (Sig : UFOSignature3_7.{0}),
     UFOAxioms3_7 Sig
 ```
 
@@ -130,8 +130,9 @@ predicates of §3.12.
 The two model families remain separate. A sparse `ModelX` interpretation
 witnesses joint satisfiability; an anti-vacuity model tests whether the
 section's vocabulary can have nonempty extensions together.
-For example, the §4 model adds a metatype whose instance is itself a type, which
-is required to inhabit `Categorizes`. `AntiVacuity.lean` is the aggregate entry
+For example, the §4 model has a metatype whose sole instance properly
+specializes a broader type. A further instance of that broader type prevents
+reverse specialization, as (a108) requires. `AntiVacuity.lean` is the aggregate entry
 point, parallel to `Satisfiability/Consistency.lean`.
 
 ## S5-derived semantic facts
@@ -176,27 +177,24 @@ and the S5 stability lemmas, Lean proves:
 Under S5, `Type`, `Individual`, `Sub`, and `ProperSub` are invariant across
 accessible worlds because their definitions use possibility or necessity.
 
-### Section 3.2: kind stability
+### Section 3.4: derived kind stability
 
-Kind invariance does not follow from S5 alone. It depends on an additional
-structural axiom made explicit in the mechanization:
+Kind classification is invariant across accessible worlds. The theorem
+`kind_stable` derives this result from (a1), (a18), (a21), (a22), (a26), and
+the endurant-type clause of (a44).
 
-```lean
-def ax_kindStable : Prop :=
-  forall k w v,
-    Kind k w ->
-    R w v ->
-    Kind k v
-```
+A kind has a possible instance by (a1), (a18), (a26), and (a44). Rigidity
+carries that instance to the target world. Axiom (a44) makes it an endurant
+there, so (a21) supplies a kind for it. Axiom (a22) forces that kind to be
+the original kind. S5 symmetry gives the reverse direction.
 
-Using `ax_kindStable` and S5 frame properties, Lean proves:
+This proof uses the §3.4 signature and axioms. The §3.2 package alone does
+not supply the (a44) premise. The accompanying theorems transport rigidity
+and sortality to accessible worlds using (a26).
 
-- `kind_stable`;
-- kindhood transports rigid/sortal consequences across accessible worlds.
-
-The Kind branch is modally persistent because the mechanization adds the
-stability principle used by the informal development; S5 alone does not prove
-it.
+The exact `th_t10` statement needs only (a18), (a22), and (a26). If two kinds
+possibly share an instance, rigidity brings that instance to the world where
+both kind classifications hold. Axiom (a22) then excludes their overlap.
 
 ### Section 3.4: endurant-type refinements
 
@@ -216,9 +214,9 @@ Since both `Type` and `Box` are stable in S5, Lean proves invariance for:
 - `modeType_stable`;
 - `qualityType_stable`.
 
-For the corresponding kinds introduced by (a45), stability additionally depends
-on `ax_kindStable`, because each specific kind is the corresponding specific
-type plus `Kind`. Lean proves:
+The stability proofs for the kinds introduced by (a45) use the derived
+`kind_stable` theorem. Each specific kind combines a specific type with `Kind`.
+Lean proves:
 
 - `objectKind_stable`;
 - `collectiveKind_stable`;
@@ -227,8 +225,8 @@ type plus `Kind`. Lean proves:
 - `modeKind_stable`;
 - `qualityKind_stable`.
 
-S5 makes the modal type refinements stable, while `ax_kindStable` extends that
-stability to the specific kind predicates.
+Together, type stability and derived kind stability prove invariance for
+these specific kind predicates.
 
 ### Later S5 consequences
 
@@ -263,7 +261,7 @@ Checkpoint:
 
 ```lean
 consistent_3_1 :
-  exists (Sig : UFOSignature3_1.{0,0}),
+  exists (Sig : UFOSignature3_1.{0}),
     UFOAxioms3_1 Sig
 ```
 
@@ -287,7 +285,8 @@ Selected proved theorems:
 - `th_t5`: rigidity trichotomy;
 - `th_t6`: pairwise disjointness of rigidity classes;
 - `th_t7`, `th_t8`: specialization constraints involving anti-rigidity;
-- `th_t9`-`th_t16`: structural taxonomy properties;
+- `th_t9`–`th_t15`: structural taxonomy properties;
+- `th_t16`: non-sortal instance coverage, proved in `Section3_4.lean` using (a44);
 - `th_t17`: pairwise disjointness of leaf categories;
 - `th_t18`: exhaustiveness of the leaf partition.
 
@@ -295,7 +294,7 @@ Checkpoint:
 
 ```lean
 consistent_3_2 :
-  exists (Sig : UFOSignature3_2.{0,0}),
+  exists (Sig : UFOSignature3_2.{0}),
     UFOAxioms3_2 Sig
 ```
 
@@ -323,7 +322,7 @@ Checkpoint:
 
 ```lean
 consistent_3_3 :
-  exists (Sig : UFOSignature3_3.{0,0}),
+  exists (Sig : UFOSignature3_3.{0}),
     UFOAxioms3_3 Sig
 ```
 
@@ -359,7 +358,7 @@ Checkpoint:
 
 ```lean
 consistent_3_4 :
-  exists (Sig : UFOSignature3_4.{0,0}),
+  exists (Sig : UFOSignature3_4.{0}),
     UFOAxioms3_4 Sig
 ```
 
@@ -382,7 +381,7 @@ Checkpoint:
 
 ```lean
 consistent_3_5 :
-  exists (Sig : UFOSignature3_5.{0,0}),
+  exists (Sig : UFOSignature3_5.{0}),
     UFOAxioms3_5 Sig
 ```
 
@@ -406,7 +405,7 @@ Checkpoint:
 
 ```lean
 consistent_3_6 :
-  exists (Sig : UFOSignature3_6.{0,0}),
+  exists (Sig : UFOSignature3_6.{0}),
     UFOAxioms3_6 Sig
 ```
 
@@ -434,7 +433,7 @@ Checkpoint:
 
 ```lean
 consistent_3_7 :
-  exists (Sig : UFOSignature3_7.{0,0}),
+  exists (Sig : UFOSignature3_7.{0}),
     UFOAxioms3_7 Sig
 ```
 
@@ -456,7 +455,7 @@ Checkpoint:
 
 ```lean
 consistent_3_8 :
-  exists (Sig : UFOSignature3_8.{0,0}),
+  exists (Sig : UFOSignature3_8.{0}),
     UFOAxioms3_8 Sig
 ```
 
@@ -487,14 +486,16 @@ Checkpoint:
 
 ```lean
 consistent_3_9 :
-  exists (Sig : UFOSignature3_9.{0,0}),
+  exists (Sig : UFOSignature3_9.{0}),
     UFOAxioms3_9 Sig
 ```
 
-Formalization note: `MomentOf` is represented as an inductive transitive-closure
-relation, and ultimate-bearer uniqueness is encoded using Lean's unique
-existence form (`exists unique`, displayed in Lean as `exists!` or
-`ExistsUnique` in supporting code).
+Formalization note: `MomentOf` means a finite, nonempty inherence path.
+The inductive definition selects the least relation closed under the two
+clauses of (d2). The recursive equation alone can admit larger fixed points.
+This finite-path interpretation supplies the induction principle used in
+(t28)–(t30). Ultimate-bearer uniqueness uses Lean's unique existence form
+(`∃!`, or `ExistsUnique` in supporting code).
 
 ### Section 3.10: relators
 
@@ -511,7 +512,7 @@ Files:
 Mechanized axioms:
 
 - (a69)-(a80);
-- the bridge axiom `ax_quaIndividualOf_endurant`.
+- the additional assumption `ax_quaIndividualOf_endurant`.
 
 Selected proved theorems:
 
@@ -524,13 +525,13 @@ Checkpoint:
 
 ```lean
 consistent_3_10 :
-  exists (Sig : UFOSignature3_10.{0,0}),
+  exists (Sig : UFOSignature3_10.{0}),
     UFOAxioms3_10 Sig
 ```
 
 Formalization note: `FoundationOf` is defined using `Classical.epsilon`, which
 is why the signatures carry a nonempty domain witness. The proof of `th_t33`
-requires the explicit bridge axiom that qua individuals are of endurants.
+requires the additional assumption that qua individuals are of endurants.
 
 #### Historical finding: printed (a73) forces relators empty
 
@@ -657,11 +658,56 @@ results establish theorem preservation:
 - `th_t32_without_current_ax73` shows that (t32) is independent of (a73);
 - `th_t33_part_characterization` preserves (t33) unchanged.
 
-The guarded-overlap formula remains in the analysis as historical comparison
-evidence. It supports a nonempty relator and preserves (t32) and (t33), but
-`th_t31_guarded_overlap` needs the additional premise that the part is already
-an externally dependent mode. `GuardedOverlapCountermodel.lean` gives a finite
-countermodel to the original (t31), so this alternative was not selected.
+#### Guarded-overlap comparison
+
+The full guarded-overlap alternative does not imply unrestricted (t31), even
+with the later axioms through §4. It supports a nonempty relator and preserves
+(t32) and (t33). The active part-based repair also proves unrestricted (t31).
+
+Under guarded overlap, these conditions suffice for (t31):
+
+- `th_t31_guarded_overlap`: the selected part is an externally dependent mode,
+  using (a47), (a50), and guarded (a73).
+- `th_t31_guarded_overlap_of_founded`: the selected part has a foundation,
+  using the full guarded-repair package through §3.10. Axiom (a71) makes that
+  part an externally dependent mode or a relator. In the relator case, a
+  qua-individual constituent connects the foundations through (a78) and
+  guarded (a73).
+- `th_t31_of_part_relator`: the qua individual is part of a relator. Axioms
+  (a49) and (a78) alone give the conclusion for all its parts.
+
+`Historical/GuardedOverlapCountermodel.lean` proves `full_counterexample`
+with ten entities and three worlds. It satisfies (a1)–(a108) as currently
+encoded, with guarded-overlap (a73) replacing the active part-based formula.
+Both added assumptions and the source distance laws hold.
+
+| Entities | Role in the countermodel |
+| --- | --- |
+| Types 0, 1, 2 | Classify objects, modes, and perdurants |
+| Objects 3, 4 | Bearer and external dependence witness for the qua individual |
+| Qua individual 5 | The only externally dependent mode, with proper parts 6 and 7 |
+| Objects 6, 7 | Disjoint, unfounded parts of 5 |
+| Perdurants 8, 9 | Two possible choices for the foundation of 5 |
+
+Only the qua individual has proper parts. Its two disjoint parts satisfy
+supplementation, and all other parthood facts are reflexive. Neither part is
+a qua individual, so (a79) requires no relator. The qua individual and its
+bearer exist at world 0. Two further worlds separate the existence of the
+bearer and the external object, establishing their existential independence.
+
+The unfounded parts escape the externally-dependent-mode condition in guarded
+(a73). Any counterexample must use an unfounded part, as proved by
+`t31_guarded_overlap_failure_unfounded`. For such a part, `FoundationOf` still
+returns a value through classical choice. That value has no corresponding
+`FoundedBy` fact. The model chooses perdurant 9 as the qua individual's
+foundation if that unspecified value is 8, and chooses 8 otherwise.
+The two values therefore differ, regardless of which value classical choice
+returns. This refutes the exact total-function encoding of (t31).
+
+Some additional restriction is thus necessary for the guarded alternative.
+Requiring the selected part to have a foundation suffices. The countermodel
+does not establish a weakest sufficient restriction and leaves that
+restricted theorem intact.
 
 The direct model chain under `LeanUfo/UFO/FormalAnalysis/Satisfiability/Relator/` mirrors the
 section-by-section witness style of the main `ModelX` files. `Model3_10.lean`
@@ -692,7 +738,7 @@ Checkpoint:
 
 ```lean
 consistent_3_11 :
-  exists (Sig : UFOSignature3_11.{0,0}),
+  exists (Sig : UFOSignature3_11.{0}),
     UFOAxioms3_11 Sig
 ```
 
@@ -717,15 +763,18 @@ Checkpoint:
 
 ```lean
 consistent_3_12 :
-  exists (Sig : UFOSignature3_12.{0,0}),
+  exists (Sig : UFOSignature3_12.{0}),
     UFOAxioms3_12 Sig
 ```
 
 Formalization notes:
 
 - set membership and inclusion use Lean `Set Thing` extensions;
-- product membership in (a99) is represented by tuple projections over a shared
-  finite index;
+- (a99) represents product membership by finite coordinate projections.
+  Coordinates must distinguish domain members: equal coordinate tuples imply
+  equal members. `ProductSubsetOf.embedding` proves that these requirements
+  embed the domain into the Lean Cartesian product of its component sets.
+  The product may contain tuples outside the domain;
 - quales, quality domains, tuple-like product members, and distance values
   remain UFO `Thing`s rather than being split into separate Lean carrier types;
 - in the finite DSL checker, membership-backed set obligations are executable,
@@ -737,7 +786,7 @@ Formalization notes:
   representation-completeness condition `ProductFamilyWitnessTableComplete`;
 - metric constraints are expressed relationally at the UFO object-language
   level;
-- no additional bridge axiom is introduced here beyond the encoded metric
+- no additional assumption is introduced here beyond the encoded metric
   constraints.
 
 The witness keeps quality structures, quales, distance values, and set
@@ -759,7 +808,7 @@ Checkpoint:
 
 ```lean
 consistent_3_13 :
-  exists (Sig : UFOSignature3_13.{0,0}),
+  exists (Sig : UFOSignature3_13.{0}),
     UFOAxioms3_13 Sig
 ```
 
@@ -785,13 +834,19 @@ Mechanized axioms:
 - (a105): disjointness of types;
 - (a106): complete binary coverage;
 - (a107): binary partitioning;
-- (a108): categorization by specialization.
+- (a108): categorization by proper specialization.
+
+In the original formula (p. 202), `⊏` is proper specialization from (d1)
+(p. 175): `Sub(x, y) ∧ ¬ Sub(y, x)`. Each instance of the categorizing type
+must satisfy both conditions. Self-specialization and mutual specialization
+between distinct types therefore fail the requirement. The Core uses
+`ProperSub`, and the finite-model interpretation uses the same two conditions.
 
 Checkpoint:
 
 ```lean
 consistent_4 :
-  exists (Sig : UFOSignature4.{0,0}),
+  exists (Sig : UFOSignature4.{0}),
     UFOAxioms4 Sig
 ```
 
@@ -800,80 +855,56 @@ relations extensionally by the right-hand side of their defining axioms.
 
 ## Structural assumptions made explicit
 
-During mechanization, several assumptions that are implicit in the paper's
-informal exposition had to be added as explicit axioms. This section records
-them so the difference between paper text, encoded axioms, and Lean semantics is
-visible.
+Instance typing, subtype-of-kind typing, and kind stability follow from
+numbered axioms once §3.4 is available. They are ordinary theorems, with no
+extra package fields or certificate checks. Two added assumptions remain:
+non-sortal upward closure and qua-individual bearer typing.
 
-### Kind stability
+| Principle | Status | Evidence |
+| --- | --- | --- |
+| Instances of endurant types are endurants | Derived | `inst_endurant_of_a44`: endurant-type clause of (a44) |
+| Subtypes of kinds are sortals | Derived | `sub_kind_is_sortal`: (a5), (a23), (a26), endurant-type clause of (a44) |
+| Kind classification is stable across accessible worlds | Derived | `kind_stable`: (a1), (a18), (a21), (a22), (a26), endurant-type clause of (a44) |
+| Non-sortal upward closure | Additional assumption | Countermodel satisfying all remaining encoded axioms also refutes (t16) |
+| Qua-individual bearer typing | Additional assumption | Countermodel satisfying all remaining encoded axioms also refutes (t33) |
+| Distance identity, symmetry, and triangle constraints | Source axioms | The three unnumbered formulas following (a101) in §3.12 |
 
-File:
-
-- `LeanUfo/UFO/Core/Section3_2.lean`
-
-Formal axiom:
-
-```lean
-def ax_kindStable : Prop :=
-  forall k w v,
-    Kind k w ->
-    R w v ->
-    Kind k v
-```
-
-Intended reading: kinds are stable across accessible worlds.
-
-Used for:
-
-- `th_t10`: necessary disjointness of distinct kinds;
-- `th_t11`: non-specialization of distinct kinds;
-- `th_t14`: no type specializes two distinct kinds;
-- Section 3.4 theorems that transport specific kind information across worlds;
-- the S5-derived kind and specific-kind stability theorems.
+The distance constraints are present in the original formalization. The
+selected S5 frame, nonempty constant domain, and interpretations of derived
+predicates are semantic choices, described in the preceding sections.
+`FormalAnalysis/StructuralAssumptions.lean` collects the derivability checks
+and countermodels. Proofs used by the numbered theorems stay in `Core`.
+The countermodels satisfy (a1)–(a108) as currently encoded, including the
+documented corrections to (a73) and (a102), the source distance laws, and the
+other added assumption. They also refute (t16) and (t33), respectively. Thus
+both theorems need some additional restriction. These results do not establish
+that the retained assumptions are the weakest sufficient ones.
 
 ### Instances of endurant types are endurants
 
-File:
-
-- `LeanUfo/UFO/Core/Section3_2.lean`
-
-Formal axiom:
-
-```lean
-def ax_instEndurant_of_EndurantType : Prop :=
-  forall t x w,
-    EndurantType t w ->
-    Inst x t w ->
-    Endurant x w
-```
-
-Intended reading: an instance of an endurant type is an endurant.
-
-This typing principle is used by `th_t16` and by the Section
-3.4 endurant-type taxonomy results.
+In `Core/Section3_4.lean`, `inst_endurant_of_a44` applies the boxed instance
+clause of (a44) at the current world. Reflexivity of S5 accessibility permits
+that step. The proof needs only the endurant-type clause of (a44).
+The taxonomy proofs (t23), (t24), and (t26) use this derived fact.
 
 ### Subtypes of kinds are sortals
 
-File:
+In the same module, `sub_kind_is_sortal` first obtains endurant-type status for
+the kind from (a26) and (a23). Axiom (a5) transfers instance membership from
+the subtype to the kind at every accessible world. Axiom (a44) then classifies
+the subtype as an endurant type, and (a23) classifies it as a sortal.
 
-- `LeanUfo/UFO/Core/Section3_2.lean`
-
-Formal axiom:
-
-```lean
-def ax_sub_of_kind_is_sortal : Prop :=
-  forall a k w,
-    Sub a k w ->
-    Kind k w ->
-    Sortal a w
-```
-
-Intended reading: the subtypes below kinds stay in the sortal branch.
-
-This is used in the subtype branch of `th_t16` and in the Section 3.4
-characterization of specific endurant sortals.
+The source states (t16) in §3.2, but the mechanized proof uses (a44). Its
+statement and number are preserved in `Core/Section3_4.lean`, after that axiom.
+The §3.2 and §3.3 packages contain no instance-typing or subtype-of-kind field.
+Their satisfiability checkpoints therefore concern the smaller packages.
+From §3.4 onward, the derived facts recover both properties.
 
 ### Upward closure of NonSortal
+
+Some additional restriction is necessary for (t16). The current proof uses
+non-sortal upward closure. A countermodel below shows why the remaining
+encoded axioms are insufficient.
 
 File:
 
@@ -892,7 +923,39 @@ def ax_nonSortal_upward : Prop :=
 Intended reading: if a non-sortal specializes a supertype, the supertype is
 also non-sortal.
 
-This is used in the common-supertype branch of `th_t16`.
+The proof of `th_t16` uses this assumption in its common-supertype branch.
+The lemma `nonSortal_supertype_of_endurantType` proves the conclusion from
+(a5), (a23), and (a24) when the supertype is an endurant type. It uses (t15)
+to rule out a sortal supertype. The unrestricted closure must also supply
+the supertype's endurant-type status.
+
+The nine-entity, one-world countermodel in
+`FormalAnalysis/StructuralAssumptions.lean` refutes
+both (t16) and non-sortal upward closure. It uses four objects `a`, `b`, `c`,
+and `d`, one abstract individual `e`, and these four types:
+
+| Type | Instances | Classification |
+| --- | --- | --- |
+| `K₁` | `a`, `b` | Kind, sortal |
+| `K₂` | `c`, `d` | Kind, sortal |
+| `C` | `a`, `c` | Category, non-sortal |
+| `U` | `a`, `b`, `c`, `d`, `e` | Neither endurant type nor non-sortal |
+
+For the instance `a` of `C`, both alternatives of (t16) fail:
+
+- The only sortal containing `a` is `K₁`. It does not specialize `C`, because
+  `b` belongs to `K₁` but not to `C`.
+- Their only common supertype is `U`. Its abstract instance `e` excludes
+  endurant-type status by (a44), and therefore non-sortal status by (a24).
+
+Axiom (a6) still holds: it requires a common supertype without requiring
+non-sortal status. Identity parthood and empty moments, relators, and quality
+structures extend the model through §4. Lean verifies (a1)–(a108) as currently
+encoded, the source distance laws, and qua-individual bearer typing.
+`Results.t16_fails` verifies the failure of (t16) in that full model.
+
+The current closure assumption suffices for the proof of (t16). This result
+does not establish that it is the weakest sufficient assumption.
 
 ### Qua individuals are of endurants
 
@@ -911,9 +974,18 @@ def ax_quaIndividualOf_endurant : Prop :=
 
 Intended reading: the bearer associated with a qua individual is an endurant.
 
-This is required for `th_t33`, because the informal proof that every relator
-mediates at least two distinct endurants relies on a typing assumption not
-forced by (a73)-(a80) alone.
+The second countermodel in `FormalAnalysis/StructuralAssumptions.lean` modifies
+the positive relator model. Its two qua individuals inhere in types rather
+than endurants. The model satisfies all numbered axioms, the source distance
+laws, and non-sortal upward closure. Its relator mediates no endurants, so
+both the bearer-typing assumption and (t33) are false.
+
+Some additional restriction is therefore necessary to recover (t33).
+`th_t33_of_relator_bearer_typing` in `Core/Section3_10.lean` proves it under
+the weaker condition that bearers of qua-individual proper parts of relators
+are endurants. The package retains the global assumption above, which supplies
+that condition. The proof uses (a47), (a49)–(a52), (a73), (a74), (a79), and
+(a80); it does not use (a48).
 
 ## Methodological notes
 
@@ -923,7 +995,7 @@ The development follows a repeated pattern:
 2. Prove theorems against that semantic package.
 3. Construct a small witness model.
 4. Prove a model-existence checkpoint.
-5. Record any extra bridge principle needed for the paper's theorem statements.
+5. Record any additional assumption needed for the paper's theorem statements.
 
 The small witness models are sparse. Empty interpretations are
 permitted in ordinary model-existence checkpoints and show joint satisfiability

@@ -419,12 +419,21 @@ example : properSubLookupCosted 1 2
 example : categorizesLookupCosted 1 2 (twoThingTables #[]) 0 1 0 =
     ⟨false, 41⟩ := by native_decide
 example : categorizesLookupCosted 1 2 (twoThingTables #[.binary .inst 0 0 0]) 0 1 0 =
-    ⟨false, 66⟩ := by native_decide
+    ⟨false, 67⟩ := by native_decide
 example : categorizesLookupCosted 1 2 (twoThingTables #[.binary .inst 1 0 0]) 0 1 0 =
-    ⟨false, 104⟩ := by native_decide
+    ⟨false, 105⟩ := by native_decide
 example : categorizesLookupCosted 1 2
     (twoThingTables #[.binary .inst 0 0 0, .binary .sub 0 1 0]) 0 1 0 =
-    ⟨true, 85⟩ := by native_decide
+    ⟨true, 104⟩ := by native_decide
+-- A reverse edge defeats proper specialization even for distinct types.
+-- Self-specialization fails for the same reason. Both query directions are
+-- counted; the failed candidate then stops the search (85 operations).
+example : categorizesLookupCosted 1 2
+    (twoThingTables #[.binary .inst 0 0 0, .binary .sub 0 1 0,
+      .binary .sub 1 0 0]) 0 1 0 = ⟨false, 85⟩ := by native_decide
+example : categorizesLookupCosted 1 2
+    (twoThingTables #[.binary .inst 0 1 0, .binary .sub 0 0 0]) 1 0 0 =
+    ⟨false, 85⟩ := by native_decide
 -- Cross-world typehood costs 61, the conjunction costs one, and the empty
 -- current-world difference search costs 44 plus its result test: 107 total.
 example : categorizesLookupCosted 2 2
@@ -445,7 +454,7 @@ example (W T : Nat) (tables : FactTables) (s w : Nat) :
     (nonEmptySetLookupCosted W T tables s w).cost ≤ 21 * T + 1 :=
   nonEmptySetLookupCosted_cost_le W T tables s w
 example (W T : Nat) (tables : FactTables) (s t w : Nat) :
-    (categorizesLookupCosted W T tables s t w).cost ≤ W * (T * 19 + 2) + 40 * T + 2 :=
+    (categorizesLookupCosted W T tables s t w).cost ≤ W * (T * 19 + 2) + 59 * T + 2 :=
   categorizesLookupCosted_cost_le W T tables s t w
 
 example {W₁ W₂ T₁ T₂ : Nat} (hw : W₁ ≤ W₂) (ht : T₁ ≤ T₂) :
@@ -486,7 +495,7 @@ example (W T : Nat) (tables : FactTables)
     (categorizesLookupCosted W T tables s t w).value =
       (typeLookup W T tables s &&
         !((List.range T).any fun x => tables.binaryLookup "inst" x s w &&
-          !tables.binaryLookup "sub" x t w)) :=
+          !(tables.binaryLookup "sub" x t w && !tables.binaryLookup "sub" t x w))) :=
   categorizesLookupCosted_value W T tables agreement s t w
 
 private def threeTypeTables (facts : Array CompiledFact) : FactTables :=
@@ -2268,7 +2277,7 @@ example {W₁ W₂ : Nat} (h : W₁ ≤ W₂) (c : Nat) :
     30 * W₁ + c ≤ 30 * W₂ + c ∧ 60 * W₁ + c ≤ 60 * W₂ + c := by omega
 
 -- Typehood costs 59 for no possible instance, 21 for the first, and 59
--- for the last. A failed specialization search costs 43 or 84. Reports
+-- for the last. A failed proper-specialization search costs 44 or 85. Reports
 -- preserve the typehood-first order and the supplied fallback on success.
 example : categorizesRequiredMissingCosted #[`w] #[`a, `b, `c]
     (threeTypeTables #[]) 0 1 0 "fallback" =
@@ -2279,25 +2288,37 @@ example : categorizesEvidenceCosted #[`w] #[`a, `b, `c]
        "  - Computed Categorizes: false, because `a` is not a computed `Type`."], 80⟩ := by native_decide
 example : categorizesRequiredMissingCosted #[`w] #[`a, `b, `c]
     (threeTypeTables #[.binary .inst 0 0 0]) 0 1 0 "fallback" =
-    ⟨"`Categorizes(a, b)` requires each category-instance type to specialize `b`; missing `Sub(a, b)`.", 89⟩ := by native_decide
+    ⟨"`Categorizes(a, b)` requires each category-instance type to properly specialize `b`; failed `ProperSub(a, b)`.", 90⟩ := by native_decide
 example : categorizesEvidenceCosted #[`w] #[`a, `b, `c]
     (threeTypeTables #[.binary .inst 0 0 0]) 0 1 0 =
     ⟨#["  - User assertion: `Categorizes(a, b)`.",
-       "  - Computed Categorizes: false, because `a` instantiates `a` at `w` but `Sub(a, b)` is missing."], 102⟩ := by native_decide
+       "  - Computed Categorizes: false, because `a` instantiates `a` at `w` but `ProperSub(a, b)` fails."], 103⟩ := by native_decide
 example : categorizesRequiredMissingCosted #[`w] #[`a, `b, `c]
     (threeTypeTables #[.binary .inst 2 0 0]) 0 1 0 "fallback" =
-    ⟨"`Categorizes(a, b)` requires each category-instance type to specialize `b`; missing `Sub(c, b)`.", 168⟩ := by native_decide
+    ⟨"`Categorizes(a, b)` requires each category-instance type to properly specialize `b`; failed `ProperSub(c, b)`.", 169⟩ := by native_decide
 example : categorizesEvidenceCosted #[`w] #[`a, `b, `c]
     (threeTypeTables #[.binary .inst 2 0 0]) 0 1 0 =
     ⟨#["  - User assertion: `Categorizes(a, b)`.",
-       "  - Computed Categorizes: false, because `c` instantiates `a` at `w` but `Sub(c, b)` is missing."], 181⟩ := by native_decide
+       "  - Computed Categorizes: false, because `c` instantiates `a` at `w` but `ProperSub(c, b)` fails."], 182⟩ := by native_decide
 example : categorizesRequiredMissingCosted #[`w] #[`a, `b, `c]
     (threeTypeTables #[.binary .inst 0 0 0, .binary .sub 0 1 0]) 0 1 0 "fallback" =
-    ⟨"fallback", 108⟩ := by native_decide
+    ⟨"fallback", 127⟩ := by native_decide
 example : categorizesEvidenceCosted #[`w] #[`a, `b, `c]
     (threeTypeTables #[.binary .inst 0 0 0, .binary .sub 0 1 0]) 0 1 0 =
     ⟨#["  - User assertion: `Categorizes(a, b)`.",
-       "  - Computed Categorizes: true; every instance type of `a` specializes `b`."], 129⟩ := by native_decide
+       "  - Computed Categorizes: true; every instance type of `a` properly specializes `b`."], 148⟩ := by native_decide
+
+-- The forward edge alone passes. Adding its reverse must produce a report,
+-- even though the two types have different indices.
+example : categorizesRequiredMissingCosted #[`w] #[`a, `b, `c]
+    (threeTypeTables #[.binary .inst 0 0 0, .binary .sub 0 1 0,
+      .binary .sub 1 0 0]) 0 1 0 "fallback" =
+    ⟨"`Categorizes(a, b)` requires each category-instance type to properly specialize `b`; failed `ProperSub(a, b)`.", 108⟩ := by native_decide
+example : categorizesEvidenceCosted #[`w] #[`a, `b, `c]
+    (threeTypeTables #[.binary .inst 0 0 0, .binary .sub 0 1 0,
+      .binary .sub 1 0 0]) 0 1 0 =
+    ⟨#["  - User assertion: `Categorizes(a, b)`.",
+       "  - Computed Categorizes: false, because `a` instantiates `a` at `w` but `ProperSub(a, b)` fails."], 121⟩ := by native_decide
 
 -- The three-thing shared-instance search costs 66 with none, 42 for the
 -- first, and 83 for the last. Required-missing text adds 13 or 19;
@@ -2463,10 +2484,10 @@ example : categorizesRequiredMissingCosted #[`first, `last] #[`a, `b]
 example : categorizesEvidenceCosted #[`first, `last] #[`a, `b]
     (twoWorldModalTables #[.binary .inst 1 0 1]) 0 1 0 =
     ⟨#["  - User assertion: `Categorizes(a, b)`.",
-       "  - Computed Categorizes: true; every instance type of `a` specializes `b`."], 148⟩ := by native_decide
+       "  - Computed Categorizes: true; every instance type of `a` properly specializes `b`."], 148⟩ := by native_decide
 
 example (worlds things : Array Name) (tables : FactTables) (x y w : Nat) (fallback : String) :
-    (categorizesRequiredMissingCosted worlds things tables x y w fallback).cost ≤ worlds.size * (things.size * 19 + 2) + 40 * things.size + 25 :=
+    (categorizesRequiredMissingCosted worlds things tables x y w fallback).cost ≤ worlds.size * (things.size * 19 + 2) + 59 * things.size + 25 :=
   categorizesRequiredMissingCosted_cost_le worlds things tables x y w fallback
 
 example (worlds things : Array Name) (tables : FactTables) (x y w : Nat) :
@@ -2482,7 +2503,7 @@ example (worlds things : Array Name) (tables : FactTables) (x y z w : Nat) (fall
   partitionRequiredMissingCosted_cost_le worlds things tables x y z w fallback
 
 example (worlds things : Array Name) (tables : FactTables) (x y w : Nat) :
-    (categorizesEvidenceCosted worlds things tables x y w).cost ≤ worlds.size * (things.size * 19 + 2) + 40 * things.size + 38 :=
+    (categorizesEvidenceCosted worlds things tables x y w).cost ≤ worlds.size * (things.size * 19 + 2) + 59 * things.size + 38 :=
   categorizesEvidenceCosted_cost_le worlds things tables x y w
 example (worlds things : Array Name) (tables : FactTables) (x y w : Nat) :
     (categorizesEvidenceCosted worlds things tables x y w).value.size = 2 :=
@@ -2522,12 +2543,12 @@ example : ((derivedAssertionFailure? #[`w] #[`a, `b, `c]
     #[.derived (.binary "Categorizes" "a" "b") .everywhere]
     #[.derived (.unary "Quality" 0) .everywhere]
     (threeTypeTables #[.binary .inst 2 0 0])).getD #[])[1]? =
-    some "Required but missing: `Categorizes(a, b)` requires each category-instance type to specialize `b`; missing `Sub(c, b)`." := by native_decide
+    some "Required but missing: `Categorizes(a, b)` requires each category-instance type to properly specialize `b`; failed `ProperSub(c, b)`." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`a, `b, `c]
     #[.derived (.binary "Categorizes" "a" "b") .everywhere]
     #[.derived (.unary "Quality" 0) .everywhere]
     (threeTypeTables #[.binary .inst 2 0 0])).getD #[])[5]? =
-    some "  - Computed Categorizes: false, because `c` instantiates `a` at `w` but `Sub(c, b)` is missing." := by native_decide
+    some "  - Computed Categorizes: false, because `c` instantiates `a` at `w` but `ProperSub(c, b)` fails." := by native_decide
 example : ((derivedAssertionFailure? #[`w] #[`a, `b, `c]
     #[.derived (.binary "IsDisjointWith" "a" "b") .everywhere]
     #[.derived (.unary "Quality" 0) .everywhere]

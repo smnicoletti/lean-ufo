@@ -76,8 +76,10 @@ The core lives under `LeanUfo/UFO/`.
 | `Core/Section*.lean` | Axiom packages and derived theorems for those fragments |
 | `Core/S5_Derived.lean` | Additional consequences of the chosen S5 semantics |
 | `FormalAnalysis/` | Axiom diagnosis, historical comparisons, anti-vacuity interpretations, and satisfiability models |
+| `FormalAnalysis/StructuralAssumptions.lean` | Unified audit of added assumptions: derived facts and countermodels satisfying all remaining encoded axioms, refuting (t16) without non-sortal closure and (t33) without bearer typing |
 | `FormalAnalysis/Satisfiability/` | Ordinary `ModelX` checkpoints and the positive-relator model chain |
 | `FormalAnalysis/AntiVacuity/` | Stronger simultaneous-nonemptiness interpretations |
+| `FormalAnalysis/Historical/GuardedOverlapCountermodel.lean` | Full-package countermodel to (t31) for the guarded-overlap alternative, extended through §4 |
 
 Each core fragment follows the same pattern:
 
@@ -171,7 +173,7 @@ Lean theorems:
   `DSL/Certification.lean`;
 - **checker soundness/completeness theorems** in `DSL/Checker/Soundness.lean`;
 - **operational compiler/checker complexity guarantees** under
-  `DSL/Complexity/`, including the fixed 116-check heterogeneous bound.
+  `DSL/Complexity/`, including the fixed 113-check heterogeneous bound.
   `Complexity/Taxonomy.lean` owns the fixed unary parent graph and its counted,
   duplicate-free ancestor traversal. Model-dependent inherence reachability
   belongs to `Complexity/Closure.lean`. Counted validation of supplied axiom 99

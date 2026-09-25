@@ -16,9 +16,10 @@ disjointness, complete coverage, and partitioning.
 
 Categorization needs one additional level in the instantiation hierarchy. The
 `metaKind` introduced in `AntiVacuity3_12` has `simpleQualityKind` as its only
-instance. Since `simpleQualityKind` specializes itself, `metaKind` categorizes
-`simpleQualityKind`. This witness exercises the higher-order shape of (a108):
-an instance of the categorizing type is itself a type.
+instance. That kind properly specializes `mixedType`: the simple quality
+instantiates both, while the perdurant instantiates only `mixedType`.
+Thus `metaKind` categorizes `mixedType`, as required by the strict relation
+in (a108). Self-specialization cannot supply this witness.
 -/
 
 namespace AntiVacuity.Section4
@@ -38,7 +39,8 @@ def isPartitionedInto (t t' t'' : Thing) (w : World) : Prop :=
   isCompletelyCoveredBy t t' t'' w ∧ isDisjointWith t' t'' w
 
 def categorizes (t₁ t₂ : Thing) (w : World) : Prop :=
-  base.Type_ t₁ w ∧ ∀ t₃, base.Inst t₃ t₁ w -> base.Sub t₃ t₂ w
+  base.Type_ t₁ w ∧ ∀ t₃, base.Inst t₃ t₁ w ->
+    ProperSub base.toUFOSignature3_1 t₃ t₂ w
 
 def sig : UFOSignature4 where
   toUFOSignature3_13 := base
@@ -69,11 +71,22 @@ private theorem simple_kind_covered :
   intro x hx
   exact Or.inl hx
 
-private theorem metakind_categorizes_simple_kind :
-    sig.Categorizes .metaKind .simpleQualityKind () := by
+private theorem metakind_categorizes_mixed_type :
+    sig.Categorizes .metaKind .mixedType () := by
   refine ⟨trivial, ?_⟩
   intro t ht
-  cases t <;> simp_all [inst, isType, Frame.Box]
+  cases t <;> simp_all [ProperSub, inst, isType, Frame.Box]
+  constructor
+  · intro x hx; cases x <;> simp_all
+  · exact ⟨.life, trivial, by simp⟩
+
+/-- The same category cannot use its sole instance as the categorized type:
+(d1) rules out self-specialization. This guards the strict reading of (a108). -/
+theorem metakind_not_categorizes_simple_kind :
+    ¬ sig.Categorizes .metaKind .simpleQualityKind () := by
+  intro h
+  have hp := h.2 .simpleQualityKind trivial
+  exact hp.2 hp.1
 
 /- All four section 4 relations are inhabited in this one cumulative model.
 The partition witness reuses the same coverage and disjointness facts proved
@@ -88,6 +101,6 @@ theorem predicates_nonempty :
       simple_kind_covered⟩,
     ⟨.simpleQualityKind, .simpleQualityKind, .complexQualityKind, (),
       simple_kind_covered, quality_kinds_disjoint⟩,
-    ⟨.metaKind, .simpleQualityKind, (), metakind_categorizes_simple_kind⟩⟩
+    ⟨.metaKind, .mixedType, (), metakind_categorizes_mixed_type⟩⟩
 
 end AntiVacuity.Section4

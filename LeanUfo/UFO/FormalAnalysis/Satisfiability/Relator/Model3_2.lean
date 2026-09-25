@@ -92,25 +92,10 @@ theorem ax32_sig : ax_a32 sig := by intro w; simp
 theorem ax33_sig : ax_a33 sig := by intro t w; simp
 
 /-- Instantiation of the endurant kind is restricted to endurants. -/
-theorem ax_instEndurant_sig : ax_instEndurant_of_EndurantType (Sig := sig) := by
-  intro t x w hType hInst
-  cases t <;> cases x <;> cases w <;> simp_all
 
-theorem ax_sub_kind_sortal_sig : ax_sub_of_kind_is_sortal (Sig := sig) := by
-  intro a k w hSub hKind
-  rcases hSub with ⟨hType, _hKindType, hBox⟩
-  rcases Model3_1.type_has_instance hType with ⟨x, hxa⟩
-  have hxk := hBox .actual (by trivial) x hxa
-  have hak : a = k := Model3_1.inst_target_unique hxa hxk
-  subst k
-  simpa [sig] using hKind
 
 theorem ax_nonSortal_up_sig : ax_nonSortal_upward (Sig := sig) := by
   intro x y w
-  simp
-
-theorem ax_kindStable_sig : ax_kindStable sig := by
-  intro x w v
   simp
 
 /-- Consistency witness for §3.2 of the positive relator model chain. -/
@@ -134,9 +119,6 @@ instance : UFOAxioms3_2 sig where
   ax31 := ax31_sig
   ax32 := ax32_sig
   ax33 := ax33_sig
-  ax_instEndurant := ax_instEndurant_sig
-  ax_sub_kind_sortal := ax_sub_kind_sortal_sig
   ax_nonSortal_up := ax_nonSortal_up_sig
-  ax_kindStable := ax_kindStable_sig
 
 end Relator.Model3_2

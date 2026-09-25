@@ -20,7 +20,9 @@ pairs of quales and is also the zero, sum, and order witness.
 The carrier also includes `metaKind`, whose only instance is
 `simpleQualityKind`. It has no section 3.12 classification and does not alter
 the quality witnesses. It supplies the type-level instantiation needed when
-this cumulative model is extended with `Categorizes` in section 4.
+this cumulative model is extended with `Categorizes` in section 4. A `mixedType`
+has the simple quality and the perdurant as instances. It is a proper supertype
+of `simpleQualityKind`, but neither an endurant type nor a perdurant type.
 -/
 
 namespace AntiVacuity.Section3_12
@@ -28,7 +30,7 @@ namespace AntiVacuity.Section3_12
 set_option maxHeartbeats 300000
 
 inductive Thing
-  | metaKind | objectKind | simpleQualityKind | complexQualityKind | perdurantKind
+  | metaKind | objectKind | simpleQualityKind | complexQualityKind | perdurantKind | mixedType
   | bearer | simpleQuality | complexQuality | life
   | simpleQuale | complexQuale | dimension | domain | superSet | distanceValue
   deriving DecidableEq, Repr
@@ -43,7 +45,7 @@ def frame : S5Frame where
   trans := by simp
 
 def isType : Thing -> Prop
-  | .metaKind | .objectKind | .simpleQualityKind | .complexQualityKind | .perdurantKind => True
+  | .metaKind | .objectKind | .simpleQualityKind | .complexQualityKind | .perdurantKind | .mixedType => True
   | _ => False
 
 def inst : Thing -> Thing -> Prop
@@ -51,6 +53,8 @@ def inst : Thing -> Thing -> Prop
   | .bearer, .objectKind
   | .simpleQuality, .simpleQualityKind
   | .complexQuality, .complexQualityKind
+  | .simpleQuality, .mixedType
+  | .life, .mixedType
   | .life, .perdurantKind => True
   | _, _ => False
 
@@ -100,9 +104,11 @@ private theorem type_has_instance {t : Thing} (ht : isType t) :
   · exact ⟨.simpleQuality, trivial⟩
   · exact ⟨.complexQuality, trivial⟩
   · exact ⟨.life, trivial⟩
+  · exact ⟨.simpleQuality, trivial⟩
 
-private theorem inst_target_unique {x t u : Thing}
-    (ht : inst x t) (hu : inst x u) : t = u := by
+private theorem kind_instance_unique {x t u : Thing}
+    (ht : inst x t) (hu : inst x u) (htk : endurantType t)
+    (huk : endurantType u) : t = u := by
   cases x <;> cases t <;> cases u <;> simp_all
 
 theorem ax1_sig : ax_a1 sig1 := by
@@ -133,11 +139,23 @@ theorem ax4_sig : ax_a4 sig1 := by
 theorem ax5_sig : ax_a5 sig1 := by intro x y w; rfl
 
 theorem ax6_sig : ax_a6 sig1 := by
-  intro t u x w h
-  have htu := inst_target_unique h.1 h.2.1
-  subst u
-  have ht : isType t := by cases x <;> cases t <;> simp_all
-  exact False.elim (h.2.2.1 ⟨ht, ht, by intro _ _ z hz; exact hz⟩)
+  -- Any two types sharing an instance are comparable in this model.
+  -- The only extra memberships lead to mixedType, which contains the simple
+  -- quality and perdurant instance sets. The incomparable-types premise fails.
+  intro t u x w ⟨ht, hu, htu, hut⟩
+  suffices h : sig1.Sub t u w ∨ sig1.Sub u t w from
+    h.elim (fun h => False.elim (htu h)) (fun h => False.elim (hut h))
+  clear htu hut
+  change inst x t at ht
+  change inst x u at hu
+  cases x <;> cases t <;> simp only [inst] at ht <;> try contradiction
+  all_goals cases u <;> simp only [inst] at hu <;> try contradiction
+  all_goals
+    solve
+    | (refine Or.inl ⟨trivial, trivial, ?_⟩
+       intro v hv z hz; cases z <;> simp_all [inst])
+    | (refine Or.inr ⟨trivial, trivial, ?_⟩
+       intro v hv z hz; cases z <;> simp_all [inst])
 
 theorem ax7_sig : ax_a7 sig1 := by
   intro x w h; cases x <;> simp_all
@@ -217,7 +235,7 @@ instance axioms2 : UFOAxioms3_2 sig2 where
   ax22 := by
     intro k x w h hdia
     rcases hdia with ⟨_, _, z, hz, hzx, hne⟩
-    exact hne (inst_target_unique h.2 hzx).symm
+    exact hne (kind_instance_unique h.2 hzx h.1 hz).symm
   ax23 := by
     intro t w; constructor
     · intro h; exact ⟨h, t, h, by intro _ _ _ hx; exact hx⟩
@@ -232,17 +250,7 @@ instance axioms2 : UFOAxioms3_2 sig2 where
   ax31 := by intro t w; cases t <;> simp
   ax32 := by intro w; simp
   ax33 := by intro t w; cases t <;> simp
-  ax_instEndurant := by
-    intro t x w ht hx; cases t <;> cases x <;> simp_all
-  ax_sub_kind_sortal := by
-    intro a k w hSub hKind
-    rcases type_has_instance hSub.1 with ⟨x, hxa⟩
-    have hxk := hSub.2.2 () trivial x hxa
-    have hak := inst_target_unique hxa hxk
-    subst k
-    exact hKind
   ax_nonSortal_up := by intro a b w h; cases h
-  ax_kindStable := by intro k w v hk _; exact hk
 
 /- The two qualities are intrinsic moments; the bearer is the sole
 substantial. `Quality` is derived from the explicit quality-kind table, so the
@@ -363,6 +371,8 @@ instance axioms4 : UFOAxioms3_4 sig4 where
             (hbox () trivial .simpleQualityKind trivial))
         · exact False.elim ((quality_iff .bearer ()).1
             (hbox () trivial .bearer trivial))
+        · exact False.elim ((quality_iff .life ()).1
+            (hbox () trivial .life trivial))
         · exact False.elim ((quality_iff .life ()).1
             (hbox () trivial .life trivial))
   ax45 := by
@@ -892,8 +902,11 @@ instance axioms : UFOAxioms3_12 sig where
     · cases hbad.1
     subst t
     refine ⟨1, fun _ => .dimension, fun _ => .simpleQualityKind, ?_, ?_, ?_⟩
-    · intro p hp i
-      exact Set.mem_singleton Thing.simpleQuale
+    · constructor
+      · intro p hp i
+        exact Set.mem_singleton Thing.simpleQuale
+      · intro p q hp hq _
+        exact (Set.mem_singleton_iff.mp hp).trans (Set.mem_singleton_iff.mp hq).symm
     · intro i; exact ⟨trivial, ⟨rfl, rfl⟩⟩
     · intro u hu
       exact ⟨0, hu.2⟩
@@ -994,12 +1007,32 @@ theorem predicates_nonempty :
         cases heq⟩,
     ⟨.dimension, (), ⟨Thing.simpleQuale, Set.mem_singleton Thing.simpleQuale⟩⟩,
     ⟨1, .domain, fun _ => .dimension, (), by
-      intro p hp i
-      exact Set.mem_singleton Thing.simpleQuale⟩,
+      constructor
+      · intro p hp i
+        exact Set.mem_singleton Thing.simpleQuale
+      · intro p q hp hq _
+        exact (Set.mem_singleton_iff.mp hp).trans (Set.mem_singleton_iff.mp hq).symm⟩,
     ⟨.dimension, (), (qualityStructure_iff .dimension ()).2 (Or.inl rfl)⟩,
     ⟨.simpleQuality, (), (simpleQuality_iff .simpleQuality ()).2 rfl⟩,
     ⟨.complexQuality, (), (complexQuality_iff .complexQuality ()).2 rfl⟩,
     ⟨.simpleQualityKind, (), (simpleQualityType_iff .simpleQualityKind ()).2 rfl⟩,
     ⟨.complexQualityKind, (), (complexQualityType_iff .complexQualityKind ()).2 rfl⟩⟩
+
+/-- Coordinate membership alone permits two distinct quales to represent
+the same tuple. Both members of `superSet` project to `simpleQuale`, which
+belongs to `dimension`. Injectivity correctly excludes this set from that
+one-coordinate product. This check uses the same model as the section's
+positive witnesses, without a separate assumption or countermodel file. -/
+theorem coordinate_membership_without_product_subset :
+    (∀ p, MemberOf sig p .superSet () → ∀ i : Fin 1,
+      MemberOf sig (sig.TupleProjection p i ()) .dimension ()) ∧
+    ¬ ProductSubsetOf sig .superSet (fun (_ : Fin 1) => .dimension) () := by
+  constructor
+  · intro p hp i
+    exact Set.mem_singleton Thing.simpleQuale
+  · intro h
+    have collision := h.2 Thing.simpleQuale Thing.complexQuale
+      (Set.mem_insert _ _) (Set.mem_insert_of_mem _ (Set.mem_singleton _)) (fun _ => rfl)
+    cases collision
 
 end AntiVacuity.Section3_12
