@@ -90,7 +90,11 @@ structure CachedModelSource where
   declaredName : Name
   deriving Inhabited
 
-initialize modelSourceCache : IO.Ref (Std.HashMap Name CachedModelSource) ← IO.mkRef {}
+/-- Parent sources belong to the same environment snapshot as their declarations.
+Restoring elaboration state must restore both, including after an editor replay.
+Imported parents are recovered from their exported declarations below. -/
+initialize modelSourceCache : EnvExtension (Std.HashMap Name CachedModelSource) ←
+  registerEnvExtension (pure {})
 
 private def checkNoReservedWorldNames (xs : Array Name) : CommandElabM Unit := do
   for x in xs do
@@ -113,7 +117,7 @@ private def parseFact
     CommandElabM (Array NamedScopedFact) := do
   match fact with
   | `(ufoFact| $p:ident($x:ident)) =>
-      let xName := x.getId.toString
+      let xName := (sourceNameString x.getId)
       match unaryField? p.getId with
       | some field => pure <| facts.push (.unary field xName scope)
       | none =>
@@ -122,12 +126,12 @@ private def parseFact
               pure <| facts.push (.derived (.unary field xName) scope)
           | none => throwErrorAt p "unsupported unary UFO predicate `{p.getId}`"
   | `(ufoFact| $x:ident :: $t:ident) =>
-      pure <| facts.push (.binary .inst x.getId.toString t.getId.toString scope)
+      pure <| facts.push (.binary .inst (sourceNameString x.getId) (sourceNameString t.getId) scope)
   | `(ufoFact| $x:ident ⊑ $t:ident) =>
-      pure <| facts.push (.binary .sub x.getId.toString t.getId.toString scope)
+      pure <| facts.push (.binary .sub (sourceNameString x.getId) (sourceNameString t.getId) scope)
   | `(ufoFact| $r:ident($x:ident, $y:ident)) =>
-      let xName := x.getId.toString
-      let yName := y.getId.toString
+      let xName := (sourceNameString x.getId)
+      let yName := (sourceNameString y.getId)
       match binaryField? r.getId with
       | some field => pure <| facts.push (.binary field xName yName scope)
       | none =>
@@ -136,9 +140,9 @@ private def parseFact
               pure <| facts.push (.derived (.binary field xName yName) scope)
           | none => throwErrorAt r "unsupported binary UFO relation `{r.getId}`"
   | `(ufoFact| $r:ident($x:ident, $y:ident, $z:ident)) =>
-      let xName := x.getId.toString
-      let yName := y.getId.toString
-      let zName := z.getId.toString
+      let xName := (sourceNameString x.getId)
+      let yName := (sourceNameString y.getId)
+      let zName := (sourceNameString z.getId)
       match ternaryField? r.getId with
       | some field => pure <| facts.push (.ternary field xName yName zName scope)
       | none =>
@@ -147,16 +151,16 @@ private def parseFact
               pure <| facts.push (.derived (.ternary field xName yName zName) scope)
           | none => throwErrorAt r "unsupported ternary UFO relation `{r.getId}`"
   | `(ufoFact| $r:ident($x:ident, $y:ident, $z:ident, $q:ident)) =>
-      let xName := x.getId.toString
-      let yName := y.getId.toString
-      let zName := z.getId.toString
-      let qName := q.getId.toString
+      let xName := (sourceNameString x.getId)
+      let yName := (sourceNameString y.getId)
+      let zName := (sourceNameString z.getId)
+      let qName := (sourceNameString q.getId)
       match derivedQuaternaryField? r.getId with
       | some field =>
           pure <| facts.push (.derived (.quaternary field xName yName zName qName) scope)
       | none => throwErrorAt r "unsupported quaternary UFO relation `{r.getId}`"
   | `(ufoFact| TupleProjection($x:ident, $i:num, $y:ident)) =>
-      pure <| facts.push (.tupleProjection x.getId.toString i.getNat y.getId.toString scope)
+      pure <| facts.push (.tupleProjection (sourceNameString x.getId) i.getNat (sourceNameString y.getId) scope)
   | _ =>
       throwErrorAt fact "unsupported UFO fact syntax"
 
@@ -180,7 +184,7 @@ where
         if factWorld.getId == `everywhere then
           NamedFactScope.everywhere
         else
-          NamedFactScope.at factWorld.getId.toString
+          NamedFactScope.at (sourceNameString factWorld.getId)
       for fact in fs do
         facts ← parseFact worldNames thingNames scope facts fact
       pure facts
@@ -203,9 +207,9 @@ private def parseProductFamily
           mode := 2
     | .ident _ _ name _ =>
         match mode with
-        | 0 => header := header.push name.toString
-        | 1 => dims := dims.push name.toString
-        | _ => tys := tys.push name.toString
+        | 0 => header := header.push (sourceNameString name)
+        | 1 => dims := dims.push (sourceNameString name)
+        | _ => tys := tys.push (sourceNameString name)
     | _ =>
         let args := stx.getArgs
         for i in [:args.size] do
@@ -680,7 +684,7 @@ private unsafe def resolveParentModelSource (parent : Name) :
   let namespaceParent := (← getCurrNamespace) ++ parent
   let candidates :=
     if namespaceParent == parent then #[parent] else #[namespaceParent, parent]
-  let cache ← modelSourceCache.get
+  let cache := modelSourceCache.getState (← getEnv)
   for candidate in candidates do
     -- Namespace precedence must not depend on whether the parent is cached
     -- from this module or recovered from an imported declaration.
@@ -713,7 +717,7 @@ private def emitCompiledModelSource
     emitModel cmdStx model (namesFromStrings source.worlds) (namesFromStrings source.things)
       source source.facts compiled.scopedFacts compiled.expandedFacts compiled.productFamilies
       compiled.tables (makeReusePlan parent? source compiled.tables fresh)
-  modelSourceCache.modify (fun cache =>
+  modifyEnv fun env => modelSourceCache.modifyState env (fun cache =>
     cache.insert declaredModel { source, tables := compiled.tables, declaredName := declaredModel })
 
 elab_rules : command
@@ -730,8 +734,8 @@ elab_rules : command
     let worldNames := ws.map (·.getId)
     let thingNames := ts.map (·.getId)
     checkNoReservedWorldNames worldNames
-    let worldNameStrings := worldNames.map (·.toString)
-    let thingNameStrings := thingNames.map (·.toString)
+    let worldNameStrings := worldNames.map sourceNameString
+    let thingNameStrings := thingNames.map sourceNameString
     let (namedFacts, namedProductFamilies) ← parseBlocksAndFamilies worldNames thingNames blocks families
     let source : ModelSource :=
       ModelSource.mk worldNameStrings thingNameStrings namedFacts namedProductFamilies true
@@ -749,7 +753,7 @@ elab_rules : command
     let parentCached ← unsafe resolveParentModelSource parent.getId
     let parentSource := parentCached.source
     let thingNames := ts.map (·.getId)
-    let childThingNameStrings := thingNames.map (·.toString)
+    let childThingNameStrings := thingNames.map sourceNameString
     let allThingNames := namesFromStrings parentSource.things ++ thingNames
     let worldNames := namesFromStrings parentSource.worlds
     let (namedFacts, namedProductFamilies) ← parseBlocksAndFamilies worldNames allThingNames blocks families

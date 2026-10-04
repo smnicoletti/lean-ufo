@@ -47,22 +47,22 @@ ufo_model RoleExample : UFO where
   given everywhere:
     ObjectKind(Person)
     Role(Student)
+    ObjectType(Student)
     Student ⊑ Person
-
-  given summer:
-    Object(Alice)
-    Alice :: Student
-
-  given autumn:
     Object(Alice)
     Alice :: Person
+
+  given summer:
+    Alice :: Student
 
   derive_relations
   certify
 ```
 
 `given everywhere:` is copied to every declared world by the pure compiler
-pipeline.
+pipeline. Alice is a Person in both worlds and a Student only in summer.
+`ObjectType(Student)` supplies the role's object classification. Specialization
+requires every Student to be a Person, including in summer.
 
 ## Failure workflow
 

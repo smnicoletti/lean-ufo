@@ -83,11 +83,14 @@ syntax (name := ufoCertTactic) "ufo_cert_tac" : tactic
   -- Keep `data` folded: broad simplification of the counted model constructors
   -- can traverse unrelated tables and exhaust the simplifier's step limit.
   -- `decide` uses ordinary kernel-checked reduction, not native execution.
+  -- Set inclusion must expose its finite membership implication before Lean
+  -- can synthesize a decision procedure for a user-written `SubsetOf` fact.
   -- Predicates without a computable decision procedure still need the semantic
   -- simplifier below (for example, inductively defined reachability).
   let source := s!"first
     | (dsimp only [sig, FiniteModel4.toUFOSignature4,
-        FiniteModel4.typeSem, FiniteModel4.individualSem] <;> decide +revert)
+        FiniteModel4.typeSem, FiniteModel4.individualSem,
+        SubsetOf, MemberOf, Set.subset_def] <;> decide +revert)
     | ({certificateSimp} <;> (try omega) <;> (try grind) <;> (decide +revert))"
   match Parser.runParserCategory (← getEnv) `tactic source with
   | .ok stx =>

@@ -39,10 +39,11 @@ example : (genericDiagnosticWitnessesCosted 128 worlds things #[] {} vars equali
 example : (genericDiagnosticWitnessesCosted 128 worlds things #[] {} vars equality).value = #[] :=
   by native_decide
 
--- Missing z resolves to zero. These reports therefore fail at a and b respectively.
-example : (genericDiagnosticWitnessesCosted 1 worlds things #[] {} vars firstFailure).cost = 167 :=
+-- Evaluation defaults missing z to zero; rendering keeps it symbolic. Avoiding
+-- an indexed-name render for z saves four operations in each report.
+example : (genericDiagnosticWitnessesCosted 1 worlds things #[] {} vars firstFailure).cost = 163 :=
   by native_decide
-example : (genericDiagnosticWitnessesCosted 1 worlds things #[] {} vars laterFailure).cost = 134 :=
+example : (genericDiagnosticWitnessesCosted 1 worlds things #[] {} vars laterFailure).cost = 130 :=
   by native_decide
 example : (genericDiagnosticWitnessesCosted 1 worlds things #[] {} vars firstFailure).value =
     #["Counterexample assignment: x = a."] := by native_decide
@@ -52,9 +53,9 @@ example : (genericDiagnosticWitnessesCosted 1 worlds things #[] {} vars laterFai
 -- A direct visit constructs its text even with no room. Retaining one row
 -- adds its write and emission, so the two counts differ by exactly two.
 example : (genericDiagnosticVisitCosted 0 worlds things #[] {} vars firstFailure
-    #[] #[("x", 0)]).cost = 145 := by native_decide
+    #[] #[("x", 0)]).cost = 141 := by native_decide
 example : (genericDiagnosticVisitCosted 1 worlds things #[] {} vars firstFailure
-    #[] #[("x", 0)]).cost = 147 := by native_decide
+    #[] #[("x", 0)]).cost = 143 := by native_decide
 example : (genericDiagnosticVisitCosted 0 worlds things #[] {} vars firstFailure
     #[] #[("x", 0)]).value.size = 0 := by native_decide
 example : (genericDiagnosticVisitCosted 1 worlds things #[] {} vars firstFailure
