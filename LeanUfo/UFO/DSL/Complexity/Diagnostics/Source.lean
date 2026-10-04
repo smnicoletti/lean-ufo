@@ -100,14 +100,14 @@ The name-array expressions describe the supplied arguments, not their cost. -/
 theorem source_derivedAssertionFailure_cost_bound
     (source : ModelSource) (compiled : CompiledModelSource)
     (success : compileModelSource source = .ok compiled) :
-    (derivedAssertionFailureCosted (source.worlds.map Lean.Name.mkSimple)
-      (source.things.map Lean.Name.mkSimple) source.facts compiled.scopedFacts compiled.tables).cost ≤
+    (derivedAssertionFailureCosted (source.worlds.map String.toName)
+      (source.things.map String.toName) source.facts compiled.scopedFacts compiled.tables).cost ≤
       5608 * (sourceMetrics source).inputSize ^ 5 := by
   have bound := derivedAssertionFailureCosted_cost_le
-    (source.worlds.map Lean.Name.mkSimple) (source.things.map Lean.Name.mkSimple)
+    (source.worlds.map String.toName) (source.things.map String.toName)
     source.facts compiled.scopedFacts compiled.tables
   have rows := derivedAssertionFailureBudgetedCosted_size_le 9
-    (source.worlds.map Lean.Name.mkSimple) (source.things.map Lean.Name.mkSimple)
+    (source.worlds.map String.toName) (source.things.map String.toName)
     source.facts compiled.scopedFacts compiled.tables
   simp only [Array.size_map] at bound
   apply bound.trans
@@ -127,12 +127,12 @@ Successful elaboration skips selection. Its own proof work is excluded. -/
 theorem source_derivedAssertionAnalysis_cost_bound
     (source : ModelSource) (compiled : CompiledModelSource)
     (success : compileModelSource source = .ok compiled) :
-    (derivedAssertionAnalysisCosted (source.worlds.map Lean.Name.mkSimple)
-      (source.things.map Lean.Name.mkSimple) source.facts compiled.scopedFacts compiled.tables).cost ≤
+    (derivedAssertionAnalysisCosted (source.worlds.map String.toName)
+      (source.things.map String.toName) source.facts compiled.scopedFacts compiled.tables).cost ≤
       5612 * (sourceMetrics source).inputSize ^ 5 := by
   have bound := source_derivedAssertionFailure_cost_bound source compiled success
   have selection := derivedAssertionAnalysisCosted_cost_le
-    (source.worlds.map Lean.Name.mkSimple) (source.things.map Lean.Name.mkSimple)
+    (source.worlds.map String.toName) (source.things.map String.toName)
     source.facts compiled.scopedFacts compiled.tables
   have positive := sourceMetrics_inputSize_pos source
   have one : 1 ≤ (sourceMetrics source).inputSize ^ 5 := by

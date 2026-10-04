@@ -60,6 +60,18 @@ vocabulary.
 The core axioms determine certification. An incorrect formula mirror can damage
 the explanation, but it cannot change the certificate result.
 
+Registered formulas evaluate derived predicates from the finite relations.
+Quality structures, quality classifications, proper specialization, set
+inclusion, individual functional dependence, and constitution expand into their
+defining formulas. Modal dependence predicates use counted semantic queries.
+A user-written derived assertion is never required to make these predicates
+true in an axiom report. Expanded formula nodes contribute to the formula-size
+and depth parameters in the diagnostic cost bounds.
+
+Rendering distinguishes assignments from bound variables. Assigned variables
+show model names. A quantifier hides outer assignments to its variable, and its
+bound occurrences remain symbolic. Unassigned variables also retain their names.
+
 ## Failure minimization
 
 The remaining sections describe `Diagnostic/AxiomAnalysis.lean`.

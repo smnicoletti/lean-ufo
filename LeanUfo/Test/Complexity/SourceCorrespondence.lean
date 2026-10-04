@@ -644,15 +644,15 @@ example (source : ModelSource) (compiled : CompiledModelSource)
 
 example (source : ModelSource) (compiled : CompiledModelSource)
     (success : compileModelSource source = .ok compiled) :
-    (derivedAssertionFailureCosted (source.worlds.map Lean.Name.mkSimple)
-      (source.things.map Lean.Name.mkSimple) source.facts compiled.scopedFacts compiled.tables).cost ≤
+    (derivedAssertionFailureCosted (source.worlds.map String.toName)
+      (source.things.map String.toName) source.facts compiled.scopedFacts compiled.tables).cost ≤
       5608 * (Complexity.sourceMetrics source).inputSize ^ 5 :=
   Complexity.source_derivedAssertionFailure_cost_bound source compiled success
 
 example (source : ModelSource) (compiled : CompiledModelSource)
     (success : compileModelSource source = .ok compiled) :
-    (derivedAssertionAnalysisCosted (source.worlds.map Lean.Name.mkSimple)
-      (source.things.map Lean.Name.mkSimple) source.facts compiled.scopedFacts compiled.tables).cost ≤
+    (derivedAssertionAnalysisCosted (source.worlds.map String.toName)
+      (source.things.map String.toName) source.facts compiled.scopedFacts compiled.tables).cost ≤
       5612 * (Complexity.sourceMetrics source).inputSize ^ 5 :=
   Complexity.source_derivedAssertionAnalysis_cost_bound source compiled success
 
@@ -672,19 +672,18 @@ example : (match compileModelSource repeatedDerivedSource with
     | .ok compiled => compiled.tables.derivedProps.size == 4 &&
         compiled.tables.productFamilies.size == 1) = true := by native_decide
 
--- Name conversion preserves strings as one component: it does not parse a
--- dot as a namespace separator or discard empty strings and duplicates.
+-- Stored spellings recover qualification and escaped components separately.
 example : namesFromStringsCosted #[] = ⟨#[], 1⟩ := by decide
 example : (namesFromStringsCosted #["x"]).cost = 5 := by decide
 example : (namesFromStringsCosted #["x", "y", "x"]).cost = 13 := by decide
-example : namesFromStrings #["a.b", "", "α", "a.b"] =
-    #[Lean.Name.str .anonymous "a.b", Lean.Name.str .anonymous "",
-      Lean.Name.str .anonymous "α", Lean.Name.str .anonymous "a.b"] := by decide
-example : namesFromStrings #["a.b"] ≠
-    #[Lean.Name.str (Lean.Name.str .anonymous "a") "b"] := by decide
+example : namesFromStrings #["a.b", "«a.b»", "α", "a.b"] =
+    #[Lean.Name.str (Lean.Name.str .anonymous "a") "b", Lean.Name.str .anonymous "a.b",
+      Lean.Name.str .anonymous "α", Lean.Name.str (Lean.Name.str .anonymous "a") "b"] := by native_decide
+example : namesFromStrings #["«a.b»"] ≠
+    #[Lean.Name.str (Lean.Name.str .anonymous "a") "b"] := by native_decide
 
 example (names : Array String) :
-    (namesFromStringsCosted names).value = names.map Lean.Name.mkSimple :=
+    (namesFromStringsCosted names).value = names.map String.toName :=
   namesFromStringsCosted_value names
 example (xs ys : Array String) (larger : xs.size ≤ ys.size) :
     (namesFromStringsCosted xs).cost ≤ (namesFromStringsCosted ys).cost := by

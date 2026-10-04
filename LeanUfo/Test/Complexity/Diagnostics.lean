@@ -438,7 +438,7 @@ private def thousandConjunctions : DiagFormula := Id.run do
 -- Input construction is outside the measured traversal and layout calls.
 example : (flattenDiagJunctionCosted DiagJunction.conjunction thousandConjunctions).cost = 5004 := by native_decide
 example : (flattenDiagJunctionCosted DiagJunction.conjunction thousandConjunctions).value.size = 1001 := by native_decide
-example : (renderDiagnosticConditionLineCosted #[] #[] #[] thousandConjunctions).cost = 33037 := by native_decide
+example : (renderDiagnosticConditionLineCosted #[] #[] #[] thousandConjunctions).cost = 25029 := by native_decide
 
 example : (flattenDiagJunctionCosted DiagJunction.conjunction nestedLayout).cost = 14 := by native_decide
 example : ((flattenDiagJunctionCosted DiagJunction.conjunction nestedLayout).value.toList.map
@@ -476,11 +476,11 @@ example : renderDiagnosticConditionLineCosted #[`w] #[`a, `b] renderEnv (DiagFor
     ⟨"Forbidden condition: not (a = b).", 47⟩ := by native_decide
 example : renderDiagnosticConditionLineCosted #[`w] #[`a, `b] renderEnv
     (DiagFormula.existsThing "z" layoutEquality) =
-    ⟨"Missing witness requirements: there exists thing z, a = b.", 48⟩ := by native_decide
+    ⟨"Missing witness requirements: there exists thing z, a = b.", 64⟩ := by native_decide
 -- The newline is in the source binder name, not in a generated row separator.
 example : renderDiagnosticConditionLineCosted #[`w] #[`a, `b] renderEnv
     (DiagFormula.forallThing "x\nz" layoutEquality) =
-    ⟨"Failed condition:\nfor every thing x\nz, a = b", 47⟩ := by native_decide
+    ⟨"Failed condition:\nfor every thing x\nz, a = b", 63⟩ := by native_decide
 example (worldNames thingNames : Array Lean.Name) (env : Array (String × Nat)) (formula : DiagFormula) :
     (renderDiagnosticConditionLineCosted worldNames thingNames env formula).value =
       renderDiagnosticConditionLineSpec worldNames thingNames env formula :=
@@ -589,7 +589,7 @@ example : Complexity.Costed.appendString (.pure "") (.pure "b") = ⟨"b", 1⟩ :
 example : renderDiagVariableCosted #[`a, `b] renderEnv "y" = ⟨"b", 17⟩ := by native_decide
 example : renderDiagVariableCosted #[`a] #[("x", 7)] "x" = ⟨"#7", 9⟩ := by native_decide
 example : renderDiagAtomCosted #[] #[] #[] (DiagAtom.typeSem "x" "w") =
-    ⟨"[#0] Type(#0)", 15⟩ := by native_decide
+    ⟨"[w] Type(x)", 7⟩ := by native_decide
 example : renderDiagAtomCosted #[`w] #[`a, `b] #[("w", 0), ("x", 0), ("x", 1)]
     (DiagAtom.typeSem "x" "w") = ⟨"[w] Type(b)", 39⟩ := by native_decide
 example : renderDiagAtomCosted #[`w] #[`a, `b] renderEnv (DiagAtom.individualSem "x" "w") =
@@ -622,10 +622,22 @@ example : renderDiagFormulaCosted #[`w] #[`a, `b] renderEnv
     ⟨"(a = b) and (b = a)", 79⟩ := by native_decide
 example : renderDiagFormulaCosted #[`w] #[`a, `b] renderEnv
     (DiagFormula.forallThing "z" (DiagFormula.eqThing "x" "y")) =
-    ⟨"for every thing z, a = b", 41⟩ := by native_decide
+    ⟨"for every thing z, a = b", 57⟩ := by native_decide
 example : renderDiagFormulaCosted #[`w] #[`a, `b] renderEnv
     (DiagFormula.box "w" "v" (DiagFormula.eqThing "x" "y")) =
-    ⟨"from world w, in every accessible world v, a = b", 60⟩ := by native_decide
+    ⟨"from world w, in every accessible world v, a = b", 76⟩ := by native_decide
+
+-- A binder removes all assignments to its name; other variables keep theirs.
+example : (renderDiagFormulaCosted #[`actual] #[`a, `b]
+    #[("x", 0), ("x", 1), ("y", 1), ("w", 0)]
+    (DiagFormula.existsThing "x" (DiagFormula.eqThing "x" "y"))).value =
+    "there exists thing x, x = b" := by native_decide
+example : (renderDiagFormulaCosted #[`actual] #[`a] #[("w", 0)]
+    (DiagFormula.box "w" "w" (DiagFormula.eqWorld "w" "v"))).value =
+    "from world actual, in every accessible world w, w = v" := by native_decide
+example : (renderDiagFormulaCosted #[`actual] #[`a] #[("x", 0)]
+    (DiagFormula.forallThing "x" (DiagFormula.existsThing "x" (DiagFormula.eqThing "x" "x")))).value =
+    "for every thing x, there exists thing x, x = x" := by native_decide
 
 example (worlds things : Array Lean.Name) (env : Array (String × Nat)) (atom : DiagAtom) :
     (renderDiagAtomCosted worlds things env atom).value = renderDiagAtomSpec worlds things env atom :=
@@ -3036,14 +3048,14 @@ example (W T : Nat) (tables : FactTables) (env : Array (String × Nat)) (formula
 
 private def equalityTrace : DiagTrace := DiagTrace.mk (DiagFormula.eqThing "x" "x") #[]
 
--- The formula report costs 29. The trace visit adds six. A remaining trace
+-- The symbolic formula report costs 21. The trace visit adds six. A remaining trace
 -- after a full two-row report adds only the three-operation stop test.
 example : appendContextEvidenceCosted 2 #[] #[`a] #[] {} #[] #[equalityTrace] =
-    ⟨#["Evidence for a = a:", "  - a = a (true in generated finite model)"], 35⟩ := by native_decide
+    ⟨#["Evidence for x = x:", "  - x = x (true in generated finite model)"], 27⟩ := by native_decide
 example : appendContextEvidenceCosted 2 #[] #[`a] #[] {} #[] #[equalityTrace, equalityTrace] =
-    ⟨#["Evidence for a = a:", "  - a = a (true in generated finite model)"], 38⟩ := by native_decide
+    ⟨#["Evidence for x = x:", "  - x = x (true in generated finite model)"], 30⟩ := by native_decide
 example : appendContextEvidenceCosted 1 #[] #[`a] #[] {} #[] #[equalityTrace] =
-    ⟨#["Evidence for a = a:"], 33⟩ := by native_decide
+    ⟨#["Evidence for x = x:"], 25⟩ := by native_decide
 example : appendContextEvidenceCosted 0 #[] #[`a] #[] {} #["kept"]
     (Array.replicate 100000 equalityTrace) = ⟨#["kept"], 3⟩ := by native_decide
 

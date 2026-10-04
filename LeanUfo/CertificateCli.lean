@@ -228,7 +228,21 @@ partial def parseFlagValue (flag : String) : List String → Option String
 def ensureDir (path : System.FilePath) : IO Unit :=
   IO.FS.createDirAll path
 
+/-- Encode a model name as one filename component. Percent-encoding UTF-8
+bytes keeps slashes out of paths and distinguishes a literal `%2F` from `/`.
+Ordinary ASCII declaration names retain their familiar filenames. The JSON
+manifest retains the original Lean name. -/
+def manifestNameComponent (name : String) : String :=
+  name.toUTF8.foldl (init := "") fun out byte =>
+    let n := byte.toNat
+    if (65 ≤ n && n ≤ 90) || (97 ≤ n && n ≤ 122) ||
+        (48 ≤ n && n ≤ 57) || n == 45 || n == 46 || n == 95 then
+      out.push (Char.ofNat n)
+    else
+      let hex := "0123456789ABCDEF".toList.toArray
+      ((out.push '%').push hex[n / 16]!).push hex[n % 16]!
+
 def manifestFileName (manifest : LeanUfo.UFO.DSL.CertificateManifest) : String :=
-  manifest.modelName ++ ".certificate.json"
+  manifestNameComponent manifest.modelName ++ ".certificate.json"
 
 end LeanUfo.CertificateCli

@@ -124,6 +124,10 @@ It cannot add worlds yet. This avoids changing the meaning of parent
 `given everywhere:` facts; the added-world scoping policy remains
 for a later design step.
 
+Parent-source lookup follows Lean's current elaboration state. Restoring a
+saved state restores the source cache along with the declarations, so a child
+inherits the parent visible in that state.
+
 Across modules, import the parent model's module before writing the child:
 
 ```lean
@@ -202,6 +206,11 @@ lake exe validate-certificate certificates/CarWithWindow.certificate.json --modu
 ```
 
 `--structure-only` checks the required metadata and all 113 certificate rows.
+Export filenames keep ASCII letters, digits, dots, underscores, and hyphens.
+Other UTF-8 bytes use percent-encoding, so a slash in a legal Lean model name
+cannot create a subdirectory. Percent signs are encoded too, preventing
+collisions with literal escape sequences. The JSON retains the full Lean name.
+
 The default validation path requires `--module`. It rebuilds the module,
 compares every row with the regenerated Lean manifest, checks every named
 theorem declaration, and recomputes the SHA-256 source and finite-model digests.

@@ -443,8 +443,8 @@ table-using checks.
 `Complexity/Reports.lean` checks the composed generic-report bounds through the
 public aggregate. Exact cases cover a full three-assignment search (74
 operations), zero budget (four), and an empty domain (eight). First and later
-failures preserve their assignment text. A direct failed visit costs 145 with
-no room and 147 when it retains one row: text construction precedes retention.
+failures preserve their assignment text. A direct failed visit costs 141 with
+no room and 143 when it retains one row: text construction precedes retention.
 Tests also cover atom discovery, the public ax1 dispatcher, minimized formula
 depth, and monotonicity in all report-bound size parameters.
 Frontend-selector cases cover confirmed and unconfirmed probes, axiom 99's
@@ -528,11 +528,25 @@ results. Cases include repeated derived assertions expanded over two worlds,
 family registration, mixed primitive/derived facts, empty domains, and rejected
 duplicate world names. General tests require compiler success, without an
 independent assumption about the stored-proposition count.
-Name-conversion tests preserve empty strings, dotted single-component names,
-Unicode, order, and duplicates. They check exact counts of 1, 5, and 13 for
+Name-conversion tests distinguish qualified names from escaped dotted names and
+preserve Unicode, order, and duplicates. They check exact counts of 1, 5, and 13 for
 zero, one, and three entries, plus a 100,000-entry conversion at cost 400,001.
 The source/diagnostic regressions charge compilation and both name arrays
 before the precheck and saved-report selection.
+
+The full profile also checks restored elaboration snapshots and derived facts
+using qualified or escaped names in `Syntax/NamesAndSnapshots.lean`. Its marked
+model has a slash in its name and passes manifest export and revalidation.
+The quickstart models are extracted from the Markdown file and compiled, so
+the test uses the examples readers copy.
+
+`Diagnostics/FormulaAgreement.lean` compares all 104 generic diagnostic formulas
+with their checker results on 200 deterministic two-world, two-thing tables.
+The 20,800 comparisons include tables that violate earlier axioms. Dedicated
+negative fixtures check that a computed quality structure supplies a witness
+for ax86 and that ax87 reports only the quale without a qualifying structure.
+Rendering regressions cover missing assignments, repeated bindings, nested
+quantifiers, and modal binders that shadow an outer world variable.
 Computed external-dependence witness tests check an empty domain, a single
 successful candidate among failures, and a full ordered result. Exact costs
 include array initialization, the dependence predicate, loop control, branches,
@@ -776,7 +790,7 @@ equality in the first row stops label selection sooner than one in the second
 row: sixteen operations instead of twenty. An embedded newline in a binder
 name selects multiline punctuation even without row expansion. A thousand
 nested conjunctions expand into 1,001 rows at cost 5,004. Their complete
-condition line costs 33,037 with an empty environment. Input construction is
+condition line costs 25,029 with an empty environment. Input construction is
 outside these counts. General proofs check text equality and the monotone
 bound `F(20E+56)+11` for `F` formula nodes and `E` bindings.
 
@@ -857,8 +871,8 @@ Context-trace tests check the bounds on each stored formula and environment.
 Nested successful witnesses retain environments of sizes one and two in order.
 A failed implication retains a six-binding successful context beside its
 two-binding failed assignment. Report tests include the formula cost and the
-indexed trace visit: one equality report costs 35, a header-only report costs
-33, and a second trace after a full report adds three. An already full report
+indexed trace visit: one symbolic equality report costs 27, a header-only report costs
+25, and a second trace after a full report adds three. An already full report
 with 100,000 traces costs three and retains the existing output. General proofs
 check output size and the context bound under explicit per-trace size premises.
 

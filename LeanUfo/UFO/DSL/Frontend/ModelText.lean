@@ -20,18 +20,24 @@ open Lean
 
 namespace LeanUfo.UFO.DSL
 
-/-- Convert stored source strings into single-component Lean names in order.
-This is name construction, not parsing: a dot remains part of one component.
+/-- Source spellings must round-trip even for escaped identifiers beginning
+with `#` or `?`. Lean's general pretty-printer treats those as pseudo-syntax.
+The component renderer retains the escapes needed by `String.toName`. -/
+def sourceNameString (name : Name) : String :=
+  Name.toStringWithSep "." true name
+
+/-- Recover qualified and escaped Lean names from stored source spellings.
+For example, `A.B` and `«A.B»` denote different names and remain distinct.
 The output initialization costs one. Each entry costs an iteration, an array
-read, a `Name.mkSimple` construction, and an output write. String-character
+read, one `String.toName` call, and an output write. String-character
 work and allocation are outside the unit-cost model. -/
 @[inline] def namesFromStringsCosted (xs : Array String) : Complexity.Costed (Array Name) :=
   Complexity.Costed.charge 1 <|
     Complexity.Costed.foldArray xs #[] fun out name =>
-      Complexity.Costed.tick (out.push (Name.mkSimple name)) 2
+      Complexity.Costed.tick (out.push (String.toName name)) 2
 
 @[simp] theorem namesFromStringsCosted_value (xs : Array String) :
-    (namesFromStringsCosted xs).value = xs.map Name.mkSimple := by
+    (namesFromStringsCosted xs).value = xs.map String.toName := by
   simp only [namesFromStringsCosted, Complexity.Costed.charge_value,
     Complexity.Costed.foldArray_value, Complexity.Costed.tick_value]
   simp
@@ -39,7 +45,7 @@ work and allocation are outside the unit-cost model. -/
 @[simp] theorem namesFromStringsCosted_cost (xs : Array String) :
     (namesFromStringsCosted xs).cost = 4 * xs.size + 1 := by
   have count := Complexity.Costed.foldArray_cost_eq xs (#[] : Array Name)
-    (fun out name => Complexity.Costed.tick (out.push (Name.mkSimple name)) 2)
+    (fun out name => Complexity.Costed.tick (out.push (String.toName name)) 2)
     2 (by intros; rfl)
   simp only [namesFromStringsCosted, Complexity.Costed.charge_cost]
   omega
@@ -419,13 +425,13 @@ def modelSourceDecl (source : ModelSource) : String :=
 def indexedNamesJson (names : Array Name) : Json :=
   Json.arr <| names.mapIdx fun idx name =>
     Json.mkObj [
-      ("name", name.toString),
+      ("name", sourceNameString name),
       ("index", idx)
     ]
 
 def indexedName (names : Array Name) (idx : Nat) : String :=
   match names[idx]? with
-  | some name => name.toString
+  | some name => sourceNameString name
   | none => s!"#{idx}"
 
 def namedScopeSummary : NamedFactScope → String
@@ -500,7 +506,7 @@ def namedDerivedFactSummary (fact : NamedDerivedFact) : String :=
 
 def scopedWorldNames (worldNames : Array Name) : NamedFactScope → Array String
   | .at world => #[world]
-  | .everywhere => worldNames.map (·.toString)
+  | .everywhere => worldNames.map sourceNameString
 
 /-- Text specification for source facts, including the two infix field forms. -/
 def namedFactSummarySpec : NamedScopedFact → String

@@ -696,7 +696,7 @@ example : evalNamedDerivedFactCosted #[`w] #[`x, `y] (twoThingTables #[])
 
 example (names : Array Name) (text : String) :
     (thingIndexByStringCosted names text).value =
-      names.findIdx? (fun name => name.toString == text) :=
+      names.findIdx? (fun name => sourceNameString name == text) :=
   thingIndexByStringCosted_value names text
 
 example (names : Array Name) (text : String) :

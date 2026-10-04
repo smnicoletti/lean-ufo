@@ -71,13 +71,13 @@ Name characters and allocator work are outside the primitive-call model. -/
 private def thingIndexByStringCosted (names : Array Name) (text : String) : Complexity.Costed (Option Nat) :=
   findDiagDomainCosted names.size fun i =>
     if h : i < names.size then
-      Complexity.Costed.tick (names[i].toString == text) 5
+      Complexity.Costed.tick (sourceNameString names[i] == text) 5
     else Complexity.Costed.tick false 2
 
 private theorem thingIndexByStringCosted_value (names : Array Name) (text : String) :
-    (thingIndexByStringCosted names text).value = names.findIdx? (fun name => name.toString == text) := by
+    (thingIndexByStringCosted names text).value = names.findIdx? (fun name => sourceNameString name == text) := by
   rw [thingIndexByStringCosted, findDiagDomainCosted_value names.size _
-    (fun i => if h : i < names.size then names[i].toString == text else false)
+    (fun i => if h : i < names.size then sourceNameString names[i] == text else false)
     (by intro i hi; simp [hi])]
   apply Option.ext
   intro i
@@ -100,7 +100,7 @@ private theorem thingIndexByStringCosted_cost_le (names : Array Name) (text : St
     (thingIndexByStringCosted names text).cost ≤ 9 * names.size := by
   have h := findDiagDomainCosted_cost_le names.size
     (fun i => if h : i < names.size then
-      Complexity.Costed.tick (names[i].toString == text) 5
+      Complexity.Costed.tick (sourceNameString names[i] == text) 5
       else Complexity.Costed.tick false 2) 5 (by
         intro i hi
         simp [hi])

@@ -2958,12 +2958,13 @@ Neither theorem claims a bound for complete command execution. The bounds
 increase with N even when an added fact lets the actual precheck stop sooner.
 
 `namesFromStringsCosted` counts the frontend's name-array construction. It
-preserves each string as one Lean name component, including dots, empty strings,
-and duplicates. The exact cost for k entries is `4k + 1`: one initialization,
-then an iteration, a read, a name construction, and a write per entry.
+decodes stored Lean name spellings, preserving qualification, escaped components,
+order, and duplicates. `A.B` and `«A.B»` remain different names.
+The exact cost for k entries is `4k + 1`: one initialization,
+then an iteration, a read, one name-decoding call, and a write per entry.
 `namesFromStrings` erases this counted traversal and is shared by fresh-model,
 extension, and imported-source paths. String characters and allocation remain
-outside the unit-cost model.
+outside the unit-cost model, including character traversal within name decoding.
 
 For the compiler's world and thing arrays, construction costs
 `4(W + T) + 2 ≤ 6N`. `source_derivedAssertion_component_bound` combines those
@@ -3339,8 +3340,12 @@ again. It does not count distinct heap objects. Rendering follows formula syntax
 without enumerating thing or world domains. This theorem concerns formula text.
 Formula evaluation has separate, domain-dependent costs.
 
-Each variable reference scans the environment and renders one indexed name,
-at exact cost `4E+5`. Last-binding lookup and the `#n` fallback remain unchanged.
+Each formula variable reference scans the environment. An assigned variable
+renders its indexed name at cost `4E+5`. An unassigned variable retains its
+symbolic name at cost `4E+1`. Out-of-range assigned coordinates render as `#n`.
+Before rendering a quantified body, the renderer removes all outer assignments
+to the bound variable. This counted filter costs at most `5E+1` and cannot
+increase the environment size. The formula bound includes this work.
 An atom needs at most five references. Constructor selection, field-label
 selection, and counted concatenations give the atom bound `20E+38`. A formula
 node adds its own constructor selection. Summing the node bounds gives the

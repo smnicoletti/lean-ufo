@@ -227,7 +227,7 @@ private def indexedNameCosted (names : Array Name) (idx : Nat) : Complexity.Cost
   if h : idx < names.size then
     Complexity.Costed.charge 2 do
       let name ← Complexity.Costed.tick names[idx] 1
-      Complexity.Costed.tick name.toString 1
+      Complexity.Costed.tick (sourceNameString name) 1
   else
     Complexity.Costed.charge 2 do
       let digits ← Complexity.Costed.tick (toString idx) 1
@@ -2359,49 +2359,109 @@ private def ternaryFieldDslLabel : TernaryField → String
   | .distance => "Distance"
   | .distanceSum => "DistanceSum"
 
-/-- Resolve a variable with last-binding lookup, then render its source name.
-Missing bindings select zero, and out-of-range names retain the #n fallback. -/
-private def renderDiagVariableCosted (names : Array Name) (env : Array (String × Nat))
+/-- Render a concrete assignment supplied by the counterexample search. -/
+private def renderAssignedVariableCosted (names : Array Name) (env : Array (String × Nat))
     (name : String) : Complexity.Costed String := do
   let idx ← lookupVarCosted env name
   indexedNameCosted names idx
 
-private theorem renderDiagVariableCosted_value (names : Array Name) (env : Array (String × Nat))
+private theorem renderAssignedVariableCosted_value (names : Array Name) (env : Array (String × Nat))
     (name : String) :
-    (renderDiagVariableCosted names env name).value = indexedName names (lookupVar env name) := by
-  simp only [renderDiagVariableCosted, Bind.bind, Complexity.Costed.bind_value,
+    (renderAssignedVariableCosted names env name).value = indexedName names (lookupVar env name) := by
+  simp only [renderAssignedVariableCosted, Bind.bind, Complexity.Costed.bind_value,
     indexedNameCosted_value, lookupVar]
 
-private theorem renderDiagVariableCosted_cost (names : Array Name) (env : Array (String × Nat))
+private theorem renderAssignedVariableCosted_cost (names : Array Name) (env : Array (String × Nat))
     (name : String) :
-    (renderDiagVariableCosted names env name).cost = 4 * env.size + 5 := by
-  simp only [renderDiagVariableCosted, Bind.bind, Complexity.Costed.bind_cost,
+    (renderAssignedVariableCosted names env name).cost = 4 * env.size + 5 := by
+  simp only [renderAssignedVariableCosted, Bind.bind, Complexity.Costed.bind_cost,
     lookupVarCosted_cost, indexedNameCosted_cost]
+
+/-- Resolve assigned variables and leave unassigned variables symbolic.
+An absent assignment must not invent a reference to the first model entity. -/
+private def renderDiagVariableCosted (names : Array Name) (env : Array (String × Nat))
+    (name : String) : Complexity.Costed String := do
+  let found ← Complexity.Costed.foldArray env (none : Option Nat) fun found entry =>
+    .tick (if entry.1 == name then some entry.2 else found) 2
+  Complexity.Costed.charge 1 <| match found with
+    | some idx => indexedNameCosted names idx
+    | none => .pure name
+
+private def renderDiagVariable (names : Array Name) (env : Array (String × Nat))
+    (name : String) : String :=
+  match env.foldl (fun found entry => if entry.1 == name then some entry.2 else found) none with
+  | some idx => indexedName names idx
+  | none => name
+
+private theorem renderDiagVariableCosted_value (names : Array Name) (env : Array (String × Nat))
+    (name : String) :
+    (renderDiagVariableCosted names env name).value = renderDiagVariable names env name := by
+  simp only [renderDiagVariableCosted, Bind.bind, Complexity.Costed.bind_value,
+    Complexity.Costed.foldArray_value, Complexity.Costed.tick_value,
+    Complexity.Costed.charge_value, renderDiagVariable]
+  split <;> simp [indexedNameCosted_value]
+
+private theorem renderDiagVariableCosted_cost_le (names : Array Name) (env : Array (String × Nat))
+    (name : String) :
+    (renderDiagVariableCosted names env name).cost ≤ 4 * env.size + 5 := by
+  have scan := Complexity.Costed.foldArray_cost_eq env (none : Option Nat)
+    (fun found entry => Complexity.Costed.tick
+      (if entry.1 == name then some entry.2 else found) 2) 2 (by intros; rfl)
+  simp only [renderDiagVariableCosted, Bind.bind, Complexity.Costed.bind_cost,
+    Complexity.Costed.charge_cost]
+  split <;> simp only [indexedNameCosted_cost, Complexity.Costed.pure_cost] <;> omega
+
+/-- A quantifier hides every outer assignment to its variable. Filtering
+preserves the order of all other assignments, including repeated bindings. -/
+private def hideDiagBindingCosted (env : Array (String × Nat)) (name : String) :
+    Complexity.Costed (Array (String × Nat)) :=
+  Complexity.Costed.charge 1 <|
+    Complexity.Costed.foldArray env #[] fun out entry =>
+      Complexity.Costed.charge 2 <| if entry.1 == name then .pure out
+        else .tick (out.push entry) 1
+
+private theorem hideDiagBindingCosted_value (env : Array (String × Nat)) (name : String) :
+    (hideDiagBindingCosted env name).value = env.filter (fun entry => entry.1 != name) := by
+  simp only [hideDiagBindingCosted, Complexity.Costed.charge_value,
+    Complexity.Costed.foldArray_value]
+  simpa only [beq_iff_eq, bne_iff_ne, ite_not, id_eq,
+    Complexity.Costed.pure_value, Complexity.Costed.tick_value, apply_ite,
+    Array.map_id] using
+    (Array.map_filter_eq_foldl (f := id) (p := fun entry : String × Nat => entry.1 != name)
+      (xs := env)).symm
+
+private theorem hideDiagBindingCosted_cost_le (env : Array (String × Nat)) (name : String) :
+    (hideDiagBindingCosted env name).cost ≤ 5 * env.size + 1 := by
+  have h := Complexity.Costed.foldArray_cost_le env (#[] : Array (String × Nat))
+    (fun out entry => Complexity.Costed.charge 2 <|
+      if entry.1 == name then .pure out else .tick (out.push entry) 1)
+    3 (by intros; split <;> simp)
+  simpa [hideDiagBindingCosted, Nat.mul_comm, Nat.add_comm] using Nat.add_le_add_left h 1
 
 /-- The string specification fixes labels, punctuation, and infix notation.
 It is used by the value proofs, not by production rendering. -/
 private def renderDiagAtomSpec
     (worldNames thingNames : Array Name) (env : Array (String × Nat)) : DiagAtom → String
   | .typeSem thing world =>
-      s!"[{indexedName worldNames (lookupVar env world)}] Type({indexedName thingNames (lookupVar env thing)})"
+      s!"[{renderDiagVariable worldNames env world}] Type({renderDiagVariable thingNames env thing})"
   | .individualSem thing world =>
-      s!"[{indexedName worldNames (lookupVar env world)}] Individual({indexedName thingNames (lookupVar env thing)})"
+      s!"[{renderDiagVariable worldNames env world}] Individual({renderDiagVariable thingNames env thing})"
   | .unary field thing world =>
-      s!"[{indexedName worldNames (lookupVar env world)}] {unaryFieldDslLabel field}({indexedName thingNames (lookupVar env thing)})"
+      s!"[{renderDiagVariable worldNames env world}] {unaryFieldDslLabel field}({renderDiagVariable thingNames env thing})"
   | .derivedUnary field thing world =>
-      s!"[{indexedName worldNames (lookupVar env world)}] {field}({indexedName thingNames (lookupVar env thing)})"
+      s!"[{renderDiagVariable worldNames env world}] {field}({renderDiagVariable thingNames env thing})"
   | .binary .inst left right world =>
-      s!"[{indexedName worldNames (lookupVar env world)}] {indexedName thingNames (lookupVar env left)} :: {indexedName thingNames (lookupVar env right)}"
+      s!"[{renderDiagVariable worldNames env world}] {renderDiagVariable thingNames env left} :: {renderDiagVariable thingNames env right}"
   | .binary .sub left right world =>
-      s!"[{indexedName worldNames (lookupVar env world)}] {indexedName thingNames (lookupVar env left)} ⊑ {indexedName thingNames (lookupVar env right)}"
+      s!"[{renderDiagVariable worldNames env world}] {renderDiagVariable thingNames env left} ⊑ {renderDiagVariable thingNames env right}"
   | .binary field left right world =>
-      s!"[{indexedName worldNames (lookupVar env world)}] {binaryFieldDslLabel field}({indexedName thingNames (lookupVar env left)}, {indexedName thingNames (lookupVar env right)})"
+      s!"[{renderDiagVariable worldNames env world}] {binaryFieldDslLabel field}({renderDiagVariable thingNames env left}, {renderDiagVariable thingNames env right})"
   | .ternary field first second third world =>
-      s!"[{indexedName worldNames (lookupVar env world)}] {ternaryFieldDslLabel field}({indexedName thingNames (lookupVar env first)}, {indexedName thingNames (lookupVar env second)}, {indexedName thingNames (lookupVar env third)})"
+      s!"[{renderDiagVariable worldNames env world}] {ternaryFieldDslLabel field}({renderDiagVariable thingNames env first}, {renderDiagVariable thingNames env second}, {renderDiagVariable thingNames env third})"
   | .derivedBinary field left right world =>
-      s!"[{indexedName worldNames (lookupVar env world)}] {field}({indexedName thingNames (lookupVar env left)}, {indexedName thingNames (lookupVar env right)})"
+      s!"[{renderDiagVariable worldNames env world}] {field}({renderDiagVariable thingNames env left}, {renderDiagVariable thingNames env right})"
   | .quaternary field first second third fourth world =>
-      s!"[{indexedName worldNames (lookupVar env world)}] {field}({indexedName thingNames (lookupVar env first)}, {indexedName thingNames (lookupVar env second)}, {indexedName thingNames (lookupVar env third)}, {indexedName thingNames (lookupVar env fourth)})"
+      s!"[{renderDiagVariable worldNames env world}] {field}({renderDiagVariable thingNames env first}, {renderDiagVariable thingNames env second}, {renderDiagVariable thingNames env third}, {renderDiagVariable thingNames env fourth})"
 
 /-- Each recursive call uses a proper subformula. The explicit node-count
 measure proves termination and keeps the value equations compact enough for
@@ -2410,22 +2470,22 @@ private def renderDiagFormulaSpec
     (worldNames thingNames : Array Name) (env : Array (String × Nat)) : DiagFormula → String
   | .atom atom => renderDiagAtomSpec worldNames thingNames env atom
   | .eqThing left right =>
-      s!"{indexedName thingNames (lookupVar env left)} = {indexedName thingNames (lookupVar env right)}"
+      s!"{renderDiagVariable thingNames env left} = {renderDiagVariable thingNames env right}"
   | .eqWorld left right =>
-      s!"{indexedName worldNames (lookupVar env left)} = {indexedName worldNames (lookupVar env right)}"
+      s!"{renderDiagVariable worldNames env left} = {renderDiagVariable worldNames env right}"
   | .not p => s!"not ({renderDiagFormulaSpec worldNames thingNames env p})"
   | .and p q => s!"({renderDiagFormulaSpec worldNames thingNames env p}) and ({renderDiagFormulaSpec worldNames thingNames env q})"
   | .or p q => s!"({renderDiagFormulaSpec worldNames thingNames env p}) or ({renderDiagFormulaSpec worldNames thingNames env q})"
   | .imp p q => s!"({renderDiagFormulaSpec worldNames thingNames env p}) implies ({renderDiagFormulaSpec worldNames thingNames env q})"
   | .iff p q => s!"({renderDiagFormulaSpec worldNames thingNames env p}) iff ({renderDiagFormulaSpec worldNames thingNames env q})"
-  | .forallThing name body => s!"for every thing {name}, {renderDiagFormulaSpec worldNames thingNames env body}"
-  | .forallWorld name body => s!"for every world {name}, {renderDiagFormulaSpec worldNames thingNames env body}"
-  | .existsThing name body => s!"there exists thing {name}, {renderDiagFormulaSpec worldNames thingNames env body}"
-  | .existsWorld name body => s!"there exists world {name}, {renderDiagFormulaSpec worldNames thingNames env body}"
+  | .forallThing name body => s!"for every thing {name}, {renderDiagFormulaSpec worldNames thingNames (env.filter (fun entry => entry.1 != name)) body}"
+  | .forallWorld name body => s!"for every world {name}, {renderDiagFormulaSpec worldNames thingNames (env.filter (fun entry => entry.1 != name)) body}"
+  | .existsThing name body => s!"there exists thing {name}, {renderDiagFormulaSpec worldNames thingNames (env.filter (fun entry => entry.1 != name)) body}"
+  | .existsWorld name body => s!"there exists world {name}, {renderDiagFormulaSpec worldNames thingNames (env.filter (fun entry => entry.1 != name)) body}"
   | .box currentWorld witnessWorld body =>
-      s!"from world {indexedName worldNames (lookupVar env currentWorld)}, in every accessible world {witnessWorld}, {renderDiagFormulaSpec worldNames thingNames env body}"
+      s!"from world {renderDiagVariable worldNames env currentWorld}, in every accessible world {witnessWorld}, {renderDiagFormulaSpec worldNames thingNames (env.filter (fun entry => entry.1 != witnessWorld)) body}"
   | .dia currentWorld witnessWorld body =>
-      s!"from world {indexedName worldNames (lookupVar env currentWorld)}, in some accessible world {witnessWorld}, {renderDiagFormulaSpec worldNames thingNames env body}"
+      s!"from world {renderDiagVariable worldNames env currentWorld}, in some accessible world {witnessWorld}, {renderDiagFormulaSpec worldNames thingNames (env.filter (fun entry => entry.1 != witnessWorld)) body}"
 termination_by formula => formula.nodeCount
 decreasing_by all_goals simp_all [DiagFormula.nodeCount] <;> omega
 
@@ -2536,16 +2596,18 @@ private theorem renderDiagAtomCosted_value
 private theorem renderDiagAtomCosted_cost_le
     (worldNames thingNames : Array Name) (env : Array (String × Nat)) (atom : DiagAtom) :
     (renderDiagAtomCosted worldNames thingNames env atom).cost ≤ 20 * env.size + 38 := by
+  have bound (names : Array Name) (name : String) := renderDiagVariableCosted_cost_le names env name
   cases atom with
   | binary field left right world =>
       cases field <;>
         simp only [renderDiagAtomCosted, Complexity.Costed.charge_cost,
-          Complexity.Costed.appendString_cost, Complexity.Costed.pure_cost, Complexity.Costed.tick_cost, renderDiagVariableCosted_cost] <;>
-        omega
+          Complexity.Costed.appendString_cost, Complexity.Costed.pure_cost, Complexity.Costed.tick_cost] <;>
+        have := bound worldNames world <;> have := bound thingNames left <;>
+        have := bound thingNames right <;> omega
   | _ =>
       simp only [renderDiagAtomCosted, Complexity.Costed.charge_cost,
-        Complexity.Costed.appendString_cost, Complexity.Costed.pure_cost, Complexity.Costed.tick_cost, renderDiagVariableCosted_cost]
-      omega
+        Complexity.Costed.appendString_cost, Complexity.Costed.pure_cost, Complexity.Costed.tick_cost]
+      all_goals grind only [renderDiagVariableCosted_cost_le]
 
 /-- Render the formula tree without enumerating its quantifier domains.
 Each node charges its constructor selection and text concatenations. Bound
@@ -2584,34 +2646,40 @@ private def renderDiagFormulaCosted
       let text := text.appendString (Complexity.Costed.pure ") iff (")
       let text := text.appendString (renderDiagFormulaCosted worldNames thingNames env q)
       text.appendString (Complexity.Costed.pure ")")
-  | .forallThing name body => Complexity.Costed.charge 1 <|
+  | .forallThing name body => Complexity.Costed.charge 1 <| do
+      let innerEnv ← hideDiagBindingCosted env name
       let text := Complexity.Costed.appendString (Complexity.Costed.pure "for every thing ") (Complexity.Costed.pure name)
       let text := text.appendString (Complexity.Costed.pure ", ")
-      text.appendString (renderDiagFormulaCosted worldNames thingNames env body)
-  | .forallWorld name body => Complexity.Costed.charge 1 <|
+      text.appendString (renderDiagFormulaCosted worldNames thingNames innerEnv body)
+  | .forallWorld name body => Complexity.Costed.charge 1 <| do
+      let innerEnv ← hideDiagBindingCosted env name
       let text := Complexity.Costed.appendString (Complexity.Costed.pure "for every world ") (Complexity.Costed.pure name)
       let text := text.appendString (Complexity.Costed.pure ", ")
-      text.appendString (renderDiagFormulaCosted worldNames thingNames env body)
-  | .existsThing name body => Complexity.Costed.charge 1 <|
+      text.appendString (renderDiagFormulaCosted worldNames thingNames innerEnv body)
+  | .existsThing name body => Complexity.Costed.charge 1 <| do
+      let innerEnv ← hideDiagBindingCosted env name
       let text := Complexity.Costed.appendString (Complexity.Costed.pure "there exists thing ") (Complexity.Costed.pure name)
       let text := text.appendString (Complexity.Costed.pure ", ")
-      text.appendString (renderDiagFormulaCosted worldNames thingNames env body)
-  | .existsWorld name body => Complexity.Costed.charge 1 <|
+      text.appendString (renderDiagFormulaCosted worldNames thingNames innerEnv body)
+  | .existsWorld name body => Complexity.Costed.charge 1 <| do
+      let innerEnv ← hideDiagBindingCosted env name
       let text := Complexity.Costed.appendString (Complexity.Costed.pure "there exists world ") (Complexity.Costed.pure name)
       let text := text.appendString (Complexity.Costed.pure ", ")
-      text.appendString (renderDiagFormulaCosted worldNames thingNames env body)
-  | .box currentWorld witnessWorld body => Complexity.Costed.charge 1 <|
+      text.appendString (renderDiagFormulaCosted worldNames thingNames innerEnv body)
+  | .box currentWorld witnessWorld body => Complexity.Costed.charge 1 <| do
+      let innerEnv ← hideDiagBindingCosted env witnessWorld
       let text := Complexity.Costed.appendString (Complexity.Costed.pure "from world ") (renderDiagVariableCosted worldNames env currentWorld)
       let text := text.appendString (Complexity.Costed.pure ", in every accessible world ")
       let text := text.appendString (Complexity.Costed.pure witnessWorld)
       let text := text.appendString (Complexity.Costed.pure ", ")
-      text.appendString (renderDiagFormulaCosted worldNames thingNames env body)
-  | .dia currentWorld witnessWorld body => Complexity.Costed.charge 1 <|
+      text.appendString (renderDiagFormulaCosted worldNames thingNames innerEnv body)
+  | .dia currentWorld witnessWorld body => Complexity.Costed.charge 1 <| do
+      let innerEnv ← hideDiagBindingCosted env witnessWorld
       let text := Complexity.Costed.appendString (Complexity.Costed.pure "from world ") (renderDiagVariableCosted worldNames env currentWorld)
       let text := text.appendString (Complexity.Costed.pure ", in some accessible world ")
       let text := text.appendString (Complexity.Costed.pure witnessWorld)
       let text := text.appendString (Complexity.Costed.pure ", ")
-      text.appendString (renderDiagFormulaCosted worldNames thingNames env body)
+      text.appendString (renderDiagFormulaCosted worldNames thingNames innerEnv body)
 termination_by formula => formula.nodeCount
 decreasing_by all_goals simp_all [DiagFormula.nodeCount] <;> omega
 
@@ -2619,10 +2687,11 @@ private theorem renderDiagFormulaCosted_value
     (worldNames thingNames : Array Name) (env : Array (String × Nat)) (formula : DiagFormula) :
     (renderDiagFormulaCosted worldNames thingNames env formula).value =
       renderDiagFormulaSpec worldNames thingNames env formula := by
-  induction formula <;> rw [renderDiagFormulaCosted, renderDiagFormulaSpec]
+  induction formula generalizing env <;> rw [renderDiagFormulaCosted, renderDiagFormulaSpec]
   all_goals
     simp only [Complexity.Costed.charge_value, Complexity.Costed.appendString_value,
-      Complexity.Costed.pure_value, renderDiagAtomCosted_value, renderDiagVariableCosted_value, *] <;> rfl
+      Complexity.Costed.pure_value, Bind.bind, Complexity.Costed.bind_value,
+      hideDiagBindingCosted_value, renderDiagAtomCosted_value, renderDiagVariableCosted_value, *] <;> rfl
 
 /-- For F formula nodes and E environment bindings, rendering costs at most
 F(20E+39) primitive calls. The atom bound includes up to five name resolutions.
@@ -2631,17 +2700,32 @@ private theorem renderDiagFormulaCosted_cost_le
     (worldNames thingNames : Array Name) (env : Array (String × Nat)) (formula : DiagFormula) :
     (renderDiagFormulaCosted worldNames thingNames env formula).cost ≤
       formula.nodeCount * (20 * env.size + 39) := by
-  induction formula with
+  induction formula generalizing env with
   | atom atom =>
       have h := renderDiagAtomCosted_cost_le worldNames thingNames env atom
       simp only [renderDiagFormulaCosted, Complexity.Costed.charge_cost, DiagFormula.nodeCount,
         Nat.one_mul]
       omega
+  | forallThing name body ih | forallWorld name body ih
+    | existsThing name body ih | existsWorld name body ih
+    | box currentWorld name body ih | dia currentWorld name body ih =>
+      have hhide := hideDiagBindingCosted_cost_le env name
+      have hsize : (hideDiagBindingCosted env name).value.size ≤ env.size := by
+        rw [hideDiagBindingCosted_value]
+        exact Array.size_filter_le
+      have hbody := le_trans (ih (hideDiagBindingCosted env name).value)
+        (Nat.mul_le_mul_left body.nodeCount (by omega :
+          20 * (hideDiagBindingCosted env name).value.size + 39 ≤ 20 * env.size + 39))
+      simp only [renderDiagFormulaCosted, Complexity.Costed.charge_cost,
+        Bind.bind, Complexity.Costed.bind_cost,
+        Complexity.Costed.appendString_cost, Complexity.Costed.pure_cost,
+        DiagFormula.nodeCount, Nat.add_mul, Nat.one_mul]
+      all_goals grind only [renderDiagVariableCosted_cost_le]
   | _ =>
       simp_all only [renderDiagFormulaCosted, Complexity.Costed.charge_cost,
         Complexity.Costed.appendString_cost, Complexity.Costed.pure_cost,
-        renderDiagVariableCosted_cost, DiagFormula.nodeCount, Nat.add_mul, Nat.one_mul]
-      omega
+        DiagFormula.nodeCount, Nat.add_mul, Nat.one_mul]
+      all_goals grind only [renderDiagVariableCosted_cost_le]
 
 private theorem renderDiagFormulaCostBound_mono
     {F F' E E' : Nat} (hF : F ≤ F') (hE : E ≤ E') :
@@ -3004,7 +3088,7 @@ private def renderDiagAssignmentCosted
       | .thing => thingNames
       | .world => worldNames
     let text := Complexity.Costed.appendString (.pure var.name) (.pure " = ")
-    text.appendString (renderDiagVariableCosted names env var.name)
+    text.appendString (renderAssignedVariableCosted names env var.name)
 
 private theorem renderDiagAssignmentCosted_value
     (worldNames thingNames : Array Name) (env : Array (String × Nat)) (var : DiagVar) :
@@ -3016,12 +3100,12 @@ private theorem renderDiagAssignmentCosted_value
   | mk name kind => cases kind <;>
       simp only [renderDiagAssignmentCosted, Complexity.Costed.charge_value,
         Complexity.Costed.appendString_value, Complexity.Costed.pure_value,
-        renderDiagVariableCosted_value] <;> rfl
+        renderAssignedVariableCosted_value] <;> rfl
 
 private theorem renderDiagAssignmentCosted_cost
     (worldNames thingNames : Array Name) (env : Array (String × Nat)) (var : DiagVar) :
     (renderDiagAssignmentCosted worldNames thingNames env var).cost = 4 * env.size + 8 := by
-  simp [renderDiagAssignmentCosted, renderDiagVariableCosted_cost]
+  simp [renderDiagAssignmentCosted, renderAssignedVariableCosted_cost]
   omega
 
 /-- The forward fold joins assignments without an intermediate list. Each
@@ -5715,44 +5799,44 @@ private def atomEvidenceCosted
       let rows := unaryEvidenceCosted worldNames thingNames namedFacts thingIdx.value worldIdx.value field
       ⟨rows.value, 1 + thingIdx.cost + worldIdx.cost + rows.cost⟩
   | .derivedUnary field thing world =>
-      let thingName := renderDiagVariableCosted thingNames env thing
+      let thingName := renderAssignedVariableCosted thingNames env thing
       let worldIdx := lookupVarCosted env world
       let rows := collectNamedFactEvidenceCosted namedFacts
         (derivedUnarySourceEvidenceCosted worldNames worldIdx.value field thingName.value)
       ⟨rows.value, 1 + thingName.cost + worldIdx.cost + rows.cost⟩
   | .binary field left right world =>
-      let leftName := renderDiagVariableCosted thingNames env left
-      let rightName := renderDiagVariableCosted thingNames env right
+      let leftName := renderAssignedVariableCosted thingNames env left
+      let rightName := renderAssignedVariableCosted thingNames env right
       let worldIdx := lookupVarCosted env world
       let rows := collectNamedFactEvidenceCosted namedFacts
         (binarySourceEvidenceCosted worldNames worldIdx.value field leftName.value rightName.value)
       ⟨rows.value, 1 + leftName.cost + rightName.cost + worldIdx.cost + rows.cost⟩
   | .derivedBinary field left right world =>
-      let leftName := renderDiagVariableCosted thingNames env left
-      let rightName := renderDiagVariableCosted thingNames env right
+      let leftName := renderAssignedVariableCosted thingNames env left
+      let rightName := renderAssignedVariableCosted thingNames env right
       let worldIdx := lookupVarCosted env world
       let rows := collectNamedFactEvidenceCosted namedFacts
         (derivedBinarySourceEvidenceCosted worldNames worldIdx.value field leftName.value rightName.value)
       ⟨rows.value, 1 + leftName.cost + rightName.cost + worldIdx.cost + rows.cost⟩
   | .ternary field first second third world =>
-      let firstName := renderDiagVariableCosted thingNames env first
-      let secondName := renderDiagVariableCosted thingNames env second
-      let thirdName := renderDiagVariableCosted thingNames env third
+      let firstName := renderAssignedVariableCosted thingNames env first
+      let secondName := renderAssignedVariableCosted thingNames env second
+      let thirdName := renderAssignedVariableCosted thingNames env third
       let worldIdx := lookupVarCosted env world
       let rows := collectNamedFactEvidenceCosted namedFacts
         (ternarySourceEvidenceCosted worldNames worldIdx.value field firstName.value secondName.value thirdName.value)
       ⟨rows.value, 1 + firstName.cost + secondName.cost + thirdName.cost + worldIdx.cost + rows.cost⟩
   | .quaternary field first second third fourth world =>
-      let firstName := renderDiagVariableCosted thingNames env first
-      let secondName := renderDiagVariableCosted thingNames env second
-      let thirdName := renderDiagVariableCosted thingNames env third
-      let fourthName := renderDiagVariableCosted thingNames env fourth
+      let firstName := renderAssignedVariableCosted thingNames env first
+      let secondName := renderAssignedVariableCosted thingNames env second
+      let thirdName := renderAssignedVariableCosted thingNames env third
+      let fourthName := renderAssignedVariableCosted thingNames env fourth
       let worldIdx := lookupVarCosted env world
       let rows := collectNamedFactEvidenceCosted namedFacts
         (quaternarySourceEvidenceCosted worldNames worldIdx.value field firstName.value secondName.value thirdName.value fourthName.value)
       ⟨rows.value, 1 + firstName.cost + secondName.cost + thirdName.cost + fourthName.cost + worldIdx.cost + rows.cost⟩
   | .typeSem thing world =>
-      let thingName := renderDiagVariableCosted thingNames env thing
+      let thingName := renderAssignedVariableCosted thingNames env thing
       let worldIdx := lookupVarCosted env world
       let rows := collectNamedFactEvidenceCosted namedFacts
         (typeSemSourceEvidenceCosted worldNames worldIdx.value thingName.value)
@@ -5771,7 +5855,7 @@ private theorem atomEvidenceCosted_derivedUnary_value
     (env : Array (String × Nat)) (field : String) (thing world : String) :
     (atomEvidenceCosted worldNames thingNames namedFacts env (.derivedUnary field thing world)).value =
       atomEvidenceSpec worldNames thingNames namedFacts env (.derivedUnary field thing world) := by
-  simp only [atomEvidenceCosted, atomEvidenceSpec, renderDiagVariableCosted_value,
+  simp only [atomEvidenceCosted, atomEvidenceSpec, renderAssignedVariableCosted_value,
     lookupVar, collectNamedFactEvidenceSpec, collectNamedFactEvidenceCosted_value,
     derivedUnarySourceEvidenceCosted_value]
   rfl
@@ -5781,7 +5865,7 @@ private theorem atomEvidenceCosted_binary_value
     (env : Array (String × Nat)) (field : BinaryField) (left right world : String) :
     (atomEvidenceCosted worldNames thingNames namedFacts env (.binary field left right world)).value =
       atomEvidenceSpec worldNames thingNames namedFacts env (.binary field left right world) := by
-  simp only [atomEvidenceCosted, atomEvidenceSpec, renderDiagVariableCosted_value,
+  simp only [atomEvidenceCosted, atomEvidenceSpec, renderAssignedVariableCosted_value,
     lookupVar, collectNamedFactEvidenceSpec, collectNamedFactEvidenceCosted_value,
     binarySourceEvidenceCosted_value]
   rfl
@@ -5791,7 +5875,7 @@ private theorem atomEvidenceCosted_derivedBinary_value
     (env : Array (String × Nat)) (field : String) (left right world : String) :
     (atomEvidenceCosted worldNames thingNames namedFacts env (.derivedBinary field left right world)).value =
       atomEvidenceSpec worldNames thingNames namedFacts env (.derivedBinary field left right world) := by
-  simp only [atomEvidenceCosted, atomEvidenceSpec, renderDiagVariableCosted_value,
+  simp only [atomEvidenceCosted, atomEvidenceSpec, renderAssignedVariableCosted_value,
     lookupVar, collectNamedFactEvidenceSpec, collectNamedFactEvidenceCosted_value,
     derivedBinarySourceEvidenceCosted_value]
   rfl
@@ -5801,7 +5885,7 @@ private theorem atomEvidenceCosted_ternary_value
     (env : Array (String × Nat)) (field : TernaryField) (first second third world : String) :
     (atomEvidenceCosted worldNames thingNames namedFacts env (.ternary field first second third world)).value =
       atomEvidenceSpec worldNames thingNames namedFacts env (.ternary field first second third world) := by
-  simp only [atomEvidenceCosted, atomEvidenceSpec, renderDiagVariableCosted_value,
+  simp only [atomEvidenceCosted, atomEvidenceSpec, renderAssignedVariableCosted_value,
     lookupVar, collectNamedFactEvidenceSpec, collectNamedFactEvidenceCosted_value,
     ternarySourceEvidenceCosted_value]
   rfl
@@ -5811,7 +5895,7 @@ private theorem atomEvidenceCosted_quaternary_value
     (env : Array (String × Nat)) (field : String) (first second third fourth world : String) :
     (atomEvidenceCosted worldNames thingNames namedFacts env (.quaternary field first second third fourth world)).value =
       atomEvidenceSpec worldNames thingNames namedFacts env (.quaternary field first second third fourth world) := by
-  simp only [atomEvidenceCosted, atomEvidenceSpec, renderDiagVariableCosted_value,
+  simp only [atomEvidenceCosted, atomEvidenceSpec, renderAssignedVariableCosted_value,
     lookupVar, collectNamedFactEvidenceSpec, collectNamedFactEvidenceCosted_value,
     quaternarySourceEvidenceCosted_value]
   rfl
@@ -5821,7 +5905,7 @@ private theorem atomEvidenceCosted_typeSem_value
     (env : Array (String × Nat)) (thing world : String) :
     (atomEvidenceCosted worldNames thingNames namedFacts env (.typeSem thing world)).value =
       atomEvidenceSpec worldNames thingNames namedFacts env (.typeSem thing world) := by
-  simp only [atomEvidenceCosted, atomEvidenceSpec, renderDiagVariableCosted_value,
+  simp only [atomEvidenceCosted, atomEvidenceSpec, renderAssignedVariableCosted_value,
     lookupVar, collectNamedFactEvidenceSpec, collectNamedFactEvidenceCosted_value,
     typeSemSourceEvidenceCosted_value]
   rfl
@@ -5872,44 +5956,44 @@ private theorem atomEvidenceCosted_cost_le
   | derivedUnary field thing world =>
       have scan := collectNamedFactEvidenceCosted_cost_le namedFacts
         (derivedUnarySourceEvidenceCosted worldNames (lookupVarCosted env world).value
-          field (renderDiagVariableCosted thingNames env thing).value) 34
+          field (renderAssignedVariableCosted thingNames env thing).value) 34
         (by intro fact _; exact derivedUnarySourceEvidenceCosted_cost_le _ _ _ _ fact)
-      simp only [atomEvidenceCosted, renderDiagVariableCosted_cost, lookupVarCosted_cost]
+      simp only [atomEvidenceCosted, renderAssignedVariableCosted_cost, lookupVarCosted_cost]
       omega
   | binary field left right world =>
       have scan := collectNamedFactEvidenceCosted_cost_le namedFacts
         (binarySourceEvidenceCosted worldNames (lookupVarCosted env world).value
-          field (renderDiagVariableCosted thingNames env left).value (renderDiagVariableCosted thingNames env right).value) 34
+          field (renderAssignedVariableCosted thingNames env left).value (renderAssignedVariableCosted thingNames env right).value) 34
         (by intro fact _; exact binarySourceEvidenceCosted_cost_le _ _ _ _ _ fact)
-      simp only [atomEvidenceCosted, renderDiagVariableCosted_cost, lookupVarCosted_cost]
+      simp only [atomEvidenceCosted, renderAssignedVariableCosted_cost, lookupVarCosted_cost]
       omega
   | derivedBinary field left right world =>
       have scan := collectNamedFactEvidenceCosted_cost_le namedFacts
         (derivedBinarySourceEvidenceCosted worldNames (lookupVarCosted env world).value
-          field (renderDiagVariableCosted thingNames env left).value (renderDiagVariableCosted thingNames env right).value) 34
+          field (renderAssignedVariableCosted thingNames env left).value (renderAssignedVariableCosted thingNames env right).value) 34
         (by intro fact _; exact derivedBinarySourceEvidenceCosted_cost_le _ _ _ _ _ fact)
-      simp only [atomEvidenceCosted, renderDiagVariableCosted_cost, lookupVarCosted_cost]
+      simp only [atomEvidenceCosted, renderAssignedVariableCosted_cost, lookupVarCosted_cost]
       omega
   | ternary field first second third world =>
       have scan := collectNamedFactEvidenceCosted_cost_le namedFacts
         (ternarySourceEvidenceCosted worldNames (lookupVarCosted env world).value
-          field (renderDiagVariableCosted thingNames env first).value (renderDiagVariableCosted thingNames env second).value (renderDiagVariableCosted thingNames env third).value) 34
+          field (renderAssignedVariableCosted thingNames env first).value (renderAssignedVariableCosted thingNames env second).value (renderAssignedVariableCosted thingNames env third).value) 34
         (by intro fact _; exact ternarySourceEvidenceCosted_cost_le _ _ _ _ _ _ fact)
-      simp only [atomEvidenceCosted, renderDiagVariableCosted_cost, lookupVarCosted_cost]
+      simp only [atomEvidenceCosted, renderAssignedVariableCosted_cost, lookupVarCosted_cost]
       omega
   | quaternary field first second third fourth world =>
       have scan := collectNamedFactEvidenceCosted_cost_le namedFacts
         (quaternarySourceEvidenceCosted worldNames (lookupVarCosted env world).value
-          field (renderDiagVariableCosted thingNames env first).value (renderDiagVariableCosted thingNames env second).value (renderDiagVariableCosted thingNames env third).value (renderDiagVariableCosted thingNames env fourth).value) 34
+          field (renderAssignedVariableCosted thingNames env first).value (renderAssignedVariableCosted thingNames env second).value (renderAssignedVariableCosted thingNames env third).value (renderAssignedVariableCosted thingNames env fourth).value) 34
         (by intro fact _; exact quaternarySourceEvidenceCosted_cost_le _ _ _ _ _ _ _ fact)
-      simp only [atomEvidenceCosted, renderDiagVariableCosted_cost, lookupVarCosted_cost]
+      simp only [atomEvidenceCosted, renderAssignedVariableCosted_cost, lookupVarCosted_cost]
       omega
   | typeSem thing world =>
       have scan := collectNamedFactEvidenceCosted_cost_le namedFacts
         (typeSemSourceEvidenceCosted worldNames (lookupVarCosted env world).value
-          (renderDiagVariableCosted thingNames env thing).value) 34
+          (renderAssignedVariableCosted thingNames env thing).value) 34
         (by intro fact _; exact typeSemSourceEvidenceCosted_cost_le _ _ _ fact)
-      simp only [atomEvidenceCosted, renderDiagVariableCosted_cost, lookupVarCosted_cost]
+      simp only [atomEvidenceCosted, renderAssignedVariableCosted_cost, lookupVarCosted_cost]
       omega
   | individualSem => simp [atomEvidenceCosted]; omega
 
@@ -6941,8 +7025,8 @@ private def suggestionForAtomCosted
      else "or remove/relax the facts shown in this counterexample that make this combination forbidden.") 1
   (match atom with
   | .unary field thing world => Complexity.Costed.charge 1 <|
-      let thingName := renderDiagVariableCosted thingNames env thing
-      let worldName := renderDiagVariableCosted worldNames env world
+      let thingName := renderAssignedVariableCosted thingNames env thing
+      let worldName := renderAssignedVariableCosted worldNames env world
       let text := Complexity.Costed.appendString (Complexity.Costed.pure addOrRemove) (Complexity.Costed.pure " `")
       let text := text.appendString (Complexity.Costed.tick (unaryFieldDslLabel field) 1)
       let text := text.appendString (Complexity.Costed.pure "(")
@@ -6952,9 +7036,9 @@ private def suggestionForAtomCosted
       let text := text.appendString (Complexity.Costed.pure "` (or in an appropriate broader scope), ")
       text.appendString (Complexity.Costed.pure tail)
   | .binary .inst left right world => Complexity.Costed.charge 2 <|
-      let leftName := renderDiagVariableCosted thingNames env left
-      let rightName := renderDiagVariableCosted thingNames env right
-      let worldName := renderDiagVariableCosted worldNames env world
+      let leftName := renderAssignedVariableCosted thingNames env left
+      let rightName := renderAssignedVariableCosted thingNames env right
+      let worldName := renderAssignedVariableCosted worldNames env world
       let text := Complexity.Costed.appendString (Complexity.Costed.pure addOrRemove) (Complexity.Costed.pure " `")
       let text := text.appendString leftName
       let text := text.appendString (Complexity.Costed.pure " :: ")
@@ -6964,9 +7048,9 @@ private def suggestionForAtomCosted
       let text := text.appendString (Complexity.Costed.pure "` (or in an appropriate broader scope), ")
       text.appendString (Complexity.Costed.pure tail)
   | .binary .sub left right world => Complexity.Costed.charge 2 <|
-      let leftName := renderDiagVariableCosted thingNames env left
-      let rightName := renderDiagVariableCosted thingNames env right
-      let worldName := renderDiagVariableCosted worldNames env world
+      let leftName := renderAssignedVariableCosted thingNames env left
+      let rightName := renderAssignedVariableCosted thingNames env right
+      let worldName := renderAssignedVariableCosted worldNames env world
       let text := Complexity.Costed.appendString (Complexity.Costed.pure addOrRemove) (Complexity.Costed.pure " `")
       let text := text.appendString leftName
       let text := text.appendString (Complexity.Costed.pure " ⊑ ")
@@ -6976,9 +7060,9 @@ private def suggestionForAtomCosted
       let text := text.appendString (Complexity.Costed.pure "` (or in an appropriate broader scope), ")
       text.appendString (Complexity.Costed.pure tail)
   | .binary field left right world => Complexity.Costed.charge 2 <|
-      let leftName := renderDiagVariableCosted thingNames env left
-      let rightName := renderDiagVariableCosted thingNames env right
-      let worldName := renderDiagVariableCosted worldNames env world
+      let leftName := renderAssignedVariableCosted thingNames env left
+      let rightName := renderAssignedVariableCosted thingNames env right
+      let worldName := renderAssignedVariableCosted worldNames env world
       let text := Complexity.Costed.appendString (Complexity.Costed.pure addOrRemove) (Complexity.Costed.pure " `")
       let text := text.appendString (Complexity.Costed.tick (binaryFieldDslLabel field) 1)
       let text := text.appendString (Complexity.Costed.pure "(")
@@ -6990,10 +7074,10 @@ private def suggestionForAtomCosted
       let text := text.appendString (Complexity.Costed.pure "` (or in an appropriate broader scope), ")
       text.appendString (Complexity.Costed.pure tail)
   | .ternary field first second third world => Complexity.Costed.charge 1 <|
-      let firstName := renderDiagVariableCosted thingNames env first
-      let secondName := renderDiagVariableCosted thingNames env second
-      let thirdName := renderDiagVariableCosted thingNames env third
-      let worldName := renderDiagVariableCosted worldNames env world
+      let firstName := renderAssignedVariableCosted thingNames env first
+      let secondName := renderAssignedVariableCosted thingNames env second
+      let thirdName := renderAssignedVariableCosted thingNames env third
+      let worldName := renderAssignedVariableCosted worldNames env world
       let text := Complexity.Costed.appendString (Complexity.Costed.pure addOrRemove) (Complexity.Costed.pure " `")
       let text := text.appendString (Complexity.Costed.tick (ternaryFieldDslLabel field) 1)
       let text := text.appendString (Complexity.Costed.pure "(")
@@ -7007,8 +7091,8 @@ private def suggestionForAtomCosted
       let text := text.appendString (Complexity.Costed.pure "` (or in an appropriate broader scope), ")
       text.appendString (Complexity.Costed.pure tail)
   | .derivedUnary field thing world => Complexity.Costed.charge 1 <|
-      let thingName := renderDiagVariableCosted thingNames env thing
-      let worldName := renderDiagVariableCosted worldNames env world
+      let thingName := renderAssignedVariableCosted thingNames env thing
+      let worldName := renderAssignedVariableCosted worldNames env world
       let text := Complexity.Costed.appendString (Complexity.Costed.pure addOrRemove) (Complexity.Costed.pure " `")
       let text := text.appendString (Complexity.Costed.pure field)
       let text := text.appendString (Complexity.Costed.pure "(")
@@ -7018,9 +7102,9 @@ private def suggestionForAtomCosted
       let text := text.appendString (Complexity.Costed.pure "` (or in an appropriate broader scope), ")
       text.appendString (Complexity.Costed.pure tail)
   | .derivedBinary field left right world => Complexity.Costed.charge 1 <|
-      let leftName := renderDiagVariableCosted thingNames env left
-      let rightName := renderDiagVariableCosted thingNames env right
-      let worldName := renderDiagVariableCosted worldNames env world
+      let leftName := renderAssignedVariableCosted thingNames env left
+      let rightName := renderAssignedVariableCosted thingNames env right
+      let worldName := renderAssignedVariableCosted worldNames env world
       let text := Complexity.Costed.appendString (Complexity.Costed.pure addOrRemove) (Complexity.Costed.pure " `")
       let text := text.appendString (Complexity.Costed.pure field)
       let text := text.appendString (Complexity.Costed.pure "(")
@@ -7032,11 +7116,11 @@ private def suggestionForAtomCosted
       let text := text.appendString (Complexity.Costed.pure "` (or in an appropriate broader scope), ")
       text.appendString (Complexity.Costed.pure tail)
   | .quaternary field first second third fourth world => Complexity.Costed.charge 1 <|
-      let firstName := renderDiagVariableCosted thingNames env first
-      let secondName := renderDiagVariableCosted thingNames env second
-      let thirdName := renderDiagVariableCosted thingNames env third
-      let fourthName := renderDiagVariableCosted thingNames env fourth
-      let worldName := renderDiagVariableCosted worldNames env world
+      let firstName := renderAssignedVariableCosted thingNames env first
+      let secondName := renderAssignedVariableCosted thingNames env second
+      let thirdName := renderAssignedVariableCosted thingNames env third
+      let fourthName := renderAssignedVariableCosted thingNames env fourth
+      let worldName := renderAssignedVariableCosted worldNames env world
       let text := Complexity.Costed.appendString (Complexity.Costed.pure addOrRemove) (Complexity.Costed.pure " `")
       let text := text.appendString (Complexity.Costed.pure field)
       let text := text.appendString (Complexity.Costed.pure "(")
@@ -7052,7 +7136,7 @@ private def suggestionForAtomCosted
       let text := text.appendString (Complexity.Costed.pure "` (or in an appropriate broader scope), ")
       text.appendString (Complexity.Costed.pure tail)
   | .typeSem thing _world => Complexity.Costed.charge 2 <|
-      let thingName := renderDiagVariableCosted thingNames env thing
+      let thingName := renderAssignedVariableCosted thingNames env thing
       if wanted then
         let text := Complexity.Costed.appendString (Complexity.Costed.pure "Make `") thingName
         text.appendString (Complexity.Costed.pure "` behave as a type by adding at least one compatible instantiation, or remove/relax the facts shown in this counterexample that require it to be a type.")
@@ -7060,7 +7144,7 @@ private def suggestionForAtomCosted
         let text := Complexity.Costed.appendString (Complexity.Costed.pure "Remove the instantiations that make `") thingName
         text.appendString (Complexity.Costed.pure "` behave as a type, or remove/relax the facts shown in this counterexample that require it to be an individual.")
   | .individualSem thing _world => Complexity.Costed.charge 2 <|
-      let thingName := renderDiagVariableCosted thingNames env thing
+      let thingName := renderAssignedVariableCosted thingNames env thing
       if wanted then
         let text := Complexity.Costed.appendString (Complexity.Costed.pure "Make `") thingName
         text.appendString (Complexity.Costed.pure "` behave as an individual by removing its compatible instantiations as a type, or remove/relax the facts shown in this counterexample that require it to be an individual.")
@@ -7079,12 +7163,12 @@ private theorem suggestionForAtomCosted_value
         simp only [suggestionForAtomCosted, suggestionForAtomSpec, Bind.bind, Complexity.Costed.bind_value,
           Complexity.Costed.charge_value, Complexity.Costed.appendString_value,
           Complexity.Costed.pure_value, Complexity.Costed.tick_value,
-          renderDiagVariableCosted_value, Bool.false_eq_true, ↓reduceIte] <;> rfl
+          renderAssignedVariableCosted_value, Bool.false_eq_true, ↓reduceIte] <;> rfl
   | _ =>
       simp only [suggestionForAtomCosted, suggestionForAtomSpec, Bind.bind, Complexity.Costed.bind_value,
         Complexity.Costed.charge_value, Complexity.Costed.appendString_value,
         Complexity.Costed.pure_value, Complexity.Costed.tick_value,
-        renderDiagVariableCosted_value, Bool.false_eq_true, ↓reduceIte]
+        renderAssignedVariableCosted_value, Bool.false_eq_true, ↓reduceIte]
       rfl
 
 /-- An atom uses at most five names. Each costs `4E+5` for environment size
@@ -7101,13 +7185,13 @@ private theorem suggestionForAtomCosted_cost_le
         simp only [suggestionForAtomCosted, Bind.bind, Complexity.Costed.bind_cost,
           Complexity.Costed.tick_value, Complexity.Costed.charge_cost,
           Complexity.Costed.appendString_cost, Complexity.Costed.pure_cost,
-          Complexity.Costed.tick_cost, renderDiagVariableCosted_cost,
+          Complexity.Costed.tick_cost, renderAssignedVariableCosted_cost,
           Bool.false_eq_true, ↓reduceIte] <;> omega
   | _ =>
       simp only [suggestionForAtomCosted, Bind.bind, Complexity.Costed.bind_cost,
         Complexity.Costed.tick_value, Complexity.Costed.charge_cost,
         Complexity.Costed.appendString_cost, Complexity.Costed.pure_cost,
-        Complexity.Costed.tick_cost, renderDiagVariableCosted_cost,
+        Complexity.Costed.tick_cost, renderAssignedVariableCosted_cost,
         Bool.false_eq_true, ↓reduceIte]
       omega
 
@@ -7424,18 +7508,21 @@ private def dGenericFunctionalDependence (x y w : String) : DiagFormula :=
 
 private def dIndividualFunctionalDependence
     (x x' y y' w : String) : DiagFormula :=
-  .atom (.quaternary "IndividualFunctionalDependence" x x' y y' w)
+  .and (dGenericFunctionalDependence x' y' w) <|
+    .and (dInst x x' w) <| .and (dInst y y' w) <|
+      .imp (dBinary .functionsAs x x' w) (dBinary .functionsAs y y' w)
 
 private def dComponentOf
     (x x' y y' w : String) : DiagFormula :=
-  .atom (.quaternary "ComponentOf" x x' y y' w)
+  .and (dProperPart x y w) (dIndividualFunctionalDependence x x' y y' w)
 
 private def dGenericConstitutionalDependence (x y w : String) : DiagFormula :=
   .atom (.derivedBinary "GenericConstitutionalDependence" x y w)
 
 private def dConstitution
     (x x' y y' w : String) : DiagFormula :=
-  .atom (.quaternary "Constitution" x x' y y' w)
+  .and (dInst x x' w) <| .and (dInst y y' w) <|
+    .and (dGenericConstitutionalDependence x' y' w) (dBinary .constitutedBy x y w)
 
 private def dExistentialDependence (x y w : String) : DiagFormula :=
   .atom (.derivedBinary "ExistentialDependence" x y w)
@@ -7502,38 +7589,51 @@ private def dQuality (x w : String) : DiagFormula :=
         (.eqThing "__otherQualityKind" "__qualityKind")
   ]
 
-private def dDerivedUnary (field x w : String) : DiagFormula :=
-  .atom (.derivedUnary field x w)
-
-private def dDerivedBinary (field x y w : String) : DiagFormula :=
-  .atom (.derivedBinary field x y w)
-
+/-- Expand these predicates into their definitions before diagnostic evaluation.
+Their truth depends on the finite relations, including when no derived fact
+was written by the user. Each expanded node contributes to the existing
+formula evaluation and report bounds. Internal binders are distinct from
+the registry's outer variables and from the binders used by `dQuality`. -/
 private def dQualityStructure (x w : String) : DiagFormula :=
-  dDerivedUnary "QualityStructure" x w
+  .existsThing "__structureType" <| .and
+    (.and (dUnary .qualityType "__structureType" w)
+      (dBinary .associatedWith x "__structureType" w))
+    (.forallThing "__otherStructureType" <| .imp
+      (.and (dUnary .qualityType "__otherStructureType" w)
+        (dBinary .associatedWith x "__otherStructureType" w))
+      (.eqThing "__otherStructureType" "__structureType"))
 
 private def dNonEmptySet (x w : String) : DiagFormula :=
-  dDerivedUnary "NonEmptySet" x w
+  .existsThing "__member" (dBinary .memberOf "__member" x w)
 
 private def dSimpleQuality (x w : String) : DiagFormula :=
-  dDerivedUnary "SimpleQuality" x w
+  .and (dQuality x w)
+    (.not (.existsThing "__inhering" (dBinary .inheresIn "__inhering" x w)))
 
 private def dComplexQuality (x w : String) : DiagFormula :=
-  dDerivedUnary "ComplexQuality" x w
+  .and (dQuality x w)
+    (.existsThing "__inhering" (dBinary .inheresIn "__inhering" x w))
 
 private def dSimpleQualityType (x w : String) : DiagFormula :=
-  dDerivedUnary "SimpleQualityType" x w
+  .and (dUnary .qualityType x w) <| .forallThing "__qualityInstance" <|
+    .imp (dInst "__qualityInstance" x w) (dSimpleQuality "__qualityInstance" w)
 
 private def dComplexQualityType (x w : String) : DiagFormula :=
-  dDerivedUnary "ComplexQualityType" x w
+  .and (dUnary .qualityType x w) <| .forallThing "__qualityInstance" <|
+    .imp (dInst "__qualityInstance" x w) (dComplexQuality "__qualityInstance" w)
 
 private def dMemberOf (x y w : String) : DiagFormula :=
   dBinary .memberOf x y w
 
 private def dProperSub (x y w : String) : DiagFormula :=
-  dDerivedBinary "ProperSub" x y w
+  .and (dSub x y w) (.not (dSub y x w))
 
 private def dProperSubsetOf (x y w : String) : DiagFormula :=
-  dDerivedBinary "ProperSubsetOf" x y w
+  .and
+    (.forallThing "__subsetMember" <|
+      .imp (dMemberOf "__subsetMember" x w) (dMemberOf "__subsetMember" y w))
+    (.existsThing "__extraMember" <|
+      .and (dMemberOf "__extraMember" y w) (.not (dMemberOf "__extraMember" x w)))
 
 private def dSpecificEndurantKind (k w : String) : DiagFormula :=
   dOrList [

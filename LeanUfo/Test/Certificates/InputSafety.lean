@@ -25,6 +25,15 @@ private def requireIdentifierRejection (action : IO α) : IO Unit := do
   require rejected "invalid identifier did not fail at the name boundary"
 
 def checkIdentifierParsing : IO Unit := do
+  require (manifestNameComponent "CarBase" == "CarBase") "ordinary export filename changed"
+  require (manifestNameComponent "A.B" == "A.B") "qualified export filename changed"
+  require (manifestNameComponent "nested/name" == "nested%2Fname") "slash was not encoded"
+  require (manifestNameComponent "%2F" == "%252F") "encoding introduced a filename collision"
+  let samples := #["A.B", "«A.B»", "nested/name", "../outside", "%2F", "/", "α", "space here", "a\\b"]
+  let encoded := samples.map manifestNameComponent
+  require (encoded.toList.eraseDups.length == samples.size) "export filenames collided"
+  for name in encoded do
+    require (!name.contains "/" && !name.contains "\\") "export filename contains a path separator"
   for source in #["A.B", "α.β'", "«if»", "«a.b»", "«space here»", "«_»",
       "«#eval IO.println 1\n#check Nat»", "«?m»", "«a--b»", "«a/-b-/»"] do
     let name ← parseLeanName source

@@ -126,6 +126,19 @@ def fullExpectedFailures : Array ExpectedFailure := #[
 
 def diagnosticOutputChecks : Array ExpectedOutput := #[
   {
+    label := "computed quality structure witness",
+    file := "LeanUfo/Test/Diagnostics/QualityStructureWitness.lean",
+    contains := #["A finite counterexample was confirmed for ax87.",
+      "Counterexample assignment: x = Missing, w = actual."],
+    rejects := #["Counterexample assignment: x = V, w = actual."]
+  },
+  {
+    label := "computed quality structure missing set",
+    file := "LeanUfo/Test/Certification/Negative/Ax86QualityStructureNotSet.lean",
+    contains := #["Counterexample assignment:"],
+    rejects := #["did not find a DSL-level witness"]
+  },
+  {
     label := "ax13 counterexample rendering",
     file := "LeanUfo/Test/Certification/Negative/Ax13EndurantAndPerdurant.lean",
     contains := #[
@@ -599,8 +612,10 @@ def checkCertificateDiscoveryWorkflow : IO (Array String) :=
   IO.FS.withTempDir fun root => do
     let markedModule := "LeanUfo.Test.Certificates.ExportDiscoveryMarked"
     let fallbackModule := "LeanUfo.Test.Certificates.ExportDiscoveryFallback"
+    let namesModule := "LeanUfo.Test.Syntax.NamesAndSnapshots"
     let markedDir := root / "marked"
     let fallbackDir := root / "fallback"
+    let namesDir := root / "names"
     let mut failures := #[]
     failures := failures ++ (← checkCommand "marked discovery fixture build" "lake"
       #["build", markedModule])
@@ -608,6 +623,14 @@ def checkCertificateDiscoveryWorkflow : IO (Array String) :=
       #["build", fallbackModule])
     failures := failures ++ (← checkCommand "namespaced imported parent" "lake"
       #["build", "LeanUfo.Test.Certificates.NamespacedParent"])
+    failures := failures ++ (← checkCommand "names and restored snapshots" "lake"
+      #["build", namesModule])
+    failures := failures ++ (← checkCommand "escaped manifest name export" "lake"
+      #["exe", "export-certificates", "--module", namesModule, "--out", namesDir.toString])
+    failures := failures ++ (← checkCommand "escaped manifest name recheck" "lake"
+      #["exe", "validate-certificate",
+        (namesDir / "%C2%ABnested%2Fname%C2%BB.certificate.json").toString,
+        "--module", namesModule])
     failures := failures ++ (← checkCommand "marked manifest discovery" "lake"
       #["exe", "export-certificates", "--module", markedModule, "--out", markedDir.toString])
     failures := failures ++ (← checkCommand "fallback manifest discovery" "lake"
@@ -619,6 +642,9 @@ def checkCertificateDiscoveryWorkflow : IO (Array String) :=
     if failures.isEmpty then
       let markedNames ← directoryFileNames markedDir
       let fallbackNames ← directoryFileNames fallbackDir
+      let names ← directoryFileNames namesDir
+      unless names == #["%C2%ABnested%2Fname%C2%BB.certificate.json"] do
+        failures := failures.push s!"escaped-name discovery returned unexpected files: {names}"
       unless markedNames.size == 1 &&
           markedNames.contains "ExportDiscoveryFixture.Selected.certificate.json" do
         failures := failures.push s!"marked discovery returned unexpected files: {markedNames}"
@@ -627,6 +653,22 @@ def checkCertificateDiscoveryWorkflow : IO (Array String) :=
           fallbackNames.contains "ExportFallbackFixture.Second.certificate.json" do
         failures := failures.push s!"fallback discovery returned unexpected files: {fallbackNames}"
     pure failures
+
+/-- Compile the model blocks taken directly from the published quickstart.
+The intermediate type display is explanatory text, not a Lean command. -/
+def checkQuickstart : IO (Array String) := do
+  let text ← IO.FS.readFile "docs/dsl/quickstart.md"
+  let mut source := ""
+  let mut models := 0
+  for part in (text.splitOn "```lean\n").drop 1 do
+    let block := (part.splitOn "```").head!
+    if block.startsWith "import " || block.startsWith "ufo_model " then
+      source := source ++ block ++ "\n"
+    if block.startsWith "ufo_model " then models := models + 1
+  if models != 2 then return #["quickstart: expected both documented model blocks"]
+  let out ← LeanUfo.CertificateCli.runLeanScript source
+  if out.exitCode == 0 then return #[]
+  return #[s!"quickstart models failed:\n{out.stdout}\n{out.stderr}"]
 
 /--
 Build the user-facing aggregate, which includes `RelatorProbe`, then build the
@@ -688,6 +730,9 @@ def main : IO UInt32 := do
       else if selected.any fun field => test.file.contains s!"/{field.capitalize}" then
         failures := failures ++ (← checkExpectedOutput test)
     if selected.isEmpty || selected.contains "all" then
+      failures := failures ++ (← checkQuickstart)
+      failures := failures ++ (← checkCommand "diagnostic/checker formula agreement" "lake"
+        #["build", "LeanUfo.Test.Diagnostics.FormulaAgreement"])
       failures := failures ++ (← checkCertificateExportWorkflow)
       failures := failures ++ (← checkCertificateDiscoveryWorkflow)
     if (← performanceTestsEnabled) then
