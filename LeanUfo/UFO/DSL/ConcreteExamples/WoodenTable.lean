@@ -1,46 +1,37 @@
 import LeanUfo.UFO.DSL.Syntax
 
 /-!
-Paper example: minimal wooden-table constitution witness
+Paper example: wood survives the component it constitutes
 
-This file captures the smallest certifiable core of the paper's wooden-table
-case, following Figure 3.
+Following Section 4.1 of Guizzardi et al. (2022), Wood1 exists before assembly,
+constitutes Component1 in the assembled world, and survives its demolition.
+Component1 exists only in the assembled world. The world names describe three
+possible situations; the model has no temporal ordering relation.
 
-In world w1, Object0 is a wood portion that exists without constituting a
-wooden table component.  In world w2, Object0 still exists and now constitutes
-Object1, a wooden table component.
-
-The final `Constitution(...)` line is an explicit derived assertion.  It is
-checked against the semantics computed from instantiation and `ConstitutedBy`;
-it is not stored as a primitive table.
+The Constitution assertion checks the relation derived from instantiation
+and ConstitutedBy. This example models one component, leaving the complete
+five-component table and its replacement sequence outside the model.
 -/
 
 open LeanUfo.UFO.DSL
 
 ufo_model WoodenTableExample : UFO where
-  worlds w1 w2
-  things
-    WoodPortion
-    WoodenTableComponent
-    Object0
-    Object1
+  worlds rawWood assembled demolished
+  things WoodPortion WoodenTableComponent Wood1 Component1
 
   given everywhere:
     QuantityKind(WoodPortion)
     ObjectKind(WoodenTableComponent)
-    Quantity(Object0)
-    Object0 :: WoodPortion
+    Quantity(Wood1)
+    Wood1 :: WoodPortion
+    Object(Component1)
+    Component1 :: WoodenTableComponent
+    Ex(Wood1)
 
-    Object(Object1)
-    Object1 :: WoodenTableComponent
-
-  given w1:
-    Ex(Object0)
-  given w2:
-    Ex(Object0)
-    Ex(Object1)
-    ConstitutedBy(Object1, Object0)
-    Constitution(Object1, WoodenTableComponent, Object0, WoodPortion)
+  given assembled:
+    Ex(Component1)
+    ConstitutedBy(Component1, Wood1)
+    Constitution(Component1, WoodenTableComponent, Wood1, WoodPortion)
 
   derive_relations
   certify

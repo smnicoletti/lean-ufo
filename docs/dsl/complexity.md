@@ -3946,12 +3946,20 @@ The 2026-09-11 `LEANUFO_PERFORMANCE_TESTS=1 lake test` passed in 437.39 seconds,
 including 1,652 build jobs and the user-facing performance fixtures. That time
 includes rebuilds and is not comparable to the isolated file timings. The user
 accepted the earlier Company comparison (5.52–6.05 seconds versus 8.10–8.29
-seconds), but did not accept loss of certifiability. The default regression
-imports reuse the flower example and audit its derived-assertion proof for
-unexpected axioms. Both revisions used Lean 4.33.1 and the same dependency
+seconds), but did not accept loss of certifiability. The regression at that
+revision audited the flower example's derived-assertion proof for unexpected
+axioms. Both revisions used Lean 4.33.1 and the same dependency
 checkout. Each measurement ran `lake env lean` on the named example without
 another build or suite running. These are isolated file timings, not total
 clean-project build times.
+
+These measurements concern the example definitions at those revisions.
+The current flower example models a quality with changing values, the walk
+example models phases of a mode, and the wood example has three worlds.
+Their sizes differ from the measured inputs. The quantified partition-proof
+audit now uses `RedirectedWalk`; `Certificates/DerivedReduction.lean` also
+checks the three examples' model-specific properties. Reproduce the historical
+inputs before making timing comparisons with the table above.
 
 The 2026-09-13 all-inclusive run passed in 362.58 seconds with a
 1,656-job test dependency graph. It covered semantic fixtures, diagnostics,

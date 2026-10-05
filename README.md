@@ -359,7 +359,7 @@ LeanUfoTest.lean       -- executable lake test driver
 This formalization follows:
 
 Guizzardi, Giancarlo, et al. "UFO: Unified Foundational Ontology." Applied
-Ontology 17(2): 167-210, 2022. https://doi.org/10.3233/AO-210256
+Ontology 17(1): 167-210, 2022. https://doi.org/10.3233/AO-210256
 
 ```bibtex
 @article{guizzardi2022ufo,
@@ -369,7 +369,7 @@ Ontology 17(2): 167-210, 2022. https://doi.org/10.3233/AO-210256
   title   = {UFO: Unified Foundational Ontology},
   journal = {Applied Ontology},
   volume  = {17},
-  number  = {2},
+  number  = {1},
   pages   = {167--210},
   year    = {2022},
   doi     = {10.3233/AO-210256}

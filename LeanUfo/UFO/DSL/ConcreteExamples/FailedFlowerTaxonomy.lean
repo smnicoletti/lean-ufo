@@ -1,11 +1,11 @@
 import LeanUfo.UFO.DSL.Syntax
 
 /-!
-Negative diagnostic example: an anti-rigid phase is also asserted as rigid.
+Negative diagnostic example: a rigid kind loses an instance.
 
-This is a small variation of `FlowerPropertyChange.lean`.  The passing example
-uses `RedFlower` and `BrownFlower` only as phases.  Here `RedFlower` is also
-declared as an `ObjectKind`, which makes it both phase-like and kind-like.
+RedFlower is declared as an ObjectKind, but Rose1 instantiates it only in
+summer. This violates the rigidity required by axiom (a18). BrownFlower is a
+phase, so its contingent instantiation is permitted.
 
 The model must fail certification. Open this file in VS Code to see
 the UFO diagnostics widget stop at `certified_ax18`.

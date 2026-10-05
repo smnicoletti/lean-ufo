@@ -1244,10 +1244,15 @@ LEANUFO_AXIOMS=ax102,ax103,ax104,ax105,ax106,ax107,ax108 lake test
 ```
 
 The default imports also include `Certificates/DerivedReduction.lean`. It
-reuses `FlowerPropertyChange` to check finite derived-assertion reduction at
+uses `RedirectedWalk` to check quantified partition-assertion reduction at
 the example's existing limits. Its axiom audit rejects native proof axioms in
 `assertedDerivedFacts`; the separate registered-axiom certificates retain their
 documented native trust boundary.
+
+The same module imports `FlowerPropertyChange` and `WoodenTable`. Separate
+native regression checks confirm the flower's changing quality value, the
+walk mode's changing phase and unchanged bearer, and the wood's existence
+after its component ceases to exist.
 
 Use the performance profile after compiler, checker, table-representation, or
 certificate-tactic changes:
