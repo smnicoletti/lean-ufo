@@ -64,6 +64,22 @@ pipeline. Alice is a Person in both worlds and a Student only in summer.
 `ObjectType(Student)` supplies the role's object classification. Specialization
 requires every Student to be a Person, including in summer.
 
+## Examples from the UFO axiomatization
+
+The following examples adapt cases from Section 4 of Guizzardi et al. (2022).
+Each file requests a certificate for its complete finite model. The models
+retain selected mechanisms from the source cases:
+
+| Example | What it models | Scope |
+| --- | --- | --- |
+| [FlowerPropertyChange](../../LeanUfo/UFO/DSL/ConcreteExamples/FlowerPropertyChange.lean) | A quality inheres in one flower and changes from red to brown across two worlds. | Two values in a finite quality dimension; no full flower or color hierarchy. |
+| [RedirectedWalk](../../LeanUfo/UFO/DSL/ConcreteExamples/RedirectedWalk.lean) | A walk mode inheres in Paul and changes phase across two worlds. | No destinations, intentions, arrival relation, or full phase hierarchy. |
+| [WoodenTable](../../LeanUfo/UFO/DSL/ConcreteExamples/WoodenTable.lean) | Wood constitutes a component in one world and exists in two others without that component. | One component; no complete table or replacement sequence. |
+
+Worlds represent possible situations. Their names do not introduce a temporal
+ordering. The source is [*UFO: Unified Foundational Ontology*](https://doi.org/10.3233/AO-210256),
+Sections 4.1, 4.3, and 4.4.
+
 ## Failure workflow
 
 Negative examples are expected to fail:

@@ -1,44 +1,47 @@
 import LeanUfo.UFO.DSL.Syntax
 
 /-!
-Paper example: minimal redirected-walk witness
+Paper example: a walk mode changes phase
 
-Section 4.4 argues that the redirected-walk case is not a genuine change of an
-event.  What changes is the underlying endurant focus: the walk-related mode or
-state of the person.  The full paper model uses externally dependent modes,
-destinations, and a material relation arrivedAt.  This small certified witness
-keeps the endurant-change pattern using phases of Person.
+Section 4.4 of Guizzardi et al. (2022) explains the redirected walk through a
+mode inhering in the walker. Here PaulsWalk inheres in Paul in both worlds and
+changes from OngoingWalk to RedirectedWalk. The partition assertion checks
+that the two phases are disjoint and cover Walk at every world.
 
-Paul is a Person in both worlds.  Before the turn, Paul is in the OngoingWalker
-phase; after the turn, Paul is in the RedirectedWalker phase.
+This finite example omits destinations, intentions, external dependence, and
+the paper's arrival relation and full phase hierarchy.
 -/
 
 open LeanUfo.UFO.DSL
 
 ufo_model RedirectedWalkExample : UFO where
   worlds beforeTurn afterTurn
-  things Person OngoingWalker RedirectedWalker Paul
+  things Person Walk OngoingWalk RedirectedWalk Paul PaulsWalk
 
   given everywhere:
     ObjectKind(Person)
-    Phase(OngoingWalker)
-    ObjectType(OngoingWalker)
-    OngoingWalker ⊑ Person
-
-    Phase(RedirectedWalker)
-    ObjectType(RedirectedWalker)
-    RedirectedWalker ⊑ Person
-
     Object(Paul)
     Paul :: Person
-
-    IsPartitionedInto(Person, OngoingWalker, RedirectedWalker)
+    ModeKind(Walk)
+    Mode(PaulsWalk)
+    PaulsWalk :: Walk
+    InheresIn(PaulsWalk, Paul)
+    Characterization(Person, Walk)
+    Phase(OngoingWalk)
+    ModeType(OngoingWalk)
+    OngoingWalk ⊑ Walk
+    Phase(RedirectedWalk)
+    ModeType(RedirectedWalk)
+    RedirectedWalk ⊑ Walk
+    IsPartitionedInto(Walk, OngoingWalk, RedirectedWalk)
+    Ex(Paul)
+    Ex(PaulsWalk)
 
   given beforeTurn:
-    Paul :: OngoingWalker
+    PaulsWalk :: OngoingWalk
 
   given afterTurn:
-    Paul :: RedirectedWalker
+    PaulsWalk :: RedirectedWalk
 
   derive_relations
   certify

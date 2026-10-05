@@ -18,6 +18,15 @@ the work excluded from the complexity bound.
 
 The theorem-level details are in [Formal guarantees](guarantees.md).
 
+On 2026-10-05, the all-inclusive
+`LEANUFO_PERFORMANCE_TESTS=1 lake test` profile passed locally with the revised
+flower, walk, and wood examples. They model changing quality values, phases of
+a walk mode, and a wood portion that survives its component. The compiler,
+checker, axioms, and resource limits are unchanged. This was an incremental
+verification run, not a clean-build timing comparison or a remote CI result.
+The [quickstart](dsl/quickstart.md#examples-from-the-ufo-axiomatization) describes
+which parts of the source cases each example represents.
+
 The 2026-09-17 local verification passed `lake build` and the all-inclusive
 `LEANUFO_PERFORMANCE_TESTS=1 lake test` profile on Lean and Mathlib 4.34.0.
 All user-facing examples, including Relator, certified with unchanged resource
