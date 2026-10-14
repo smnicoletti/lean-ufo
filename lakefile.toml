@@ -1,0 +1,38 @@
+name = "lean-ufo"
+version = "0.1.0"
+defaultTargets = ["LeanUfo"]
+testDriver = "LeanUfoTest"
+
+[[lean_lib]]
+name = "LeanUfo"
+
+[[lean_exe]]
+name = "LeanUfoTest"
+root = "LeanUfoTest"
+
+[[lean_exe]]
+name = "export-certificates"
+root = "LeanUfo.ExportCertificates"
+supportInterpreter = true
+
+[[lean_exe]]
+name = "validate-certificate"
+root = "LeanUfo.ValidateCertificate"
+supportInterpreter = true
+
+[[lean_exe]]
+name = "complexity-benchmarks"
+root = "LeanUfo.ComplexityBenchmarks"
+
+[[lean_exe]]
+name = "performance-experiments"
+root = "LeanUfo.RunPerformanceExperiments"
+
+[[lean_exe]]
+name = "experiment-tables"
+root = "LeanUfo.ExperimentTables"
+
+[[require]]
+name = "mathlib"
+scope = "leanprover-community"
+rev = "v4.34.0"

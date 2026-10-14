@@ -1,0 +1,16 @@
+% Generated values are substituted by the Lean experiment-tables executable.
+\begin{table}[htbp]
+  \caption{Algorithm timings at $T=33$ and one world (mean $\pm$ SD), in milliseconds except model construction, in microseconds. Compilation builds relation tables and reachability; model construction assembles the finite model; axiom checking stops at rejection. The targeted operations scan unary \ufocat{Endurant} entries (Sparse), scan binary parthood entries (Dense), recompute inherence reachability (Cyclic), search all stored product families (Product), or read and validate every tuple--slot projection (Projection). Lean proof construction is excluded.}\label{tab:stage-times}
+  \centering
+  \small
+  \setlength{\tabcolsep}{3pt}
+  \begin{tabular}{@{}lrrrr@{}}
+    \toprule Family & Compilation       & Model construction & Axiom checking   & Targeted operation    \\\midrule
+    Sparse          & @@synthetic:sparse:33:compiler@@ & @@synthetic:sparse:33:model@@ & @@synthetic:sparse:33:checker@@ & @@synthetic:sparse:33:probe@@ \\
+    Dense           & @@synthetic:dense:33:compiler@@ & @@synthetic:dense:33:model@@ & @@synthetic:dense:33:checker@@ & @@synthetic:dense:33:probe@@ \\
+    Cyclic          & @@synthetic:cyclic:33:compiler@@ & @@synthetic:cyclic:33:model@@ & @@synthetic:cyclic:33:checker@@ & @@synthetic:cyclic:33:probe@@ \\
+    Product         & @@synthetic:product:33:compiler@@ & @@synthetic:product:33:model@@ & @@synthetic:product:33:checker@@ & @@synthetic:product:33:probe@@ \\
+    Projection      & @@synthetic:projection:33:compiler@@ & @@synthetic:projection:33:model@@ & @@synthetic:projection:33:checker@@ & @@synthetic:projection:33:probe@@ \\
+    \bottomrule
+  \end{tabular}
+\end{table}

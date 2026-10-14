@@ -1,0 +1,675 @@
+import Lean
+import LeanUfo.UFO.DSL.Compiler
+
+/-!
+# Textual model helpers for the finite UFO DSL
+
+This module owns name translation and text rendering for finite DSL facts. It
+maps user-facing relation names to compiler fields, renders compiler fields back
+to DSL labels, and builds the Lean source for generated `ModelAST` declarations.
+Command elaboration and certificate proofs belong to other modules.
+
+The explicit translation tables are a compatibility boundary. Surface names
+are stable terms in user models; compiler fields are typed constructors that can
+be reorganized without silently changing those models. Keeping translation and
+rendering here also prevents parser, diagnostic, and certificate code from
+maintaining competing copies of the same naming policy.
+-/
+
+open Lean
+
+namespace LeanUfo.UFO.DSL
+
+/-- Source spellings must round-trip even for escaped identifiers beginning
+with `#` or `?`. Lean's general pretty-printer treats those as pseudo-syntax.
+The component renderer retains the escapes needed by `String.toName`. -/
+def sourceNameString (name : Name) : String :=
+  Name.toStringWithSep "." true name
+
+/-- Recover qualified and escaped Lean names from stored source spellings.
+For example, `A.B` and `«A.B»` denote different names and remain distinct.
+The output initialization costs one. Each entry costs an iteration, an array
+read, one `String.toName` call, and an output write. String-character
+work and allocation are outside the unit-cost model. -/
+@[inline] def namesFromStringsCosted (xs : Array String) : Complexity.Costed (Array Name) :=
+  Complexity.Costed.charge 1 <|
+    Complexity.Costed.foldArray xs #[] fun out name =>
+      Complexity.Costed.tick (out.push (String.toName name)) 2
+
+@[simp] theorem namesFromStringsCosted_value (xs : Array String) :
+    (namesFromStringsCosted xs).value = xs.map String.toName := by
+  simp only [namesFromStringsCosted, Complexity.Costed.charge_value,
+    Complexity.Costed.foldArray_value, Complexity.Costed.tick_value]
+  simp
+
+@[simp] theorem namesFromStringsCosted_cost (xs : Array String) :
+    (namesFromStringsCosted xs).cost = 4 * xs.size + 1 := by
+  have count := Complexity.Costed.foldArray_cost_eq xs (#[] : Array Name)
+    (fun out name => Complexity.Costed.tick (out.push (String.toName name)) 2)
+    2 (by intros; rfl)
+  simp only [namesFromStringsCosted, Complexity.Costed.charge_cost]
+  omega
+
+/-- Production erasure of the counted conversion, shared by fresh models,
+extension parsing, and certification of an imported model source. -/
+@[inline] def namesFromStrings (xs : Array String) : Array Name :=
+  (namesFromStringsCosted xs).value
+
+def derivedUnaryField? (p : Name) : Option String :=
+  match p.toString with
+  | "Quality" => some "Quality"
+  | "ExternallyDependentMode" => some "ExternallyDependentMode"
+  | "QuaIndividual" => some "QuaIndividual"
+  | "NonEmptySet" => some "NonEmptySet"
+  | "QualityStructure" => some "QualityStructure"
+  | "SimpleQuality" => some "SimpleQuality"
+  | "ComplexQuality" => some "ComplexQuality"
+  | "SimpleQualityType" => some "SimpleQualityType"
+  | "ComplexQualityType" => some "ComplexQualityType"
+  | _ => none
+
+def derivedBinaryField? (p : Name) : Option String :=
+  match p.toString with
+  | "ProperSub" => some "ProperSub"
+  | "GenericFunctionalDependence" => some "GenericFunctionalDependence"
+  | "GenericConstitutionalDependence" => some "GenericConstitutionalDependence"
+  | "ExistentialDependence" => some "ExistentialDependence"
+  | "ExistentialIndependence" => some "ExistentialIndependence"
+  | "ExternallyDependent" => some "ExternallyDependent"
+  | "UltimateBearerOf" => some "UltimateBearerOf"
+  | "SubsetOf" => some "SubsetOf"
+  | "ProperSubsetOf" => some "ProperSubsetOf"
+  | "IsDisjointWith" => some "IsDisjointWith"
+  | "Categorizes" => some "Categorizes"
+  | _ => none
+
+def derivedTernaryField? (p : Name) : Option String :=
+  match p.toString with
+  | "IsCompletelyCoveredBy" => some "IsCompletelyCoveredBy"
+  | "IsPartitionedInto" => some "IsPartitionedInto"
+  | _ => none
+
+def derivedQuaternaryField? (p : Name) : Option String :=
+  match p.toString with
+  | "IndividualFunctionalDependence" => some "IndividualFunctionalDependence"
+  | "ComponentOf" => some "ComponentOf"
+  | "Constitution" => some "Constitution"
+  | _ => none
+
+def unaryField? (p : Name) : Option UnaryField :=
+  match p.toString with
+  | "ConcreteIndividual" => some .concreteIndividual
+  | "AbstractIndividual" => some .abstractIndividual
+  | "Endurant" => some .endurant
+  | "Perdurant" => some .perdurant
+  | "EndurantType" => some .endurantType
+  | "PerdurantType" => some .perdurantType
+  | "Rigid" => some .rigid
+  | "AntiRigid" => some .antiRigid
+  | "SemiRigid" => some .semiRigid
+  | "Kind" => some .kind
+  | "Sortal" => some .sortal
+  | "NonSortal" => some .nonSortal
+  | "SubKind" => some .subKind
+  | "Phase" => some .phase
+  | "Role" => some .role
+  | "SemiRigidSortal" => some .semiRigidSortal
+  | "Category" => some .category
+  | "Mixin" => some .mixin
+  | "PhaseMixin" => some .phaseMixin
+  | "RoleMixin" => some .roleMixin
+  | "Substantial" => some .substantial
+  | "Moment" => some .moment
+  | "Object" => some .object
+  | "Collective" => some .collective
+  | "Quantity" => some .quantity
+  | "Relator" => some .relator
+  | "IntrinsicMoment" => some .intrinsicMoment
+  | "Mode" => some .mode
+  | "QualityKind" => some .qualityKind
+  | "SubstantialType" => some .substantialType
+  | "MomentType" => some .momentType
+  | "ObjectType" => some .objectType
+  | "CollectiveType" => some .collectiveType
+  | "QuantityType" => some .quantityType
+  | "RelatorType" => some .relatorType
+  | "ModeType" => some .modeType
+  | "QualityType" => some .qualityType
+  | "ObjectKind" => some .objectKind
+  | "CollectiveKind" => some .collectiveKind
+  | "QuantityKind" => some .quantityKind
+  | "RelatorKind" => some .relatorKind
+  | "ModeKind" => some .modeKind
+  | "Ex" => some .ex
+  | "Quale" => some .quale
+  | "Set" => some .set_
+  | "Set_" => some .set_
+  | "QualityDomain" => some .qualityDomain
+  | "QualityDimension" => some .qualityDimension
+  | "IntrinsicMomentType" => some .intrinsicMomentType
+  | "DistanceZero" => some .distanceZero
+  | _ => none
+
+def binaryField? (p : Name) : Option BinaryField :=
+  match p.toString with
+  | "Part" => some .part
+  | "Overlap" => some .overlap
+  | "ProperPart" => some .properPart
+  | "FunctionsAs" => some .functionsAs
+  | "ConstitutedBy" => some .constitutedBy
+  | "InheresIn" => some .inheresIn
+  | "FoundedBy" => some .foundedBy
+  | "QuaIndividualOf" => some .quaIndividualOf
+  | "Mediates" => some .mediates
+  | "Characterization" => some .characterization
+  | "AssociatedWith" => some .associatedWith
+  | "HasValue" => some .hasValue
+  | "MemberOf" => some .memberOf
+  | "Manifests" => some .manifests
+  | "LifeOf" => some .lifeOf
+  | "Meet" => some .meet
+  | "DistanceGreaterEq" => some .distanceGreaterEq
+  | _ => none
+
+def ternaryField? (p : Name) : Option TernaryField :=
+  match p.toString with
+  | "Distance" => some .distance
+  | "DistanceSum" => some .distanceSum
+  | _ => none
+
+def dataField (name value : String) : String :=
+  s!"  {name} := {value}\n"
+
+def unaryFieldTerm : UnaryField → String
+  | .concreteIndividual => ".concreteIndividual"
+  | .abstractIndividual => ".abstractIndividual"
+  | .endurant => ".endurant"
+  | .perdurant => ".perdurant"
+  | .endurantType => ".endurantType"
+  | .perdurantType => ".perdurantType"
+  | .rigid => ".rigid"
+  | .antiRigid => ".antiRigid"
+  | .semiRigid => ".semiRigid"
+  | .kind => ".kind"
+  | .sortal => ".sortal"
+  | .nonSortal => ".nonSortal"
+  | .subKind => ".subKind"
+  | .phase => ".phase"
+  | .role => ".role"
+  | .semiRigidSortal => ".semiRigidSortal"
+  | .category => ".category"
+  | .mixin => ".mixin"
+  | .phaseMixin => ".phaseMixin"
+  | .roleMixin => ".roleMixin"
+  | .substantial => ".substantial"
+  | .moment => ".moment"
+  | .object => ".object"
+  | .collective => ".collective"
+  | .quantity => ".quantity"
+  | .relator => ".relator"
+  | .intrinsicMoment => ".intrinsicMoment"
+  | .mode => ".mode"
+  | .qualityKind => ".qualityKind"
+  | .substantialType => ".substantialType"
+  | .momentType => ".momentType"
+  | .objectType => ".objectType"
+  | .collectiveType => ".collectiveType"
+  | .quantityType => ".quantityType"
+  | .relatorType => ".relatorType"
+  | .modeType => ".modeType"
+  | .qualityType => ".qualityType"
+  | .objectKind => ".objectKind"
+  | .collectiveKind => ".collectiveKind"
+  | .quantityKind => ".quantityKind"
+  | .relatorKind => ".relatorKind"
+  | .modeKind => ".modeKind"
+  | .ex => ".ex"
+  | .quale => ".quale"
+  | .set_ => ".set_"
+  | .qualityDomain => ".qualityDomain"
+  | .qualityDimension => ".qualityDimension"
+  | .intrinsicMomentType => ".intrinsicMomentType"
+  | .distanceZero => ".distanceZero"
+
+def binaryFieldTerm : BinaryField → String
+  | .inst => ".inst"
+  | .sub => ".sub"
+  | .part => ".part"
+  | .overlap => ".overlap"
+  | .properPart => ".properPart"
+  | .functionsAs => ".functionsAs"
+  | .constitutedBy => ".constitutedBy"
+  | .inheresIn => ".inheresIn"
+  | .foundedBy => ".foundedBy"
+  | .quaIndividualOf => ".quaIndividualOf"
+  | .mediates => ".mediates"
+  | .characterization => ".characterization"
+  | .associatedWith => ".associatedWith"
+  | .hasValue => ".hasValue"
+  | .memberOf => ".memberOf"
+  | .manifests => ".manifests"
+  | .lifeOf => ".lifeOf"
+  | .meet => ".meet"
+  | .distanceGreaterEq => ".distanceGreaterEq"
+
+def ternaryFieldTerm : TernaryField → String
+  | .distance => ".distance"
+  | .distanceSum => ".distanceSum"
+
+def UnaryField.toSurfaceName (field : UnaryField) : String :=
+  match field with
+  | .concreteIndividual => "ConcreteIndividual"
+  | .abstractIndividual => "AbstractIndividual"
+  | .endurant => "Endurant"
+  | .perdurant => "Perdurant"
+  | .endurantType => "EndurantType"
+  | .perdurantType => "PerdurantType"
+  | .rigid => "Rigid"
+  | .antiRigid => "AntiRigid"
+  | .semiRigid => "SemiRigid"
+  | .kind => "Kind"
+  | .sortal => "Sortal"
+  | .nonSortal => "NonSortal"
+  | .subKind => "SubKind"
+  | .phase => "Phase"
+  | .role => "Role"
+  | .semiRigidSortal => "SemiRigidSortal"
+  | .category => "Category"
+  | .mixin => "Mixin"
+  | .phaseMixin => "PhaseMixin"
+  | .roleMixin => "RoleMixin"
+  | .substantial => "Substantial"
+  | .moment => "Moment"
+  | .object => "Object"
+  | .collective => "Collective"
+  | .quantity => "Quantity"
+  | .relator => "Relator"
+  | .intrinsicMoment => "IntrinsicMoment"
+  | .mode => "Mode"
+  | .qualityKind => "QualityKind"
+  | .substantialType => "SubstantialType"
+  | .momentType => "MomentType"
+  | .objectType => "ObjectType"
+  | .collectiveType => "CollectiveType"
+  | .quantityType => "QuantityType"
+  | .relatorType => "RelatorType"
+  | .modeType => "ModeType"
+  | .qualityType => "QualityType"
+  | .objectKind => "ObjectKind"
+  | .collectiveKind => "CollectiveKind"
+  | .quantityKind => "QuantityKind"
+  | .relatorKind => "RelatorKind"
+  | .modeKind => "ModeKind"
+  | .ex => "Ex"
+  | .quale => "Quale"
+  | .set_ => "Set"
+  | .qualityDomain => "QualityDomain"
+  | .qualityDimension => "QualityDimension"
+  | .intrinsicMomentType => "IntrinsicMomentType"
+  | .distanceZero => "DistanceZero"
+
+def BinaryField.toSurfaceName (field : BinaryField) : String :=
+  match field with
+  | .inst => "Inst"
+  | .sub => "Sub"
+  | .part => "Part"
+  | .overlap => "Overlap"
+  | .properPart => "ProperPart"
+  | .functionsAs => "FunctionsAs"
+  | .constitutedBy => "ConstitutedBy"
+  | .inheresIn => "InheresIn"
+  | .foundedBy => "FoundedBy"
+  | .quaIndividualOf => "QuaIndividualOf"
+  | .mediates => "Mediates"
+  | .characterization => "Characterization"
+  | .associatedWith => "AssociatedWith"
+  | .hasValue => "HasValue"
+  | .memberOf => "MemberOf"
+  | .manifests => "Manifests"
+  | .lifeOf => "LifeOf"
+  | .meet => "Meet"
+  | .distanceGreaterEq => "DistanceGreaterEq"
+
+def TernaryField.toSurfaceName (field : TernaryField) : String :=
+  match field with
+  | .distance => "Distance"
+  | .distanceSum => "DistanceSum"
+
+def leanStringLit (s : String) : String :=
+  reprStr s
+
+def compiledFactTerm : CompiledFact → String
+  | .unary field x w => s!"CompiledFact.unary {unaryFieldTerm field} {x} {w}"
+  | .binary field x y w => s!"CompiledFact.binary {binaryFieldTerm field} {x} {y} {w}"
+  | .ternary field x y z w => s!"CompiledFact.ternary {ternaryFieldTerm field} {x} {y} {z} {w}"
+  | .tupleProjection tuple index result w => s!"CompiledFact.tupleProjection {tuple} {index} {result} {w}"
+  | .derived prop => s!"CompiledFact.derived {leanStringLit prop}"
+
+def natArrayTerm (xs : Array Nat) : String :=
+  if xs.isEmpty then
+    "#[]"
+  else
+    "#[" ++ String.intercalate ", " (xs.toList.map toString) ++ "]"
+
+def productFamilyTerm (family : ProductFamilySpec) : String :=
+    "{ " ++
+    s!"domain := {family.domain}, " ++
+    s!"qualityType := {family.qualityType}, " ++
+    s!"dimensionThings := {natArrayTerm family.dimensionThings}, " ++
+    s!"typeThings := {natArrayTerm family.typeThings}" ++
+    " }"
+
+def stringArrayTerm (xs : Array String) : String :=
+  if xs.isEmpty then
+    "#[]"
+  else
+    "#[" ++ String.intercalate ", " (xs.toList.map leanStringLit) ++ "]"
+
+def namedFactScopeTerm : NamedFactScope → String
+  | .at world => s!"NamedFactScope.at {leanStringLit world}"
+  | .everywhere => "NamedFactScope.everywhere"
+
+def namedDerivedFactTerm : NamedDerivedFact → String
+  | .unary field thing =>
+      s!"NamedDerivedFact.unary {leanStringLit field} {leanStringLit thing}"
+  | .binary field left right =>
+      s!"NamedDerivedFact.binary {leanStringLit field} {leanStringLit left} {leanStringLit right}"
+  | .ternary field first second third =>
+      s!"NamedDerivedFact.ternary {leanStringLit field} {leanStringLit first} {leanStringLit second} {leanStringLit third}"
+  | .quaternary field first second third fourth =>
+      s!"NamedDerivedFact.quaternary {leanStringLit field} {leanStringLit first} {leanStringLit second} {leanStringLit third} {leanStringLit fourth}"
+
+def namedScopedFactTerm : NamedScopedFact → String
+  | .unary field thing scope =>
+      s!"NamedScopedFact.unary {unaryFieldTerm field} {leanStringLit thing} ({namedFactScopeTerm scope})"
+  | .binary field left right scope =>
+      s!"NamedScopedFact.binary {binaryFieldTerm field} {leanStringLit left} {leanStringLit right} ({namedFactScopeTerm scope})"
+  | .ternary field first second third scope =>
+      s!"NamedScopedFact.ternary {ternaryFieldTerm field} {leanStringLit first} {leanStringLit second} {leanStringLit third} ({namedFactScopeTerm scope})"
+  | .tupleProjection tuple index result scope =>
+      s!"NamedScopedFact.tupleProjection {leanStringLit tuple} {index} {leanStringLit result} ({namedFactScopeTerm scope})"
+  | .derived fact scope =>
+      s!"NamedScopedFact.derived ({namedDerivedFactTerm fact}) ({namedFactScopeTerm scope})"
+
+def namedProductFamilyTerm (family : NamedProductFamily) : String :=
+  "{ " ++
+    s!"domain := {leanStringLit family.domain}, " ++
+    s!"qualityType := {leanStringLit family.qualityType}, " ++
+    s!"dimensionThings := {stringArrayTerm family.dimensionThings}, " ++
+    s!"typeThings := {stringArrayTerm family.typeThings}" ++
+    " }"
+
+def namedScopedFactArrayTerm (facts : Array NamedScopedFact) : String :=
+  if facts.isEmpty then
+    "#[]"
+  else
+    "#[" ++ String.intercalate ", " (facts.toList.map namedScopedFactTerm) ++ "]"
+
+def namedProductFamilyArrayTerm (families : Array NamedProductFamily) : String :=
+  if families.isEmpty then
+    "#[]"
+  else
+    "#[" ++ String.intercalate ", " (families.toList.map namedProductFamilyTerm) ++ "]"
+
+def modelSourceTerm (source : ModelSource) : String :=
+  "ModelSource.mk " ++
+    stringArrayTerm source.worlds ++ " " ++
+    stringArrayTerm source.things ++ " " ++
+    namedScopedFactArrayTerm source.facts ++ " " ++
+    namedProductFamilyArrayTerm source.productFamilies ++ " " ++
+    (if source.deriveRelations then "true" else "false")
+
+def modelSourceDecl (source : ModelSource) : String :=
+  "def source : ModelSource :=\n" ++ modelSourceTerm source ++ "\n"
+
+def indexedNamesJson (names : Array Name) : Json :=
+  Json.arr <| names.mapIdx fun idx name =>
+    Json.mkObj [
+      ("name", sourceNameString name),
+      ("index", idx)
+    ]
+
+def indexedName (names : Array Name) (idx : Nat) : String :=
+  match names[idx]? with
+  | some name => sourceNameString name
+  | none => s!"#{idx}"
+
+def namedScopeSummary : NamedFactScope → String
+  | .at world => world
+  | .everywhere => "everywhere"
+
+/-- Declarative text formats used to verify the counted renderer. -/
+def namedDerivedFactSummarySpec : NamedDerivedFact → String
+  | .unary field thing => s!"{field}({thing})"
+  | .binary field left right => s!"{field}({left}, {right})"
+  | .ternary field first second third => s!"{field}({first}, {second}, {third})"
+  | .quaternary field first second third fourth =>
+      s!"{field}({first}, {second}, {third}, {fourth})"
+
+/-- Scope selection costs one constructor test. -/
+def namedScopeSummaryCosted (scope : NamedFactScope) : Complexity.Costed String :=
+  .tick (namedScopeSummary scope) 1
+
+@[simp] theorem namedScopeSummaryCosted_value (scope : NamedFactScope) :
+    (namedScopeSummaryCosted scope).value = namedScopeSummary scope := rfl
+
+@[simp] theorem namedScopeSummaryCosted_cost (scope : NamedFactScope) :
+    (namedScopeSummaryCosted scope).cost = 1 := rfl
+
+/-- Count each concatenation and the arity test. Strings are unit-cost inputs;
+character copying remains outside the model. This compositional accounting
+follows the value/cost separation of Niu et al. (POPL 2022, doi:10.1145/3498670). -/
+def namedDerivedFactSummaryCosted : NamedDerivedFact → Complexity.Costed String
+  | .unary field thing => Complexity.Costed.charge 1 <|
+      let text := Complexity.Costed.pure field
+      let text := text.appendString (.pure "(")
+      let text := text.appendString (.pure thing)
+      text.appendString (.pure ")")
+  | .binary field left right => Complexity.Costed.charge 1 <|
+      let text := Complexity.Costed.pure field
+      let text := text.appendString (.pure "(")
+      let text := text.appendString (.pure left)
+      let text := text.appendString (.pure ", ")
+      let text := text.appendString (.pure right)
+      text.appendString (.pure ")")
+  | .ternary field first second third => Complexity.Costed.charge 1 <|
+      let text := Complexity.Costed.pure field
+      let text := text.appendString (.pure "(")
+      let text := text.appendString (.pure first)
+      let text := text.appendString (.pure ", ")
+      let text := text.appendString (.pure second)
+      let text := text.appendString (.pure ", ")
+      let text := text.appendString (.pure third)
+      text.appendString (.pure ")")
+  | .quaternary field first second third fourth => Complexity.Costed.charge 1 <|
+      let text := Complexity.Costed.pure field
+      let text := text.appendString (.pure "(")
+      let text := text.appendString (.pure first)
+      let text := text.appendString (.pure ", ")
+      let text := text.appendString (.pure second)
+      let text := text.appendString (.pure ", ")
+      let text := text.appendString (.pure third)
+      let text := text.appendString (.pure ", ")
+      let text := text.appendString (.pure fourth)
+      text.appendString (.pure ")")
+
+@[simp] theorem namedDerivedFactSummaryCosted_value (fact : NamedDerivedFact) :
+    (namedDerivedFactSummaryCosted fact).value = namedDerivedFactSummarySpec fact := by
+  cases fact <;> simp [namedDerivedFactSummaryCosted, namedDerivedFactSummarySpec] <;> rfl
+
+theorem namedDerivedFactSummaryCosted_cost_le (fact : NamedDerivedFact) :
+    (namedDerivedFactSummaryCosted fact).cost ≤ 10 := by
+  cases fact <;> simp [namedDerivedFactSummaryCosted]
+
+def namedDerivedFactSummary (fact : NamedDerivedFact) : String :=
+  (namedDerivedFactSummaryCosted fact).value
+
+def scopedWorldNames (worldNames : Array Name) : NamedFactScope → Array String
+  | .at world => #[world]
+  | .everywhere => worldNames.map sourceNameString
+
+/-- Text specification for source facts, including the two infix field forms. -/
+def namedFactSummarySpec : NamedScopedFact → String
+  | .unary field thing scope =>
+      s!"[{namedScopeSummary scope}] {field.toSurfaceName}({thing})"
+  | .binary .inst left right scope =>
+      s!"[{namedScopeSummary scope}] {left} :: {right}"
+  | .binary .sub left right scope =>
+      s!"[{namedScopeSummary scope}] {left} ⊑ {right}"
+  | .binary field left right scope =>
+      s!"[{namedScopeSummary scope}] {field.toSurfaceName}({left}, {right})"
+  | .ternary field first second third scope =>
+      s!"[{namedScopeSummary scope}] {field.toSurfaceName}({first}, {second}, {third})"
+  | .tupleProjection tuple index result scope =>
+      s!"[{namedScopeSummary scope}] TupleProjection({tuple}, {index}, {result})"
+  | .derived fact scope =>
+      s!"[{namedScopeSummary scope}] [derived assertion] {namedDerivedFactSummary fact}"
+
+/-- Render a named fact with counted scope selection, field selection, and
+concatenation. The value theorem preserves the frontend's diagnostic text. -/
+def namedFactSummaryCosted : NamedScopedFact → Complexity.Costed String
+  | .unary field thing scope => Complexity.Costed.charge 1 <|
+      let text := Complexity.Costed.appendString (.pure "[") (namedScopeSummaryCosted scope)
+      let text := text.appendString (.pure "] ")
+      let text := text.appendString (.tick field.toSurfaceName 1)
+      let text := text.appendString (.pure "(")
+      let text := text.appendString (.pure thing)
+      text.appendString (.pure ")")
+  | .binary .inst left right scope => Complexity.Costed.charge 2 <|
+      let text := Complexity.Costed.appendString (.pure "[") (namedScopeSummaryCosted scope)
+      let text := text.appendString (.pure "] ")
+      let text := text.appendString (.pure left)
+      let text := text.appendString (.pure " :: ")
+      text.appendString (.pure right)
+  | .binary .sub left right scope => Complexity.Costed.charge 2 <|
+      let text := Complexity.Costed.appendString (.pure "[") (namedScopeSummaryCosted scope)
+      let text := text.appendString (.pure "] ")
+      let text := text.appendString (.pure left)
+      let text := text.appendString (.pure " ⊑ ")
+      text.appendString (.pure right)
+  | .binary field left right scope => Complexity.Costed.charge 2 <|
+      let text := Complexity.Costed.appendString (.pure "[") (namedScopeSummaryCosted scope)
+      let text := text.appendString (.pure "] ")
+      let text := text.appendString (.tick field.toSurfaceName 1)
+      let text := text.appendString (.pure "(")
+      let text := text.appendString (.pure left)
+      let text := text.appendString (.pure ", ")
+      let text := text.appendString (.pure right)
+      text.appendString (.pure ")")
+  | .ternary field first second third scope => Complexity.Costed.charge 1 <|
+      let text := Complexity.Costed.appendString (.pure "[") (namedScopeSummaryCosted scope)
+      let text := text.appendString (.pure "] ")
+      let text := text.appendString (.tick field.toSurfaceName 1)
+      let text := text.appendString (.pure "(")
+      let text := text.appendString (.pure first)
+      let text := text.appendString (.pure ", ")
+      let text := text.appendString (.pure second)
+      let text := text.appendString (.pure ", ")
+      let text := text.appendString (.pure third)
+      text.appendString (.pure ")")
+  | .tupleProjection tuple index result scope => Complexity.Costed.charge 1 <|
+      let text := Complexity.Costed.appendString (.pure "[") (namedScopeSummaryCosted scope)
+      let text := text.appendString (.pure "] TupleProjection(")
+      let text := text.appendString (.pure tuple)
+      let text := text.appendString (.pure ", ")
+      let text := text.appendString (.tick (toString index) 1)
+      let text := text.appendString (.pure ", ")
+      let text := text.appendString (.pure result)
+      text.appendString (.pure ")")
+  | .derived fact scope => Complexity.Costed.charge 1 <|
+      let text := Complexity.Costed.appendString (.pure "[") (namedScopeSummaryCosted scope)
+      let text := text.appendString (.pure "] [derived assertion] ")
+      text.appendString (namedDerivedFactSummaryCosted fact)
+
+@[simp] theorem namedFactSummaryCosted_value (fact : NamedScopedFact) :
+    (namedFactSummaryCosted fact).value = namedFactSummarySpec fact := by
+  cases fact with
+  | binary field left right scope =>
+      cases field <;> simp [namedFactSummaryCosted, namedFactSummarySpec] <;> rfl
+  | _ => simp [namedFactSummaryCosted, namedFactSummarySpec, namedDerivedFactSummary]; rfl
+
+theorem namedFactSummaryCosted_cost_le (fact : NamedScopedFact) :
+    (namedFactSummaryCosted fact).cost ≤ 15 := by
+  cases fact with
+  | binary field left right scope =>
+      cases field <;> simp [namedFactSummaryCosted]
+  | derived fact scope =>
+      have h := namedDerivedFactSummaryCosted_cost_le fact
+      simp only [namedFactSummaryCosted, Complexity.Costed.charge_cost,
+        Complexity.Costed.appendString_cost, Complexity.Costed.pure_cost,
+        namedScopeSummaryCosted_cost]
+      omega
+  | _ => simp [namedFactSummaryCosted]
+
+def namedFactSummary (fact : NamedScopedFact) : String :=
+  (namedFactSummaryCosted fact).value
+
+def derivedPropSummaryPairs
+    (worldNames : Array Name)
+    (namedFacts : Array NamedScopedFact)
+    (scopedFacts : Array ScopedCompiledFact) : Array (String × String) :=
+  Id.run do
+    let mut out := #[]
+    for i in [:namedFacts.size] do
+      match namedFacts[i]?, scopedFacts[i]? with
+      | some (.derived named scope), some (.derived assertion resolvedScope) =>
+          let worldIdxs : Array Nat :=
+            match resolvedScope with
+            | .at w => #[w]
+            | .everywhere => (Array.range worldNames.size)
+          let worldLabels := scopedWorldNames worldNames scope
+          for j in [:worldIdxs.size] do
+            let w := worldIdxs[j]!
+            let worldLabel := worldLabels[j]?.getD (indexedName worldNames w)
+            out := out.push (renderDerivedFact assertion w, s!"[{worldLabel}] [derived assertion] {namedDerivedFactSummary named}")
+      | _, _ => pure ()
+    pure out
+
+def derivedPropSummary (pairs : Array (String × String)) (prop : String) : Option String :=
+  pairs.findSome? fun pair =>
+    if pair.1 == prop then some pair.2 else none
+
+def compiledFactSummary
+    (worldNames thingNames : Array Name) (derivedPairs : Array (String × String)) :
+    CompiledFact → String
+  | .unary field thing world =>
+      s!"[{indexedName worldNames world}] {field.toSurfaceName}({indexedName thingNames thing})"
+  | .binary .inst left right world =>
+      s!"[{indexedName worldNames world}] {indexedName thingNames left} :: {indexedName thingNames right}"
+  | .binary .sub left right world =>
+      s!"[{indexedName worldNames world}] {indexedName thingNames left} ⊑ {indexedName thingNames right}"
+  | .binary field left right world =>
+      s!"[{indexedName worldNames world}] {field.toSurfaceName}({indexedName thingNames left}, {indexedName thingNames right})"
+  | .ternary field first second third world =>
+      s!"[{indexedName worldNames world}] {field.toSurfaceName}({indexedName thingNames first}, {indexedName thingNames second}, {indexedName thingNames third})"
+  | .tupleProjection tuple index result world =>
+      s!"[{indexedName worldNames world}] TupleProjection({indexedName thingNames tuple}, {index}, {indexedName thingNames result})"
+  | .derived prop => (derivedPropSummary derivedPairs prop).getD prop
+
+def stringsJson (xs : Array String) : Json :=
+  Json.arr <| xs.map Json.str
+
+def modelASTSource
+    (worldCount thingCount : Nat) (facts : Array CompiledFact)
+    (productFamilies : Array ProductFamilySpec := #[]) : String :=
+  let factTerms := facts.map compiledFactTerm
+  let factArray :=
+    if factTerms.isEmpty then
+      "#[]"
+    else
+      "#[" ++ String.intercalate ", " factTerms.toList ++ "]"
+  let productFamilyTerms := productFamilies.map productFamilyTerm
+  let productFamilyArray :=
+    if productFamilyTerms.isEmpty then
+      "#[]"
+    else
+      "#[" ++ String.intercalate ", " productFamilyTerms.toList ++ "]"
+  "def ast : ModelAST :=\n" ++
+    "{\n" ++
+    dataField "worldCount" (toString worldCount) ++
+    dataField "thingCount" (toString thingCount) ++
+    dataField "facts" factArray ++
+    dataField "productFamilies" productFamilyArray ++
+    "}\n"
+
+end LeanUfo.UFO.DSL

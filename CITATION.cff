@@ -1,0 +1,14 @@
+cff-version: 1.2.0
+message: "Cite the ALIEN artifact and the accompanying paper when using this software."
+type: software
+title: "ALIEN: an Automatic Lean Verification Framework for UFO Ontological Models (artifact)"
+authors:
+  - family-names: Nicoletti
+    given-names: Stefano Maria
+    orcid: "https://orcid.org/0000-0001-5522-4798"
+repository-code: "https://github.com/smnicoletti/lean-ufo"
+doi: "10.5281/zenodo.23337283"
+license: AGPL-3.0-or-later
+version: "1.0.0"
+date-released: "2026-10-14"
+url: "https://github.com/smnicoletti/lean-ufo/tree/alien-v1.0.0"

@@ -1,0 +1,838 @@
+import LeanUfo.Test.Coverage.RegistryCheck
+import LeanUfo.UFO.FormalAnalysis.StructuralAssumptions
+import LeanUfo.UFO.FormalAnalysis.Historical.GuardedOverlapCountermodel
+import LeanUfo.Test.Diagnostics.Rendering
+import LeanUfo.Test.Syntax.TableCorrespondence
+import LeanUfo.Test.Certificates.InputSafety
+import LeanUfo.Test.Certificates.ManifestValidation
+import LeanUfo.Test.Certificates.Generation
+import LeanUfo.Test.Certificates.Execution
+import LeanUfo.Test.Certificates.DerivedReduction
+import LeanUfo.Test.Certificates.Reuse
+import LeanUfo.Test.Complexity.Traversal
+import LeanUfo.Test.Complexity.Resolution
+import LeanUfo.Test.Complexity.DerivedFactRendering
+import LeanUfo.Test.Complexity.SourceCorrespondence
+import LeanUfo.Test.Complexity.Certification
+import LeanUfo.Test.Complexity.ProductFamilyConversion
+import LeanUfo.Test.Complexity.Taxonomy
+import LeanUfo.Test.Complexity.Specialization
+import LeanUfo.Test.Complexity.Tables
+import LeanUfo.Test.Complexity.Diagnostics
+import LeanUfo.Test.Complexity.Formula
+import LeanUfo.Test.Complexity.Reports
+import LeanUfo.Test.Complexity.Queries
+import LeanUfo.Test.Complexity.Paths
+import LeanUfo.Test.Complexity.DerivedAssertions
+import LeanUfo.Test.Complexity.DerivedReportComposition
+import LeanUfo.CertificateCli
+
+/-!
+Executable test driver for `lake test`.
+
+The default profile is intentionally fast: it checks importable syntax/
+diagnostic smoke fixtures, stale syntax rejection, and the axiom manifest.
+Set `LEANUFO_FULL_TESTS=1` to run the slower semantic positive/negative witness
+suite as well.
+`LEANUFO_PERFORMANCE_TESTS=N` also builds the example aggregate and runs N
+measured repetitions of example certification and synthetic workloads after
+one warm-up. Dependencies and regression checks are outside those timings.
+-/
+
+structure ExpectedFailure where
+  field : String
+  file : String
+  expected : String
+  requireCounterexample : Bool
+
+structure ExpectedOutput where
+  label : String
+  file : String
+  contains : Array String := #[]
+  rejects : Array String := #[]
+
+def fastExpectedFailures : Array ExpectedFailure := #[
+  ⟨"syntax", "LeanUfo/Test/Syntax/RejectedOldSyntax.lean", "unexpected token ':'", false⟩,
+  ⟨"extension-worlds", "LeanUfo/Test/Syntax/RejectedExtensionAddsWorld.lean",
+    "unexpected token 'worlds'", false⟩,
+  ⟨"projection-conflict", "LeanUfo/Test/Syntax/RejectedConflictingTupleProjection.lean",
+    "conflicting tuple projection", false⟩
+]
+
+def fullExpectedFailures : Array ExpectedFailure := #[
+  ⟨"ax7", "LeanUfo/Test/Certification/Negative/Ax7ConcreteType.lean", "certified_ax7", true⟩,
+  ⟨"ax8", "LeanUfo/Test/Certification/Negative/Ax8AbstractType.lean", "certified_ax8", true⟩,
+  ⟨"ax9", "LeanUfo/Test/Certification/Negative/Ax9ConcreteAbstract.lean", "certified_ax9", true⟩,
+  ⟨"ax14", "LeanUfo/Test/Certification/Negative/Ax14ConcreteNeitherEndurantNorPerdurant.lean", "certified_ax14", true⟩,
+  ⟨"ax15", "LeanUfo/Test/Certification/Negative/Ax15EndurantTypeNotType.lean", "certified_ax15", true⟩,
+  ⟨"ax16", "LeanUfo/Test/Certification/Negative/Ax16PerdurantTypeNotType.lean", "certified_ax16", true⟩,
+  ⟨"ax17", "LeanUfo/Test/Certification/Negative/Ax17EndurantPerdurantType.lean", "certified_ax17", true⟩,
+  ⟨"ax19", "LeanUfo/Test/Certification/Negative/Ax19AntiRigidRigidType.lean", "certified_ax19", true⟩,
+  ⟨"ax20", "LeanUfo/Test/Certification/Negative/Ax20SemiRigidRigidType.lean", "certified_ax20", true⟩,
+  ⟨"ax21", "LeanUfo/Test/Certification/Negative/Ax21EndurantNoKind.lean", "certified_ax21", true⟩,
+  ⟨"ax22", "LeanUfo/Test/Certification/Negative/Ax22MultipleKinds.lean", "certified_ax22", true⟩,
+  ⟨"ax23", "LeanUfo/Test/Certification/Negative/Ax23MixinSortalWithoutKind.lean", "certified_ax23", true⟩,
+  ⟨"ax24", "LeanUfo/Test/Certification/Negative/Ax24NonSortalSortal.lean", "certified_ax24", true⟩,
+  ⟨"ax25", "LeanUfo/Test/Certification/Negative/Ax25KindAndSubKind.lean", "certified_ax25", true⟩,
+  ⟨"ax26", "LeanUfo/Test/Certification/Negative/Ax26RigidSortalNeitherKindNorSubKind.lean", "certified_ax26", true⟩,
+  ⟨"ax27", "LeanUfo/Test/Certification/Negative/Ax27PhaseAndRole.lean", "certified_ax27", true⟩,
+  ⟨"ax28", "LeanUfo/Test/Certification/Negative/Ax28AntiRigidSortalNeitherPhaseNorRole.lean", "certified_ax28", true⟩,
+  ⟨"ax30", "LeanUfo/Test/Certification/Negative/Ax30RigidNonSortalMissingCategory.lean", "certified_ax30", true⟩,
+  ⟨"ax44", "LeanUfo/Test/Certification/Negative/Ax44EndurantTypeHasNonEndurantInstance.lean", "certified_ax44", true⟩,
+  ⟨"ax34", "LeanUfo/Test/Certification/Negative/Ax34EndurantNeitherSubstantialNorMoment.lean", "certified_ax34", true⟩,
+  ⟨"ax35", "LeanUfo/Test/Certification/Negative/Ax35SubstantialAndMoment.lean", "certified_ax35", true⟩,
+  ⟨"ax36", "LeanUfo/Test/Certification/Negative/Ax36SubstantialWithoutSpecificKind.lean", "certified_ax36", true⟩,
+  ⟨"ax37", "LeanUfo/Test/Certification/Negative/Ax37ObjectAndCollective.lean", "certified_ax37", true⟩,
+  ⟨"ax38", "LeanUfo/Test/Certification/Negative/Ax38ObjectAndQuantity.lean", "certified_ax38", true⟩,
+  ⟨"ax39", "LeanUfo/Test/Certification/Negative/Ax39CollectiveAndQuantity.lean", "certified_ax39", true⟩,
+  ⟨"ax40", "LeanUfo/Test/Certification/Negative/Ax40MomentWithoutSpecificKind.lean", "certified_ax40", true⟩,
+  ⟨"ax41", "LeanUfo/Test/Certification/Negative/Ax41RelatorAndIntrinsicMoment.lean", "certified_ax41", true⟩,
+  ⟨"ax42", "LeanUfo/Test/Certification/Negative/Ax42IntrinsicMomentWithoutModeOrQuality.lean", "certified_ax42", true⟩,
+  ⟨"ax43", "LeanUfo/Test/Certification/Negative/Ax43ModeAndQuality.lean", "certified_ax43", true⟩,
+  ⟨"ax45", "LeanUfo/Test/Certification/Negative/Ax45ObjectTypeKindNotObjectKind.lean", "certified_ax45", true⟩,
+  ⟨"ax46", "LeanUfo/Test/Certification/Negative/Ax46EndurantWithoutSpecificKind.lean", "certified_ax46", true⟩,
+  ⟨"ax48", "LeanUfo/Test/Certification/Negative/Ax48PartAntisymmetry.lean", "certified_ax48", true⟩,
+  ⟨"ax49", "LeanUfo/Test/Certification/Negative/Ax49PartTransitivity.lean", "certified_ax49", true⟩,
+  ⟨"ax50", "LeanUfo/Test/Certification/Negative/Ax50OverlapWithoutCommonPart.lean", "certified_ax50", true⟩,
+  ⟨"ax51", "LeanUfo/Test/Certification/Negative/Ax51StrongSupplementation.lean", "certified_ax51", true⟩,
+  ⟨"ax52", "LeanUfo/Test/Certification/Negative/Ax52ProperPartWithoutPart.lean", "certified_ax52", true⟩,
+  ⟨"ax56", "LeanUfo/Test/Certification/Negative/Ax56ConstitutionDifferentCategory.lean", "certified_ax56", true⟩,
+  ⟨"ax57", "LeanUfo/Test/Certification/Negative/Ax57ConstitutionSameKind.lean", "certified_ax57", true⟩,
+  ⟨"ax60", "LeanUfo/Test/Certification/Negative/Ax60PerdurantConstitutionNecessity.lean", "certified_ax60", true⟩,
+  ⟨"ax65", "LeanUfo/Test/Certification/Negative/Ax65InherenceExistingMomentWithoutBearerExistence.lean", "certified_ax65", true⟩,
+  ⟨"ax66", "LeanUfo/Test/Certification/Negative/Ax66InherenceFromNonMoment.lean", "certified_ax66", true⟩,
+  ⟨"ax67", "LeanUfo/Test/Certification/Negative/Ax67MomentTwoBearers.lean", "certified_ax67", true⟩,
+  ⟨"ax68", "LeanUfo/Test/Certification/Negative/Ax68MomentWithoutUltimateBearer.lean", "certified_ax68", true⟩,
+  ⟨"ax71", "LeanUfo/Test/Certification/Negative/Ax71FoundedByWrongFoundationType.lean", "certified_ax71", true⟩,
+  ⟨"ax71", "LeanUfo/Test/Certification/Negative/Ax71ComputedModeMissingExistenceVariation.lean", "certified_ax71", true⟩,
+  ⟨"ax73", "LeanUfo/Test/Certification/Negative/Ax73QuaIndividualFoundationBridge.lean", "certified_ax73", true⟩,
+  ⟨"ax80", "LeanUfo/Test/Certification/Negative/Ax80MediatesWithoutRelator.lean", "certified_ax80", true⟩,
+  ⟨"ax81", "LeanUfo/Test/Certification/Negative/Ax81CharacterizationWrongTypes.lean", "certified_ax81", true⟩,
+  ⟨"ax85", "LeanUfo/Test/Certification/Negative/Ax85QualeAndSet.lean", "certified_ax85", true⟩,
+  ⟨"ax86", "LeanUfo/Test/Certification/Negative/Ax86QualityStructureNotSet.lean", "certified_ax86", true⟩,
+  ⟨"ax87", "LeanUfo/Test/Certification/Negative/Ax87QualeWithoutUniqueQualityStructure.lean", "certified_ax87", true⟩,
+  ⟨"ax91", "LeanUfo/Test/Certification/Negative/Ax91QualityTypeWithoutStructure.lean", "certified_ax91", true⟩,
+  ⟨"ax92", "LeanUfo/Test/Certification/Negative/Ax92HasValueWrongArguments.lean", "certified_ax92", true⟩,
+  ⟨"ax100", "LeanUfo/Test/Certification/Negative/Ax100DistanceNonQuales.lean", "certified_ax100", true⟩,
+  ⟨"ax101", "LeanUfo/Test/Certification/Negative/Ax101QualesWithoutDistance.lean", "certified_ax101", true⟩,
+  ⟨"ax102", "LeanUfo/Test/Certification/Negative/Ax102ManifestsWrongTypes.lean", "certified_ax102", true⟩,
+  ⟨"ax103", "LeanUfo/Test/Certification/Negative/Ax103LifeOfWithoutManifestationOverlap.lean", "certified_ax103", true⟩,
+  ⟨"ax104", "LeanUfo/Test/Certification/Negative/Ax104MeetWrongTypes.lean", "certified_ax104", true⟩,
+  ⟨"ax13", "LeanUfo/Test/Certification/Negative/Ax13EndurantAndPerdurant.lean", "certified_ax13", true⟩,
+  ⟨"ax18", "LeanUfo/Test/Certification/Negative/Ax18AntiRigidKind.lean", "certified_ax18", true⟩,
+  ⟨"ax61", "LeanUfo/Test/Certification/Negative/Ax61SymmetricConstitution.lean", "certified_ax61", true⟩,
+  ⟨"ax61", "LeanUfo/Test/Certification/Negative/ExtensionInvalidConstitutionAddition.lean", "certified_ax61", true⟩,
+  ⟨"ax10", "LeanUfo/Test/Certification/Negative/Ax10FutureOnlyIndividualClassification.lean", "certified_ax10", true⟩,
+  ⟨"ax77", "LeanUfo/Test/Certification/Negative/Ax77RelatorFoundedBy.lean", "certified_ax77", true⟩,
+  ⟨"ax13", "LeanUfo/Test/Certification/Negative/ExtensionInvalidAddition.lean", "certified_ax13", true⟩
+]
+
+def diagnosticOutputChecks : Array ExpectedOutput := #[
+  {
+    label := "computed quality structure witness",
+    file := "LeanUfo/Test/Diagnostics/QualityStructureWitness.lean",
+    contains := #["A finite counterexample was confirmed for ax87.",
+      "Counterexample assignment: x = Missing, w = actual."],
+    rejects := #["Counterexample assignment: x = V, w = actual."]
+  },
+  {
+    label := "computed quality structure missing set",
+    file := "LeanUfo/Test/Certification/Negative/Ax86QualityStructureNotSet.lean",
+    contains := #["Counterexample assignment:"],
+    rejects := #["did not find a DSL-level witness"]
+  },
+  {
+    label := "ax13 counterexample rendering",
+    file := "LeanUfo/Test/Certification/Negative/Ax13EndurantAndPerdurant.lean",
+    contains := #[
+      "A finite counterexample was confirmed for ax13.",
+      "Forbidden condition:",
+      "Suggestion:",
+      "[actual] Object(X)",
+      "[actual] Perdurant(X)"
+    ],
+    rejects := #[
+      "X : Object",
+      "X : Perdurant"
+    ]
+  },
+  {
+    label := "ax71 computed externally dependent mode diagnostic",
+    file := "LeanUfo/Test/Certification/Negative/Ax71ComputedModeMissingExistenceVariation.lean",
+    contains := #[
+      "A finite counterexample was confirmed for ax71.",
+      "Computed ExternallyDependentMode: false",
+      "no thing witnesses computed `ExternallyDependent(M, y)`",
+      "add the modal `Ex` variation"
+    ]
+  },
+  {
+    label := "ax73 part characterization diagnostic",
+    file := "LeanUfo/Test/Certification/Negative/Ax73QuaIndividualFoundationBridge.lean",
+    contains := #[
+      "A finite counterexample was confirmed for ax73.",
+      "constituent `Q` must `InheresIn(Q, B)`",
+      "because it is a part of `QuaIndividualOf(Q, B)`"
+    ],
+    rejects := #[
+      "overlap witness",
+      "overlapping externally dependent mode"
+    ]
+  },
+  {
+    label := "derived externally dependent mode diagnostic",
+    file := "LeanUfo/Test/Diagnostics/DerivedExternallyDependentMode.lean",
+    contains := #[
+      "A user-written derived relation assertion failed.",
+      "`ExternallyDependentMode(M)` requires `Mode(M)` and at least one computed `ExternallyDependent(M, y)`",
+      "Computed from `Mode(x)` plus some computed `ExternallyDependent(x, y)`"
+    ],
+    rejects := #[
+      "certified_ax71"
+    ]
+  },
+  {
+    label := "ax87 quality diagnostic rendering",
+    file := "LeanUfo/Test/Certification/Negative/Ax87QualeWithoutUniqueQualityStructure.lean",
+    contains := #[
+      "A finite counterexample was confirmed for ax87.",
+      "Missing witness requirements:",
+      "[actual] Quale(V)"
+    ],
+    rejects := #[
+      "V : Quale"
+    ]
+  },
+  {
+    label := "extension ax13 diagnostic rendering",
+    file := "LeanUfo/Test/Certification/Negative/ExtensionInvalidAddition.lean",
+    contains := #[
+      "A finite counterexample was confirmed for ax13.",
+      "Counterexample assignment: x = Car, w = actual.",
+      "Evidence for [actual] Endurant(Car):",
+      "[actual] Object(Car) (taxonomy expansion implies endurant)",
+      "Evidence for [actual] Perdurant(Car):",
+      "[actual] Perdurant(Car)"
+    ]
+  },
+  {
+    label := "extension ax61 diagnostic rendering",
+    file := "LeanUfo/Test/Certification/Negative/ExtensionInvalidConstitutionAddition.lean",
+    contains := #[
+      "A finite counterexample was confirmed for ax61.",
+      "Counterexample assignment: x = X, y = Y, w = actual.",
+      "Evidence for [actual] ConstitutedBy(X, Y):",
+      "[actual] ConstitutedBy(X, Y)",
+      "Evidence for [actual] ConstitutedBy(Y, X):",
+      "[actual] ConstitutedBy(Y, X)"
+    ]
+  }
+]
+
+structure PositiveWitness where
+  field : String
+  target : String
+
+def fullPositiveWitnesses : Array PositiveWitness := #[
+  ⟨"all", "LeanUfo.Test.Certification.Positive.AllAxioms"⟩,
+  ⟨"seed", "LeanUfo.Test.Certification.Positive.Seed"⟩,
+  ⟨"ax68", "LeanUfo.Test.Certification.Positive.Ax68"⟩,
+  ⟨"ax73", "LeanUfo.Test.Certification.Positive.Relator"⟩
+]
+
+def second? {α : Type} : List α → Option α
+  | List.cons _ (List.cons x _) => some x
+  | _ => none
+
+def first? {α : Type} : List α → Option α
+  | List.cons x _ => some x
+  | _ => none
+
+def quotedAfter? (marker line : String) : Option String :=
+  let pieces := line.splitOn marker
+  match second? pieces with
+  | none => none
+  | some rest =>
+      match first? (rest.splitOn "\"") with
+      | some field => some field
+      | none => none
+
+def registryFields (src : String) : Array String :=
+  Id.run do
+    let mut fields := #[]
+    for line in src.splitOn "\n" do
+      match quotedAfter? "⟨\"" line with
+      | some field => fields := fields.push field
+      | none => pure ()
+    pure fields
+
+def manifestFields (src : String) : Array String :=
+  Id.run do
+    let mut fields := #[]
+    let mut active := false
+    for line in src.splitOn "\n" do
+      if line.contains "def axiomCoverageManifest" then
+        active := true
+      else if active && line.contains "]" then
+        active := false
+      else if active && line.startsWith "  \"" then
+        match quotedAfter? "\"" line with
+        | some field => fields := fields.push field
+        | none => pure ()
+    pure fields
+
+def checkCoverageManifest : IO (Array String) := do
+  let registrySrc ← IO.FS.readFile "LeanUfo/UFO/DSL/Certificate/Generation.lean"
+  let manifestSrc ← IO.FS.readFile "LeanUfo/Test/Coverage/AxiomManifest.lean"
+  let registry := registryFields registrySrc
+  let manifest := manifestFields manifestSrc
+  let mut failures := #[]
+  for field in registry do
+    if !manifest.contains field then
+      failures := failures.push s!"manifest missing certificate field {field}"
+  for field in manifest do
+    if !registry.contains field then
+      failures := failures.push s!"manifest has stale certificate field {field}"
+  pure failures
+
+def arrayLiteralFields (defName src : String) : Array String :=
+  Id.run do
+    let mut fields := #[]
+    let mut active := false
+    for line in src.splitOn "\n" do
+      if line.contains s!"def {defName}" then
+        active := true
+      else if active && line.contains "]" then
+        active := false
+      else if active && line.contains "\"" then
+        match quotedAfter? "\"" line with
+        | some field => fields := fields.push field
+        | none => pure ()
+    pure fields
+
+def requireDirectCoverageEnabled : IO Bool := do
+  match (← IO.getEnv "LEANUFO_REQUIRE_DIRECT_WITNESSES") with
+  | some "1" => pure true
+  | some "true" => pure true
+  | some "yes" => pure true
+  | _ => pure false
+
+def checkDirectWitnessCoverage : IO (Array String) := do
+  let manifestSrc ← IO.FS.readFile "LeanUfo/Test/Coverage/AxiomManifest.lean"
+  let manifest := manifestFields manifestSrc
+  let directNegatives := arrayLiteralFields "directNegativeWitnessAxioms" manifestSrc
+  let enforcedNegatives := arrayLiteralFields "compilerEnforcedNegativeAxioms" manifestSrc
+  let blockedNegatives := arrayLiteralFields "blockedNegativeWitnessAxioms" manifestSrc
+  let mut failures := #[]
+  for field in manifest do
+    let categoryCount :=
+      (if directNegatives.contains field then 1 else 0) +
+      (if enforcedNegatives.contains field then 1 else 0) +
+      (if blockedNegatives.contains field then 1 else 0)
+    if categoryCount == 0 then
+      failures := failures.push s!"negative coverage category missing for {field}"
+    if categoryCount > 1 then
+      failures := failures.push s!"negative coverage category duplicated for {field}"
+    if (← requireDirectCoverageEnabled) && !directNegatives.contains field then
+      failures := failures.push s!"missing direct negative witness for {field}"
+  pure failures
+
+def expectedFailureFields : Array String :=
+  fullExpectedFailures.map (·.field)
+
+def expectedFailureFiles : Array String :=
+  fullExpectedFailures.map (·.file)
+
+def findLeanFiles (dir : String) : IO (Array String) := do
+  let out ← IO.Process.output {
+    cmd := "find"
+    args := #[dir, "-type", "f", "-name", "*.lean"]
+  }
+  if out.exitCode == 0 then
+    pure <| (out.stdout.splitOn "\n").foldl
+      (fun acc line =>
+        let line := line.trimAscii.toString
+        if line.isEmpty then acc else acc.push line)
+      #[]
+  else
+    pure #[]
+
+def checkExpectedFailureRegistration : IO (Array String) := do
+  let manifestSrc ← IO.FS.readFile "LeanUfo/Test/Coverage/AxiomManifest.lean"
+  let directNegatives := arrayLiteralFields "directNegativeWitnessAxioms" manifestSrc
+  let registeredFields := expectedFailureFields
+  let registeredFiles := expectedFailureFiles
+  let mut failures := #[]
+  for field in directNegatives do
+    if !registeredFields.contains field then
+      failures := failures.push s!"direct negative witness for {field} is not registered in fullExpectedFailures"
+  for field in registeredFields do
+    if !directNegatives.contains field then
+      failures := failures.push s!"fullExpectedFailures registers {field}, but the manifest does not classify it as a direct negative witness"
+  for file in registeredFiles do
+    if !(← System.FilePath.pathExists file) then
+      failures := failures.push s!"registered negative fixture is missing: {file}"
+  let fixtureFiles ← findLeanFiles "LeanUfo/Test/Certification/Negative"
+  for file in fixtureFiles do
+    if file.endsWith ".lean" && !registeredFiles.contains file then
+      failures := failures.push s!"negative fixture is not registered in fullExpectedFailures: {file}"
+  pure failures
+
+def selectedAxioms : IO (Array String) := do
+  match (← IO.getEnv "LEANUFO_AXIOMS") with
+  | none => pure #[]
+  | some raw =>
+      pure <| (raw.splitOn ",").foldl
+        (fun out item =>
+          let item := item.trimAscii.toString
+          if item.isEmpty then out else out.push item)
+        #[]
+
+def selectedContains (selected : Array String) (field : String) : Bool :=
+  selected.isEmpty || selected.contains field || selected.contains "all"
+
+def filterExpectedFailures (selected : Array String) (tests : Array ExpectedFailure) :
+    Array ExpectedFailure :=
+  tests.filter fun test => selectedContains selected test.field
+
+def filterPositiveWitnesses (selected : Array String) (tests : Array PositiveWitness) :
+    Array PositiveWitness :=
+  if selected.isEmpty then
+    tests.filter (·.field == "seed")
+  else if selected.contains "all" then
+    tests.filter (·.field == "all")
+  else
+    let direct := tests.filter fun test =>
+      selectedContains selected test.field && test.field != "all" && test.field != "seed"
+    let directFields := direct.map (·.field)
+    let needsShared := selected.any fun field => !directFields.contains field
+    if needsShared then
+      direct ++ tests.filter (·.field == "all")
+    else
+      direct
+
+structure NegativeCoverageCategories where
+  direct : Array String
+  enforced : Array String
+  blocked : Array String
+
+def negativeCoverageCategories : IO NegativeCoverageCategories := do
+  let manifestSrc ← IO.FS.readFile "LeanUfo/Test/Coverage/AxiomManifest.lean"
+  pure {
+    direct := arrayLiteralFields "directNegativeWitnessAxioms" manifestSrc
+    enforced := arrayLiteralFields "compilerEnforcedNegativeAxioms" manifestSrc
+    blocked := arrayLiteralFields "blockedNegativeWitnessAxioms" manifestSrc
+  }
+
+def selectedAxiomsForReport (selected : Array String) : IO (Array String) := do
+  if selected.contains "all" then
+    let manifestSrc ← IO.FS.readFile "LeanUfo/Test/Coverage/AxiomManifest.lean"
+    pure <| manifestFields manifestSrc
+  else
+    pure selected
+
+def directPositiveFields (tests : Array PositiveWitness) : Array String :=
+  (tests.filter fun test => test.field != "all" && test.field != "seed").map (·.field)
+
+def positiveCoverageLine (directFields : Array String) (field : String) : String :=
+  if directFields.contains field then
+    "positive: direct fixture"
+  else
+    "positive: shared all-axioms certified fixture"
+
+def negativeCoverageLine (cats : NegativeCoverageCategories) (field : String) : String :=
+  if cats.direct.contains field then
+    "negative: direct fixture with confirmed finite counterexample"
+  else if cats.enforced.contains field then
+    "negative: no direct DSL counterexample expected; compiler/finite semantics enforces it"
+  else if cats.blocked.contains field then
+    "negative: blocked; no managed direct counterexample witness yet"
+  else
+    "negative: unclassified"
+
+def selectedCoverageReport
+    (selected positiveFields : Array String) (cats : NegativeCoverageCategories) : IO String := do
+  let fields ← selectedAxiomsForReport selected
+  if fields.isEmpty then
+    pure ""
+  else
+    let lines := fields.map fun field =>
+      s!"- {field}: {positiveCoverageLine positiveFields field}; {negativeCoverageLine cats field}"
+    pure <| "Selected axiom coverage:\n" ++ String.intercalate "\n" lines.toList
+
+def textAfter? (marker text : String) : Option String :=
+  match second? (text.splitOn marker) with
+  | some rest => some rest
+  | none => none
+
+def tokenAfter? (marker text : String) : Option String :=
+  match textAfter? marker text with
+  | none => none
+  | some rest => first? (rest.splitOn " ")
+
+def quotedFieldAfter? (marker text : String) : Option String :=
+  match textAfter? marker text with
+  | none => none
+  | some rest => first? (rest.splitOn "`")
+
+def checkerFunctionField? (fn : String) : Option String :=
+  match fn with
+  | "checkAxNonSortalUp" => some "ax_nonSortal_up"
+  | "checkAxQuaIndividualOfEndurant" => some "axQuaIndividualOfEndurant"
+  | "checkAxDistanceIdentity" => some "axDistanceIdentity"
+  | "checkAxDistanceSymmetry" => some "axDistanceSymmetry"
+  | "checkAxDistanceTriangle" => some "axDistanceTriangle"
+  | _ =>
+      match fn.dropPrefix? "checkAx" with
+      | some suffix =>
+          if suffix.isEmpty then none else some s!"ax{suffix}"
+      | none => none
+
+def generatedFailureFieldFromLine? (line : String) : Option String :=
+  match quotedFieldAfter? "Generated certificate theorem `certified_" line with
+  | some field => some field
+  | none =>
+      match tokenAfter? "theorem checked_" line with
+      | some token => some token
+      | none =>
+          match tokenAfter? "Checker." line with
+          | some token => checkerFunctionField? token
+          | none => none
+
+def generatedFailureFields (text : String) : Array String :=
+  Id.run do
+    let mut fields := #[]
+    for line in text.splitOn "\n" do
+      match generatedFailureFieldFromLine? line with
+      | some field =>
+          if !fields.contains field then
+            fields := fields.push field
+      | none => pure ()
+    pure fields
+
+def runLeanFile (file : String) : IO IO.Process.Output :=
+  IO.Process.output {
+    cmd := "lean"
+    args := #[file]
+  }
+
+def checkExpectedFailure (test : ExpectedFailure) : IO (Array String) := do
+  let out ← runLeanFile test.file
+  let text := out.stdout ++ out.stderr
+  let generatedFailures := generatedFailureFields text
+  let unexpectedGeneratedFailures := generatedFailures.filter (· != test.field)
+  if out.exitCode == 0 then
+    pure #[s!"{test.file} unexpectedly succeeded"]
+  else if !unexpectedGeneratedFailures.isEmpty then
+    pure #[
+      s!"{test.file} expected `{test.field}`, but generated failure output also mentioned `{String.intercalate ", " unexpectedGeneratedFailures.toList}`"
+    ]
+  else if text.contains test.expected then
+    if test.requireCounterexample &&
+        !text.contains s!"A finite counterexample was confirmed for {test.field}." then
+      pure #[s!"{test.file} failed at `{test.expected}`, but did not confirm a finite counterexample"]
+    else
+      pure #[]
+  else
+    pure #[s!"{test.file} failed, but output did not contain `{test.expected}`"]
+
+def checkExpectedOutput (test : ExpectedOutput) : IO (Array String) := do
+  let out ← runLeanFile test.file
+  let text := out.stdout ++ out.stderr
+  let mut failures := #[]
+  if out.exitCode == 0 then
+    failures := failures.push s!"{test.label}: {test.file} unexpectedly succeeded"
+  for needle in test.contains do
+    if !text.contains needle then
+      failures := failures.push s!"{test.label}: output did not contain `{needle}`"
+  for needle in test.rejects do
+    if text.contains needle then
+      failures := failures.push s!"{test.label}: output still contained stale text `{needle}`"
+  pure failures
+
+def checkCommand (label cmd : String) (args : Array String) : IO (Array String) := do
+  let out ← IO.Process.output { cmd := cmd, args := args }
+  if out.exitCode == 0 then
+    pure #[]
+  else
+    pure #[s!"{label} failed with exit code {out.exitCode}\nstdout:\n{out.stdout}\nstderr:\n{out.stderr}"]
+
+def testTempDir (stem : String) : IO System.FilePath := do
+  let dir := (← LeanUfo.CertificateCli.tempDir) / stem
+  IO.FS.createDirAll dir
+  pure dir
+
+def checkCertificateExportWorkflow : IO (Array String) := do
+  let outDir ← testTempDir "lean-ufo-test-certificates"
+  let moduleName := "LeanUfo.UFO.DSL.ConcreteExamples.ReuseModelExtension"
+  let mut failures := #[]
+  failures := failures ++ (← checkCommand "certificate source module build" "lake"
+    #["build", moduleName])
+  failures := failures ++ (← checkCommand "certificate manifest export" "lake"
+    #["exe", "export-certificates", "--module", moduleName, "--out", outDir.toString])
+  failures := failures ++ (← checkCommand "certificate manifest structure validation" "lake"
+    #["exe", "validate-certificate", (outDir / "CarBase.certificate.json").toString,
+      "--structure-only"])
+  failures := failures ++ (← checkCommand "certificate manifest proof recheck" "lake"
+    #["exe", "validate-certificate", (outDir / "CarWithWindow.certificate.json").toString,
+      "--module", moduleName])
+  try
+    LeanUfo.Test.Certificates.checkGeneratedNameSource
+    let content ← IO.FS.readFile (outDir / "CarBase.certificate.json")
+    match Lean.Json.parse content with
+    | .ok baseline =>
+        LeanUfo.Test.Certificates.checkManifestNameSafety baseline moduleName
+        let certificates ←
+          match baseline.getObjValD "certificates" |>.getArr? with
+          | .ok value => pure value
+          | .error error => throw <| IO.userError error
+        let alteredRow := certificates[0]!.setObjVal! "leanTheorem" (.str "CarBase.wrong")
+        let altered := baseline.setObjVal! "certificates"
+          (.arr (certificates.set! 0 alteredRow))
+        let alteredPath := outDir / "CarBase.altered.certificate.json"
+        IO.FS.writeFile alteredPath altered.pretty
+        let alteredResult ← IO.Process.output { cmd := "lake", args := #["exe",
+          "validate-certificate", alteredPath.toString, "--module", moduleName] }
+        unless alteredResult.exitCode != 0 &&
+            (alteredResult.stdout ++ alteredResult.stderr).contains "Lean theorem mismatch" do
+          throw <| IO.userError "altered certificate row matched rebuilt provenance"
+    | .error message => throw <| IO.userError message
+  catch e => failures := failures.push s!"certificate name safety: {e.toString}"
+  pure failures
+
+private def directoryFileNames (dir : System.FilePath) : IO (Array String) := do
+  let mut names := #[]
+  for entry in (← dir.readDir) do
+    names := names.push entry.fileName
+  pure names
+
+/--
+Check module ownership, namespaces, comments, and explicit selection through
+the public exporter. Each fixture imports other manifests, so an ownership bug
+would create extra files even though the selected local models are correct.
+-/
+def checkCertificateDiscoveryWorkflow : IO (Array String) :=
+  IO.FS.withTempDir fun root => do
+    let markedModule := "LeanUfo.Test.Certificates.ExportDiscoveryMarked"
+    let fallbackModule := "LeanUfo.Test.Certificates.ExportDiscoveryFallback"
+    let namesModule := "LeanUfo.Test.Syntax.NamesAndSnapshots"
+    let markedDir := root / "marked"
+    let fallbackDir := root / "fallback"
+    let namesDir := root / "names"
+    let mut failures := #[]
+    failures := failures ++ (← checkCommand "marked discovery fixture build" "lake"
+      #["build", markedModule])
+    failures := failures ++ (← checkCommand "fallback discovery fixture build" "lake"
+      #["build", fallbackModule])
+    failures := failures ++ (← checkCommand "namespaced imported parent" "lake"
+      #["build", "LeanUfo.Test.Certificates.NamespacedParent"])
+    failures := failures ++ (← checkCommand "names and restored snapshots" "lake"
+      #["build", namesModule])
+    failures := failures ++ (← checkCommand "escaped manifest name export" "lake"
+      #["exe", "export-certificates", "--module", namesModule, "--out", namesDir.toString])
+    failures := failures ++ (← checkCommand "escaped manifest name recheck" "lake"
+      #["exe", "validate-certificate",
+        (namesDir / "%C2%ABnested%2Fname%C2%BB.certificate.json").toString,
+        "--module", namesModule])
+    failures := failures ++ (← checkCommand "marked manifest discovery" "lake"
+      #["exe", "export-certificates", "--module", markedModule, "--out", markedDir.toString])
+    failures := failures ++ (← checkCommand "fallback manifest discovery" "lake"
+      #["exe", "export-certificates", "--module", fallbackModule, "--out", fallbackDir.toString])
+    failures := failures ++ (← checkCommand "namespaced manifest recheck" "lake"
+      #["exe", "validate-certificate",
+        (markedDir / "ExportDiscoveryFixture.Selected.certificate.json").toString,
+        "--module", markedModule])
+    if failures.isEmpty then
+      let markedNames ← directoryFileNames markedDir
+      let fallbackNames ← directoryFileNames fallbackDir
+      let names ← directoryFileNames namesDir
+      unless names == #["%C2%ABnested%2Fname%C2%BB.certificate.json"] do
+        failures := failures.push s!"escaped-name discovery returned unexpected files: {names}"
+      unless markedNames.size == 1 &&
+          markedNames.contains "ExportDiscoveryFixture.Selected.certificate.json" do
+        failures := failures.push s!"marked discovery returned unexpected files: {markedNames}"
+      unless fallbackNames.size == 2 &&
+          fallbackNames.contains "ExportFallbackFixture.First.certificate.json" &&
+          fallbackNames.contains "ExportFallbackFixture.Second.certificate.json" do
+        failures := failures.push s!"fallback discovery returned unexpected files: {fallbackNames}"
+    pure failures
+
+/-- Compile the model blocks taken directly from the published quickstart.
+The intermediate type display is explanatory text, not a Lean command. -/
+def checkQuickstart : IO (Array String) := do
+  let text ← IO.FS.readFile "docs/dsl/quickstart.md"
+  let mut source := ""
+  let mut models := 0
+  for part in (text.splitOn "```lean\n").drop 1 do
+    let block := (part.splitOn "```").head!
+    if block.startsWith "import " || block.startsWith "ufo_model " then
+      source := source ++ block ++ "\n"
+    if block.startsWith "ufo_model " then models := models + 1
+  if models != 2 then return #["quickstart: expected both documented model blocks"]
+  let out ← LeanUfo.CertificateCli.runLeanScript source
+  if out.exitCode == 0 then return #[]
+  return #[s!"quickstart models failed:\n{out.stdout}\n{out.stderr}"]
+
+/-- Zero disables experiments; a positive integer sets measured repetitions.
+Legacy truth-valued settings still request one measured repetition. -/
+def parsePerformanceRuns (setting : Option String) : Except String Nat :=
+  match setting with
+  | none => .ok 0
+  | some value =>
+    if value == "true" || value == "yes" then .ok 1
+    else match value.toNat? with
+      | some count => .ok count
+      | none => .error "LEANUFO_PERFORMANCE_TESTS must be a nonnegative integer (or true/yes)"
+
+#guard parsePerformanceRuns none == .ok 0
+#guard parsePerformanceRuns (some "0") == .ok 0
+#guard parsePerformanceRuns (some "1") == .ok 1
+#guard parsePerformanceRuns (some "20") == .ok 20
+#guard parsePerformanceRuns (some "true") == .ok 1
+#guard parsePerformanceRuns (some "bad") ==
+  .error "LEANUFO_PERFORMANCE_TESTS must be a nonnegative integer (or true/yes)"
+
+def performanceRuns : IO Nat := do
+  match parsePerformanceRuns (← IO.getEnv "LEANUFO_PERFORMANCE_TESTS") with
+  | .ok runs => pure runs
+  | .error message => throw <| IO.userError message
+
+/-- Preserve the semantic gate, then measure freshly elaborated examples and
+synthetic workloads. Builds are preparation, never timing observations. -/
+def checkPerformanceFixtures : IO (Array String × Option String) := IO.FS.withTempDir fun temporary => do
+  let mut failures := #[]
+  let mut completed : Option String := none
+  failures := failures ++ (← checkCommand "user-facing example aggregate" "lake"
+    #["build", "LeanUfo.UFO.DSL.Examples"])
+  failures := failures ++ (← checkCommand "positive relator performance probe" "lake"
+    #["build", "LeanUfo.Test.Certification.Positive.Relator"])
+  failures := failures ++ (← checkCommand "experiment runner build" "lake"
+    #["build", "performance-experiments"])
+  if failures.isEmpty then
+    let child ← IO.Process.spawn {
+      cmd := ".lake/build/bin/performance-experiments"
+      args := #[toString (← performanceRuns)]
+      env := #[("LEANUFO_EXPERIMENT_RESULT_PATH", some (temporary / "completed-run").toString)]
+      stdout := .inherit
+      stderr := .inherit }
+    let code ← child.wait
+    unless code == 0 do
+      failures := failures.push s!"performance experiments failed with exit code {code}; inspect experiments/"
+    if code == 0 then
+      completed := some (← IO.FS.readFile (temporary / "completed-run"))
+  pure (failures, completed)
+
+def performanceTestsEnabled : IO Bool := do
+  pure ((← performanceRuns) > 0)
+
+def fullTestsEnabled : IO Bool := do
+  if !(← selectedAxioms).isEmpty || (← performanceTestsEnabled) then
+    pure true
+  else
+    match (← IO.getEnv "LEANUFO_FULL_TESTS") with
+    | some "1" => pure true
+    | some "true" => pure true
+    | some "yes" => pure true
+    | _ => pure false
+
+/-- Table generation is a post-processing mode, not another measured run.
+When combined with experiments, report only after the requested run succeeds. -/
+def generateTablesEnabled : IO Bool := do
+  match (← IO.getEnv "UFO_GENERATE_TABLES") with
+  | none | some "0" | some "false" => pure false
+  | some "1" | some "true" | some "yes" => pure true
+  | _ => throw <| IO.userError "UFO_GENERATE_TABLES must be 0 or 1 (or false/true/yes)"
+
+def reportArguments (completed selected output : Option String) : Array String := Id.run do
+  let mut args := #[]
+  if let some input := completed then
+    args := args ++ #["--input", input]
+  else if let some input := selected then
+    args := args ++ #["--input", input]
+  if let some output := output then
+    args := args ++ #["--output", output]
+  return args
+
+#guard reportArguments (some "experiments/20261013-new") (some "experiments/z-reference") none ==
+  #["--input", "experiments/20261013-new"]
+#guard reportArguments none (some "saved-run") (some "tables") ==
+  #["--input", "saved-run", "--output", "tables"]
+#guard reportArguments none none none == #[]
+
+def generateExperimentTables (completed : Option String := none) : IO UInt32 := do
+  let build ← IO.Process.spawn { cmd := "lake", args := #["build", "experiment-tables"] }
+  let code ← build.wait
+  if code != 0 then return code
+  let args := reportArguments completed (← IO.getEnv "UFO_EXPERIMENT_RESULTS")
+    (← IO.getEnv "UFO_TABLE_OUTPUT")
+  let child ← IO.Process.spawn { cmd := ".lake/build/bin/experiment-tables", args }
+  return ← child.wait
+
+def main : IO UInt32 := do
+  -- Reject a malformed experiment request before running expensive fixtures.
+  let runs ← performanceRuns
+  let tables ← generateTablesEnabled
+  if tables && runs > 0 && (← IO.getEnv "UFO_EXPERIMENT_RESULTS").isSome then
+    throw <| IO.userError "Do not select an existing dataset while requesting new experiments"
+  if tables && runs == 0 then
+    return ← generateExperimentTables
+  let mut failures := #[]
+  let mut completed : Option String := none
+  try
+    LeanUfo.Test.Certificates.checkManifestCompleteness
+  catch e => failures := failures.push s!"certificate manifest completeness: {e.toString}"
+  try
+    LeanUfo.Test.Certificates.checkIdentifierParsing
+  catch e => failures := failures.push s!"certificate identifier parsing: {e.toString}"
+  let selected ← selectedAxioms
+  let negativeCategories ← negativeCoverageCategories
+  failures := failures ++ (← checkCoverageManifest)
+  failures := failures ++ (← checkDirectWitnessCoverage)
+  failures := failures ++ (← checkExpectedFailureRegistration)
+  for test in fastExpectedFailures do
+    failures := failures ++ (← checkExpectedFailure test)
+  if (← fullTestsEnabled) then
+    let positiveWitnesses := filterPositiveWitnesses selected fullPositiveWitnesses
+    let negativeWitnesses := filterExpectedFailures selected fullExpectedFailures
+    if !selected.isEmpty && positiveWitnesses.isEmpty && negativeWitnesses.isEmpty then
+      failures := failures.push
+        s!"no direct semantic witness registered for selected axioms: {String.intercalate ", " selected.toList}"
+    for test in positiveWitnesses do
+      failures := failures ++ (← checkCommand s!"positive semantic witness {test.field}" "lake"
+        #["build", test.target])
+    for test in negativeWitnesses do
+      failures := failures ++ (← checkExpectedFailure test)
+    for test in diagnosticOutputChecks do
+      if selected.isEmpty || selected.contains "all" then
+        failures := failures ++ (← checkExpectedOutput test)
+      else if selected.any fun field => test.file.contains s!"/{field.capitalize}" then
+        failures := failures ++ (← checkExpectedOutput test)
+    if selected.isEmpty || selected.contains "all" then
+      failures := failures ++ (← checkQuickstart)
+      failures := failures ++ (← checkCommand "diagnostic/checker formula agreement" "lake"
+        #["build", "LeanUfo.Test.Diagnostics.FormulaAgreement"])
+      failures := failures ++ (← checkCertificateExportWorkflow)
+      failures := failures ++ (← checkCertificateDiscoveryWorkflow)
+    if (← performanceTestsEnabled) then
+      let (experimentFailures, directory) ← checkPerformanceFixtures
+      failures := failures ++ experimentFailures
+      completed := directory
+  if failures.isEmpty then
+    if tables then
+      let code ← generateExperimentTables completed
+      if code != 0 then return code
+    if !(← fullTestsEnabled) then
+      IO.println "LeanUfo DSL tests passed (fast profile; set LEANUFO_FULL_TESTS=1 for semantic witness checks)"
+    else if selected.isEmpty then
+      if (← performanceTestsEnabled) then
+        IO.println "LeanUfo DSL tests passed (full profile with repeated performance experiments)"
+      else
+        IO.println "LeanUfo DSL tests passed (full profile)"
+    else
+      IO.println s!"LeanUfo DSL tests passed (selected axioms: {String.intercalate ", " selected.toList})"
+      IO.println (← selectedCoverageReport selected (directPositiveFields fullPositiveWitnesses) negativeCategories)
+    pure 0
+  else
+    for failure in failures do
+      IO.eprintln failure
+    pure 1
