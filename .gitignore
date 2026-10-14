@@ -1,6 +1,12 @@
 # Lake dependency and build directory
 /.lake
 
+# Local experiment results (visible in the repository root)
+/experiments/
+/artifact/images/
+/artifact/validation/
+/artifact/dependency-sources.tar.gz
+
 # Legacy lake layout (safe to include)
 lake-packages/
 
@@ -29,3 +35,4 @@ build/
 # Local Codex repository instructions
 /AGENTS.md
 /docs/dsl/behavior-contract.md
+artifact/packages/

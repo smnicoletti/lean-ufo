@@ -709,6 +709,11 @@ private def emitCompiledModelSource
     (cmdStx : Syntax) (model : Name) (source : ModelSource)
     (parent? : Option CachedModelSource := none) (fresh : Bool := false) :
     CommandElabM Unit := do
+  -- Time the complete compilation/certification command, not a sum of partial
+  -- proof probes. Surface parsing and parent-source merging precede this point.
+  let timed := (← IO.getEnv "LEANUFO_EXPERIMENT_TIMING") == some "1"
+  let started ← if timed then IO.monoNanosNow else pure 0
+  let errorsBefore ← if timed then coreMessageErrorCount else pure 0
   let compiled ←
     match compileModelSource source with
     | .ok compiled => pure compiled
@@ -719,6 +724,19 @@ private def emitCompiledModelSource
       compiled.tables (makeReusePlan parent? source compiled.tables fresh)
   modifyEnv fun env => modelSourceCache.modifyState env (fun cache =>
     cache.insert declaredModel { source, tables := compiled.tables, declaredName := declaredModel })
+  if timed then
+    let elapsed := (← IO.monoNanosNow) - started
+    let certified := (← getEnv).contains (declaredModel ++ `certifiedModel) &&
+      (← coreMessageErrorCount) == errorsBefore
+    let row := Json.mkObj [
+      ("model", toJson declaredModel.toString),
+      ("worlds", toJson source.worlds.size),
+      ("things", toJson source.things.size),
+      ("facts", toJson compiled.expandedFacts.size),
+      ("mode", toJson (if parent?.isNone then "base" else if fresh then "fresh" else "reuse-enabled")),
+      ("status", toJson (if certified then "certified" else "rejected")),
+      ("elapsed_ns", toJson elapsed)]
+    logInfo m!"[lean-ufo-experiment] {row.compress}"
 
 elab_rules : command
   | `(ufo_model $model:ident : UFO where

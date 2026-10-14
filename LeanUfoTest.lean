@@ -34,6 +34,9 @@ The default profile is intentionally fast: it checks importable syntax/
 diagnostic smoke fixtures, stale syntax rejection, and the axiom manifest.
 Set `LEANUFO_FULL_TESTS=1` to run the slower semantic positive/negative witness
 suite as well.
+`LEANUFO_PERFORMANCE_TESTS=N` also builds the example aggregate and runs N
+measured repetitions of example certification and synthetic workloads after
+one warm-up. Dependencies and regression checks are outside those timings.
 -/
 
 structure ExpectedFailure where
@@ -670,23 +673,57 @@ def checkQuickstart : IO (Array String) := do
   if out.exitCode == 0 then return #[]
   return #[s!"quickstart models failed:\n{out.stdout}\n{out.stderr}"]
 
-/--
-Build the user-facing aggregate, which includes `RelatorProbe`, then build the
-Relator semantic fixture. Use equivalent clean build directories for
-wall-clock comparisons. An incremental run checks wiring only.
--/
-def checkPerformanceFixtures : IO (Array String) := do
+/-- Zero disables experiments; a positive integer sets measured repetitions.
+Legacy truth-valued settings still request one measured repetition. -/
+def parsePerformanceRuns (setting : Option String) : Except String Nat :=
+  match setting with
+  | none => .ok 0
+  | some value =>
+    if value == "true" || value == "yes" then .ok 1
+    else match value.toNat? with
+      | some count => .ok count
+      | none => .error "LEANUFO_PERFORMANCE_TESTS must be a nonnegative integer (or true/yes)"
+
+#guard parsePerformanceRuns none == .ok 0
+#guard parsePerformanceRuns (some "0") == .ok 0
+#guard parsePerformanceRuns (some "1") == .ok 1
+#guard parsePerformanceRuns (some "20") == .ok 20
+#guard parsePerformanceRuns (some "true") == .ok 1
+#guard parsePerformanceRuns (some "bad") ==
+  .error "LEANUFO_PERFORMANCE_TESTS must be a nonnegative integer (or true/yes)"
+
+def performanceRuns : IO Nat := do
+  match parsePerformanceRuns (← IO.getEnv "LEANUFO_PERFORMANCE_TESTS") with
+  | .ok runs => pure runs
+  | .error message => throw <| IO.userError message
+
+/-- Preserve the semantic gate, then measure freshly elaborated examples and
+synthetic workloads. Builds are preparation, never timing observations. -/
+def checkPerformanceFixtures : IO (Array String × Option String) := IO.FS.withTempDir fun temporary => do
   let mut failures := #[]
+  let mut completed : Option String := none
   failures := failures ++ (← checkCommand "user-facing example aggregate" "lake"
     #["build", "LeanUfo.UFO.DSL.Examples"])
   failures := failures ++ (← checkCommand "positive relator performance probe" "lake"
     #["build", "LeanUfo.Test.Certification.Positive.Relator"])
-  pure failures
+  failures := failures ++ (← checkCommand "experiment runner build" "lake"
+    #["build", "performance-experiments"])
+  if failures.isEmpty then
+    let child ← IO.Process.spawn {
+      cmd := ".lake/build/bin/performance-experiments"
+      args := #[toString (← performanceRuns)]
+      env := #[("LEANUFO_EXPERIMENT_RESULT_PATH", some (temporary / "completed-run").toString)]
+      stdout := .inherit
+      stderr := .inherit }
+    let code ← child.wait
+    unless code == 0 do
+      failures := failures.push s!"performance experiments failed with exit code {code}; inspect experiments/"
+    if code == 0 then
+      completed := some (← IO.FS.readFile (temporary / "completed-run"))
+  pure (failures, completed)
 
 def performanceTestsEnabled : IO Bool := do
-  match (← IO.getEnv "LEANUFO_PERFORMANCE_TESTS") with
-  | some "1" | some "true" | some "yes" => pure true
-  | _ => pure false
+  pure ((← performanceRuns) > 0)
 
 def fullTestsEnabled : IO Bool := do
   if !(← selectedAxioms).isEmpty || (← performanceTestsEnabled) then
@@ -698,8 +735,49 @@ def fullTestsEnabled : IO Bool := do
     | some "yes" => pure true
     | _ => pure false
 
+/-- Table generation is a post-processing mode, not another measured run.
+When combined with experiments, report only after the requested run succeeds. -/
+def generateTablesEnabled : IO Bool := do
+  match (← IO.getEnv "UFO_GENERATE_TABLES") with
+  | none | some "0" | some "false" => pure false
+  | some "1" | some "true" | some "yes" => pure true
+  | _ => throw <| IO.userError "UFO_GENERATE_TABLES must be 0 or 1 (or false/true/yes)"
+
+def reportArguments (completed selected output : Option String) : Array String := Id.run do
+  let mut args := #[]
+  if let some input := completed then
+    args := args ++ #["--input", input]
+  else if let some input := selected then
+    args := args ++ #["--input", input]
+  if let some output := output then
+    args := args ++ #["--output", output]
+  return args
+
+#guard reportArguments (some "experiments/20261013-new") (some "experiments/z-reference") none ==
+  #["--input", "experiments/20261013-new"]
+#guard reportArguments none (some "saved-run") (some "tables") ==
+  #["--input", "saved-run", "--output", "tables"]
+#guard reportArguments none none none == #[]
+
+def generateExperimentTables (completed : Option String := none) : IO UInt32 := do
+  let build ← IO.Process.spawn { cmd := "lake", args := #["build", "experiment-tables"] }
+  let code ← build.wait
+  if code != 0 then return code
+  let args := reportArguments completed (← IO.getEnv "UFO_EXPERIMENT_RESULTS")
+    (← IO.getEnv "UFO_TABLE_OUTPUT")
+  let child ← IO.Process.spawn { cmd := ".lake/build/bin/experiment-tables", args }
+  return ← child.wait
+
 def main : IO UInt32 := do
+  -- Reject a malformed experiment request before running expensive fixtures.
+  let runs ← performanceRuns
+  let tables ← generateTablesEnabled
+  if tables && runs > 0 && (← IO.getEnv "UFO_EXPERIMENT_RESULTS").isSome then
+    throw <| IO.userError "Do not select an existing dataset while requesting new experiments"
+  if tables && runs == 0 then
+    return ← generateExperimentTables
   let mut failures := #[]
+  let mut completed : Option String := none
   try
     LeanUfo.Test.Certificates.checkManifestCompleteness
   catch e => failures := failures.push s!"certificate manifest completeness: {e.toString}"
@@ -736,13 +814,18 @@ def main : IO UInt32 := do
       failures := failures ++ (← checkCertificateExportWorkflow)
       failures := failures ++ (← checkCertificateDiscoveryWorkflow)
     if (← performanceTestsEnabled) then
-      failures := failures ++ (← checkPerformanceFixtures)
+      let (experimentFailures, directory) ← checkPerformanceFixtures
+      failures := failures ++ experimentFailures
+      completed := directory
   if failures.isEmpty then
+    if tables then
+      let code ← generateExperimentTables completed
+      if code != 0 then return code
     if !(← fullTestsEnabled) then
       IO.println "LeanUfo DSL tests passed (fast profile; set LEANUFO_FULL_TESTS=1 for semantic witness checks)"
     else if selected.isEmpty then
       if (← performanceTestsEnabled) then
-        IO.println "LeanUfo DSL tests passed (full profile with user-facing performance fixtures)"
+        IO.println "LeanUfo DSL tests passed (full profile with repeated performance experiments)"
       else
         IO.println "LeanUfo DSL tests passed (full profile)"
     else

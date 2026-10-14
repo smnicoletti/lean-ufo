@@ -7,6 +7,11 @@ on:
       - main
   pull_request:
   workflow_dispatch:
+    inputs:
+      performance_runs:
+        description: Measured experiment repetitions (1 for smoke, 10 for repeated timings)
+        type: string
+        default: "1"
   schedule:
     - cron: "17 3 * * *"
 
@@ -31,6 +36,13 @@ jobs:
 
       - name: Run fast test suite
         run: lake test
+
+      - name: Validate report renderer and saved reference data
+        run: |
+          mkdir -p experiments/reference
+          tar -xzf artifact/reference-results.tar.gz -C experiments/reference
+          lake exe experiment-tables --self-test
+          lake exe experiment-tables --test-data experiments/reference
 
       - name: Build DSL examples
         run: lake build LeanUfo.UFO.DSL.Examples
@@ -66,6 +78,7 @@ jobs:
     needs: full-test-gate
     if: needs.full-test-gate.outputs.run-full-tests == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 180
 
     steps:
       - uses: actions/checkout@v5
@@ -76,10 +89,21 @@ jobs:
         with:
           build: true
 
-      - name: Run full semantic witness suite
+      - name: Install table-rendering dependencies before measurements
+        run: sudo apt-get update && sudo apt-get install -y texlive-latex-base texlive-latex-recommended texlive-latex-extra texlive-fonts-recommended
+
+      - name: Run full suite, performance experiments, and report generation
         run: lake test
         env:
           LEANUFO_FULL_TESTS: "1"
+          LEANUFO_PERFORMANCE_TESTS: ${{ inputs.performance_runs || '1' }}
+          UFO_GENERATE_TABLES: ${{ inputs.performance_runs == '0' && '0' || '1' }}
 
-      - name: Build DSL examples
-        run: lake build LeanUfo.UFO.DSL.Examples
+      - name: Preserve experiment observations and logs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: performance-experiments
+          path: experiments/
+          if-no-files-found: warn
+          retention-days: 14

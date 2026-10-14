@@ -3,12 +3,13 @@ import LeanUfo.UFO.UFO
 /-!
 # Reproducible complexity scaling benchmarks
 
-These generated families complement the proved unit-cost bounds with wall-clock
-observations. They are deliberately not proof evidence: elapsed time depends
-on Lean's native runtime, allocation, and the host machine. This separation
-follows the implementation/machine-model discipline illustrated by Forster et
-al. The generated families also follow the executable-test methodology used by
-RadixExperiment.
+These generated families record operation counts and elapsed nanoseconds for
+the cost-instrumented algorithms. They do not construct satisfaction proofs:
+the aggregate checker rejects these inputs, while each targeted probe must
+exercise its registered fixture successfully. Instrumentation and probe
+validation contribute to elapsed time. The default run uses four sizes;
+`--extended` adds two larger sizes. The repeated experiment runner supplies
+warm-up, statistics, and machine metadata separately.
 -/
 
 namespace LeanUfo.ComplexityBenchmarks
@@ -107,12 +108,21 @@ private def targetedProbe (family : Family) (tables : FactTables) (model : Finit
             (result.val == (tuple.val + slot.val) % model.thingCount) 3
       ⟨"projection_scan", scan.cost, scan.value⟩
 
+/-- Consume each stage's result before reading the next timestamp. Pure `let`
+bindings alone can be moved by the compiler, charging earlier work to a later
+stage. A non-inlined IO boundary keeps that work inside its timed interval;
+the small reference-allocation/read overhead is included in elapsed time. -/
+@[noinline] private def consumeResult (value : α) : IO Unit := do
+  let ref ← IO.mkRef value
+  discard ref.get
+
 private def benchmark (family : Family) (scale : Nat) : IO Row := do
   let input := ast family scale
   if bounded : Complexity.Production.explicitModelWellBounded input then
-    let start ← IO.monoMsNow
+    let start ← IO.monoNanosNow
     let compiled := compileExplicitModelASTCosted input
-    let compiledAt ← IO.monoMsNow
+    consumeResult compiled
+    let compiledAt ← IO.monoNanosNow
     have same : compiled.value = compileExplicitModelAST input := compileExplicitModelASTCosted_value input
     let construction := compiled.value.toFiniteModel4CachedCosted input.worldCount input.thingCount
       (by simp [input, ast]) (by simp [input, ast])
@@ -121,11 +131,14 @@ private def benchmark (family : Family) (scale : Nat) : IO Row := do
       (by rw [same]; exact (compileExplicitModelAST_tableDimensions input).1)
       (by rw [same]; exact (compileExplicitModelAST_tableDimensions input).2)
     let model := construction.value
-    let constructedAt ← IO.monoMsNow
+    consumeResult construction
+    let constructedAt ← IO.monoNanosNow
     let checked := Checker.checkAxioms4Costed model
-    let checkedAt ← IO.monoMsNow
+    consumeResult checked
+    let checkedAt ← IO.monoNanosNow
     let probe := targetedProbe family compiled.value model
-    let stop ← IO.monoMsNow
+    consumeResult probe
+    let stop ← IO.monoNanosNow
     unless probe.passed do
       throw <| IO.userError s!"{family.name} scale {scale}: {probe.name} did not exercise its intended fixture"
     let metrics := Complexity.modelMetrics input.worldCount input.thingCount compiled.value
@@ -190,13 +203,13 @@ private def checkMonotonicity : IO Unit := do
   requireNondecreasing "fact" <| scales.map fun n => compilerCost (factProbe n)
   requireNondecreasing "witness-slot" <| scales.map fun n => compilerCost (witnessProbe n)
 
-def run : IO Unit := do
+def run (extended : Bool := false) : IO Unit := do
   checkMonotonicity
-  IO.println "family,things,facts,product_family_slots,relation_cells,projection_cells,compiler_cost,model_cost,checker_cost,probe,probe_cost,compiler_ms,model_ms,checker_ms,probe_ms,result,probe_passed"
+  IO.println "family,things,facts,product_family_slots,relation_cells,projection_cells,compiler_cost,model_cost,checker_cost,probe,probe_cost,compiler_ns,model_ns,checker_ns,probe_ns,result,probe_passed"
   for family in #[Family.sparse, .dense, .cyclic, .product, .projection] do
     let mut compilerCosts := #[]
     let mut probeCosts := #[]
-    for scale in #[1, 2, 4, 8] do
+    for scale in (if extended then #[1, 2, 4, 8, 16, 32] else #[1, 2, 4, 8]) do
       let row ← benchmark family scale
       compilerCosts := compilerCosts.push row.compilerCost
       probeCosts := probeCosts.push row.probeCost
@@ -205,4 +218,7 @@ def run : IO Unit := do
 
 end LeanUfo.ComplexityBenchmarks
 
-def main : IO Unit := LeanUfo.ComplexityBenchmarks.run
+def main (args : List String) : IO Unit := do
+  unless args.isEmpty || args == ["--extended"] do
+    throw <| IO.userError "usage: complexity-benchmarks [--extended]"
+  LeanUfo.ComplexityBenchmarks.run (args == ["--extended"])

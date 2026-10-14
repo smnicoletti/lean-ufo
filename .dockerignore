@@ -1,0 +1,15 @@
+.git
+.lake
+lake-packages
+experiments
+AGENTS.md
+docs/dsl/behavior-contract.md
+.codex
+.agents
+**/.DS_Store
+artifact/images
+artifact/validation
+artifact/packages
+*.olean
+*.ilean
+*.trace

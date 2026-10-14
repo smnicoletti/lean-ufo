@@ -1,0 +1,23 @@
+# Refresh a validated image with the release source. Reuse its compiled proofs;
+# building again checks that cached outputs still correspond to that source.
+ARG COMPILED_IMAGE=alien-artifact:local
+FROM ${COMPILED_IMAGE}
+USER root
+# These directories are supplied in full by the curated source snapshot below.
+# Remove older development docs and release helpers from the new image layer.
+RUN rm -rf -- /workspace/alien/docs /workspace/alien/artifact /workspace/alien/.github \
+      /workspace/alien/scripts && \
+    rm -f -- /workspace/alien/CONTRIBUTING.md
+USER reviewer
+WORKDIR /workspace/alien
+COPY --chown=reviewer:reviewer . .
+ARG G_SLICE=always-malloc
+RUN lake build LeanUfo LeanUfoTest performance-experiments experiment-tables \
+      complexity-benchmarks export-certificates validate-certificate \
+      LeanUfo.UFO.DSL.Examples LeanUfo.Test.Certification.Positive.Relator && \
+    lake exe performance-experiments --self-test && \
+    lake exe experiment-tables --self-test
+ARG SOURCE_REVISION=unreleased-worktree
+ENV ALIEN_SOURCE_REVISION=$SOURCE_REVISION
+ENTRYPOINT ["/workspace/alien/artifact/run.sh"]
+CMD ["help"]
