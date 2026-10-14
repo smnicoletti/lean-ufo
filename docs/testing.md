@@ -19,7 +19,8 @@ matched build conditions before they can establish a speedup.
 | --- | --- | --- |
 | Routine regression check | `lake test` | Fast syntax, diagnostics, registry, and counted-operation fixtures |
 | One axiom family | `LEANUFO_AXIOMS=ax68 lake test` | Selected positive and negative semantic witnesses |
-| Final certification gate | `LEANUFO_PERFORMANCE_TESTS=1 lake test` | Full suite and every user-facing example |
+| Final certification and experiment gate | `LEANUFO_PERFORMANCE_TESTS=1 lake test` | Full suite, example builds, and one measured repetition of real and synthetic experiments after warm-up |
+| Report saved results | `UFO_GENERATE_TABLES=1 lake test` | Validates the newest experiment and generates LaTeX/PDF tables; does not rerun tests or timings |
 | Direct-negative audit | `LEANUFO_REQUIRE_DIRECT_WITNESSES=1 lake test` | Reports missing direct negative fixtures |
 
 ### Reading routes
@@ -1127,8 +1128,14 @@ Those jobs also build `LeanUfo.UFO.DSL.Examples`, including Relator.
 The full semantic witness profile runs when the workflow is started manually.
 The nightly scheduled workflow checks `dev` and runs the full profile only when
 `dev` has received a commit in the previous 24 hours.
-The full-profile jobs also build the examples aggregate. These are the
-configured CI jobs, not evidence of a remote run for an unpublished branch.
+The full-profile jobs use `LEANUFO_PERFORMANCE_TESTS=1`, including the example
+aggregate and the experiment smoke run. Manual dispatch can set
+`performance_runs` to a larger repetition count. Full jobs upload the raw
+observations, generated reports, and logs under `experiments/`, including failure evidence.
+The report-renderer checks also validate the saved reference dataset on temporary
+copies, including rejection of corrupted or incomplete records. PDF generation
+uses TeX installed before measurement, not inside the timed stages.
+These are configured CI jobs. Completed remote runs are recorded in GitHub Actions.
 
 ## Full semantic witness tests
 
@@ -1267,9 +1274,13 @@ This profile runs the full suite and builds every user-facing example through
 against certificate-elaboration regressions. It also includes `RelatorProbe`,
 the main certificate-performance stress example. The profile builds
 `LeanUfo.Test.Certification.Positive.Relator` to check the model's semantic
-properties directly. Use clean, otherwise equivalent build directories for
-wall-clock comparisons. Incremental runs verify wiring but are not comparable
-benchmarks.
+properties directly. These builds remain correctness checks, not timing
+measurements. The profile then invokes the Lean experiment runner, which
+re-elaborates every executable example in a fresh process and runs the five
+synthetic workload families. Set the flag to a positive integer, such as 10,
+for that many measured repetitions after one warm-up. The default `lake test`
+profile does not run these experiments. See [Performance experiments](experiments.md)
+for the timer boundaries, validation rules, and output format.
 
 For such changes, this is the most complete final command. Do not
 precede it with separate default and full-profile runs unless diagnosing a

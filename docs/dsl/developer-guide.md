@@ -424,7 +424,12 @@ generated declarations.
 It belongs to the examples aggregate and certifies the complete package over
 three worlds and ten things. `LEANUFO_AXIOMS=ax73 lake test` also checks its
 specific semantic witness properties. Use `LEANUFO_PERFORMANCE_TESTS=1 lake
-test` for the complete performance-sensitive profile.
+test` for the complete performance-sensitive profile, including one measured
+repetition of real and synthetic experiments after warm-up. Use a larger
+integer for repeated measurements. `UFO_GENERATE_TABLES=1 lake test` validates
+saved results and generates the shared LaTeX tables and PDF without retiming.
+Combine both flags to report a newly measured run. The [experiment guide](../experiments.md)
+distinguishes these timings from the partial per-proof-step profiler above.
 
 
 [Docs home](../README.md) · [Project README](../../README.md)

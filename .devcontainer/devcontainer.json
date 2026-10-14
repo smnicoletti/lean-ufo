@@ -1,0 +1,16 @@
+{
+  "name": "ALIEN artifact (optional editor walkthrough)",
+  "image": "alien-artifact:local",
+  "workspaceFolder": "/workspace/alien",
+  "workspaceMount": "source=alien-review-workspace,target=/workspace/alien,type=volume",
+  "remoteUser": "reviewer",
+  "updateRemoteUserUID": false,
+  "overrideCommand": true,
+  "shutdownAction": "stopContainer",
+  "customizations": {
+    "vscode": {
+      "extensions": ["leanprover.lean4"],
+      "settings": {"lean4.infoview.autoOpenShowsGoal": true}
+    }
+  }
+}

@@ -3877,7 +3877,11 @@ families at 2, 3, 5, and 9 things. These are numeric AST inputs, not parsed DSL
 sources. The executable records input facts, product-family slots, explicit
 relation/projection cells, AST-compiler cost, cached-model construction cost,
 aggregate-checker cost, and a targeted operation probe. Separate elapsed times
-cover those four stages. Sparse and cyclic
+cover those four stages, using nanosecond timestamps (`*_ns` CSV columns).
+The timings include cost instrumentation. `--extended` also includes 17 and
+33 things. The unified `LEANUFO_PERFORMANCE_TESTS=N lake test` command repeats
+these workloads and measures actual example certification separately; see the
+[experiment guide](../experiments.md). Sparse and cyclic
 families have linear fact streams; dense and projection-heavy families have
 quadratic streams; product families independently scale their witness slots.
 
@@ -3888,8 +3892,13 @@ product-family array, or validate every projection cell. Their fixture checks
 must pass even if the aggregate checker stops at an earlier axiom. This keeps
 an early failure from hiding the operation the family is intended to measure.
 
-The 2026-09-11 run passed all 20 cases. Representative operation counts follow;
-millisecond timing remains too coarse at these sizes for a scaling claim.
+The historical 2026-09-11 run passed all 20 cases. Its elapsed stage values are
+not used as timing evidence: pure computations were not forced between
+timestamps and could move across those boundaries during compilation. The
+current benchmark consumes each result through a non-inlined IO function
+before taking the next timestamp. This correction does not change the counted
+algorithms or their operation counts. Representative operation counts from
+that dated run follow; they are not results from the current repetition harness.
 
 | family | things | compiler cost | model cost | checker cost | targeted probe | probe cost |
 | --- | ---: | ---: | ---: | ---: | --- | ---: |

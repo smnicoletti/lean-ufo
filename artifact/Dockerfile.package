@@ -1,0 +1,36 @@
+# Reuse a validated architecture-specific build without repeating slow proofs.
+# The full source-build recipe remains the root Dockerfile.
+ARG COMPILED_IMAGE=alien-artifact:local
+FROM ${COMPILED_IMAGE} AS prepared
+USER reviewer
+WORKDIR /workspace/alien
+ARG G_SLICE=always-malloc
+COPY --chown=reviewer:reviewer . .
+RUN lake build LeanUfo LeanUfoTest performance-experiments experiment-tables \
+      complexity-benchmarks export-certificates validate-certificate \
+      LeanUfo.UFO.DSL.Examples LeanUfo.Test.Certification.Positive.Relator && \
+    lake exe performance-experiments --self-test && \
+    lake exe experiment-tables --self-test
+USER root
+# These are download caches, not the installed libraries or compiled proofs.
+# Their removal affects only this packaging stage, not the input image.
+RUN rm -rf -- /home/reviewer/.cache/mathlib /var/lib/apt/lists && \
+    rm -f -- /opt/alien/dependency-sources.tar.gz && \
+    dpkg-query -W > /opt/alien/system-packages.txt
+
+# Copy the resulting filesystem into one layer so deleted caches and superseded
+# build layers do not remain in the downloadable image. Preserve the toolchain,
+# package sources, native compiler artifacts, and system licence notices.
+FROM scratch
+COPY --from=prepared / /
+ARG LEAN_THREADS=2
+ARG SOURCE_REVISION=unreleased-worktree
+ENV PATH=/home/reviewer/.elan/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ENV DEBIAN_FRONTEND=noninteractive
+ENV LEAN_NUM_THREADS=$LEAN_THREADS
+ENV ALIEN_SOURCE_REVISION=$SOURCE_REVISION
+ENV LEANUFO_EXPERIMENT_DIR=/results/experiments
+USER reviewer
+WORKDIR /workspace/alien
+ENTRYPOINT ["/workspace/alien/artifact/run.sh"]
+CMD ["help"]

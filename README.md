@@ -34,6 +34,7 @@ certificate, and each confirmed failure is traced back to the finite model data.
 | Check the syntax | [DSL syntax reference](docs/dsl/syntax.md) |
 | Interpret failures | [Diagnostics guide](docs/dsl/diagnostics.md) |
 | Run tests | [Testing guide](docs/testing.md) |
+| Reproduce runtime experiments | [Experiment protocol and outputs](docs/experiments.md) |
 | Inspect current status | [Current status](docs/status.md) |
 | Check theorem-backed guarantees | [Formal guarantees](docs/guarantees.md) |
 | Understand the implementation | [Project architecture](docs/architecture.md) |
@@ -85,6 +86,48 @@ Technical highlights:
    `Quality`, `UltimateBearerOf`, and the §3.12 quality/set predicates. These
    checks are kept distinct from the sparse `ModelX` joint-satisfiability
    witnesses.
+
+## Reproduce experiments
+
+Run all certification and synthetic performance experiments with one flag:
+
+```bash
+LEANUFO_PERFORMANCE_TESTS=1 lake test   # smoke: one measured run after warm-up
+LEANUFO_PERFORMANCE_TESTS=10 lake test  # repeated runs with mean and deviation
+```
+
+Both commands include the full regression gate. Results, machine metadata,
+and logs are saved under `experiments/`. The runner uses Lean, with no
+additional language runtime. See the [experiment guide](docs/experiments.md)
+for prerequisites, timing boundaries, expected failures, and limitations.
+
+Generate the evaluation tables and their standalone PDF from saved results:
+
+```bash
+UFO_GENERATE_TABLES=1 lake test
+```
+
+This mode validates the newest experiment without collecting new timings.
+Combine it with `LEANUFO_PERFORMANCE_TESTS=10` to measure and then report a new
+run. The [Docker walkthrough](docs/artifact.md) packages all required software;
+the optional VS Code walkthrough supports interactive inspection.
+
+## Troubleshooting
+
+### Docker tests hang under CPU emulation
+
+Use the image that matches your machine: ARM64 for Apple Silicon, and AMD64 for
+Intel/AMD machines. During cross-architecture validation with QEMU 7.0.0, a test
+subprocess hung inside the emulator's memory allocator before starting its
+command. This is an execution problem, not a reported UFO axiom violation. A
+hung test run is incomplete.
+
+The [Docker troubleshooting guide](docs/artifact.md#troubleshooting) explains how
+to distinguish a slow check from an idle process and retry with the temporary
+`--env G_SLICE=always-malloc` workaround. The full offline regression suite passed
+with this setting under the affected emulator on 2026-10-14. Prefer the matching
+architecture for experiments, and do not include interrupted runs in timing
+summaries.
 
 ## Quick Example
 

@@ -22,6 +22,8 @@ diagnostics, tests, and implementation reference.
 | [Diagnostics internals](dsl/diagnostics-internals.md) | How failed certificates are turned into source-level explanations |
 | [DSL developer guide](dsl/developer-guide.md) | File responsibilities, command pipeline, diagnostics, and generated certificates |
 | [Testing guide](testing.md) | `lake test`, selected axiom checks, and witness coverage |
+| [Performance experiments](experiments.md) | Single-flag smoke and repeated runs, runtime measurements, raw outputs, and machine metadata |
+| [Docker artifact](artifact.md) | Packaged experiments and PDF tables; optional VS Code walkthrough |
 | [Current status](status.md) | Implemented features and current caveats |
 | [Project architecture](architecture.md) | Core formalization, DSL layer, certificates, tests, and trust boundary |
 | [Formal guarantees](guarantees.md) | The theorem-backed guarantees for core, DSL, checker, reuse, diagnostics, and complexity |

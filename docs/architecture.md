@@ -236,8 +236,20 @@ LEANUFO_FULL_TESTS=1 lake test
 `LEANUFO_REQUIRE_DIRECT_WITNESSES=1 lake test` is a stricter backfill audit and
 is expected to fail until every registered axiom has a direct negative fixture.
 
+`LEANUFO_PERFORMANCE_TESTS=N lake test` adds N measured repetitions of the
+example and synthetic runtime experiments after the full gate. The Lean
+runner owns process isolation and statistical reporting; the DSL frontend
+supplies per-model compilation-to-result timestamps.
+
+`LeanUfo/ExperimentTables.lean` validates saved observations against their logs
+and recomputed statistics, then substitutes measurements into shared LaTeX
+templates. `UFO_GENERATE_TABLES=1 lake test` selects that post-processing mode;
+it does not imply that the regression suite ran again. The Docker wrapper in
+`artifact/run.sh` uses these same Lake entry points, with separate reference
+data and new result directories.
+
 See the [testing guide](testing.md) for the current test profiles and CI
-expectations.
+expectations, and the [experiment guide](experiments.md) for timing boundaries.
 
 ## Reading next
 

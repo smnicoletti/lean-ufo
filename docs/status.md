@@ -6,7 +6,8 @@
 
 > [!IMPORTANT]
 > **Bottom line.** The finite DSL covers UFO through §4 with 113 checks. All
-> user-facing examples certify, including the nonempty Relator model. The main
+> positive user-facing examples certify, including the nonempty Relator model.
+> Separate examples deliberately fail; concept evolution is documentation-only. The main
 > remaining limits concern frontend verification, richer syntax, and direct
 > negative witnesses for a small set of axioms.
 
@@ -17,6 +18,23 @@ The limits below include the explicit witness data required for axiom 99 and
 the work excluded from the complexity bound.
 
 The theorem-level details are in [Formal guarantees](guarantees.md).
+The [experiment profile](experiments.md) now uses the numeric value of
+`LEANUFO_PERFORMANCE_TESTS` as its measured repetition count. It adds fresh
+example elaborations and repeated synthetic measurements after the semantic
+gate. On 2026-10-13, the full gate and ten measured repetitions after warm-up
+passed locally: 25 successful declarations and six expected rejections in each
+round, plus 30 synthetic cases. An independent recomputation matched all 172
+statistical summaries. The saved source hashes identify the measured checkout;
+later report-packaging changes are not new timing evidence.
+
+The Lean report generator builds and validates this completed dataset. Its
+tests reject missing, duplicate, invalid, and inconsistent records. On Linux
+ARM64 in Colima, the container build, full semantic suite, offline reference
+report, and one-run experiment with PDF generation passed locally. Under AMD64
+emulation with QEMU 7.0.0, the full regression suite, selected examples,
+synthetic workloads, and reference PDF passed with `G_SLICE=always-malloc`.
+The [Docker guide](artifact.md) records the tested configurations. The older
+dated records below describe the previous build-only profile.
 
 On 2026-10-05, the all-inclusive
 `LEANUFO_PERFORMANCE_TESTS=1 lake test` profile passed locally with the revised

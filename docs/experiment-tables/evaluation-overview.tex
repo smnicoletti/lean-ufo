@@ -1,0 +1,16 @@
+% The formula-comparison count describes the separate regression suite.
+\begin{table}[htbp]
+  \caption{Evaluation summary. Model outcomes held in every measured repetition. Times are ranges of per-declaration means, including proof processing. Formula agreement is a separate regression check.}\label{tab:evaluation-overview}
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabularx}{\textwidth}{@{}lrY@{}}
+    \toprule Test group & Coverage & Result \\\midrule
+    Source scenarios & 5 scenarios & 4 adapted; \textit{concept evolution} unsupported. \\
+    Certification & @@summary:successes@@ declarations & All certify; @@summary:success-range@@; @@summary:under-second@@ below 1\,s. \\
+    Counterexamples & @@summary:failures@@ declarations & All confirmed; @@summary:failure-range@@. \\
+    Certificate reuse & 3 pairs & @@summary:reuse@@ \\
+    Generated workloads & 30 inputs & Targeted checks pass; counts repeat exactly. \\
+    Formula agreement & 20,800 checks & Diagnostics and checkers agree on test inputs. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}

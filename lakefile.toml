@@ -24,6 +24,14 @@ supportInterpreter = true
 name = "complexity-benchmarks"
 root = "LeanUfo.ComplexityBenchmarks"
 
+[[lean_exe]]
+name = "performance-experiments"
+root = "LeanUfo.RunPerformanceExperiments"
+
+[[lean_exe]]
+name = "experiment-tables"
+root = "LeanUfo.ExperimentTables"
+
 [[require]]
 name = "mathlib"
 scope = "leanprover-community"

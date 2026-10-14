@@ -1,0 +1,14 @@
+% Generated values are substituted by the Lean experiment-tables executable.
+\begin{table}[htbp]
+\caption{Targeted operation counts for all generated input sizes, with one world.}\label{tab:counts}
+\small
+\begin{tabularx}{\textwidth}{@{}Yrrrrrr@{}}
+\toprule Operation & $T=2$ & $T=3$ & $T=5$ & $T=9$ & $T=17$ & $T=33$ \\\midrule
+Unary scan & @@count:sparse:2@@ & @@count:sparse:3@@ & @@count:sparse:5@@ & @@count:sparse:9@@ & @@count:sparse:17@@ & @@count:sparse:33@@ \\
+Binary scan & @@count:dense:2@@ & @@count:dense:3@@ & @@count:dense:5@@ & @@count:dense:9@@ & @@count:dense:17@@ & @@count:dense:33@@ \\
+Closure rebuild & @@count:cyclic:2@@ & @@count:cyclic:3@@ & @@count:cyclic:5@@ & @@count:cyclic:9@@ & @@count:cyclic:17@@ & @@count:cyclic:33@@ \\
+Family search & @@count:product:2@@ & @@count:product:3@@ & @@count:product:5@@ & @@count:product:9@@ & @@count:product:17@@ & @@count:product:33@@ \\
+Projection scan & @@count:projection:2@@ & @@count:projection:3@@ & @@count:projection:5@@ & @@count:projection:9@@ & @@count:projection:17@@ & @@count:projection:33@@ \\
+\bottomrule
+\end{tabularx}
+\end{table}
